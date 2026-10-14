@@ -64,9 +64,13 @@ at seven days, so none of them can be re-derived. This one is a file. That is th
 of #704: a release-over-release delta was previously a code change and a corpus change
 added together, with no way to separate them.
 
-**0.8% from the filters. 2.4% with the ledger**, on 0.7.10. 98.8% of calls saved
+**0.8% from the filters. 2.4% with the ledger**, on 0.7.11. 98.8% of calls saved
 nothing, 1.2% shrank, and **no call came back larger**. Tokens, `cl100k_base` as a
-proxy for a vocabulary Anthropic does not publish: 2,404,625 to 2,384,061, 0.9%.
+proxy for a vocabulary Anthropic does not publish: 2,404,625 to 2,384,140, 0.9%.
+
+0.7.11 moves no figure at this precision. The ledger arm delivers 276 bytes more than
+on 0.7.10, the whole difference between the two runs, and this release's changes are
+to routing and redaction rather than to what the ledger folds.
 
 Both numbers fell from 0.7.9, where they read 1.4% and 3.0%, and that is the
 release rather than a regression: 0.7.10 closed thirteen classes of false claim,
@@ -97,16 +101,16 @@ one marker and a partially-seen reply now folds nothing.
 
 | Arm | bytes | saved |
 |---|---|---|
-| headroom dedup, omni's filters | 8,486,830 to 8,061,205 | 5.0% |
+| headroom dedup, omni's filters | 8,486,830 to 8,061,481 | 5.0% |
 | lean-ctx `compress` | 8,486,830 to 8,076,957 | 4.8% |
 | caveman + omni's ledger | 8,486,830 to 8,174,311 | 3.7% |
 | rtk + omni's ledger | 8,486,830 to 8,174,685 | 3.7% |
-| **omni, with the ledger** | 8,486,830 to 8,281,114 | 2.4% |
+| **omni, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
 | caveman `compress` | 8,486,830 to 8,311,999 | 2.1% |
 | rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
-| omni, filters only | 8,486,830 to 8,417,541 | 0.8% |
+| omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.10.
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
 <!-- omni:corpus-table:end -->
 
 **`available` and `captured` are new, and `captured` is the figure that survives a

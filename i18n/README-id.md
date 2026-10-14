@@ -132,7 +132,7 @@ Diukur pada korpus 9.478 eksekusi perintah nyata yang sampai ke model, 8,42 MB
 sepanjang 70 sesi, dibekukan di disk dan diberi hash `0b63218ef78a1edb` supaya ia
 tidak ikut terhapus.
 
-* **1,4%** dari filter, **3,0%** dengan ledger, dan ledger mengambil **10,7% dari
+* **0,8%** dari filter, **2,4%** dengan ledger, dan ledger mengambil **10,3% dari
   seluruh pengulangan yang memang ada untuk diambil**. Angka terakhir itu yang
   menggambarkan OMNI. Dua yang pertama menggambarkan korpus ini.
 * **Baca korpusnya sebelum angkanya.** Korpus ini berat ke perintah shell, jadi ia
@@ -143,7 +143,7 @@ tidak ikut terhapus.
   satu kolom, datar di kolom lain, dan hanya satu dari keduanya yang merupakan fakta
   tentang OMNI.
 * **Korpus ini tidak kedaluwarsa.** Ia beku di disk dan hash-nya ada di
-  `docs/benchmarks/0.7.10.json`, jadi angka di atas bisa diperiksa terhadap byte yang
+  `docs/benchmarks/0.7.11.json`, jadi angka di atas bisa diperiksa terhadap byte yang
   sama di rilis berikutnya, bukan terhadap apa pun yang tersisa dari tujuh hari
   terakhir. Jalankan harness-nya di riwayat Anda sendiri untuk angka tentang beban
   kerja Anda.

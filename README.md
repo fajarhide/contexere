@@ -220,7 +220,7 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
   Twentyfold in one column, flat in the other, and only one of those two is a fact
   about OMNI.
 * **This corpus does not expire.** It is frozen on disk and its hash is in
-  `docs/benchmarks/0.7.10.json`, so the numbers above can be checked against the
+  `docs/benchmarks/0.7.11.json`, so the numbers above can be checked against the
   same bytes next release instead of against whatever the last seven days held.
   Run the harness on your own history for a figure about your workload.
 * **It hands bytes back rather than inventing a saving.** Where there is nothing
@@ -255,16 +255,16 @@ re-run. It cost 4.6 KB across 810 calls.
 
 | Arm | bytes | saved |
 |---|---|---|
-| headroom dedup, omni's filters | 8,486,830 to 8,061,205 | 5.0% |
+| headroom dedup, omni's filters | 8,486,830 to 8,061,481 | 5.0% |
 | lean-ctx `compress` | 8,486,830 to 8,076,957 | 4.8% |
 | caveman + omni's ledger | 8,486,830 to 8,174,311 | 3.7% |
 | rtk + omni's ledger | 8,486,830 to 8,174,685 | 3.7% |
-| **omni, with the ledger** | 8,486,830 to 8,281,114 | 2.4% |
+| **omni, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
 | caveman `compress` | 8,486,830 to 8,311,999 | 2.1% |
 | rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
-| omni, filters only | 8,486,830 to 8,417,541 | 0.8% |
+| omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.10.
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
 <!-- omni:corpus-table:end -->
 
 ### A second corpus, and this one you can rebuild
@@ -288,13 +288,29 @@ CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 | git | 120 | 0.06 MB | 0.0% | 2.5% | 18.3% | **13.9%** |
 | **aggregate** | 286 | 2.26 MB | 25.2% | 30.3% | 27.0% | **24.9%** |
 
-Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.10.
+| Arm | bytes | saved |
+|---|---|---|
+| lean-ctx `compress` | 2,259,278 to 852,777 | 62.3% |
+| headroom dedup, omni's filters | 2,259,278 to 1,539,608 | 31.9% |
+| **omni, with the ledger** | 2,259,278 to 1,575,607 | 30.3% |
+| omni, filters only | 2,259,278 to 1,689,234 | 25.2% |
+| rtk + omni's ledger | 2,259,278 to 2,039,856 | 9.7% |
+| caveman + omni's ledger | 2,259,278 to 2,106,392 | 6.8% |
+| rtk `pipe` | 2,259,278 to 2,192,628 | 3.0% |
+| caveman `compress` | 2,259,278 to 2,259,164 | 0.0% |
+
+Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.11.
 <!-- omni:swebench-table:end -->
 
 **Same code, same build, 25.2% here against 0.8% there.** The difference is the
 workload and nothing else. This corpus is 85% `cat` of source files, which is the
 case the ledger is built for and the case the shell-heavy corpus above says it
 understates. Read both before quoting either.
+
+The other tools are measured on this corpus too, and the order is not ours to choose.
+lean-ctx's `compress` takes 62.3%, headroom's dedup over our filters 31.9%, and our
+ledger 30.3%. Where lean-ctx's extra bytes come from, and what they cost the reader,
+is not measured here.
 
 It is also the narrower measurement, and in two ways worth naming. The commands
 are a fixed script rather than what a model chose, and three whole files per
@@ -321,9 +337,9 @@ same bytes. Versions: rtk 0.45.0, lean-ctx 3.9.18, caveman `bin-v1.0.0`, headroo
 0.34.0.
 
 **On this corpus OMNI is last of the arms that carry a ledger, and both of its halves
-are behind.** headroom's cross-turn dedup takes 5.8% where our ledger takes 3.0% over
+are behind.** headroom's cross-turn dedup takes 5.0% where our ledger takes 2.4% over
 the same filters and the same blocks, so that gap is the dedup engine and nothing else.
-At 1.4% our filter tier is the weakest of the four, against 2.1% for rtk and caveman
+At 0.8% our filter tier is the weakest of the four, against 2.1% for rtk and caveman
 and 4.8% for lean-ctx. That shortfall is what puts `rtk + omni's ledger` and
 `caveman + omni's ledger` above our own stack: the ledger is the same in all three
 rows, and only the filters underneath it differ.
@@ -332,7 +348,8 @@ The ledger rows read lower than they did in 0.7.8, and no code got worse. The ha
 built its ledger without telling it which command produced the payload, so every rule
 that reads the command was switched off in the measurement while running normally in
 production (#760). 4.9% was that harness; 3.0% is the same code measured with the
-guards visible.
+guards visible. 0.7.10 then gave up another 0.6 points, every one of them in a class
+where the saving came from handing back something wrong.
 
 The one row that is not a like-for-like: lean-ctx has no `+ our ledger` row because
 its preview reports `compressed_bytes` and never emits the text, so the row could

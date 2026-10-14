@@ -133,7 +133,7 @@ một câu xin bạn tin.
 qua 70 phiên, được đóng băng trên đĩa và băm thành `0b63218ef78a1edb` để nó không bị
 cắt mất.
 
-* **1,4%** từ bộ lọc, **3,0%** khi có ledger, và ledger lấy **10,7% toàn bộ lượng lặp
+* **0,8%** từ bộ lọc, **2,4%** khi có ledger, và ledger lấy **10,3% toàn bộ lượng lặp
   lại thực sự có ở đó để lấy**. Con số cuối mới là con số nói về OMNI. Hai con số đầu
   nói về tập dữ liệu này.
 * **Đọc tập dữ liệu trước khi đọc con số.** Tập này nghiêng nhiều về lệnh shell, nên nó
@@ -142,7 +142,7 @@ cắt mất.
   hơn ở cùng lớp đó, trên cùng mã nguồn, trong khi capture rate gần như không đổi. Hai
   mươi lần ở một cột, phẳng ở cột kia, và chỉ một trong hai là sự thật về OMNI.
 * **Tập dữ liệu này không hết hạn.** Nó nằm cố định trên đĩa và băm của nó có trong
-  `docs/benchmarks/0.7.10.json`, nên các con số trên có thể được kiểm lại trên đúng những
+  `docs/benchmarks/0.7.11.json`, nên các con số trên có thể được kiểm lại trên đúng những
   byte đó ở bản phát hành sau, thay vì trên bất cứ gì bảy ngày vừa rồi còn giữ. Hãy chạy
   bộ đo trên lịch sử của chính bạn để có con số về khối lượng công việc của bạn.
 * **Nó trả lại byte thay vì bịa ra một khoản tiết kiệm.** Khi không có gì an toàn để

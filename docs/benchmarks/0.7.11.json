@@ -1,0 +1,163 @@
+{
+  "commit": "1085323",
+  "corpus": {
+    "buckets": [
+      [
+        0,
+        264
+      ],
+      [
+        264,
+        2000
+      ],
+      [
+        2000,
+        10000
+      ],
+      [
+        10000,
+        4611686018427387904
+      ]
+    ],
+    "bytes": 8422641,
+    "class_bytes": {
+      "[other]": 1542946,
+      "az": 44079,
+      "bun": 49451,
+      "cat": 780019,
+      "echo": 854841,
+      "find": 44882,
+      "gh": 541218,
+      "git": 890065,
+      "grep": 1028345,
+      "head": 70640,
+      "kubectl": 94929,
+      "ls": 347486,
+      "python3": 510598,
+      "rm": 68933,
+      "sed": 1538412,
+      "wc": 52093
+    },
+    "class_floor": 0.005,
+    "sessions": 70,
+    "sha256": "0b63218ef78a1edbd758943c816af957d69633fb61d0be7569428d5e3df333dd",
+    "traces": 9478
+  },
+  "dirty_tree": false,
+  "harness": {
+    "ledger_knows_the_command": true
+  },
+  "result": {
+    "arms": {
+      "caveman": {
+        "input_bytes": 8486830,
+        "output_bytes": 8311999,
+        "saved_pct": 2.1
+      },
+      "caveman_ledger": {
+        "input_bytes": 8486830,
+        "output_bytes": 8174311,
+        "saved_pct": 3.7
+      },
+      "headroom": {
+        "input_bytes": 8486830,
+        "output_bytes": 8061481,
+        "saved_pct": 5.0
+      },
+      "lean_ctx": {
+        "input_bytes": 8486830,
+        "output_bytes": 8076957,
+        "saved_pct": 4.8
+      },
+      "omni_filters": {
+        "input_bytes": 8486830,
+        "output_bytes": 8417817,
+        "saved_pct": 0.8
+      },
+      "omni_ledger": {
+        "input_bytes": 8486830,
+        "output_bytes": 8281390,
+        "saved_pct": 2.4
+      },
+      "rtk": {
+        "input_bytes": 8486830,
+        "output_bytes": 8308491,
+        "saved_pct": 2.1
+      },
+      "rtk_ledger": {
+        "input_bytes": 8486830,
+        "output_bytes": 8174685,
+        "saved_pct": 3.7
+      }
+    },
+    "arms_absent": [],
+    "by_class": {
+      "aggregate": {
+        "calls": 9478,
+        "capture_rate_pct": 10.3,
+        "filters_pct": 0.8,
+        "input_bytes": 8486830,
+        "repetition_available_pct": 15.7,
+        "with_ledger_pct": 2.4
+      },
+      "build and test": {
+        "calls": 41,
+        "capture_rate_pct": 8.6,
+        "filters_pct": 9.0,
+        "input_bytes": 20778,
+        "repetition_available_pct": 21.7,
+        "with_ledger_pct": 10.7
+      },
+      "file read": {
+        "calls": 1056,
+        "capture_rate_pct": 8.5,
+        "filters_pct": 0.0,
+        "input_bytes": 1891398,
+        "repetition_available_pct": 17.7,
+        "with_ledger_pct": 1.5
+      },
+      "git": {
+        "calls": 899,
+        "capture_rate_pct": 6.7,
+        "filters_pct": 0.0,
+        "input_bytes": 858631,
+        "repetition_available_pct": 19.8,
+        "with_ledger_pct": 1.3
+      },
+      "infra": {
+        "calls": 215,
+        "capture_rate_pct": 5.2,
+        "filters_pct": 2.4,
+        "input_bytes": 135669,
+        "repetition_available_pct": 5.5,
+        "with_ledger_pct": 2.7
+      },
+      "other": {
+        "calls": 6457,
+        "capture_rate_pct": 12.6,
+        "filters_pct": 0.8,
+        "input_bytes": 4814911,
+        "repetition_available_pct": 15.9,
+        "with_ledger_pct": 2.8
+      },
+      "search": {
+        "calls": 810,
+        "capture_rate_pct": 0.0,
+        "filters_pct": 3.4,
+        "input_bytes": 765443,
+        "repetition_available_pct": 6.5,
+        "with_ledger_pct": 3.4
+      }
+    },
+    "grew_calls": 0,
+    "ledger_claimed_pct": 1.6,
+    "net_savings_pct": 0.8,
+    "repeated_bytes_pct": 15.6,
+    "saved_nothing_pct": 98.8,
+    "shrank_pct": 1.2,
+    "tokens_after": 2384140,
+    "tokens_before": 2404625,
+    "traces_replayed": 9478
+  },
+  "version": "0.7.11"
+}
