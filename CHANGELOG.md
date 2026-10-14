@@ -8,6 +8,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.11] - 2026-10-14
+
+### Added
+- **`scripts/ab_cache.py` measures whether OMNI costs prompt-cache hits, and the README now
+  says what it found (#610).** Each pair is the same prompt run twice through `claude -p`,
+  once with the hook live and once with `OMNI_PASSTHROUGH=1`, order alternating, and the
+  report reads the host's transcripts and never OMNI's tables. On omni 0.7.10, 20 pairs,
+  one six-command workload, one machine: tool result bytes -39.1%, cache-write tokens
+  -18.1%, billed cost -11.0%, and output tokens +92.5%, whose cause the run does not
+  establish. The last figure goes against OMNI and is printed beside the others in
+  the README and the manual.
+- **`omni stats --view bill` reads the host's side of the books (#859).** Every other view
+  reports what OMNI did, from OMNI's own tables, so none could say what a session cost or
+  where its context went. This one reads Claude Code's transcripts: billed tokens by class,
+  context bytes by source, and tool result bytes by tool, for the `--since` window. A
+  request is counted once by `requestId` because the host repeats `usage` on every record
+  of a request, and the blocks on a repeated record are still read. Subagent records are
+  left out. It prints no dollar figure. Checked against an independent count over two
+  transcripts: 14 requests, 765,189 cache-read tokens and 125,955 B of tool results in
+  both. `CLAUDE_CONFIG_DIR` is honoured, as the host honours it.
+
+### Fixed
+- **The benchmarks page states the release it is on, and says why `search` reads zero
+  (#842).** The page regenerates its table from the artifact and hand writes the sentence
+  above it, so the two drifted a release apart: the table said 0.7.10 while the prose still
+  said 1.4% from the filters and 3.0% with the ledger, plus three more figures from the
+  previous run. A test now holds the whole
+  sentence to the artifact, scoped to the current run's section because the page is an
+  archive and carries retired figures of the same shape, and the harness records the call
+  outcome and token figures so all five are checkable rather than the two that happened to
+  be recorded. The head to head prose below the table was a release behind in the same way. The `search` class reading
+  0.0% captured is explained where it is printed: #815 made a `grep` reply fold whole or not
+  at all, a whole fold needs the identical reply to have been printed before, and this
+  corpus holds no repeat of a `grep` command inside one session across 1,069 traces. The
+  refusal costs 4.6 KB over 810 calls.
+- **Redaction ends an unquoted shell value at whitespace, and looks at every assignment on
+  the line (#851).** Everything after the first `=` was the value, so
+  `APP_TOKEN=x ./bin/app serve &` was delivered as `APP_TOKEN=[REDACTED]` with the command
+  gone and nothing saying so. The same rule read only the first assignment, so
+  `APP_ROOT=/tmp/x APP_TOKEN=x ./bin/app` was delivered whole, token included. A line is
+  now redacted word by word, and counted per value, when it proves it is a shell line: it
+  opens with two or more `NAME=value` words, or with one and ends in a shell operator or a
+  continuation (`&`, `&&`, `;`, `|`, `\`). Anything else keeps the old rule on purpose.
+  `API_TOKEN=abc ./run` and `PASSWORD=correct /horse` are the same shape, so that command
+  is still lost rather than half a passphrase delivered, and a quote or an escaped space
+  anywhere on the line keeps the old rule too. On such a line a credential behind an
+  ordinary assignment is hidden from its `=` to the end of the line, so falling back
+  never delivers one. `env` output is never split: its distiller reads one assignment per
+  line whatever the value holds. A bare `auth` holding one to three digits behind another
+  assignment is a status and is delivered, as in `front=200 auth=302`; any other
+  credential name keeps its value hidden however short it is. Replayed over 20,626 recorded
+  lines holding an `=`: 54 redacted before and after, 12 changed, every one of them a
+  command kept after its token.
+- **`az ssh vm -- <cmd>` output is the remote command's, and is delivered as such (#858).**
+  `wraps_another_command` knew `ssh`, `kubectl exec` and `az aks command invoke`, and did
+  not know `az ssh`, so the remote command's output was judged against az's grammar. A
+  23 line `du` listing came back as the two ssh client warnings and `[OMNI: 21 lines
+  omitted]`, which is the answer cut and the noise kept. `az ssh vm` and `az ssh arc` now
+  route like `ssh`; `az ssh config` does not, since it prints az's own output. Over the
+  last 30 days here that is 7 of 15,887 calls and 5,180 B no longer removed.
+- **A provider token with no name beside it is redacted (#862).** The redactor keyed on
+  the name left of `=`, so a credential printed on its own was delivered: sourcing a file
+  that holds a bare key puts the key in the shell's `command not found` line. A value
+  carrying an issuer's prefix at the length the issuer writes it is now hidden wherever it
+  appears: `sk-ant-`, `ghp_` and its siblings, `github_pat_`, `AKIA`, `xoxb-` and its
+  siblings. The length floor is the rule. Over 3,860 recorded traces the prefixes matched
+  25 times and 23 were fixture-sized strings such as `sk-ant-abc123`; with the floor the
+  rule touches two lines, one real key and one test fixture. The whole redactor, this rule
+  included, takes 11 µs per payload on a release build over that corpus. Not covered: the
+  output of a command OMNI can see failed. Where the host reports the failure, the output
+  is handed back untouched (#120), so a token it prints is still delivered, and on Claude
+  Code a failed `. ~/.keyfile` is exactly that case (#866). OpenCode and Continue report no
+  failure, so their output is rewritten either way.
+
 ## [0.7.10] - 2026-09-23
 
 ### Added
