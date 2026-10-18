@@ -22,6 +22,7 @@ period.
 | `--since <window>` | `hour`, `today`, `week`, `month` (default), `all` |
 | `--view <name>` | `summary` (default), `detail`, `projects`, `context`, `rerun`, `folds`, `bill`, `share` |
 | `--limit <n>` | Rows in a table view, default 10, `0` for all. Read by `detail`, `projects`, `rerun` and `bill`; a table it cuts says how many rows it hid |
+| `--by <axis>` | `project`, `model` or `session`: the one spend table `--view bill` shows. Without it, model and project |
 | `--json` | Machine readable, scoped by `--since` |
 | `--card` | Write the summary as an image, sized for social posts |
 | `--help`, `-h` | Help |
@@ -60,17 +61,28 @@ confident zero.
 
 Every other view reports what OMNI did, from OMNI's own tables. This one reads Claude
 Code's transcripts, which the host writes and OMNI does not: billed tokens by class,
-context bytes by source, and tool result bytes by tool.
+context bytes by source, tool result bytes by tool, and what that cost by model and by
+project.
 
 ```sh
 omni stats --view bill               # the last 30 days
 omni stats --view bill --since week --limit 0
+omni stats --view bill --by session  # which sessions cost the most
 ```
 
 A request is counted once by its id, because the host repeats `usage` on every record
-of a request. Subagent contexts are billed apart from the session and are left out.
-There is no dollar figure: the price depends on the model behind each request, and the
-view prints only what the transcript carries.
+of a request.
+
+Each request is priced from the model that served it, at the API list price on the date
+the view prints. Cache writes are priced by their TTL (1.25x input for five minutes, 2x
+for the hour), `speed: "fast"` at twice the rate, and Haiku 5.5 at its higher rate past
+100K prompt tokens. A model the table does not know is shown as `unpriced` with its
+tokens, never as $0, and the total says it is a lower bound. A subscription or a
+negotiated rate bills differently, so read the figure as what the same work costs on the
+API.
+
+The spend tables count subagent requests, because they are billed. The token and context
+tables leave them out, because a subagent's context is not the session's.
 
 The last paragraph of the output is OMNI's own figure for the same window, labelled as
 its claim, so the two sides sit on one screen without being mixed. `--json` does not
