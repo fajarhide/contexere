@@ -297,6 +297,10 @@ const FLAGS: super::Flags = &[
         "--limit <n>",
         "Rows in a table view (default 10, 0 for all)",
     ),
+    (
+        "--by <axis>",
+        "project | model | session, the spend table --view bill shows",
+    ),
     ("--json", "Machine-readable report, scoped by --since"),
     (
         "--card",
@@ -315,7 +319,7 @@ const FLAGS: super::Flags = &[
 ];
 
 /// How many of `FLAGS` the help page shows. The rest are the aliases above.
-const VISIBLE: usize = 5;
+const VISIBLE: usize = 6;
 
 /// The time window the scope flags select, as `(label, since_unix)`.
 ///
@@ -382,7 +386,7 @@ fn value_of<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
 /// that was never parsed is the defect #151 is about, and the resolvers' own
 /// fallbacks stay for the flags that have no value at all.
 fn require_values(args: &[String]) -> Result<()> {
-    for flag in ["--since", "--view"] {
+    for flag in ["--since", "--view", "--by"] {
         if super::has_flag(args, flag) && value_of(args, flag).is_none() {
             bail!(
                 "`omni stats {flag}` needs a value, run `omni stats --help` for the accepted ones"
@@ -2110,9 +2114,12 @@ fn run_folds(args: &[String], store: &Store) -> Result<()> {
 /// What the host billed and what its context was made of (#859).
 ///
 /// Read from the host's transcripts, which the host writes and OMNI does not, so
-/// nothing above the last paragraph of this view rests on OMNI's own tables. No
-/// dollar figure: the price depends on the model behind each request, and a
-/// number that looks priced when nothing priced it is `est_cost_usd` again.
+/// nothing above the last paragraph of this view rests on OMNI's own tables.
+///
+/// The dollar figure is priced per request from the model that served it, at the
+/// dated list price in `bill::price` (#887). A model missing from that table is
+/// shown as `unpriced` and never as $0, so an unpriced figure cannot pass for a
+/// priced one, which is what `est_cost_usd` did.
 fn run_bill(args: &[String], store: &Store) -> Result<()> {
     let (period_label, since) = scope(args);
     super::print_header(Some("bill"), Some(period_label));
@@ -2151,6 +2158,58 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
             format_number(tokens),
             share(tokens, bill.tokens())
         );
+    }
+
+    let all = bill.spend();
+    println!();
+    println!(
+        "  At API list price ({}): ${:.2} over {} requests, subagents included.",
+        super::bill::PRICES_AS_OF,
+        all.usd,
+        format_number(all.requests)
+    );
+    println!("  A subscription or a negotiated rate bills differently.");
+    if all.unpriced > 0 {
+        println!(
+            "  {} requests ran on a model the price table does not know: their tokens",
+            format_number(all.unpriced)
+        );
+        println!("  are counted below and their cost is not, so the total is a lower bound.");
+    }
+    let tables: &[(&str, &[super::bill::Spend])] = match value_of(args, "--by") {
+        Some("project") => &[("Spend by project", &bill.by_project)],
+        Some("model") => &[("Spend by model", &bill.by_model)],
+        Some("session") => &[("Spend by session", &bill.by_session)],
+        Some(other) => bail!("`omni stats --by` takes project, model or session, got `{other}`"),
+        None => &[
+            ("Spend by model", &bill.by_model),
+            ("Spend by project", &bill.by_project),
+        ],
+    };
+    for (title, rows) in tables {
+        println!();
+        println!(
+            " {:<40} {:>9} {:>14} {:>10} {:>7}",
+            title, "requests", "tokens", "USD", "share"
+        );
+        let shown = row_limit(args).map_or(rows.len(), |n| n.min(rows.len()));
+        for row in rows.iter().take(shown) {
+            let usd = match row.unpriced {
+                0 => format!("{:.2}", row.usd),
+                n if n == row.requests => "unpriced".to_string(),
+                // Part of the row is unpriced, so its figure is a floor.
+                _ => format!("{:.2}+", row.usd),
+            };
+            println!(
+                " {:<40} {:>9} {:>14} {:>10} {:>6.1}%",
+                spend_label(&row.key, title.ends_with("project")),
+                format_number(row.requests),
+                format_number(row.tokens),
+                usd,
+                100.0 * row.usd / all.usd.max(f64::MIN_POSITIVE)
+            );
+        }
+        print_hidden_rows(shown, rows.len());
     }
 
     println!();
@@ -2201,10 +2260,36 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
     }
 
     println!();
-    println!("  Subagent contexts are billed apart from the session and are not counted.");
+    if tables.iter().any(|(_, rows)| {
+        rows.iter()
+            .any(|r| r.unpriced > 0 && r.unpriced < r.requests)
+    }) {
+        println!("  A `+` marks a row with some requests the price table does not know.");
+    }
+    println!("  The token and context tables leave subagent contexts out, because they");
+    println!("  are billed apart from the session. The spend tables count them.");
     print_separator();
     println!();
     Ok(())
+}
+
+/// A spend row's key in 40 columns. A project key is an absolute path, so the
+/// home directory becomes `~` and a long one keeps its end, which names the
+/// project. Any other key keeps its start, where a session's id is.
+fn spend_label(key: &str, path: bool) -> String {
+    let home = dirs::home_dir().map(|h| h.to_string_lossy().into_owned());
+    let key = match home.as_deref().and_then(|h| key.strip_prefix(h)) {
+        Some(rest) if !rest.is_empty() => format!("~{rest}"),
+        _ => key.to_string(),
+    };
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() <= 40 {
+        key
+    } else if path {
+        format!("…{}", chars[chars.len() - 39..].iter().collect::<String>())
+    } else {
+        format!("{}…", chars[..39].iter().collect::<String>())
+    }
 }
 
 /// Retrieved as a share of folds, zero when there were none, so an empty shape
@@ -2463,11 +2548,18 @@ mod tests {
         assert!(require_values(&args(&["--since", "--week"])).is_err());
         assert!(require_values(&args(&["--view", "--detail"])).is_err());
         assert!(require_values(&args(&["--limit", "many"])).is_err());
+        assert!(require_values(&args(&["--view", "bill", "--by"])).is_err());
+        assert!(require_values(&args(&["--by", "--limit", "1"])).is_err());
         assert!(require_values(&args(&["--since", "week", "--limit", "0"])).is_ok());
         assert!(
             require_values(&args(&["--detail"])).is_ok(),
             "a flag with no value is fine"
         );
+
+        // A session key keeps the id at its start, a project path its end.
+        let long = "x".repeat(50);
+        assert!(spend_label(&format!("5190b7d1 {long}"), false).starts_with("5190b7d1 "));
+        assert!(spend_label(&format!("/{long}/app"), true).ends_with("/app"));
 
         assert_eq!(renderer("summary", false, false), "summary");
         // A view of its own, and the two formats still outrank it (#816).

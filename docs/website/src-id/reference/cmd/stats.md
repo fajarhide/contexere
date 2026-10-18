@@ -16,6 +16,7 @@ model. Umur sesi, perintah teratas, rute dan agent pindah ke `--view detail`.
 | `--since <jendela>` | `hour`, `today`, `week`, `month` (bawaan), `all` |
 | `--view <nama>` | `summary` (bawaan), `detail`, `commands`, `projects`, `context`, `rerun`, `folds`, `bill`, `share` |
 | `--limit <n>` | Jumlah baris di tampilan tabel, bawaan 10, `0` untuk semua |
+| `--by <sumbu>` | `project`, `model` atau `session`: satu tabel biaya yang ditampilkan `--view bill`. Tanpa flag ini, model dan project |
 | `--json` | Bisa dibaca mesin, ikut jendela `--since` |
 | `--card` | Tulis ringkasan sebagai gambar, berukuran untuk unggahan media sosial |
 | `--help`, `-h` | Bantuan |
@@ -55,17 +56,28 @@ mengatakannya, bukan mencetak nol yang terkesan sempurna.
 
 Tampilan lain melaporkan apa yang OMNI kerjakan, dari tabel OMNI sendiri. Yang ini
 membaca transkrip Claude Code, yang ditulis host dan bukan OMNI: token tertagih per
-kelas, byte konteks per sumber, dan byte hasil tool per tool.
+kelas, byte konteks per sumber, byte hasil tool per tool, dan biayanya per model dan per
+project.
 
 ```sh
 omni stats --view bill               # 30 hari terakhir
 omni stats --view bill --since week --limit 0
+omni stats --view bill --by session  # sesi mana yang paling mahal
 ```
 
 Satu request dihitung sekali berdasarkan id-nya, karena host mengulang `usage` di setiap
-record milik request itu. Konteks subagent ditagih terpisah dari sesinya dan tidak
-dihitung. Tidak ada angka dolar: harganya bergantung pada model di balik tiap request,
-dan tampilan ini hanya mencetak apa yang dibawa transkripnya.
+record milik request itu.
+
+Tiap request diberi harga dari model yang melayaninya, dengan harga daftar API pada
+tanggal yang dicetak tampilan ini. Penulisan cache dihargai menurut TTL-nya (1,25x input
+untuk lima menit, 2x untuk satu jam), `speed: "fast"` dua kali lipat, dan Haiku 5.5 dengan
+tarif lebih tinggi di atas 100K token prompt. Model yang tidak ada di tabel ditampilkan
+`unpriced` beserta tokennya, tidak pernah $0, dan totalnya menyebut dirinya batas bawah.
+Langganan atau tarif hasil negosiasi ditagih berbeda, jadi baca angkanya sebagai biaya
+pekerjaan yang sama bila lewat API.
+
+Tabel biaya menghitung request subagent, karena request itu ditagih. Tabel token dan
+konteks tidak menghitungnya, karena konteks subagent bukan konteks sesi.
 
 Paragraf terakhir keluarannya adalah angka OMNI sendiri untuk jendela yang sama, diberi
 label sebagai klaimnya, supaya kedua sisi ada di satu layar tanpa tercampur. `--json`
