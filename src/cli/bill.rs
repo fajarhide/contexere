@@ -66,9 +66,10 @@ impl Bill {
 
     /// Nothing billed and nothing delivered. A window can hold bytes and no
     /// request, when a request made before it lands its results inside it, so
-    /// the request count alone would hide real content.
+    /// the request count alone would hide real content. It can also hold only
+    /// subagent requests, which reach the spend rows and nothing else.
     pub fn is_empty(&self) -> bool {
-        self.requests == 0 && self.context_bytes() == 0
+        self.requests == 0 && self.context_bytes() == 0 && self.by_model.is_empty()
     }
 
     /// Every request in the window, subagents included.
@@ -643,6 +644,28 @@ mod tests {
             bill.spend().requests,
             2,
             "the subagent is billed, the synthetic is not"
+        );
+    }
+
+    #[test]
+    fn a_window_holding_only_subagent_requests_is_not_empty() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        transcript(
+            dir.path(),
+            "a.jsonl",
+            &[priced(
+                "r1",
+                "claude-opus-5-5",
+                USAGE,
+                r#","isSidechain":true"#,
+            )],
+        );
+        let bill = read(dir.path(), 0);
+
+        assert_eq!(bill.requests, 0);
+        assert!(
+            !bill.is_empty(),
+            "its spend would be hidden behind the empty notice"
         );
     }
 
