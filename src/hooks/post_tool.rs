@@ -1843,10 +1843,6 @@ mod tests {
         );
     }
 
-    /// #773. The column is only worth having if the hook writes it, and the
-    /// first version of this test asserted the store method with the agent
-    /// passed in by hand, which passed with the hook blanked.
-    ///
     /// Query rows are the answer. A `sqlite3 -separator` run with two result sets
     /// came back as its first row labelled `Query result columns`, three sampled
     /// rows and `[28 more rows]` (#886). Both stages are covered: the distiller's
@@ -1866,13 +1862,8 @@ mod tests {
             " id | d | who | kind | proj | vendor | amt | empty | note\n----+---\n{}\n(29 rows)\n",
             rows(" | ")
         );
-        let log: String = (1..=120)
-            .map(|i| {
-                format!(
-                    "{i:<4}  2026-10-17 10:00:{:02}  INFO   request served\n",
-                    i % 60
-                )
-            })
+        let status: String = (1..=120)
+            .map(|i| if i % 10 == 0 { "queued\n" } else { "done\n" })
             .collect();
         for (command, stdout) in [
             (
@@ -1880,10 +1871,10 @@ mod tests {
                 sqlite,
             ),
             ("psql -d app -c 'select * from e'", psql),
-            // A log table in `-column` mode. Pipe-separated rows are already
-            // declined by `format::sniff`; space-aligned ones reach collapse,
-            // whose Log mode would fold them into one line.
-            ("sqlite3 -column app.db 'select * from log'", log),
+            // One column, so no delimiter for `format::sniff` to decline. The
+            // collapse fallback folds repeated lines, and how many of each
+            // status there are is the answer.
+            ("sqlite3 app.db 'select status from jobs'", status),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
             let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
@@ -1900,6 +1891,10 @@ mod tests {
         }
     }
 
+    /// #773. The column is only worth having if the hook writes it, and the
+    /// first version of this test asserted the store method with the agent
+    /// passed in by hand, which passed with the hook blanked.
+    ///
     /// Driven through `process_payload` for that reason: a structured payload is
     /// declined by the format gate, and the row it leaves has to name the agent
     /// it was declined for.
