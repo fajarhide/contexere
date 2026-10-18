@@ -1866,12 +1866,18 @@ mod tests {
             " id | d | who | kind | proj | vendor | amt | empty | note\n----+---\n{}\n(29 rows)\n",
             rows(" | ")
         );
+        let log: String = (1..=120)
+            .map(|i| format!("{i}|2026-10-17 10:00:{:02}|INFO|request served\n", i % 60))
+            .collect();
         for (command, stdout) in [
             (
                 "S=/tmp; sqlite3 -separator ' | ' $S/syn.db \"select * from e; select '--'; select id, who from e where id < 4;\" 2>&1 | head -50",
                 sqlite,
             ),
             ("psql -d app -c 'select * from e'", psql),
+            // A log table: rows the Log collapse mode would fold into one line
+            // once the distiller hands them back.
+            ("sqlite3 app.db 'select * from log'", log),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
             let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
