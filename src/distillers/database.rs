@@ -10,15 +10,13 @@ impl Distiller for DatabaseDistiller {
         input: &str,
         _session: Option<&crate::pipeline::SessionState>,
     ) -> Option<String> {
-        // Detect apakah ini query result, error, atau migration output
         if input.contains("ERROR:") || input.contains("FATAL:") || input.contains("error:") {
             Some(distill_db_error(input))
-        } else if input.contains("rows)") || input.contains("row)") || looks_like_table(input) {
-            Some(distill_query_result(input))
         } else {
-            // `.schema`, `.tables`, `PRAGMA` and every other non-tabular result is
-            // itself the answer, so fail open rather than assert a health verdict
-            // the input never stated (#216).
+            // Query rows, `.schema`, `.tables` and `PRAGMA` are all the answer
+            // itself. Rows used to be cut to a header and three samples, and with
+            // `-separator` and no `-header` the "header" was the first data row
+            // (#886); a schema dump became `DB: ok` (#216).
             distill_db_generic(segments)
         }
     }
@@ -58,63 +56,6 @@ fn distill_db_error(input: &str) -> String {
     out.trim().to_string()
 }
 
-fn distill_query_result(input: &str) -> String {
-    let lines: Vec<&str> = input.lines().collect();
-    let total = lines.len();
-
-    // Cari baris "N rows"
-    let row_summary = lines
-        .iter()
-        .rev()
-        .take(5)
-        .find(|l| l.contains("row") && (l.contains('(') || l.trim().parse::<usize>().is_ok()))
-        .map(|l| l.trim().to_string());
-
-    // Header (kolom) biasanya baris pertama non-empty
-    let header = lines
-        .iter()
-        .find(|l| {
-            let lt = l.trim();
-            !lt.is_empty() && !lt.contains("---") && !lt.contains("(") && !lt.contains("rows")
-        })
-        .map(|l| l.trim().to_string());
-
-    let mut out = String::new();
-    if let Some(h) = &header {
-        out.push_str(&format!("Query result columns: {}\n", h));
-    }
-    if let Some(summary) = row_summary {
-        out.push_str(&format!("Result: {}\n", summary));
-    } else {
-        out.push_str(&format!("Result: {} lines output\n", total));
-    }
-    // Show first 3 data rows as sample
-    let data_rows: Vec<&str> = lines
-        .iter()
-        .filter(|l| {
-            let lt = l.trim();
-            !lt.is_empty() && !lt.contains("---") && !lt.contains("(") && !lt.contains("rows")
-        })
-        .skip(1) // skip header
-        .take(3)
-        .copied()
-        .collect();
-    if !data_rows.is_empty() {
-        out.push_str("Sample rows:\n");
-        for row in &data_rows {
-            out.push_str(row);
-            out.push('\n');
-        }
-        if total > data_rows.len() + 2 {
-            out.push_str(&format!(
-                "  ... [{} more rows]\n",
-                total - data_rows.len() - 2
-            ));
-        }
-    }
-    out.trim().to_string()
-}
-
 fn distill_db_generic(segments: &[OutputSegment]) -> Option<String> {
     let errors: Vec<&str> = segments
         .iter()
@@ -135,11 +76,4 @@ fn distill_db_generic(segments: &[OutputSegment]) -> Option<String> {
                 .join("\n")
         ))
     }
-}
-
-fn looks_like_table(input: &str) -> bool {
-    input
-        .lines()
-        .take(5)
-        .any(|l| l.contains(" | ") || l.contains("---") || l.contains("+--"))
 }

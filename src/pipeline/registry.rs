@@ -576,6 +576,15 @@ pub fn passes_through_verbatim(command: &str) -> bool {
     matches!(
         base,
         "ls" | "tree"
+            // Query clients. Their rows are the data the caller asked for, and
+            // collapsing similar ones is the sampling #886 removed from
+            // `DatabaseDistiller`, one stage later. An error still reaches that
+            // distiller, whose arm is resolved before this list is read.
+            | "psql"
+            | "mysql"
+            | "sqlite3"
+            | "pg_dump"
+            | "redis-cli"
             | "find"
             | "ps"
             | "df"

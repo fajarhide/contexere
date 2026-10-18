@@ -1847,6 +1847,47 @@ mod tests {
     /// first version of this test asserted the store method with the agent
     /// passed in by hand, which passed with the hook blanked.
     ///
+    /// Query rows are the answer. A `sqlite3 -separator` run with two result sets
+    /// came back as its first row labelled `Query result columns`, three sampled
+    /// rows and `[28 more rows]` (#886). Both stages are covered: the distiller's
+    /// sampling and the collapse fallback that would fold the rows it hands back.
+    #[test]
+    fn query_rows_reach_the_reader_as_printed() {
+        let rows = |sep: &str| {
+            (1..=29)
+                .map(|i| {
+                    format!("{i}{sep}2026-10-17{sep}user{i}{sep}nota{sep}Project A{sep}Vendor B{sep}{}{sep}{sep}row number {i} some summary text here", i * 1000)
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let sqlite = format!("{}\n--\n1 | user1\n2 | user2\n3 | user3\n", rows(" | "));
+        let psql = format!(
+            " id | d | who | kind | proj | vendor | amt | empty | note\n----+---\n{}\n(29 rows)\n",
+            rows(" | ")
+        );
+        for (command, stdout) in [
+            (
+                "S=/tmp; sqlite3 -separator ' | ' $S/syn.db \"select * from e; select '--'; select id, who from e where id < 4;\" 2>&1 | head -50",
+                sqlite,
+            ),
+            ("psql -d app -c 'select * from e'", psql),
+        ] {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let payload = serde_json::json!({
+                "session_id": "s-886",
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                "tool_response": {"stdout": stdout, "stderr": ""}
+            })
+            .to_string();
+
+            let out = process_payload(&payload, Some(store), None);
+            assert!(out.is_none(), "{command}: the rows were rewritten: {out:?}");
+        }
+    }
+
     /// Driven through `process_payload` for that reason: a structured payload is
     /// declined by the format gate, and the row it leaves has to name the agent
     /// it was declined for.
