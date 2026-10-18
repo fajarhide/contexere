@@ -91,7 +91,7 @@ src/
 ├── lib.rs           library re-exports, so the crate is testable
 ├── agents/          one file per host: claude, cursor, codex, hermes, pi, …
 ├── cli/             one file per subcommand
-├── distillers/      11 content filters
+├── distillers/      10 content filters
 ├── guard/           safety, limits, trust bounds, env hygiene
 ├── hooks/           entry points and the dispatcher
 ├── ledger/          cross-turn line dedup
