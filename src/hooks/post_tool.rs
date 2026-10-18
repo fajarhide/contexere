@@ -1867,7 +1867,12 @@ mod tests {
             rows(" | ")
         );
         let log: String = (1..=120)
-            .map(|i| format!("{i}|2026-10-17 10:00:{:02}|INFO|request served\n", i % 60))
+            .map(|i| {
+                format!(
+                    "{i:<4}  2026-10-17 10:00:{:02}  INFO   request served\n",
+                    i % 60
+                )
+            })
             .collect();
         for (command, stdout) in [
             (
@@ -1875,9 +1880,10 @@ mod tests {
                 sqlite,
             ),
             ("psql -d app -c 'select * from e'", psql),
-            // A log table: rows the Log collapse mode would fold into one line
-            // once the distiller hands them back.
-            ("sqlite3 app.db 'select * from log'", log),
+            // A log table in `-column` mode. Pipe-separated rows are already
+            // declined by `format::sniff`; space-aligned ones reach collapse,
+            // whose Log mode would fold them into one line.
+            ("sqlite3 -column app.db 'select * from log'", log),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
             let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
