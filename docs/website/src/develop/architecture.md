@@ -10,7 +10,7 @@ src/
 ├── paths.rs             path resolution
 ├── agents/              one file per host: claude, cursor, codex, hermes, pi, …
 ├── cli/                 one file per subcommand
-├── distillers/          11 content filters
+├── distillers/          10 content filters
 ├── graph/               code graph indexing
 ├── guard/               safety, limits, trust bounds, env hygiene
 ├── hooks/               the entry points, and the dispatcher that routes them

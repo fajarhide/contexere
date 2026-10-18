@@ -2,7 +2,6 @@ use crate::pipeline::OutputSegment;
 
 pub mod build;
 pub mod cloud;
-pub mod database;
 pub mod generic;
 pub mod git;
 pub mod jsts;
@@ -128,7 +127,6 @@ fn route(
     match crate::pipeline::registry::resolve_distiller(command) {
         Distillation::Passthrough => None,
         Distillation::Git => git::GitDistiller.distill(segments, input, session),
-        Distillation::Database => database::DatabaseDistiller.distill(segments, input, session),
         Distillation::Security => security::SecurityDistiller.distill(segments, input, session),
         Distillation::Test => test::TestDistiller.distill(segments, input, session),
         Distillation::Build => build::BuildDistiller.distill(segments, input, session),
@@ -927,8 +925,11 @@ mod tests {
         "prettier --check ."
     );
 
+    // #891: a client's error is a line or two, and the summary that replaced it
+    // was longer than this one. The same summariser read `error:` inside query
+    // rows as a failed query.
     snapshot_test!(
-        test_database_psql_error,
+        database_psql_error_passes_through_verbatim,
         "psql_error.txt",
         "psql -U postgres mydb"
     );
