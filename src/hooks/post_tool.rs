@@ -1845,8 +1845,8 @@ mod tests {
 
     /// Query rows are the answer. A `sqlite3 -separator` run with two result sets
     /// came back as its first row labelled `Query result columns`, three sampled
-    /// rows and `[28 more rows]` (#886). Both stages are covered: the distiller's
-    /// sampling and the collapse fallback that would fold the rows it hands back.
+    /// rows and `[28 more rows]` (#886). Rows reach no distiller now, and the
+    /// collapse fallback has to stay off them too: it folds identical lines.
     #[test]
     fn query_rows_reach_the_reader_as_printed() {
         let rows = |sep: &str| {
@@ -1865,7 +1865,20 @@ mod tests {
         let status: String = (1..=120)
             .map(|i| if i % 10 == 0 { "queued\n" } else { "done\n" })
             .collect();
+        let jobs: String = (1..=30)
+            .map(|i| {
+                let status = match i {
+                    _ if i % 11 == 0 => "error: timeout after 30s",
+                    _ if i % 7 == 0 => "failed",
+                    _ => "done",
+                };
+                format!("{i}|job-{i}|{status}\n")
+            })
+            .collect();
         for (command, stdout) in [
+            // #891: two rows carrying `error:` turned a successful query into
+            // `DB Error (2 found)` and dropped the other 28.
+            ("sqlite3 app.db 'select id, name, status from jobs'", jobs),
             (
                 "S=/tmp; sqlite3 -separator ' | ' $S/syn.db \"select * from e; select '--'; select id, who from e where id < 4;\" 2>&1 | head -50",
                 sqlite,

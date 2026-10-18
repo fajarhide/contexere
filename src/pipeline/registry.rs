@@ -576,10 +576,10 @@ pub fn passes_through_verbatim(command: &str) -> bool {
     matches!(
         base,
         "ls" | "tree"
-            // Query clients. Their rows are the data the caller asked for, and
-            // collapsing similar ones is the sampling #886 removed from
-            // `DatabaseDistiller`, one stage later. An error still reaches that
-            // distiller, whose arm is resolved before this list is read.
+            // Query clients. Their rows are the data the caller asked for: a
+            // sampled result labelled its first row as the column list (#886),
+            // and an error summary read `error:` inside a row as a failed query
+            // (#891). Collapse folds identical rows, so it stays off them too.
             | "psql"
             | "mysql"
             | "sqlite3"
@@ -1063,7 +1063,6 @@ pub enum Distillation {
     /// the raw bytes back.
     Passthrough,
     Git,
-    Database,
     Security,
     Test,
     Build,
@@ -1096,10 +1095,6 @@ pub fn resolve_distiller(command: &str) -> Distillation {
         } else {
             Distillation::Git
         };
-    }
-
-    if matches!(base, "psql" | "mysql" | "sqlite3" | "pg_dump" | "redis-cli") {
-        return Distillation::Database;
     }
 
     if matches!(

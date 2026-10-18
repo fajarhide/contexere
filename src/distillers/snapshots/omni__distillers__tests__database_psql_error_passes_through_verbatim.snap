@@ -2,5 +2,4 @@
 source: src/distillers/mod.rs
 expression: output
 ---
-DB Error (1 found):
 psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "myuser" does not exist
