@@ -920,6 +920,14 @@ fn distill_fallback(
 ) -> Option<String> {
     let js_pm = session.and_then(|s| s.toolchain_hints.get("js").map(|v| v.as_str()));
 
+    // A failure this distiller could not parse. Its tiers say which line failed,
+    // not which lines say where: `at file:10:38`, the Expected/Received header and
+    // the code frame all tier as Context, and keeping only the failure and the
+    // tally cut exactly those (#875). The input is the answer here.
+    if segments.iter().any(|seg| seg.tier == SignalTier::Critical) {
+        return None;
+    }
+
     let eligible: Vec<&str> = segments
         .iter()
         .filter(|seg| matches!(seg.tier, SignalTier::Critical | SignalTier::Important))
@@ -1338,9 +1346,11 @@ Error: Transform failed with 1 error:
                 context_score: 0.0,
                 line_range: (3, 3),
             },
+            // Important, not Critical: a failure the fallback cannot parse is
+            // handed back whole (#875), and this test is about the filter.
             OutputSegment {
                 content: "✗ test 2".to_string(),
-                tier: SignalTier::Critical,
+                tier: SignalTier::Important,
                 base_score: 0.9,
                 context_score: 0.0,
                 line_range: (4, 4),
