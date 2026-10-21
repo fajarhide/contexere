@@ -761,7 +761,11 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     // The tail decides whether the empty literal is the whole value. Review's
     // case: `API_KEY=""sk-secret"` opens with an empty segment and carries the
     // credential after it, so emptiness alone would hand the line back whole.
-    if !is_sensitive_key(key)
+    // The first `=` of `==`, `===`, `=>` or `=~` is an operator's, not an
+    // assignment's. A wrapped condition opening `firstToken === "py" ||` was
+    // delivered as `firstToken =[REDACTED]`, operand and `||` gone (#893).
+    if value.starts_with(['=', '>', '~'])
+        || !is_sensitive_key(key)
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
@@ -1774,6 +1778,30 @@ mod tests {
     /// #532, found in `tests/smoke_test.sh`: a counter in this repository's own
     /// suite read back as `PASS=[REDACTED]`. The literals beside it are the reason
     /// the rule checks what follows the `$` rather than the character alone.
+    #[test]
+    fn keeps_a_comparison_and_still_redacts_an_assignment_beside_it() {
+        let code = "firstToken === \"py\" ||\n\
+                    \x20 firstToken === \"py\"\n\
+                    token == \"py\"\n\
+                    token => token.trim()\n\
+                    token =~ /^sk-/\n\
+                    API_TOKEN = \"tok-a1b2c3d4e5f6\"\n\
+                    API_TOKEN=tok-a1b2c3d4e5f6\n";
+        let out = redact_sensitive_assignments(code).expect("the two assignments are redacted");
+
+        for kept in [
+            "firstToken === \"py\" ||",
+            "  firstToken === \"py\"",
+            "token == \"py\"",
+            "token => token.trim()",
+            "token =~ /^sk-/",
+        ] {
+            assert!(out.contains(kept), "comparison destroyed: {kept}\n{out}");
+        }
+        assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
+        assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
+    }
+
     #[test]
     fn keeps_shell_expansions_and_still_redacts_literal_secrets() {
         let script = "PASS=$((PASS + 1))\n\
