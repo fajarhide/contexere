@@ -761,7 +761,14 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     // The tail decides whether the empty literal is the whole value. Review's
     // case: `API_KEY=""sk-secret"` opens with an empty segment and carries the
     // credential after it, so emptiness alone would hand the line back whole.
-    if !is_sensitive_key(key)
+    // The first `=` of `==`, `===`, `=>` or `=~` is an operator's, not an
+    // assignment's. A wrapped condition opening `firstToken === "py" ||` was
+    // delivered as `firstToken =[REDACTED]`, operand and `||` gone (#893). The
+    // space before it is what says operator: `printenv` writes `KEY=value` with
+    // none, and a password can begin with `~` or `=` (review of #900).
+    let operator = key.ends_with(char::is_whitespace) && value.starts_with(['=', '>', '~']);
+    if operator
+        || !is_sensitive_key(key)
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
@@ -1768,6 +1775,45 @@ mod tests {
                 redact_assignment(key, value).is_some(),
                 "{key}={value} is a credential and was delivered in full"
             );
+        }
+    }
+
+    #[test]
+    fn keeps_a_comparison_and_still_redacts_an_assignment_beside_it() {
+        let code = "firstToken === \"py\" ||\n\
+                    \x20 firstToken === \"py\"\n\
+                    token == \"py\"\n\
+                    token => token.trim()\n\
+                    token =~ /^sk-/\n\
+                    API_TOKEN = \"tok-a1b2c3d4e5f6\"\n\
+                    API_TOKEN=tok-a1b2c3d4e5f6\n";
+        let out = redact_sensitive_assignments(code).expect("the two assignments are redacted");
+
+        for kept in [
+            "firstToken === \"py\" ||",
+            "  firstToken === \"py\"",
+            "token == \"py\"",
+            "token => token.trim()",
+            "token =~ /^sk-/",
+        ] {
+            assert!(out.contains(kept), "comparison destroyed: {kept}\n{out}");
+        }
+        assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
+        assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
+    }
+
+    /// Review of #900: the first version took any value opening with `=`, `>` or
+    /// `~` for an operator, so a password that begins with one was delivered.
+    #[test]
+    fn a_credential_that_opens_with_an_operator_character_is_still_redacted() {
+        let env = "PASSWORD=~r4nd0m!x\nAPI_TOKEN==tok-a1b2c3d4e5f6\nSECRET=>q9w8e7r6\n";
+        for out in [
+            redact_sensitive_assignments(env).expect("all three are credentials"),
+            distill_env_output(env),
+        ] {
+            for gone in ["r4nd0m", "a1b2c3d4e5f6", "q9w8e7r6"] {
+                assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
+            }
         }
     }
 
