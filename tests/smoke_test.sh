@@ -14,6 +14,17 @@ if [ ! -f "$OMNI" ]; then
     exit 1
 fi
 
+# A clean store unless the caller brought one. Checks such as "folds view says
+# why it is empty" assume nothing was recorded, and `omni-release.sh` ran this
+# against the maintainer's own ~/.omni, where 0.7.10 and later record fold
+# markers, so the release gate failed on history rather than on the build (#877).
+if [ -z "${OMNI_HOME:-}" ]; then
+    OMNI_HOME="$(mktemp -d)"
+    export OMNI_HOME
+    trap 'rm -rf "$OMNI_HOME"' EXIT
+fi
+unset OMNI_DB_PATH
+
 PASS=0
 FAIL=0
 TOTAL=0
