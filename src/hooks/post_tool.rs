@@ -1843,6 +1843,69 @@ mod tests {
         );
     }
 
+    /// A failing `bun test` keeps the lines that say where it failed. `bun` has no
+    /// summariser of its own, and the JS fallback kept only the failure and the
+    /// tally, so `at ...:10:38`, the Expected/Received header and the code frame
+    /// were cut under `[Partial signal]` (#875).
+    #[test]
+    fn a_failing_bun_run_keeps_where_it_failed() {
+        let frame = "\
+57 |   test(\"answering the choice\", async () => {
+58 |     const bot = await pick(choice);
+63 |     expect(send(bot)).rejects.toThrow(\"no prompts\");
+                                   ^
+error: expect(received).rejects.toThrow(expected)
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+      at <anonymous> (/app/tests/choice.test.ts:63:35)
+(fail) answering the choice brings in the right bot [7.09ms]
+";
+        // Sized like the report's payload: with a short path the cut lands above
+        // the route threshold and the hook declines before the fallback is seen.
+        let diff = "\
+  ]
+
+- Expected  - 4
++ Received  + 4
+
+      at <anonymous> (/home/dev/work/acme/web-app/packages/crm/src/features/leads/__tests__/leads.test.js:10:38)
+(fail) the list puts due leads first and the summary counts the whole list [0.68ms]
+
+ 5 pass
+ 1 fail
+ 6 expect() calls
+Ran 6 tests across 1 file. [4.00ms]
+";
+        for (command, stdout, must_keep) in [
+            (
+                "bun test src 2>&1 | grep -B2 -A 22 'Expected  -' | head -40",
+                diff,
+                ["leads.test.js:10:38", "- Expected  - 4"],
+            ),
+            (
+                "bun test tests/choice.test.ts -t answering 2>&1 | grep -vE '^\\s+at ' | head -30",
+                frame,
+                ["63 |     expect(send(bot))", "choice.test.ts:63:35"],
+            ),
+        ] {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let payload = serde_json::json!({
+                "session_id": "s-875",
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                "tool_response": {"stdout": stdout, "stderr": ""}
+            })
+            .to_string();
+
+            if let Some(reply) = process_payload(&payload, Some(store), None) {
+                for line in must_keep {
+                    assert!(reply.contains(line), "{command}: lost `{line}`: {reply}");
+                }
+            }
+        }
+    }
+
     /// Query rows are the answer. A `sqlite3 -separator` run with two result sets
     /// came back as its first row labelled `Query result columns`, three sampled
     /// rows and `[28 more rows]` (#886). Rows reach no distiller now, and the
