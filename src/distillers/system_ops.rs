@@ -794,10 +794,21 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     // `key =[REDACTED]`, which is neither valid nor informative.
     let lead: String = value.chars().take_while(|c| c.is_whitespace()).collect();
     Some(match quoted {
-        Some((q, _, tail)) if is_only_punctuation(tail) => format!("{lead}{q}[REDACTED]{q}{tail}"),
+        Some((q, _, tail)) if is_only_punctuation(tail) || is_a_later_word(tail) => {
+            format!("{lead}{q}[REDACTED]{q}{tail}")
+        }
         Some((q, _, _)) => format!("{lead}{q}[REDACTED]{q}"),
         None => format!("{lead}[REDACTED]"),
     })
+}
+
+/// Whether what follows a closing quote starts a new shell word with no literal
+/// in it, such as the command in `API_TOKEN="x" ./bin/app serve &`. Dropping it
+/// left the reader a command with nothing to run (review of #904). Glued on
+/// with no space (`"abc"def`) it is still the value, and a second quote could
+/// open another literal, so both are still hidden.
+fn is_a_later_word(tail: &str) -> bool {
+    tail.starts_with(char::is_whitespace) && !tail.contains(['"', '\'', '`'])
 }
 
 /// Whether what follows a closing quote is only syntax, so it can be handed
@@ -1835,6 +1846,25 @@ mod tests {
         }
         assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
         assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
+    }
+
+    /// Review of #904: the command after a quoted credential survives, while a
+    /// value glued to the quote or a second literal is still hidden.
+    #[test]
+    fn a_quoted_credential_keeps_the_command_after_it() {
+        let out = redact_sensitive_assignments(
+            "API_TOKEN=\"tok-a1b2c3d4e5\" ./bin/app serve &\n\
+             PASSWORD=\"abc\"def9x8y7\n\
+             API_KEY=\"\" \"sk-q1w2e3r4t5\"\n",
+        )
+        .expect("three credentials");
+        assert!(
+            out.contains("API_TOKEN=\"[REDACTED]\" ./bin/app serve &"),
+            "{out}"
+        );
+        for gone in ["a1b2c3d4e5", "def9x8y7", "q1w2e3r4t5"] {
+            assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
+        }
     }
 
     /// #866: a document's unchanged lines come back byte for byte, CRLF and

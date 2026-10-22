@@ -727,6 +727,13 @@ pub fn process_payload(
             && let Some((body, count)) =
                 crate::distillers::system_ops::redact_in_place(&normalized.content)
         {
+            // Nearly the whole document reaches the reader, so it counts toward
+            // the turn like any other delivered output (review of #904).
+            if let Some(ref sess) = session
+                && let Ok(mut state) = sess.lock()
+            {
+                state.current_turn.tool_output_bytes += body.len() as u64;
+            }
             return serde_json::to_string(&HookOutput {
                 hook_specific_output: HookSpecificOutput {
                     hook_event_name: "PostToolUse",
@@ -1875,6 +1882,7 @@ mod tests {
     fn a_structured_payload_keeps_its_shape_and_loses_its_credential() {
         let yml = "name: deploy\njobs:\n  run:\n    steps:\n      - name: start\n        run: |\n          APP_ROOT=/tmp/x APP_LISTEN=tcp:127.0.0.1:7777 \\\n            APP_TOKEN=demo-token-a1b2c3d4e5 ./bin/app serve &\n          sleep 1\n          curl -s 127.0.0.1:7777/health\n";
         let clean = yml.replace("APP_TOKEN=demo-token-a1b2c3d4e5 ", "");
+        let session = Arc::new(Mutex::new(SessionState::new()));
         let reply = |stdout: &str| {
             let dir = tempfile::tempdir().expect("tempdir");
             let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
@@ -1885,7 +1893,7 @@ mod tests {
                 "tool_response": {"stdout": stdout, "stderr": "", "interrupted": false}
             })
             .to_string();
-            process_payload(&payload, Some(store), None)
+            process_payload(&payload, Some(store), Some(session.clone()))
         };
 
         let out: serde_json::Value =
@@ -1905,6 +1913,12 @@ mod tests {
                 .as_str()
                 .is_some_and(|c| c.contains("redacted")),
             "the reader is not told: {hook}"
+        );
+
+        let counted = session.lock().expect("lock").current_turn.tool_output_bytes;
+        assert!(
+            counted >= stdout.len() as u64,
+            "the delivered document is missing from the turn: {counted}"
         );
 
         assert!(reply(&clean).is_none(), "nothing to hide, nothing to send");
