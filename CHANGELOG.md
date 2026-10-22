@@ -8,6 +8,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.12] - 2026-10-22
+
+### Added
+- **`omni stats --view bill` prices what the host billed, by model, project and session
+  (#887).** Each request is priced from the model that served it at a dated API list
+  price, with cache writes priced by TTL, fast mode at twice the rate and Haiku 5.5's
+  long-prompt tier. A model missing from the table is shown as `unpriced` with its
+  tokens, never as $0. `--by project|model|session` picks the table. Checked against an
+  independent Python pass over one week of this machine's transcripts: $1078.32 against
+  $1078.51, the gap being the live session's own transcript growing between the two
+  runs. Spend counts subagent requests, which the token tables still leave out.
+
+### Fixed
+- **A credential inside a structured payload is hidden on the hook path (#866).** The
+  format gate kept YAML and other structured output byte for byte and returned before the
+  redactor, so a token in a `run:` block reached the model as printed. The value is now
+  replaced where it stands, every other line comes back unchanged, and the notice goes to
+  the hook's context message instead of into the document. `omni exec` and pipe mode
+  still pass structured output through verbatim. A failed command's output is not
+  covered yet.
+- **A failing `bun test` keeps the lines that say where it failed (#875).** `bun` has no
+  summariser, so its output reached the JS fallback, which kept only the failure and the
+  tally. The `at file:10:38` line, the Expected/Received header and the code frame were
+  cut under `[Partial signal]`, and a lone `^` survived without the line it points at.
+  The fallback now hands a failing run back whole when it cannot parse it; a green run
+  still gets the tally. Over one machine's recorded traces it had cut 5 failing runs for
+  about 1.9 KB.
+- **The release gate tests the build, not the maintainer's history (#877).**
+  `tests/smoke_test.sh` assumed an empty store, and `omni-release.sh` ran it against the
+  live `~/.omni`, where fold markers have been recorded since 0.7.10, so the 0.7.11
+  release stopped at 75 of 76. The smoke test now brings its own temporary home unless
+  the caller set `OMNI_HOME`.
+- **Query rows from `sqlite3`, `psql` and `mysql` reach the reader as printed (#886).** A
+  result was cut to its first line, labelled `Query result columns`, and three sampled
+  rows, so with `-separator` and no `-header` a data row was presented as the schema and
+  29 rows came back as 4. Its own count and the fold marker disagreed, 28 against 26.
+  The collapse fallback stays off these clients too, since it folds identical rows and a
+  one-column `select status` is exactly that.
+- **rustls is 0.23.46 (#888).** 0.23.45 carries four advisories published after 0.7.11
+  (RUSTSEC-2026-0346 to 0349), among them a ServerHello downgrade and `Debug` output that
+  exposes TLS secrets. It reaches OMNI through `ureq`, which the update check and cloud
+  calls use. Nothing else in the lockfile moved.
+- **A successful query is no longer reported as a database error (#891).** The database
+  summariser picked its error arm whenever the output contained `error:` anywhere, so 30
+  rows of which two held `error: timeout` came back as `DB Error (2 found)` and the other
+  28 were gone. The distiller is deleted: over one machine's store it had rewritten 6 of
+  42 `psql` and `sqlite3` calls for about 11 KB, and a client's own error is a line or two
+  that the summary made longer. `psql`, `mysql`, `sqlite3`, `pg_dump` and `redis-cli`
+  output now passes through.
+- **A comparison is no longer redacted as an assignment (#893).** A line opening with a
+  sensitive-looking name and `==`, `===`, `=>` or `=~` was split at the first `=`, so a
+  wrapped condition `firstToken === "py" ||` came back as `firstToken =[REDACTED]`, its
+  operand and `||` gone. Only a spaced `=` counts as an operator, so `printenv`'s
+  `PASSWORD=~r4nd0m` is still hidden. Replayed over 21,521 recorded lines holding an
+  `=`: six stopped being redacted, all of them comparisons, and none started.
+- **rustls-webpki is 0.103.16 and webpki-roots 1.0.10 (#898).** The older versions could
+  accept distrusted intermediates during certificate verification (RUSTSEC-2026-0382 and
+  0381). They reach OMNI through `ureq`. Nothing else in the lockfile moved.
+
 ## [0.7.11] - 2026-10-14
 
 ### Added
