@@ -1012,34 +1012,69 @@ static BARE_TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(
     .expect("a literal pattern")
 });
 
-pub fn redact_sensitive_assignments(input: &str) -> Option<String> {
-    let mut out = String::with_capacity(input.len());
+/// Each line of `input` as `lines()` yields it, with its replacement when it
+/// held a credential, and how many values were hidden in all.
+fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
     let mut redacted = 0u32;
     // One scan of the payload decides whether any line is looked at twice, so
     // the common case, no token anywhere, costs nothing per line.
     let holds_a_token = BARE_TOKEN.is_match(input);
 
-    for line in input.lines() {
-        let trimmed = line.trim_end();
-        let assigned = redact_line(trimmed);
-        let (text, count) = assigned
-            .as_ref()
-            .map_or((trimmed, 0), |(rewritten, count)| {
-                (rewritten.as_str(), *count)
-            });
-        redacted += count;
-        // After the assignment rule, so a token it already hid is counted once.
-        let tokens = if holds_a_token {
-            BARE_TOKEN.find_iter(text).count()
-        } else {
-            0
-        };
-        if tokens > 0 {
+    let lines = input
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim_end();
+            let assigned = redact_line(trimmed);
+            let (text, count) = assigned
+                .as_ref()
+                .map_or((trimmed, 0), |(rewritten, count)| {
+                    (rewritten.as_str(), *count)
+                });
+            redacted += count;
+            // After the assignment rule, so a token it already hid is counted once.
+            let tokens = if holds_a_token {
+                BARE_TOKEN.find_iter(text).count()
+            } else {
+                0
+            };
             redacted += tokens as u32;
-            out.push_str(&BARE_TOKEN.replace_all(text, "[REDACTED]"));
-        } else {
-            out.push_str(text);
+            match (tokens, count) {
+                (0, 0) => None,
+                (0, _) => Some(text.to_string()),
+                _ => Some(BARE_TOKEN.replace_all(text, "[REDACTED]").into_owned()),
+            }
+        })
+        .collect();
+    (lines, redacted)
+}
+
+/// The same redaction for a payload a reader takes as a document: no marker
+/// line on top, and every line it did not change handed back byte for byte,
+/// line ending included. The caller says what was hidden somewhere else (#866).
+pub fn redact_in_place(input: &str) -> Option<(String, u32)> {
+    let (lines, redacted) = redact_each_line(input);
+    if redacted == 0 {
+        return None;
+    }
+    let mut out = String::with_capacity(input.len());
+    for (piece, replaced) in input.split_inclusive('\n').zip(lines) {
+        match replaced {
+            Some(text) => {
+                let body = piece.trim_end_matches(['\n', '\r']);
+                out.push_str(&text);
+                out.push_str(&piece[body.len()..]);
+            }
+            None => out.push_str(piece),
         }
+    }
+    Some((out, redacted))
+}
+
+pub fn redact_sensitive_assignments(input: &str) -> Option<String> {
+    let mut out = String::with_capacity(input.len());
+    let (lines, redacted) = redact_each_line(input);
+    for (line, replaced) in input.lines().zip(lines) {
+        out.push_str(replaced.as_deref().unwrap_or(line.trim_end()));
         out.push('\n');
     }
     // Anything dropped leaves a marker, which this path never emitted, so a
@@ -1800,6 +1835,17 @@ mod tests {
         }
         assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
         assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
+    }
+
+    /// #866: a document's unchanged lines come back byte for byte, CRLF and
+    /// trailing spaces included, and no marker line is added on top.
+    #[test]
+    fn redacting_in_place_changes_only_the_line_that_held_the_value() {
+        let doc = "a: 1  \r\nenv: |\r\n  API_TOKEN=tok-a1b2c3d4e5f6\r\nb: 2\n";
+        let (out, count) = redact_in_place(doc).expect("one value");
+        assert_eq!(count, 1);
+        assert_eq!(out, "a: 1  \r\nenv: |\r\n  API_TOKEN=[REDACTED]\r\nb: 2\n");
+        assert!(redact_in_place("a: 1\nb: 2\n").is_none());
     }
 
     /// Review of #900: the first version took any value opening with `=`, `>` or

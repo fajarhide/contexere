@@ -329,6 +329,8 @@ enum Declined {
     /// the preview's size is not visible from here. #725 named this branch; it
     /// is the one branch the fix leaves alone.
     KeepsAPreview,
+    /// A structured payload, kept as printed unless it holds a credential.
+    Structured,
 }
 
 fn declined(
@@ -438,7 +440,7 @@ fn declined(
                 &crate::hooks::normalize::stats_agent_id(&normalized.agent),
             );
         }
-        return Some(Declined::KeepsTheseBytes);
+        return Some(Declined::Structured);
     }
 
     None
@@ -715,11 +717,32 @@ pub fn process_payload(
     // without scrolling past the pipeline (#442). Every one of them records why
     // it declined, which is the column #441 added.
     if let Some(decline) = declined(&normalized, store.as_deref()) {
+        // Format safety keeps a structured payload byte for byte, and that won
+        // over redaction without anyone choosing it: a token inside a YAML `run:`
+        // block reached the model as printed (#866). The reader on this path is
+        // the model, not a parser, so the value is replaced where it stands and
+        // the marker goes to the context message rather than into the document.
+        // `omni exec` and pipe mode do not come through here and stay verbatim.
+        if matches!(decline, Declined::Structured)
+            && let Some((body, count)) =
+                crate::distillers::system_ops::redact_in_place(&normalized.content)
+        {
+            return serde_json::to_string(&HookOutput {
+                hook_specific_output: HookSpecificOutput {
+                    hook_event_name: "PostToolUse",
+                    updated_tool_output: shape_for_host(normalized.raw_response.as_ref(), body),
+                    additional_context: Some(format!(
+                        "[OMNI: {count} sensitive value(s) redacted in place]"
+                    )),
+                },
+            })
+            .ok();
+        }
         // The host keeps its own bytes on the way out, so the turn is heavier
         // than the breakdown said. Counted at the shared exit rather than in
         // each branch: the host-cap branch #725 reported is 19 calls of the 569
         // that were missing here, and four sibling reasons carry the rest.
-        if matches!(decline, Declined::KeepsTheseBytes)
+        if matches!(decline, Declined::KeepsTheseBytes | Declined::Structured)
             && let Some(ref sess) = session
             && let Ok(mut state) = sess.lock()
         {
@@ -1841,6 +1864,50 @@ mod tests {
             format!("{second}{reachable}").contains(body.as_str()),
             "bytes the command printed are in neither the reply nor its handles"
         );
+    }
+
+    /// A credential inside a structured payload is hidden where it stands, and the
+    /// document is otherwise handed back as printed. The format gate used to
+    /// return before the redactor, so a token in a YAML `run:` block reached the
+    /// model (#866). The marker belongs in the context message, never in the
+    /// document; a structured payload with nothing to hide still gets no reply.
+    #[test]
+    fn a_structured_payload_keeps_its_shape_and_loses_its_credential() {
+        let yml = "name: deploy\njobs:\n  run:\n    steps:\n      - name: start\n        run: |\n          APP_ROOT=/tmp/x APP_LISTEN=tcp:127.0.0.1:7777 \\\n            APP_TOKEN=demo-token-a1b2c3d4e5 ./bin/app serve &\n          sleep 1\n          curl -s 127.0.0.1:7777/health\n";
+        let clean = yml.replace("APP_TOKEN=demo-token-a1b2c3d4e5 ", "");
+        let reply = |stdout: &str| {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let payload = serde_json::json!({
+                "session_id": "s-866",
+                "tool_name": "Bash",
+                "tool_input": {"command": "cat /tmp/deploy.yml"},
+                "tool_response": {"stdout": stdout, "stderr": "", "interrupted": false}
+            })
+            .to_string();
+            process_payload(&payload, Some(store), None)
+        };
+
+        let out: serde_json::Value =
+            serde_json::from_str(&reply(yml).expect("the token has to be hidden")).expect("json");
+        let hook = &out["hookSpecificOutput"];
+        let stdout = hook["updatedToolOutput"]["stdout"]
+            .as_str()
+            .expect("stdout");
+        assert!(!stdout.contains("a1b2c3d4e5"), "token delivered: {stdout}");
+        assert_eq!(
+            stdout.replace("APP_TOKEN=[REDACTED] ", ""),
+            clean,
+            "only the value may change"
+        );
+        assert!(
+            hook["additionalContext"]
+                .as_str()
+                .is_some_and(|c| c.contains("redacted")),
+            "the reader is not told: {hook}"
+        );
+
+        assert!(reply(&clean).is_none(), "nothing to hide, nothing to send");
     }
 
     /// A failing `bun test` keeps the lines that say where it failed. `bun` has no
