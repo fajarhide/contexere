@@ -1062,7 +1062,7 @@ pub fn redact_in_place(input: &str) -> Option<(String, u32)> {
             Some(text) => {
                 let body = piece.trim_end_matches(['\n', '\r']);
                 out.push_str(&text);
-                out.push_str(&piece[body.len()..]);
+                out.push_str(piece.strip_prefix(body).unwrap_or(""));
             }
             None => out.push_str(piece),
         }
