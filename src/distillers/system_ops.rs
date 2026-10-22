@@ -805,10 +805,16 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
 /// Whether what follows a closing quote starts a new shell word with no literal
 /// in it, such as the command in `API_TOKEN="x" ./bin/app serve &`. Dropping it
 /// left the reader a command with nothing to run (review of #904). Glued on
-/// with no space (`"abc"def`) it is still the value, and a second quote could
-/// open another literal, so both are still hidden.
+/// with no space (`"abc"def`) it is still the value, a second quote could open
+/// another literal, and a later `NAME=value` word could be the next credential
+/// (`API_TOKEN="x" APP_PASSWORD=y ./app`, the next review round), so all three
+/// are still hidden.
 fn is_a_later_word(tail: &str) -> bool {
-    tail.starts_with(char::is_whitespace) && !tail.contains(['"', '\'', '`'])
+    tail.starts_with(char::is_whitespace)
+        && !tail.contains(['"', '\'', '`'])
+        && tail
+            .split_whitespace()
+            .all(|w| shell_assignment(w).is_none())
 }
 
 /// Whether what follows a closing quote is only syntax, so it can be handed
@@ -1853,16 +1859,23 @@ mod tests {
     #[test]
     fn a_quoted_credential_keeps_the_command_after_it() {
         let out = redact_sensitive_assignments(
-            "API_TOKEN=\"tok-a1b2c3d4e5\" ./bin/app serve &\n\
+            "API_TOKEN=\"tok-a1b2c3d4e5\" ./bin/app serve --port=80 &\n\
              PASSWORD=\"abc\"def9x8y7\n\
-             API_KEY=\"\" \"sk-q1w2e3r4t5\"\n",
+             API_KEY=\"\" \"sk-q1w2e3r4t5\"\n\
+             API_TOKEN=\"tok-z9y8x7w6\" APP_PASSWORD=sup3rsecret ./bin/app serve &\n",
         )
-        .expect("three credentials");
+        .expect("four lines with credentials");
         assert!(
-            out.contains("API_TOKEN=\"[REDACTED]\" ./bin/app serve &"),
+            out.contains("API_TOKEN=\"[REDACTED]\" ./bin/app serve --port=80 &"),
             "{out}"
         );
-        for gone in ["a1b2c3d4e5", "def9x8y7", "q1w2e3r4t5"] {
+        for gone in [
+            "a1b2c3d4e5",
+            "def9x8y7",
+            "q1w2e3r4t5",
+            "z9y8x7w6",
+            "sup3rsecret",
+        ] {
             assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
         }
     }
