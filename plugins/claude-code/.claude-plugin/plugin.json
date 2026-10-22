@@ -1,7 +1,7 @@
 {
   "name": "omni",
   "displayName": "OMNI",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "Install OMNI, verify it, and read the markers it leaves when it shortens command output.",
   "author": {
     "name": "fajarhide",
