@@ -67,6 +67,8 @@ struct PreHookInput {
     /// post-hook path and would have left standing on this one (#581).
     #[serde(rename = "agent_id", alias = "agentId", default)]
     agent_id: Option<String>,
+    #[serde(default)]
+    cwd: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -123,12 +125,34 @@ fn host_from_payload(hook_event_name: Option<&str>, has_turn_id: bool) -> Option
     }
 }
 
+fn names_git(cmd: &str) -> bool {
+    cmd.split(|c: char| c.is_whitespace() || ";&|()'\"`".contains(c))
+        .any(|w| w == "git" || w.ends_with("/git"))
+}
+
+/// A linked worktree (and a submodule) has a `.git` file where a checkout has
+/// a directory.
+fn in_linked_worktree(cwd: &str) -> bool {
+    std::path::Path::new(cwd)
+        .ancestors()
+        .map(|d| d.join(".git"))
+        .find(|g| g.exists())
+        .is_some_and(|g| g.is_file())
+}
+
 fn process_payload(
     input_str: &str,
     session: Option<Arc<Mutex<crate::pipeline::SessionState>>>,
 ) -> Option<String> {
     let parsed: PreHookInput = serde_json::from_str(input_str).ok()?;
     let cmd_str = parsed.tool_input.command.as_ref()?;
+
+    // Claude Code refuses an `omni exec` with git among its operands inside a
+    // worktree-isolated agent, so the agent could not run git at all (#905).
+    // The post-hook still distills the output.
+    if names_git(cmd_str) && parsed.cwd.as_deref().is_some_and(in_linked_worktree) {
+        return None;
+    }
 
     // The payload already says which host is asking; naming it in the rewrite is
     // the only chance to tell the child, which inherits nothing else (#360).
@@ -472,6 +496,29 @@ mod tests {
         assert!(
             v["hookSpecificOutput"]["updatedInput"].is_null(),
             "Claude's field must not leak into a Gemini reply: {out}"
+        );
+    }
+
+    /// #905: Claude Code refused every rewritten git call in an agent isolated
+    /// in a worktree, so the agent could not branch, commit or push.
+    #[test]
+    fn git_in_a_linked_worktree_is_left_unwrapped() {
+        let root = tempfile::tempdir().unwrap();
+        let (wt, repo) = (root.path().join("wt"), root.path().join("repo"));
+        std::fs::create_dir_all(wt.join("src")).unwrap();
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::write(wt.join(".git"), "gitdir: /elsewhere\n").unwrap();
+        let reply = |cwd: &std::path::Path, cmd: &str| {
+            let payload = json!({"tool_input": {"command": cmd}, "cwd": cwd});
+            process_payload(&payload.to_string(), None)
+        };
+
+        assert_eq!(reply(&wt.join("src"), "git checkout -b fix/x"), None);
+        assert_eq!(reply(&wt, "bash -c 'cd .. && git status'"), None);
+        assert!(reply(&wt, "cargo test").is_some(), "only git is left alone");
+        assert!(
+            reply(&repo, "git status").is_some(),
+            "a plain checkout keeps the rewrite"
         );
     }
 
