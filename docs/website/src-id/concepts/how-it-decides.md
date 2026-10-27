@@ -9,7 +9,7 @@ Read → Guard → Score → Distill → [Collapse] → Ledger → Route → Per
 Tidak satu pun boleh mengarang apa pun, dan masing-masing boleh menolak. Collapse
 ditulis dalam kurung karena ia cadangan, bukan langkah wajib: ia hanya berjalan
 kalau bentuk hasil sulingan gagal melewati ambang pengaman.
-[The pipeline, stage by stage](https://veng.weekndlabs.com/docs/develop/pipeline)
+[The pipeline, stage by stage](https://omni.weekndlabs.com/docs/develop/pipeline)
 memuat diagram dan alasannya, dalam bahasa Inggris.
 
 ## Guard

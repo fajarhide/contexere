@@ -2,7 +2,7 @@
  *
  * The palette and the fonts already match, which made the seam invisible until
  * someone tried to leave: nothing on any page linked back to
- * veng.weekndlabs.com, so `Docs` in the site navbar was a one-way door.
+ * omni.weekndlabs.com, so `Docs` in the site navbar was a one-way door.
  *
  * Done here rather than by forking `index.hbs`, because owning mdBook's whole
  * page template in order to add a header is a bad trade on every future upgrade.
@@ -37,7 +37,7 @@
   // English and Indonesian are the exception since #539: both are real books, so
   // their entries stay inside the manual and `manual: true` marks them as the two
   // that do not leave for GitHub.
-  var REPO = 'https://github.com/fajarhide/veng/blob/main/';
+  var REPO = 'https://github.com/fajarhide/omni/blob/main/';
   var LANGS = [
     { code: 'EN', label: 'English', manual: true },
     { code: 'ID', label: 'Bahasa Indonesia', manual: true },

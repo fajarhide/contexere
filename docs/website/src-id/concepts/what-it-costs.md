@@ -112,7 +112,7 @@ uang yang dihemat per giliran.
 Itu sebabnya ukuran utama proyek ini sendiri adalah tekanan jendela konteks untuk
 pekerjaan yang sama, dan persentase pengurangan adalah alat diagnosis, bukan
 judul. Lihat
-[Where VENG is going](https://veng.weekndlabs.com/docs/develop/direction).
+[Where VENG is going](https://omni.weekndlabs.com/docs/develop/direction).
 
 ## Kalau ia panik
 

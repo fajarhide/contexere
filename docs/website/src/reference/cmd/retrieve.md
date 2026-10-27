@@ -9,8 +9,8 @@ veng retrieve <handle>
 The handle is the 16 characters inside a marker:
 
 ```
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 It returns the original bytes. Not a summary, not a re-run of your command, and not an

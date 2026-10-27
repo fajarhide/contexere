@@ -98,7 +98,7 @@ impl AgentIntegration for OpenClawIntegration {
             "tsconfig.json",
         ] {
             let url = format!(
-                "https://raw.githubusercontent.com/fajarhide/veng/main/plugins/openclaw/{}",
+                "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/{}",
                 file
             );
             let to = dest.join(file);
@@ -111,7 +111,7 @@ impl AgentIntegration for OpenClawIntegration {
         }
 
         // Try downloading package-lock.json, ignore error if missing (e.g., HTTP 404)
-        let lock_url = "https://raw.githubusercontent.com/fajarhide/veng/main/plugins/openclaw/package-lock.json";
+        let lock_url = "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/package-lock.json";
         if let Ok(response) = ureq::get(lock_url).call() {
             let to = dest.join("package-lock.json");
             if let Ok(mut dest_file) = fs::File::create(&to) {

@@ -6,7 +6,7 @@ alike, because there is no useful version of this that differs between the two.
 ## Get it building
 
 ```bash
-git clone https://github.com/fajarhide/veng
+git clone https://github.com/fajarhide/omni
 cd veng
 cargo build
 VENG_DB_PATH=/tmp/veng-test.db cargo test
@@ -313,7 +313,7 @@ believable with both outputs side by side.
 
 1. **A runnable reproduction using `veng exec`.** The form is exact:
    `veng exec npm run dev`, not `veng exec -- npm run dev`.
-2. **Raw against distilled, quoted verbatim**, including the `[VENG Active]` footer.
+2. **Raw against distilled, quoted verbatim**, including the `[OMNI Active]` footer.
    The footer is often the point: the worst bugs here report the highest reductions.
 3. **The line in `src/` that decides it**, if you traced it. Say plainly when you did
    not; an issue that overstates a mechanism gets fixed in the wrong place.

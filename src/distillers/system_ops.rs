@@ -1185,7 +1185,7 @@ pub fn redact_sensitive_assignments(input: &str) -> Option<String> {
     // Anything dropped leaves a marker, which this path never emitted, so a
     // reader who did not already know the file had no signal that a value had
     // been cut. `distill_env_output` has said so all along; this now matches it.
-    (redacted > 0).then(|| format!("[VENG: {redacted} sensitive value(s) redacted]\n{out}"))
+    (redacted > 0).then(|| format!("[OMNI: {redacted} sensitive value(s) redacted]\n{out}"))
 }
 
 /// A key whose *value* must never be delivered. Trimmed so an indented or
@@ -1276,7 +1276,7 @@ pub fn distill_env_output(input: &str) -> String {
     // One line, only when something was hidden, so a reader who sees `[REDACTED]`
     // knows VENG did it rather than the command.
     if redacted_count > 0 {
-        return format!("[VENG: {redacted_count} sensitive value(s) redacted]\n{out}");
+        return format!("[OMNI: {redacted_count} sensitive value(s) redacted]\n{out}");
     }
     out
 }
@@ -1350,7 +1350,7 @@ mod tests {
         assert_eq!(
             lines,
             [
-                "[VENG: 2 sensitive value(s) redacted]",
+                "[OMNI: 2 sensitive value(s) redacted]",
                 "run: |",
                 "  APP_ROOT=/tmp/x APP_LISTEN=tcp:127.0.0.1:7777 \\",
                 "    APP_TOKEN=[REDACTED] ./bin/app serve &",
@@ -1507,7 +1507,7 @@ mod tests {
             assert!(!out.contains(&token), "{token} was delivered");
             assert_eq!(
                 out,
-                "[VENG: 1 sensitive value(s) redacted]\n/home/dev/.keyfile:1: command not found: [REDACTED]\n"
+                "[OMNI: 1 sensitive value(s) redacted]\n/home/dev/.keyfile:1: command not found: [REDACTED]\n"
             );
         }
     }
@@ -1533,7 +1533,7 @@ mod tests {
         let out = redact_sensitive_assignments(&line).expect("a credential");
         assert_eq!(
             out,
-            "[VENG: 1 sensitive value(s) redacted]\nANTHROPIC_API_KEY=[REDACTED]\n"
+            "[OMNI: 1 sensitive value(s) redacted]\nANTHROPIC_API_KEY=[REDACTED]\n"
         );
     }
 
@@ -1801,7 +1801,7 @@ mod tests {
             assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
         }
         assert!(
-            out.starts_with("[VENG: 2 sensitive value(s) redacted]"),
+            out.starts_with("[OMNI: 2 sensitive value(s) redacted]"),
             "a cut with no marker is a silent one: {out}"
         );
         assert!(
@@ -1995,7 +1995,7 @@ mod tests {
             assert!(out.contains(kept), "comparison destroyed: {kept}\n{out}");
         }
         assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
-        assert!(out.starts_with("[VENG: 2 sensitive"), "{out}");
+        assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
     }
 
     /// Review of #904: the command after a quoted credential survives, while a

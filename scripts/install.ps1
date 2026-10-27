@@ -7,12 +7,12 @@ Installs the latest VENG binary to $HOME\.local\bin\veng.exe.
 Supports: Windows (x86_64)
 
 .EXAMPLE
-irm https://raw.githubusercontent.com/fajarhide/veng/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/fajarhide/omni/main/scripts/install.ps1 | iex
 #>
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "fajarhide/veng"
+$Repo = "fajarhide/omni"
 $InstallDir = if ($env:VENG_INSTALL_DIR) { $env:VENG_INSTALL_DIR } else { "$env:USERPROFILE\.local\bin" }
 $Version = if ($env:VENG_VERSION) { $env:VENG_VERSION } else { "latest" }
 

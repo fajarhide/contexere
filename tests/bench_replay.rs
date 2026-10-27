@@ -996,7 +996,7 @@ fn replay_execution_traces_net_savings() {
                 //
                 // Counting by string cannot be made correct from this side. A
                 // substring scan reads a surviving line that quotes the wording;
-                // filtering on the `[VENG: ` prefix reads a surviving line that
+                // filtering on the `[OMNI: ` prefix reads a surviving line that
                 // starts with it, and this repository writes exactly those lines
                 // into its changelog and its manual, so the corpus carries them.
                 // #557 is the same lesson one guard earlier: identity has to come
@@ -1568,7 +1568,7 @@ fn session_marker_len_matches_the_ledger() {
 
     let marker = view
         .lines()
-        .find(|l| l.starts_with("[VENG:"))
+        .find(|l| l.starts_with("[OMNI:"))
         .expect("the fold emits a marker");
     // 40 lines, so the count is two digits, which is what the constant assumes.
     assert_eq!(marker.len() as u64, SESSION_MARKER_LEN);

@@ -5,25 +5,25 @@
 **macOS dan Linux, lewat Homebrew:**
 
 ```sh
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 ```
 
 **macOS, Linux, WSL:**
 
 ```sh
-curl -fsSL veng.weekndlabs.com/install | bash
+curl -fsSL omni.weekndlabs.com/install | bash
 ```
 
 **Windows, PowerShell:**
 
 ```powershell
-irm veng.weekndlabs.com/install.ps1 | iex
+irm omni.weekndlabs.com/install.ps1 | iex
 ```
 
 **Dari sumber**, yang butuh toolchain sesuai pin di `rust-toolchain.toml`:
 
 ```sh
-git clone https://github.com/fajarhide/veng
+git clone https://github.com/fajarhide/omni
 cd veng
 cargo build --release
 ```
@@ -31,7 +31,7 @@ cargo build --release
 **Dari dalam Claude Code**, kalau Anda lebih suka agent yang mengurus sisanya:
 
 ```
-/plugin marketplace add fajarhide/veng
+/plugin marketplace add fajarhide/omni
 /plugin install veng@veng
 ```
 
@@ -114,7 +114,7 @@ sebenarnya.
 
 ```sh
 veng update      # untuk pemasangan Homebrew
-brew upgrade veng
+brew upgrade omni
 ```
 
 Jalankan ulang `veng init` sesudahnya kalau sebuah rilis mengubah kontrak

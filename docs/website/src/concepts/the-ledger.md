@@ -18,13 +18,13 @@ A run of consecutive lines that were all emitted earlier becomes one marker nami
 the count and a handle. Everything else passes through byte for byte.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 In a `Read`, the marker is followed by one `⋮` per line it replaced:
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ⋮
 ⋮      (38 more)
 ⋮
@@ -145,7 +145,7 @@ The archive happens **before** the marker, so a handle never names content that 
 not stored. And what gets recorded is what was **delivered**, not what arrived: a run
 that became a marker never reached the agent, so recording it would let the next
 occurrence claim `already shown` about bytes nobody received. That was a real defect
-([#465](https://github.com/fajarhide/veng/issues/465)) and it cut both ways, because
+([#465](https://github.com/fajarhide/omni/issues/465)) and it cut both ways, because
 session origin charges a third of what project origin does, so the false claim also
 made the ledger three times more willing to fold.
 
@@ -229,9 +229,9 @@ The wording used to make that worse. `from an earlier session` states where the 
 came from, and a reader took it as *your* earlier session, which it need not be, and
 then as a claim they had already seen the content. A run marker now says
 `not shown here` and states the only thing the reader has to act on, which is that
-these bytes never arrived ([#567](https://github.com/fajarhide/veng/issues/567)).
+these bytes never arrived ([#567](https://github.com/fajarhide/omni/issues/567)).
 
-As of [#509](https://github.com/fajarhide/veng/issues/509) the agent is recorded on
+As of [#509](https://github.com/fajarhide/omni/issues/509) the agent is recorded on
 every line, and nothing keys on it yet. The measurement decides that: keying the scope
 on `(project, agent)` would end the cross-agent case together with whatever reuse in
 it is genuinely free, and the corpus says the effect is currently latent rather than

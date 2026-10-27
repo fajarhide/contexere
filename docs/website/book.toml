@@ -10,7 +10,7 @@ build-dir = "book"
 create-missing = false
 
 [output.html]
-# Published under /docs on veng.weekndlabs.com. Page links are relative and work
+# Published under /docs on omni.weekndlabs.com. Page links are relative and work
 # at any prefix; this is what the 404 page and the search index need in order to
 # build absolute URLs that do not drop the prefix.
 site-url = "/docs/"
@@ -20,8 +20,8 @@ site-url = "/docs/"
 default-theme = "light"
 preferred-dark-theme = "navy"
 no-section-label = true
-git-repository-url = "https://github.com/fajarhide/veng"
-edit-url-template = "https://github.com/fajarhide/veng/edit/main/docs/website/{path}"
+git-repository-url = "https://github.com/fajarhide/omni"
+edit-url-template = "https://github.com/fajarhide/omni/edit/main/docs/website/{path}"
 additional-css = ["theme/veng.css"]
 additional-js = ["theme/pagetoc.js", "theme/siteframe.js"]
 

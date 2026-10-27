@@ -137,12 +137,12 @@ impl Origin {
             // 15 bytes more than the wording it replaces on this arm only.
             Self::Session if matches!(source, SourceOfSighting::ThisCommandAgain) => (
                 format!(
-                    "[VENG: {lines} lines identical to an earlier run, veng retrieve {handle}]"
+                    "[OMNI: {lines} lines identical to an earlier run, omni retrieve {handle}]"
                 ),
                 "session_rerun",
             ),
             Self::Session => (
-                format!("[VENG: {lines} lines already shown{from}, veng retrieve {handle}]"),
+                format!("[OMNI: {lines} lines already shown{from}, omni retrieve {handle}]"),
                 "session_run",
             ),
             // #567. `from an earlier session` states provenance and reads as
@@ -157,7 +157,7 @@ impl Origin {
             // session form's trim was worth 0.3 points on its own (#450), so the
             // honest wording is the cheaper one here rather than a trade.
             Self::Project => (
-                format!("[VENG: {lines} lines not shown here{from}, veng retrieve {handle}]"),
+                format!("[OMNI: {lines} lines not shown here{from}, omni retrieve {handle}]"),
                 "project_run",
             ),
         }
@@ -189,7 +189,7 @@ impl Origin {
         match self {
             Self::Session => (
                 format!(
-                    "[VENG: identical to the {lines} lines already shown{from}, veng retrieve {handle}]"
+                    "[OMNI: identical to the {lines} lines already shown{from}, omni retrieve {handle}]"
                 ),
                 "session_whole",
             ),
@@ -198,7 +198,7 @@ impl Origin {
             // marker is already gated at `MIN_WHOLE_OUTPUT_FOLD` (#567).
             Self::Project => (
                 format!(
-                    "[VENG: identical to {lines} lines from an earlier session{from}, none shown here, veng retrieve {handle}]"
+                    "[OMNI: identical to {lines} lines from an earlier session{from}, none shown here, omni retrieve {handle}]"
                 ),
                 "project_whole",
             ),
@@ -1402,7 +1402,7 @@ mod tests {
         // earlier draft of this test passed with the handle column written blank,
         // which would have shipped a retrieve rate that is always zero.
         let handle = again
-            .split("veng retrieve ")
+            .split("omni retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("the marker carries a handle");
@@ -1468,7 +1468,7 @@ mod tests {
         let view = ledger.project(&second_input).expect("the repeat folds");
 
         let handle = view
-            .split("veng retrieve ")
+            .split("omni retrieve ")
             .nth(1)
             .and_then(|s| s.split(']').next())
             .expect("the marker names a handle");
@@ -1756,7 +1756,7 @@ mod tests {
         let second = ledger.project(&text).expect("projectable");
 
         let handle = second
-            .split_once("veng retrieve ")
+            .split_once("omni retrieve ")
             .and_then(|(_, rest)| rest.split_once(']'))
             .map(|(h, _)| h.to_string())
             .expect("a handle was offered");
@@ -2852,7 +2852,7 @@ mod tests {
             "the error was elided on the re-run: {second}"
         );
         assert!(
-            second.contains("[VENG:"),
+            second.contains("[OMNI:"),
             "the repeated context should still fold, or this proves nothing: {second}"
         );
     }

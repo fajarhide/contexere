@@ -91,7 +91,7 @@ pub fn validate_startup() -> Option<String> {
         None
     } else {
         Some(format!(
-            "\n  [VENG × Hermes Startup Validation, {} issue(s)]\n{}\n\
+            "\n  [OMNI × Hermes Startup Validation, {} issue(s)]\n{}\n\
              → Fix all: `veng init --hermes && hermes gateway restart`\n",
             warnings.len(),
             warnings

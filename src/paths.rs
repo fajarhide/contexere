@@ -18,9 +18,15 @@ use dirs::home_dir;
 use std::env;
 use std::path::PathBuf;
 
-/// The legacy tree, `~/.veng`, whether or not it exists.
+/// The default tree, `~/.veng`, whether or not it exists.
 fn legacy_home() -> PathBuf {
     home_dir().unwrap_or_else(temp_dir).join(".veng")
+}
+
+/// The tree OMNI wrote. Used where it stands and never moved, so going back to
+/// an `omni` release still finds its own data (#876).
+fn omni_home() -> PathBuf {
+    home_dir().unwrap_or_else(temp_dir).join(".omni")
 }
 
 /// Resolve one of the two roots.
@@ -34,9 +40,12 @@ fn legacy_home() -> PathBuf {
 ///    so upgrading never appears to lose a database. #217 offered moving the
 ///    directory with a notice as an alternative; silently continuing to work is
 ///    the boring option and the one that cannot surprise anyone.
-/// 4. `XDG_CONFIG_HOME/veng` / `XDG_DATA_HOME/veng` for a fresh install on a
-///    machine that asked for the spec.
-/// 5. `~/.veng`.
+/// 4. An existing `~/.omni`, for the same reason: an OMNI install upgraded to
+///    VENG keeps its history without a copy (#876).
+/// 5. `XDG_CONFIG_HOME/veng` / `XDG_DATA_HOME/veng` for a fresh install on a
+///    machine that asked for the spec, or the `omni` dir beside it if only that
+///    one exists.
+/// 6. `~/.veng`.
 ///
 /// Read once through a `LazyLock` at each call site below. Cargo runs tests in
 /// parallel in one process, so a value re-read per call could change under a
@@ -53,8 +62,18 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
     if legacy.exists() {
         return legacy;
     }
+    let omni = omni_home();
+    if omni.exists() {
+        return omni;
+    }
     if let Some(p) = env::var_os(xdg_var).filter(|p| !p.is_empty()) {
-        return PathBuf::from(p).join("veng");
+        let base = PathBuf::from(p);
+        let (veng, omni) = (base.join("veng"), base.join("omni"));
+        return if !veng.exists() && omni.exists() {
+            omni
+        } else {
+            veng
+        };
     }
     legacy
 }
@@ -96,10 +115,21 @@ pub fn temp_dir() -> PathBuf {
     env::temp_dir()
 }
 
-/// Get path to VENG SQLite database
+/// Get path to VENG SQLite database. Inside a tree OMNI left behind that is
+/// still `omni.db`, read in place (#876).
 #[inline]
 pub fn database_path() -> PathBuf {
-    data_home().join("veng.db")
+    database_in(&data_home())
+}
+
+fn database_in(dir: &std::path::Path) -> PathBuf {
+    let veng = dir.join("veng.db");
+    let omni = dir.join("omni.db");
+    if !veng.exists() && omni.exists() {
+        omni
+    } else {
+        veng
+    }
 }
 
 /// Get path to the user configuration file.
@@ -157,6 +187,18 @@ pub fn restrict_to_owner(_path: &std::path::Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #876: an upgraded OMNI install keeps reading `omni.db` where it is, and
+    /// a `veng.db` beside it wins once one exists.
+    #[test]
+    fn reads_omni_db_in_place_until_a_veng_db_exists() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_eq!(database_in(dir.path()), dir.path().join("veng.db"));
+        std::fs::write(dir.path().join("omni.db"), b"").expect("write");
+        assert_eq!(database_in(dir.path()), dir.path().join("omni.db"));
+        std::fs::write(dir.path().join("veng.db"), b"").expect("write");
+        assert_eq!(database_in(dir.path()), dir.path().join("veng.db"));
+    }
 
     /// #631. Nothing in the tree set a mode, so `~/.veng` and a 147 MB database
     /// of recorded command output sat at 0755 and 0644 under a default umask.

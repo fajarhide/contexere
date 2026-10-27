@@ -1,4 +1,4 @@
-> **VENG replaces OMNI.** Already running OMNI? See [docs/veng/MIGRATING.md](docs/veng/MIGRATING.md). What exists today: [docs/veng/README.md](docs/veng/README.md).
+> **OMNI is now VENG.** Already running OMNI? Nothing breaks: `omni` keeps working and your data stays where it is. See [docs/veng/MIGRATING.md](docs/veng/MIGRATING.md). What exists today: [docs/veng/README.md](docs/veng/README.md).
 
 <div align="center">
 
@@ -11,18 +11,18 @@
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
 
-[![CI](https://github.com/fajarhide/veng/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/veng/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/veng)](https://github.com/fajarhide/veng/releases)
+[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
   [![Rust](https://img.shields.io/badge/built_with-Rust-dca282.svg)](https://www.rust-lang.org/)
   [![MCP](https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square)](https://modelcontextprotocol.io/)
   [![Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/zHTuvZhF2M)
-  [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/veng)](https://github.com/fajarhide/veng/blob/main/LICENSE)
-  [![Hits](https://hits.sh/github.com/fajarhide/veng.svg)](https://hits.sh/github.com/fajarhide/veng/)
+  [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+  [![Hits](https://hits.sh/github.com/fajarhide/omni.svg)](https://hits.sh/github.com/fajarhide/omni/)
   [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 </br></br>
 
 ```bash
-brew install fajarhide/tap/veng && veng init
+brew install fajarhide/tap/omni && veng init
 ```
 
 </br>
@@ -131,9 +131,9 @@ than a sentence asking you to trust it.
 
 | Guarantee | How | Proof |
 |---|---|---|
-| **Get the original back, byte-for-byte** | everything cut is archived in a local SQLite RewindStore; the marker carries a handle, and `veng retrieve <handle>` prints it on any host, with the `veng_retrieve` MCP tool where MCP is wired | [#388](https://github.com/fajarhide/veng/issues/388) |
-| **Never fabricates a result** | a distiller that parsed no signal returns the raw output, never a green `no errors` / `passed` string | [#143](https://github.com/fajarhide/veng/issues/143) |
-| **Failures are never masked** | a command that exits non-zero passes through verbatim | [#120](https://github.com/fajarhide/veng/issues/120) |
+| **Get the original back, byte-for-byte** | everything cut is archived in a local SQLite RewindStore; the marker carries a handle, and `veng retrieve <handle>` prints it on any host, with the `veng_retrieve` MCP tool where MCP is wired | [#388](https://github.com/fajarhide/omni/issues/388) |
+| **Never fabricates a result** | a distiller that parsed no signal returns the raw output, never a green `no errors` / `passed` string | [#143](https://github.com/fajarhide/omni/issues/143) |
+| **Failures are never masked** | a command that exits non-zero passes through verbatim | [#120](https://github.com/fajarhide/omni/issues/120) |
 | **Structured data is never touched** | JSON / YAML / NDJSON / CSV pass through byte-for-byte | `pipeline::format` |
 
 ---
@@ -173,7 +173,7 @@ where the model actually received less.
 Codex CLI needs one extra step. It runs only hooks it has been told to trust and skips
 the rest without a word, so after `veng init --codex` start `codex` once and approve
 them under "Hooks need review". `veng doctor` fails until you do. See
-[#359](https://github.com/fajarhide/veng/issues/359).
+[#359](https://github.com/fajarhide/omni/issues/359).
 
 ---
 
@@ -181,24 +181,24 @@ them under "Hooks need review". `veng doctor` fails until you do. See
 
 **macOS / Linux:**
 ```bash
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 veng init      # interactive setup for Claude, Cursor, VS Code, Codex, Antigravity
 veng doctor    # verify, or `veng doctor --fix`
 ```
 
 **Universal (macOS / Linux / WSL):**
 ```bash
-curl -fsSL veng.weekndlabs.com/install | bash
+curl -fsSL omni.weekndlabs.com/install | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm veng.weekndlabs.com/install.ps1 | iex
+irm omni.weekndlabs.com/install.ps1 | iex
 ```
 
 **Claude Code, from inside the session:**
 ```
-/plugin marketplace add fajarhide/veng
+/plugin marketplace add fajarhide/omni
 /plugin install veng@veng
 ```
 
@@ -240,7 +240,7 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
 * **It hands bytes back rather than inventing a saving.** Where there is nothing
   safe to take, a two-line `git status` or a JSON payload a later step parses, the
   output comes back untouched. **No call came back larger** in this measurement.
-  Two did until ([#398](https://github.com/fajarhide/veng/issues/398)), and we published them while they stood.
+  Two did until ([#398](https://github.com/fajarhide/omni/issues/398)), and we published them while they stood.
 * **21 ms per command**, growing with your history rather than with the payload. On a
   205 MB database it is 61 ms.
 * **End to end, the gap favours you.** These are bytes per command, which is not the
@@ -252,7 +252,7 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
 Per class, with what the filters take, what the ledger adds, and how much of the
 repetition that was there it actually took. `search` captures **0.0%** and that is
 a refusal, not a failure: a `grep` reply folds whole or not at all since
-[#815](https://github.com/fajarhide/veng/issues/815), because folding 9 of 11
+[#815](https://github.com/fajarhide/omni/issues/815), because folding 9 of 11
 matches reads as a file with two, and nothing in this corpus is an identical
 re-run. It cost 4.6 KB across 810 calls.
 
@@ -436,18 +436,18 @@ it as an image.
 ---
 
 ```bash
-brew install fajarhide/tap/veng && veng init
+brew install fajarhide/tap/omni && veng init
 ```
 
 A passion project for the era of agentic AI. Contributions welcome.
 [Apache License 2.0](LICENSE).
 
 <p align="center">
-  <a href="https://star-history.dera.page/#fajarhide/veng&Date">
+  <a href="https://star-history.dera.page/#fajarhide/omni&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date" />
-      <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date" width="600" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date" />
+      <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date" width="600" />
     </picture>
   </a>
 </p>

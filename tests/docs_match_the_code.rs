@@ -273,14 +273,14 @@ fn every_documented_count_matches_the_code() {
 /// Each template is matched **whole**, with its placeholders turned into the
 /// shape they hold at runtime: `{lines}` is a number and `{handle}` is a hex
 /// digest. Two weaker versions were caught before this one. Comparing the text
-/// before the first `{` checked `[VENG: ` and `[VENG: identical to ` and nothing
+/// before the first `{` checked `[OMNI: ` and `[OMNI: identical to ` and nothing
 /// else, so any page holding any marker satisfied it. Comparing literal
 /// fragments independently let one template borrow another's: the whole-output
 /// session example contains `lines already shown, veng retrieve`, so deleting
 /// the ordinary session marker from the page left the guard green (#567).
 ///
 /// Typed placeholders are what stop the same borrowing here: `\d+` after
-/// `[VENG: ` cannot match `identical to the 40`.
+/// `[OMNI: ` cannot match `identical to the 40`.
 #[test]
 fn every_marker_the_ledger_can_print_is_documented() {
     let root = repo_root();
@@ -288,7 +288,7 @@ fn every_marker_the_ledger_can_print_is_documented() {
     let page = std::fs::read_to_string(root.join("docs/website/src/use/markers.md"))
         .expect("read markers.md");
 
-    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[VENG: [^"]*)""#)
+    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[OMNI: [^"]*)""#)
         .expect("valid regex")
         .captures_iter(&ledger)
         .map(|c| c.get(1).expect("group 1").as_str().to_string())
@@ -420,8 +420,8 @@ fn every_worked_example_uses_the_reserved_handle() {
         // today, and a scan over joined text would match prose that happens to
         // end in those words. Stated rather than handled (#588 review).
         for (n, line) in text.lines().enumerate() {
-            for (idx, _) in line.match_indices("veng retrieve ") {
-                let rest = &line[idx + "veng retrieve ".len()..];
+            for (idx, _) in line.match_indices("omni retrieve ") {
+                let rest = &line[idx + "omni retrieve ".len()..];
                 let handle: String = rest.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
                 if handle.len() != 16 {
                     continue;

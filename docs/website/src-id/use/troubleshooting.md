@@ -113,7 +113,7 @@ Yang layak dilaporkan, dalam urutan kepentingan ini:
 3. **Kebisingan.** Bertele-tele tapi tidak berbahaya.
 
 Laporan yang baik membawa keluaran mentah dan keluaran sulingan berdampingan,
-termasuk catatan kaki `[VENG Active]`, perintah `veng exec` yang persis, dan
+termasuk catatan kaki `[OMNI Active]`, perintah `omni exec` yang persis, dan
 `veng --version`. Catatan kakinya sering justru intinya: bug terburuk di sini
 melaporkan pengurangan paling besar.
 
@@ -121,7 +121,7 @@ Reproduksi pada perintah sintetis kalau bisa, supaya tidak ada yang perlu
 disamarkan. Keluaran terminal sungguhan membawa nama host, id akun dan alamat
 internal lebih sering daripada dugaan orang.
 
-Tracker: <https://github.com/fajarhide/veng/issues>
+Tracker: <https://github.com/fajarhide/omni/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, kalau Anda lebih suka bertanya sebelum
 melapor.

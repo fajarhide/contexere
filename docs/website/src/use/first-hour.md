@@ -87,7 +87,7 @@ veng retrieve 0000000000000000            # exit 1, "the documentation example"
 ```
 
 If you are measuring whether VENG did anything at all on a run, that exit code is the
-answer and grepping for `[VENG` is not.
+answer and grepping for `[OMNI` is not.
 
 ## Pin what you are working on
 

@@ -120,7 +120,7 @@ echo "  4. GitHub Release will be created automatically"
 echo ""
 echo " After release completes (~10 min):"
 echo "  5. Run: ./scripts/update_homebrew_sha.sh ${VERSION}"
-echo "  6. Update Homebrew tap with newest veng.rb"
+echo "  6. Update Homebrew tap with newest omni.rb"
 echo ""
 read -r -p "Proceed with release? [y/N] " confirm
 [ "$confirm" = "y" ] || { echo "Aborted."; exit 0; }
@@ -129,5 +129,5 @@ git tag -a "${TAG}" -m "Release ${TAG}"
 git push origin "${BRANCH}" "${TAG}"
 
 echo ""
-ok "Tag ${TAG} pushed! Monitor: https://github.com/fajarhide/veng/actions"
+ok "Tag ${TAG} pushed! Monitor: https://github.com/fajarhide/omni/actions"
 echo "   GitHub Actions will create the release in ~10 minutes."

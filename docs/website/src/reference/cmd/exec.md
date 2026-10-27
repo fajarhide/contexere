@@ -10,7 +10,7 @@ veng exec cargo test
 ```
 cargo test: 411 passed, 1 failed
   FAILED ledger::tests::renders_identical_bytes_for_identical_state
-[VENG Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 This is the harness every bug report in this project is asked to use, because it takes

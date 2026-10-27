@@ -334,7 +334,7 @@ fn distill(
         }
 
         // Safety truncation. The marker carries the line count: `ps aux` lost
-        // 416 of 556 rows here behind a bare `[VENG: output truncated]` while
+        // 416 of 556 rows here behind a bare `[OMNI: output truncated]` while
         // the footer reported it as a 62.2% saving (#219).
         crate::util::text::truncate_with_marker(&mut out, MAX_OUTPUT_BYTES, |dropped, whole| {
             store.and_then(|s| s.store_rewind(dropped, whole))
@@ -408,7 +408,7 @@ fn distill(
 
         let marker = if input_text.len() > crate::guard::limits::MAX_REWIND_BYTES {
             format!(
-                "\n[VENG: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+                "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
                 input_text.len(),
                 crate::guard::limits::MAX_REWIND_BYTES
             )
@@ -424,14 +424,14 @@ fn distill(
                     hash.cyan().bold()
                 )
             } else {
-                format!("\n[VENG: {lost} omitted, veng retrieve {hash} for full output]\n")
+                format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
             };
             r_hash = Some(hash);
             marker
         } else {
             // No store, or the insert did not land. Both leave the content
             // unretrievable, so neither may print a handle for it (#388).
-            format!("\n[VENG: {lost} omitted, full output not archived]\n")
+            format!("\n[OMNI: {lost} omitted, full output not archived]\n")
         };
 
         // A marker that pushes the reply back over the guardrail costs
@@ -462,7 +462,7 @@ fn distill(
     }
 
     // Safety truncation. The marker carries the line count: `ps aux` lost 416 of
-    // 556 rows here behind a bare `[VENG: output truncated]` while the footer
+    // 556 rows here behind a bare `[OMNI: output truncated]` while the footer
     // reported it as a 62.2% saving (#219).
     crate::util::text::truncate_with_marker(&mut output, MAX_OUTPUT_BYTES, |dropped, whole| {
         store.and_then(|s| s.store_rewind(dropped, whole))
@@ -721,7 +721,7 @@ fn emit_output<W: Write, E: Write>(
             crate::cli::stats::format_bytes(result.best_output().len() as u64).green(),
             elapsed.to_string().bright_black()
         );
-        writeln!(error, "{} {}", "[VENG Active]".bold().cyan(), msg)?;
+        writeln!(error, "{} {}", "[OMNI Active]".bold().cyan(), msg)?;
     }
 
     Ok(())
@@ -754,7 +754,7 @@ fn pipeline_in(siblings: &str) -> Option<String> {
         .filter(|line| {
             (line.contains("sh ") || line.contains("zsh ") || line.contains("bash "))
                 && line.contains('|')
-                && line.contains("veng")
+                && (line.contains("veng") || line.contains("omni"))
         })
         .find_map(extract_command_from_pipeline)
 }
@@ -809,7 +809,9 @@ fn detect_sibling_command() -> Option<String> {
             .trim()
             .to_string();
 
-        if parent_line.contains('|') && parent_line.contains("veng") {
+        if parent_line.contains('|')
+            && (parent_line.contains("veng") || parent_line.contains("omni"))
+        {
             #[allow(clippy::collapsible_if)]
             if let Some(cmd) = extract_command_from_pipeline(&parent_line) {
                 return Some(cmd);
@@ -830,7 +832,9 @@ fn detect_sibling_command() -> Option<String> {
 fn extract_command_from_pipeline(line: &str) -> Option<String> {
     // Split by pipe and find the segment immediately before "veng"
     let pipe_parts: Vec<&str> = line.split('|').collect();
-    let veng_idx = pipe_parts.iter().position(|p| p.contains("veng"));
+    let veng_idx = pipe_parts
+        .iter()
+        .position(|p| p.contains("veng") || p.contains("omni"));
 
     if let Some(idx) = veng_idx {
         #[allow(clippy::collapsible_if)]
@@ -948,7 +952,7 @@ mod tests {
             "a lossy reply must be smaller than the bytes it replaces"
         );
         assert!(
-            delivered.contains("veng retrieve "),
+            delivered.contains("omni retrieve "),
             "the caller cannot call what it was not told: {delivered}"
         );
     }

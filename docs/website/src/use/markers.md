@@ -6,7 +6,7 @@ them is the difference between trusting the tool and suspecting it.
 ## The shapes
 
 ```
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
 ```
 
 Content was cut and archived. The 16 characters are a handle:
@@ -14,7 +14,7 @@ Content was cut and archived. The 16 characters are a handle:
 shell in any session.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 The ledger. These lines were emitted earlier **in this session**, so the claim is that
@@ -22,7 +22,7 @@ the agent is still holding them and the handle costs nothing unless it wants to
 re-read.
 
 ```
-[VENG: 40 lines identical to an earlier run, veng retrieve 0000000000000000]
+[OMNI: 40 lines identical to an earlier run, omni retrieve 0000000000000000]
 ```
 
 The ledger again, for the case where the identity is the answer. You ran the same
@@ -31,7 +31,7 @@ than "already shown": a poll re-run to find out whether a value moved is answere
 the value not having moved, and a re-read is answered by the file not having changed.
 
 ```
-[VENG: 40 lines not shown here, veng retrieve 0000000000000000]
+[OMNI: 40 lines not shown here, omni retrieve 0000000000000000]
 ```
 
 Also the ledger, different claim. These lines went to a **different session** of this
@@ -44,8 +44,8 @@ on the directory, so anything running in this repository contributes to it. See
 [what two agents share](../concepts/the-ledger.md#what-two-agents-in-one-repo-share).
 
 ```
-[VENG: identical to the 40 lines already shown, veng retrieve 0000000000000000]
-[VENG: identical to 40 lines from an earlier session, none shown here, veng retrieve 0000000000000000]
+[OMNI: identical to the 40 lines already shown, omni retrieve 0000000000000000]
+[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve 0000000000000000]
 ```
 
 The same two claims, for a reply that is repeated **in full**. When the fold covers
@@ -54,7 +54,7 @@ every line, the marker is the whole output rather than a gap inside it, so it sa
 hundreds. Anything less than the whole reply keeps the wording above.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ⋮
 ⋮
 ```
@@ -66,7 +66,7 @@ what lets a fold sit between two pieces of content you still need. The filler is
 retrievable content: `veng retrieve` on the handle above prints the real lines.
 
 ```
-[VENG: 40 lines already shown from charlie.tf, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
 ```
 
 Any of the four can carry `from <source>`, naming the command whose output first
@@ -87,7 +87,7 @@ every marker would cost savings on the common case to label the rare one.
 Collapse. A run of near-identical lines, replaced by a count.
 
 ```
-[VENG Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 The footer, on `veng exec` and pipe mode. Input size, output size, and how long the
@@ -100,8 +100,8 @@ pipeline took.
 The pipeline recognised some of the output but not all of it.
 
 ```
-[VENG: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, veng retrieve 0000000000000000]
-[VENG: output truncated, 50000 of 180000 bytes kept]
+[OMNI: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, omni retrieve 0000000000000000]
+[OMNI: output truncated, 50000 of 180000 bytes kept]
 ```
 
 The last cut before a reply leaves, at 50 KB. The line form keeps the start and the end,
@@ -111,7 +111,7 @@ keeps the start only, so a single enormous line loses its tail. The handle is th
 the dropped part was archived; without one, the marker still says what was removed.
 
 ```
-[VENG: 2 sensitive value(s) redacted]
+[OMNI: 2 sensitive value(s) redacted]
 ```
 
 Credential redaction on command output. A line that assigns a value to a sensitive name
@@ -153,7 +153,7 @@ Redaction protects what the agent receives, not your disk. VENG's local trace st
 the raw output, secret included, for seven days.
 
 ```
-[VENG: Re-injecting critical files due to Warning pressure]
+[OMNI: Re-injecting critical files due to Warning pressure]
 ```
 
 When the context is under pressure (`Warning` or `Critical`), VENG periodically puts up to

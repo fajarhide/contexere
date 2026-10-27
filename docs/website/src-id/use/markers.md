@@ -7,7 +7,7 @@ mencurigainya.
 ## Bentuk-bentuknya
 
 ```
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
 ```
 
 Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
@@ -15,7 +15,7 @@ Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
 dari shell mana pun di sesi mana pun.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 Ledger. Baris-baris ini sudah dikeluarkan sebelumnya **di sesi ini**, jadi
@@ -23,7 +23,7 @@ klaimnya adalah agent masih memegangnya dan handle-nya tidak berongkos kecuali i
 memang mau membaca ulang.
 
 ```
-[VENG: 40 lines identical to an earlier run, veng retrieve 0000000000000000]
+[OMNI: 40 lines identical to an earlier run, omni retrieve 0000000000000000]
 ```
 
 Ledger lagi, untuk kasus ketika kesamaannya justru jawabannya. Anda menjalankan
@@ -33,7 +33,7 @@ sebuah nilai berubah dijawab oleh nilainya yang tidak berubah, dan pembacaan ula
 dijawab oleh berkasnya yang tidak berubah.
 
 ```
-[VENG: 40 lines not shown here, veng retrieve 0000000000000000]
+[OMNI: 40 lines not shown here, omni retrieve 0000000000000000]
 ```
 
 Ledger juga, klaim berbeda. Baris-baris ini pergi ke **sesi lain** dari proyek
@@ -46,8 +46,8 @@ direktorinya, jadi apa pun yang berjalan di repositori ini ikut menyumbang. Liha
 [apa yang dibagi dua agent](../concepts/the-ledger.md#apa-yang-dibagi-dua-agent-dalam-satu-repo).
 
 ```
-[VENG: identical to the 40 lines already shown, veng retrieve 0000000000000000]
-[VENG: identical to 40 lines from an earlier session, none shown here, veng retrieve 0000000000000000]
+[OMNI: identical to the 40 lines already shown, omni retrieve 0000000000000000]
+[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve 0000000000000000]
 ```
 
 Dua klaim yang sama, untuk jawaban yang terulang **seluruhnya**. Ketika
@@ -57,7 +57,7 @@ baris di tempat run ulang akan mencetak ratusan baris yang sama. Apa pun yang
 kurang dari seluruh jawaban memakai kalimat di atasnya.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ⋮
 ⋮
 ```
@@ -70,7 +70,7 @@ boleh berada di antara dua bagian yang masih Anda butuhkan. Baris pengisi itu bu
 yang bisa diambil: `veng retrieve` pada handle di atas mencetak baris aslinya.
 
 ```
-[VENG: 40 lines already shown from charlie.tf, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
 ```
 
 Keempatnya bisa membawa `from <sumber>`, yang menyebut perintah yang keluarannya
@@ -93,7 +93,7 @@ memotong penghematan pada kasus yang umum demi menamai kasus yang jarang.
 Collapse. Deretan baris yang nyaris identik, diganti sebuah hitungan.
 
 ```
-[VENG Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 Catatan kaki, pada `veng exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
@@ -106,8 +106,8 @@ dan berapa lama pipeline-nya berjalan.
 Pipeline mengenali sebagian keluarannya, tapi tidak semuanya.
 
 ```
-[VENG: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, veng retrieve 0000000000000000]
-[VENG: output truncated, 50000 of 180000 bytes kept]
+[OMNI: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, omni retrieve 0000000000000000]
+[OMNI: output truncated, 50000 of 180000 bytes kept]
 ```
 
 Potongan terakhir sebelum sebuah jawaban dikirim, di 50 KB. Bentuk barisnya mempertahankan
@@ -118,7 +118,7 @@ yang sangat panjang kehilangan ekornya. Handle ada kalau bagian yang dibuang dia
 tanpa handle pun penandanya tetap menyebut apa yang dibuang.
 
 ```
-[VENG: 2 sensitive value(s) redacted]
+[OMNI: 2 sensitive value(s) redacted]
 ```
 
 Redaksi kredensial pada keluaran perintah. Baris yang memberi nilai ke nama yang sensitif
@@ -161,7 +161,7 @@ Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace l
 menyimpan keluaran mentahnya, termasuk kredensialnya, selama tujuh hari.
 
 ```
-[VENG: Re-injecting critical files due to Warning pressure]
+[OMNI: Re-injecting critical files due to Warning pressure]
 ```
 
 Saat konteks tertekan (`Warning` atau `Critical`), VENG secara berkala menaruh kembali sampai

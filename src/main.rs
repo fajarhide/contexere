@@ -244,6 +244,12 @@ fn restore_default_sigpipe() {}
 fn main() {
     // First, before any thread exists: let OMNI_* settings keep working as VENG_*.
     legacy::adopt_legacy_env();
+    // A terminal only: hooks read stderr too, and their replies must not change shape (#876).
+    if legacy::invoked_as_omni() && io::stderr().is_terminal() {
+        eprintln!(
+            "note: omni is now veng. Both names work for now; `veng migrate` moves Claude Code across."
+        );
+    }
 
     restore_default_sigpipe();
 

@@ -40,7 +40,7 @@ Done and tested:
 
 - The rename from OMNI to VENG across the binary, library, hooks, MCP tools,
   environment variables, and docs.
-- `veng migrate`, which moves an OMNI install across. See [MIGRATING.md](MIGRATING.md).
+- `veng migrate`, which points Claude Code from `omni` to `veng`. Data stays where it is. See [MIGRATING.md](MIGRATING.md).
 - `OMNI_*` environment variables keep working as `VENG_*`. A `VENG_*` variable
   that is already set wins.
 - Dashboard panels for the last seven days' cost (read from Claude Code's own
@@ -58,7 +58,7 @@ Not done yet:
 - Session replay and verifiable savings receipts (Phase 5).
 - Migration of agents other than Claude Code.
 - The update check and homepage still point at addresses that do not exist yet
-  (`veng.weekndlabs.com`, `github.com/fajarhide/veng`).
+  (`omni.weekndlabs.com`, `github.com/fajarhide/omni`).
 
 ## Known limits of the dashboard
 

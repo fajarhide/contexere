@@ -24,7 +24,7 @@ const TAIL_BUDGET_FRACTION: usize = 5;
 ///
 /// Every other cut in this codebase states a count, `… and N more`,
 /// `[N similar lines collapsed]`, `... [N more rows]`, `+N more files`. The
-/// hooks' final safety truncation said only `[VENG: output truncated]`, so a
+/// hooks' final safety truncation said only `[OMNI: output truncated]`, so a
 /// two-line cut and a 416-line one read identically and no caller could tell
 /// which it was holding (#219, the #111 never-drop invariant).
 ///
@@ -75,7 +75,7 @@ pub fn truncate_with_marker(
         let handle = archived_handle(&s[end..], total_bytes, archive);
         s.truncate(end);
         s.push_str(&format!(
-            "\n[VENG: output truncated, {end} of {total_bytes} bytes kept{handle}]\n"
+            "\n[OMNI: output truncated, {end} of {total_bytes} bytes kept{handle}]\n"
         ));
         return;
     }
@@ -83,7 +83,7 @@ pub fn truncate_with_marker(
     let dropped_lines = s[head_end..tail_start].lines().count();
     let handle = archived_handle(&s[head_end..tail_start], total_bytes, archive);
     let marker = format!(
-        "[VENG: output truncated, {} of {total_lines} lines kept, {dropped_lines} dropped from the middle{handle}]\n",
+        "[OMNI: output truncated, {} of {total_lines} lines kept, {dropped_lines} dropped from the middle{handle}]\n",
         total_lines - dropped_lines
     );
 
@@ -139,7 +139,7 @@ fn archived_handle(
         return String::new();
     }
     match archive(dropped, whole_len) {
-        Some(hash) => format!(", veng retrieve {hash}"),
+        Some(hash) => format!(", omni retrieve {hash}"),
         None => String::new(),
     }
 }
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(s, "Hello, ");
     }
 
-    /// #219: the hooks' final cut said only `[VENG: output truncated]`, so a
+    /// #219: the hooks' final cut said only `[OMNI: output truncated]`, so a
     /// 416-row loss on `ps aux` was indistinguishable from a two-line one.
     #[test]
     fn truncation_marker_states_how_many_lines_survived() {
@@ -246,7 +246,7 @@ mod tests {
         );
         assert!(
             s.contains(&format!(
-                "[VENG: output truncated, {kept} of 100 lines kept, {} dropped from the middle]",
+                "[OMNI: output truncated, {kept} of 100 lines kept, {} dropped from the middle]",
                 100 - kept
             )),
             "the marker must name what it removed: {s}"
@@ -290,7 +290,7 @@ mod tests {
         });
 
         assert!(
-            s.contains("veng retrieve 0000000000000000"),
+            s.contains("omni retrieve 0000000000000000"),
             "the marker must name the handle: {s}"
         );
         assert!(
@@ -316,7 +316,7 @@ mod tests {
             "content over the cap was still offered to the store"
         );
         assert!(
-            !s.contains("veng retrieve"),
+            !s.contains("omni retrieve"),
             "promised a handle it has not: {s}"
         );
     }
@@ -348,7 +348,7 @@ mod tests {
         truncate_with_marker(&mut s, 50, |_, _| None);
 
         assert!(
-            s.contains("[VENG: output truncated, 50 of 200 bytes kept]"),
+            s.contains("[OMNI: output truncated, 50 of 200 bytes kept]"),
             "expected a byte count: {s}"
         );
     }

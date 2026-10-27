@@ -611,7 +611,7 @@ const INJECT_MAX_BYTES: usize = 1000;
 /// useful half-written.
 pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
     let mut out = String::with_capacity(INJECT_MAX_BYTES);
-    out.push_str("[VENG Context] resuming a session that ran ");
+    out.push_str("[OMNI Context] resuming a session that ran ");
     out.push_str(&state.command_count.to_string());
     out.push_str(" commands.\n");
 
@@ -1018,7 +1018,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let mut ctx = format!("[VENG Context] Task: {}.", task);
+        let mut ctx = format!("[OMNI Context] Task: {}.", task);
         if !hot_str.is_empty() {
             ctx.push_str(&format!(" Hot: {}.", hot_str));
         }

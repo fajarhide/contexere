@@ -93,7 +93,7 @@ veng retrieve 0000000000000000              # exit 1, "the documentation example
 ```
 
 Kalau Anda sedang mengukur apakah VENG melakukan sesuatu sama sekali pada suatu run, exit
-code itulah jawabannya, bukan hasil grep terhadap `[VENG`.
+code itulah jawabannya, bukan hasil grep terhadap `[OMNI`.
 
 ## Pancang apa yang sedang Anda kerjakan
 

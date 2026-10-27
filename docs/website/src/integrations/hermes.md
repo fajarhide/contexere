@@ -10,7 +10,7 @@ VENG plugs into Hermes twice: a plugin on the hook path, and the MCP server.
 ## Prerequisites
 
 ```sh
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 veng --version
 veng doctor
 

@@ -7,7 +7,7 @@ ditebak siapa pun.
 
 Setiap angka berasal dari pemutaran ulang 6.656 perintah nyata yang sama seperti
 yang diuraikan di
-[Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks), jadi semuanya
+[Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks), jadi semuanya
 rata-rata atas campuran perintah yang nyata, bukan hari bagus yang dipetik dari
 sebuah log.
 

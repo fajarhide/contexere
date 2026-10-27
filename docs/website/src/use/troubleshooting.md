@@ -103,13 +103,13 @@ Worth reporting, in this order of importance:
 3. **Noise.** Verbose but harmless.
 
 A good report carries the raw output and the distilled output side by side, including
-the `[VENG Active]` footer, the exact `veng exec` command, and `veng --version`. The
+the `[OMNI Active]` footer, the exact `omni exec` command, and `omni --version`. The
 footer is often the point: the worst bugs here report the highest reductions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real
 terminal output carries hostnames, account ids and internal addresses more often than
 people expect.
 
-Tracker: <https://github.com/fajarhide/veng/issues>
+Tracker: <https://github.com/fajarhide/omni/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, if you would rather ask before filing.

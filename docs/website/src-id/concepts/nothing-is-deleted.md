@@ -5,7 +5,7 @@ SHA-256 miliknya. Agent menerima penanda yang membawa handle 16 karakter, dan
 handle itu mengembalikan aslinya persis byte demi byte.
 
 ```
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
 ```
 
 ```sh
@@ -53,7 +53,7 @@ diarsipkan di 64 KB menurunkannya ke 13,3 MB sambil tetap mencakup 3.604 dari
 Jejak yang dipakai untuk benchmark dipangkas terpisah, secara bawaan pada hari
 ketujuh. Pemangkasan itu alasan tidak ada angka yang diterbitkan di sini bisa
 diturunkan ulang setelah seminggu, dan alasan setiap angka di
-[Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks) menyebut jendela
+[Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks) menyebut jendela
 waktu pengukurannya.
 
 ## Di mana ia tinggal

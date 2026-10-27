@@ -16,7 +16,7 @@ Fixes go into the next release off `main`. Only the current minor line gets them
 developer types, so a report needs an embargo until there is a release to upgrade
 to.
 
-1. **[Report a vulnerability privately](https://github.com/fajarhide/veng/security/advisories/new)**.
+1. **[Report a vulnerability privately](https://github.com/fajarhide/omni/security/advisories/new)**.
    GitHub's private reporting is enabled on this repository, and the thread stays
    between you and the maintainer.
 2. **Email** [security@weekndlabs.com](mailto:security@weekndlabs.com) if you would
@@ -40,7 +40,7 @@ from which commit. `SHA256SUMS` only proves a file has not changed since it was
 published; provenance is what says who published it.
 
 ```bash
-gh attestation verify veng-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/veng
+gh attestation verify veng-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/omni
 ```
 
 Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.

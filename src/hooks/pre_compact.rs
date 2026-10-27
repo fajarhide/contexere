@@ -135,7 +135,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     //   - Footer:           ~100 tokens
 
     let mut out = format!(
-        "⚡ VENG Context Snapshot, preserved before compaction\n\
+        "⚡ OMNI Context Snapshot, preserved before compaction\n\
         CRITICAL: This is injected context. Do NOT re-read files listed here, \n\
         use this summary directly. File contents below are accurate as of this session.\n\
         \n\
@@ -287,7 +287,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         // Approximate character length for 6000 tokens
         let target_chars = ((6000.0 / current_tokens as f64) * out.len() as f64) as usize;
         crate::util::text::safe_truncate(&mut out, target_chars.saturating_sub(50));
-        out.push_str("\n... [VENG: Intelligently omitted to stay within 6000 token budget]\n");
+        out.push_str("\n... [OMNI: Intelligently omitted to stay within 6000 token budget]\n");
     }
 
     out
@@ -417,7 +417,7 @@ mod tests {
         });
 
         let _ = process_payload(&input.to_string(), store.clone(), session);
-        assert!(recorded_snapshot(&store, "123").contains("VENG Context Snapshot"));
+        assert!(recorded_snapshot(&store, "123").contains("OMNI Context Snapshot"));
     }
 
     #[test]
@@ -512,7 +512,7 @@ mod tests {
 
         let events = store.search_session_events(&session_id, "PreCompact", 10);
         assert_eq!(events.len(), 1);
-        assert!(events[0].contains("VENG Context Snapshot"));
+        assert!(events[0].contains("OMNI Context Snapshot"));
     }
 
     #[test]

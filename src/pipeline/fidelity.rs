@@ -46,14 +46,14 @@ mod tests {
     #[test]
     fn rejects_an_output_that_lost_the_only_error_line() {
         let folded = "23 | const first = data.rows[0].id;\n\
-                      [VENG: 3 lines already shown, veng retrieve 0000000000000000]\n";
+                      [OMNI: 3 lines already shown, omni retrieve 0000000000000000]\n";
 
         assert!(!preserves_failures(FAILING, folded));
     }
 
     #[test]
     fn accepts_an_output_that_kept_it() {
-        let kept = "[VENG: 1 lines already shown, veng retrieve 0000000000000000]\n\
+        let kept = "[OMNI: 1 lines already shown, omni retrieve 0000000000000000]\n\
                     TypeError: undefined is not an object (evaluating 'data.rows[0]')\n";
 
         assert!(preserves_failures(FAILING, kept));

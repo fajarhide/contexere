@@ -412,7 +412,7 @@ fn build_summary(state: &SessionState, now: i64) -> String {
 
     if state.estimated_tokens_saved() > 0 {
         out.push_str(&format!(
-            "VENG saved ~{}tok last session. ",
+            "OMNI saved ~{}tok last session. ",
             state.estimated_tokens_saved()
         ));
     }

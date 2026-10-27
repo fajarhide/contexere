@@ -5,25 +5,25 @@
 **macOS and Linux, via Homebrew:**
 
 ```sh
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 ```
 
 **macOS, Linux, WSL:**
 
 ```sh
-curl -fsSL veng.weekndlabs.com/install | bash
+curl -fsSL omni.weekndlabs.com/install | bash
 ```
 
 **Windows, PowerShell:**
 
 ```powershell
-irm veng.weekndlabs.com/install.ps1 | iex
+irm omni.weekndlabs.com/install.ps1 | iex
 ```
 
 **From source**, which needs the toolchain pinned in `rust-toolchain.toml`:
 
 ```sh
-git clone https://github.com/fajarhide/veng
+git clone https://github.com/fajarhide/omni
 cd veng
 cargo build --release
 ```
@@ -31,7 +31,7 @@ cargo build --release
 **From inside Claude Code**, if you would rather have the agent do the rest:
 
 ```
-/plugin marketplace add fajarhide/veng
+/plugin marketplace add fajarhide/omni
 /plugin install veng@veng
 ```
 
@@ -108,7 +108,7 @@ actual host.
 
 ```sh
 veng update      # Homebrew installs
-brew upgrade veng
+brew upgrade omni
 ```
 
 Re-run `veng init` afterwards if a release changes the hook contract. The changelog

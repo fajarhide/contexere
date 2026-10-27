@@ -785,7 +785,7 @@ impl VengServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 let mut msg = format!(
-                    "{}{}[VENG Context] Task: {}. Hot: {}. Error: {}",
+                    "{}{}[OMNI Context] Task: {}. Hot: {}. Error: {}",
                     goal_str, last_session_str, task, hot_str, err
                 );
                 if msg.len() > 400 {
@@ -1578,7 +1578,31 @@ impl VengServer {
     /// The router the served handler uses.
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
-        Self::router_for(&agent_id)
+        let router = Self::router_for(&agent_id);
+        if crate::legacy::invoked_as_omni() {
+            Self::with_omni_names(router)
+        } else {
+            router
+        }
+    }
+
+    /// Serve every `veng_*` tool as `omni_*`. A host registered against `omni mcp`
+    /// before the rename calls tools by those names (#876). Renamed rather than
+    /// doubled, so the advertised surface costs the same bytes it did.
+    fn with_omni_names(
+        mut router: rmcp::handler::server::router::tool::ToolRouter<Self>,
+    ) -> rmcp::handler::server::router::tool::ToolRouter<Self> {
+        let names: Vec<String> = router.map.keys().map(|k| k.to_string()).collect();
+        for name in names {
+            let Some(new) = name.strip_prefix("veng_").map(|r| format!("omni_{r}")) else {
+                continue;
+            };
+            if let Some(mut route) = router.map.remove(name.as_str()) {
+                route.attr.name = new.clone().into();
+                router.map.insert(new.into(), route);
+            }
+        }
+        router
     }
 }
 
@@ -1634,6 +1658,19 @@ pub async fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    /// #876: under the old name every tool keeps its `omni_` name, none is lost,
+    /// and the route answers to the name it advertises.
+    #[test]
+    fn the_omni_name_serves_every_tool_as_omni() {
+        let veng = VengServer::router_from("claude_code", true);
+        let omni = VengServer::with_omni_names(VengServer::router_from("claude_code", true));
+        assert_eq!(veng.list_all().len(), omni.list_all().len());
+        for tool in omni.list_all() {
+            assert!(tool.name.starts_with("omni_"), "{}", tool.name);
+            assert!(omni.map.contains_key(tool.name.as_ref()), "{}", tool.name);
+        }
+    }
 
     /// #351: on Cursor every route to the built-in Shell tool is closed, so the
     /// only way a command's output can be distilled is if VENG is the tool that

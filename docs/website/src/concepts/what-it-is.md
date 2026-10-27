@@ -38,7 +38,7 @@ their own name for the same idea. VENG installs itself there, and in the matchin
 before the tool runs, which it uses only to hand a matched command to itself. The
 command still runs unchanged; the shell never knows.
 
-![VENG runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that veng retrieve reads back.](../media/where-veng-sits.svg)
+![OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back.](../media/where-omni-sits.svg)
 
 Two consequences follow from that position, and they are the reason this shape was
 chosen over a proxy.

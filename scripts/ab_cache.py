@@ -124,7 +124,7 @@ def read_arm(path):
                     if not isinstance(text, str):
                         text = "".join(p.get("text", "") for p in text or [] if isinstance(p, dict))
                     row["result_bytes"] += len(text.encode("utf-8"))
-                    row["markers"] += text.count("[VENG:")
+                    row["markers"] += text.count("[OMNI:")
     return row
 
 

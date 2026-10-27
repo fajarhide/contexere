@@ -72,7 +72,7 @@ fn leaves_a_summary_it_already_wrote() {
 
     let already_distilled = format!(
         "test result: ok. 600 passed; 0 failed;\n\
-         [VENG: 600 lines omitted, veng_retrieve(\"abc123\") for full output]\n\
+         [OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]\n\
          {}",
         // padding so the payload clears the minimum-size gate on its own
         "x".repeat(4000)

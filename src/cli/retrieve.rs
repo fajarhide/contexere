@@ -28,7 +28,7 @@ fn print_help() {
     println!(
         "\nA handle is the 16 characters inside a marker, for example\n  {}\n",
         format!(
-            "[VENG: 50 lines already shown, veng retrieve {}]",
+            "[OMNI: 50 lines already shown, omni retrieve {}]",
             crate::util::text::EXAMPLE_HANDLE
         )
         .bright_black()

@@ -50,7 +50,7 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
             // the next step is an issue, not a config change.
             suggested_action: format!(
                 "`{binary}` may be over-distilled. Open an issue at \
-                 github.com/fajarhide/veng with the raw output."
+                 github.com/fajarhide/omni with the raw output."
             ),
         });
     }

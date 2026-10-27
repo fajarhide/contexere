@@ -1,13 +1,13 @@
 #!/bin/bash
 # VENG — Universal Install Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/veng/main/scripts/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/omni/main/scripts/install.sh | sh
 #
 # Installs the latest VENG binary to ~/.local/bin/veng
 # Supports: macOS (arm64, x86_64), Linux (arm64, x86_64)
 
 set -euo pipefail
 
-REPO="fajarhide/veng"
+REPO="fajarhide/omni"
 INSTALL_DIR="${VENG_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${VENG_VERSION:-latest}"
 
@@ -85,7 +85,7 @@ download_and_install() {
         fi
 
         if [ "$expected" != "$actual" ]; then
-            error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/veng/issues"
+            error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/omni/issues"
         fi
         ok "Checksum verified ✓"
     else
@@ -99,6 +99,8 @@ download_and_install() {
     mkdir -p "$INSTALL_DIR"
     cp "$tmpdir/veng" "$INSTALL_DIR/veng"
     chmod +x "$INSTALL_DIR/veng"
+    # Existing hooks call `omni`; it stays as the same binary (#876).
+    ln -sf veng "$INSTALL_DIR/omni"
 
     # Cleanup
     rm -rf "$tmpdir"

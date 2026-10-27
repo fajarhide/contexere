@@ -1,6 +1,6 @@
 # VENG Semantic Signal Engine for OpenClaw
 
-This plugin provides a secure bridge between your OpenClaw agent and the [VENG Signal Engine](https://github.com/fajarhide/veng).
+This plugin provides a secure bridge between your OpenClaw agent and the [OMNI Signal Engine](https://github.com/fajarhide/omni).
 
 > [!IMPORTANT]
 > **Dependency Required**: This plugin is a wrapper and requires the `veng` CLI binary to be installed on your local system path.
@@ -67,7 +67,7 @@ VENG is built with a **Privacy-First** design intent. This plugin acts as a secu
 - **Node-Level Sanitization**: This plugin explicitly strips ~25 dangerous environment variables (like `LD_PRELOAD`, `NODE_OPTIONS`, `BASH_ENV`) at the process level before execution. Other environment variables are passed through to the command.
 - **Local-Only Architecture**: The VENG engine is designed for local processing. No terminal output is ever sent to external cloud services by the engine.
 - **Local Persistence**: Usage statistics are stored strictly in a local SQLite database at `~/.veng/veng.db`.
-- **Trust & Verification**: As VENG is a tool for developers, we encourage you to audit the full source code and security policies at the [VENG GitHub Repository](https://github.com/fajarhide/veng/blob/main/SECURITY.md) to verify these claims for yourself.
+- **Trust & Verification**: As VENG is a tool for developers, we encourage you to audit the full source code and security policies at the [OMNI GitHub Repository](https://github.com/fajarhide/omni/blob/main/SECURITY.md) to verify these claims for yourself.
 
 > ⚠️ **Note**: This plugin passes through most environment variables to the invoked command. If you run untrusted commands, consider doing so in a restricted environment (container, CI runner, or limited account) with minimal secrets in the environment.
 

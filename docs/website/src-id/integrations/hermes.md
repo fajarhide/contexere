@@ -10,7 +10,7 @@ VENG menancap ke Hermes dua kali: sebuah plugin di jalur hook, dan server MCP.
 ## Prasyarat
 
 ```sh
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 veng --version
 veng doctor
 

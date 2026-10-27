@@ -1,20 +1,18 @@
-//! `veng migrate`: bring an omni install across to veng.
+//! `veng migrate`: point Claude Code at veng instead of omni.
 //!
-//! Three things move, and none of them is destroyed:
+//! Data is not touched: `~/.omni` is read where it stands (#876), so going back
+//! to an `omni` release still finds everything. Two things are rewritten:
 //!
-//! 1. **Data.** omni's database and config are copied, never moved. The old
-//!    `~/.omni` stays exactly as it was, so going back is `omni` still working.
-//! 2. **Claude Code hooks.** omni's entries in `~/.claude/settings.json` are
+//! 1. **Claude Code hooks.** omni's entries in `~/.claude/settings.json` are
 //!    replaced by veng's in one write, after the original is saved as
 //!    `settings.json.bak`.
-//! 3. **Claude Code MCP.** Same for the `omni` server in `~/.claude.json`.
+//! 2. **Claude Code MCP.** Same for the `omni` server in `~/.claude.json`.
 //!
 //! Claude Code is touched only if omni was installed there. A machine that never
 //! had omni gets nothing from this command; `veng init` is the way in for that.
 //! `--dry-run` reports everything above and writes nothing.
 
 use crate::agents::claude;
-use crate::legacy::{self, Database};
 use anyhow::Result;
 use colored::*;
 use serde_json::Value;
@@ -24,7 +22,7 @@ const FLAGS: super::Flags = &[("--dry-run", "Show what would change and change n
 
 fn print_help() {
     println!(
-        "\n{} {}: Move an omni install across to veng",
+        "\n{} {}: Point Claude Code from omni to veng",
         "veng".bold().cyan(),
         "migrate".bold().yellow()
     );
@@ -33,9 +31,8 @@ fn print_help() {
     println!();
     super::print_flags(FLAGS);
     println!(
-        "Copies omni's database and config, and replaces omni's Claude Code hooks and\n\
-         MCP entry with veng's. Deletes nothing: the old tree stays, and settings are\n\
-         backed up first.\n"
+        "Replaces omni's Claude Code hooks and MCP entry with veng's. Data stays in\n\
+         ~/.omni and is read in place. Settings are backed up first.\n"
     );
 }
 
@@ -54,10 +51,6 @@ pub fn run(args: &[String]) -> Result<()> {
     super::check_flags("migrate", args, FLAGS)?;
     let dry_run = super::has_flag(args, "--dry-run");
 
-    let source = legacy::legacy_dir();
-    let data = crate::paths::data_home();
-    let config = crate::paths::config_home();
-
     let tag = if dry_run {
         " (dry run, nothing written)"
     } else {
@@ -69,39 +62,7 @@ pub fn run(args: &[String]) -> Result<()> {
         tag.bright_black()
     );
 
-    // 1. Data.
-    let report = legacy::migrate_data(&source, &data, &config, dry_run)?;
-    println!("\n  {}", "Data".bold());
-    match report.database {
-        Database::Copied { bytes } => println!(
-            "    {} database copied from {} ({} bytes)",
-            "✓".green(),
-            source.display(),
-            bytes
-        ),
-        Database::WouldCopy { bytes } => println!(
-            "    {} would copy {}/{} (at least {} bytes)",
-            "·".yellow(),
-            source.display(),
-            legacy::LEGACY_DB,
-            bytes
-        ),
-        Database::AlreadyPresent => println!(
-            "    {} veng already has a database, left alone",
-            "·".bright_black()
-        ),
-        Database::NoLegacyDatabase => println!(
-            "    {} no omni database at {}",
-            "·".bright_black(),
-            source.display()
-        ),
-    }
-    for item in &report.config {
-        let verb = if dry_run { "would copy" } else { "copied" };
-        println!("    {} {verb} {item}", "✓".green());
-    }
-
-    // 2 and 3. Claude Code.
+    // Claude Code.
     let exe = std::env::current_exe()?.to_string_lossy().to_string();
     let claude = migrate_claude(&exe, dry_run)?;
     println!("\n  {}", "Claude Code".bold());

@@ -9,8 +9,8 @@ veng retrieve <handle>
 Handle-nya adalah 16 karakter di dalam sebuah penanda:
 
 ```
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 Ia mengembalikan byte aslinya. Bukan ringkasan, bukan menjalankan ulang perintah

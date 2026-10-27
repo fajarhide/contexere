@@ -750,7 +750,7 @@ fn run_share(args: &[String], store: &Store) -> Result<()> {
     }
     println!();
     println!("Measured, not estimated: net across every command, terminal output excluded.");
-    println!("https://github.com/fajarhide/veng");
+    println!("https://github.com/fajarhide/omni");
     println!();
 
     Ok(())
@@ -876,7 +876,7 @@ fn card_svg(f: &ShareFigures, w: u32, h: u32) -> String {
 
     s.push_str(&format!(
         r##"<text x="{x}" y="{fy}" font-size="{fs}" fill="#5c6b7a">Measured, not estimated. Terminal output excluded.</text>
-<text x="{x}" y="{fy2}" font-size="{fs}" fill="#5c6b7a">github.com/fajarhide/veng</text>
+<text x="{x}" y="{fy2}" font-size="{fs}" fill="#5c6b7a">github.com/fajarhide/omni</text>
 </g>
 </svg>
 "##,

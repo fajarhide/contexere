@@ -40,7 +40,7 @@ memasang dirinya di sana, dan di slot pasangannya sebelum tool berjalan, yang ia
 pakai hanya untuk menyerahkan perintah yang cocok ke dirinya sendiri. Perintahnya
 tetap berjalan tanpa perubahan; shell tidak pernah tahu.
 
-![VENG berjalan sebagai dua hook di sekitar satu panggilan tool: pre-hook sebelum perintah, post-hook yang menyuling keluaran sebelum agent membacanya, dan semua yang dibuang diarsipkan ke basis data SQLite lokal yang dibaca kembali oleh veng retrieve.](../media/where-veng-sits.svg)
+![OMNI berjalan sebagai dua hook di sekitar satu panggilan tool: pre-hook sebelum perintah, post-hook yang menyuling keluaran sebelum agent membacanya, dan semua yang dibuang diarsipkan ke basis data SQLite lokal yang dibaca kembali oleh omni retrieve.](../media/where-omni-sits.svg)
 
 Dua akibat mengikuti dari posisi itu, dan keduanya alasan bentuk ini dipilih
 ketimbang sebuah proxy.

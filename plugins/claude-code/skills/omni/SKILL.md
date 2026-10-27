@@ -1,6 +1,6 @@
 ---
 name: veng
-description: "Use when installing, verifying or configuring VENG, when command output carries an `[VENG: ...]` marker, or when output looks shorter than expected. VENG is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
+description: "Use when installing, verifying or configuring VENG, when command output carries an `[OMNI: ...]` marker, or when output looks shorter than expected. VENG is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
 ---
 
 # VENG
@@ -13,12 +13,12 @@ about the machine leaves it.
 ## Install
 
 ```
-brew install fajarhide/tap/veng
+brew install fajarhide/tap/omni
 veng init
 ```
 
 Without Homebrew, take the release archive for the platform from
-<https://github.com/fajarhide/veng/releases>, pull the line for that archive out
+<https://github.com/fajarhide/omni/releases>, pull the line for that archive out
 of the `SHA256SUMS` published beside it into a file of its own, and verify it
 with `sha256sum -c <that file>`, or `shasum -a 256 -c <that file>` on macOS.
 Then untar and put the binary on the path. Two things decide whether the check is
@@ -71,12 +71,12 @@ one.
 
 | marker | what happened |
 | --- | --- |
-| `[VENG: 40 lines omitted, veng retrieve <handle> for full output]` | the distiller kept the signal and archived the rest |
-| `[VENG: 40 lines already shown, veng retrieve <handle>]` | those lines are in this session's context already |
-| `[VENG: identical to the 40 lines already shown, veng retrieve <handle>]` | the whole re-run matched an earlier one |
-| `[VENG: 40 lines not shown here, veng retrieve <handle>]` | another session in this project saw them and **this one never did**, so retrieve before relying on them |
-| `[VENG: identical to 40 lines from an earlier session, none shown here, veng retrieve <handle>]` | the whole reply matched an earlier session's, and none of it arrived here |
-| `[VENG: 2 sensitive value(s) redacted]` | values under a key that names a credential |
+| `[OMNI: 40 lines omitted, omni retrieve <handle> for full output]` | the distiller kept the signal and archived the rest |
+| `[OMNI: 40 lines already shown, omni retrieve <handle>]` | those lines are in this session's context already |
+| `[OMNI: identical to the 40 lines already shown, omni retrieve <handle>]` | the whole re-run matched an earlier one |
+| `[OMNI: 40 lines not shown here, omni retrieve <handle>]` | another session in this project saw them and **this one never did**, so retrieve before relying on them |
+| `[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve <handle>]` | the whole reply matched an earlier session's, and none of it arrived here |
+| `[OMNI: 2 sensitive value(s) redacted]` | values under a key that names a credential |
 
 Pull the full bytes with the command the marker prints:
 
@@ -92,7 +92,7 @@ being rewritten from what was read.
 
 Corrupted output, a success reported for something that failed, or a marker
 written into a file is a bug, not compression. Capture the command and its output
-and file it at <https://github.com/fajarhide/veng/issues>, then get a clean copy
+and file it at <https://github.com/fajarhide/omni/issues>, then get a clean copy
 by running the command through `veng exec` with the pipeline off:
 
 ```

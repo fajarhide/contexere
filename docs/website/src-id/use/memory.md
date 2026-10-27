@@ -99,5 +99,5 @@ Anda bisa menjalankannya.
 Ia per mesin. Tidak ada sinkronisasi, tidak ada server, dan tidak ada penyimpanan
 bersama antar orang. `~/.veng/veng.db` adalah keseluruhannya, dan arsip jarak
 jauh
-[secara eksplisit tidak dibangun](https://veng.weekndlabs.com/docs/develop/direction#non-goals),
+[secara eksplisit tidak dibangun](https://omni.weekndlabs.com/docs/develop/direction#non-goals),
 bukan sekadar belum dibangun.

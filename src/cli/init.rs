@@ -279,8 +279,8 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         println!("  npm WARN deprecated ... (300 lines of warnings)");
         println!("  git log (2000 lines of history)");
         println!("{}", "\nWith VENG:".green());
-        println!("  npm WARN deprecated ... [VENG: ⚠️ 300 repetitive lines dropped]");
-        println!("  git log [VENG: ⚠️ truncated to latest 50 lines]");
+        println!("  npm WARN deprecated ... [OMNI: ⚠️ 300 repetitive lines dropped]");
+        println!("  git log [OMNI: ⚠️ truncated to latest 50 lines]");
         super::print_rule();
         println!();
 

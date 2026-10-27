@@ -8,13 +8,13 @@ Anda. Jalannya lokal, tidak perlu API key, dan setelah terpasang Anda tidak
 pernah mengetik namanya lagi.
 
 ```bash
-brew install fajarhide/tap/veng && veng init
+brew install fajarhide/tap/omni && veng init
 ```
 
 Di dalam Claude Code cukup dua baris, sisanya diurus agent:
 
 ```
-/plugin marketplace add fajarhide/veng
+/plugin marketplace add fajarhide/omni
 /plugin install veng@veng
 ```
 
@@ -51,7 +51,7 @@ Yang dibaca agent Anda adalah ini:
 cargo test: 411 passed, 1 failed
   FAILED ledger::tests::renders_identical_bytes_for_identical_state
   assertion `left == right` failed at src/ledger/mod.rs:601
-[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
 ```
 
 Kegagalannya selamat. 406 baris `ok` tidak. Dan handle di baris terakhir itu
@@ -71,7 +71,7 @@ dua-duanya.
 VENG ingat. Bacaan kedua kembali sebagai satu baris:
 
 ```
-[VENG: 178 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 178 lines already shown, omni retrieve 0000000000000000]
 ```
 
 **Berkas 7,6 KB yang dibaca dua kali berharga 7,6 KB lalu 214 byte. Itu 97,2%
@@ -94,7 +94,7 @@ veng retrieve <handle>         # handle mana pun dari penanda mana pun, dicetak 
 ```
 
 Setiap angka di situs ini berasal dari korpus yang bisa Anda bangun ulang.
-[Benchmark](https://veng.weekndlabs.com/docs/develop/benchmarks) memuat metodenya dan
+[Benchmark](https://omni.weekndlabs.com/docs/develop/benchmarks) memuat metodenya dan
 perintah persisnya untuk tiap baris, termasuk setiap adu langsung yang pernah kami
 jalankan melawan alat sebanding terdekat.
 
@@ -126,8 +126,8 @@ yang sudah ia lakukan.
 [Ledger](concepts/the-ledger.md).
 
 **Ingin ikut mengerjakannya.**
-[Architecture](https://veng.weekndlabs.com/docs/develop/architecture) dan
-[The pipeline, stage by stage](https://veng.weekndlabs.com/docs/develop/pipeline)
+[Architecture](https://omni.weekndlabs.com/docs/develop/architecture) dan
+[The pipeline, stage by stage](https://omni.weekndlabs.com/docs/develop/pipeline)
 adalah petanya. Keduanya berbahasa Inggris.
 
 ## Tiga hal yang tidak akan ia lakukan
@@ -137,7 +137,7 @@ arsipnya sebuah berkas SQLite di direktori home Anda.
 
 **Tidak berdiri di antara Anda dan model Anda.** Tidak ada proxy dan tidak ada
 API key yang diserahkan ke proses lokal. Itu
-[diputuskan untuk tidak dilakukan](https://veng.weekndlabs.com/docs/develop/direction#non-goals),
+[diputuskan untuk tidak dilakukan](https://omni.weekndlabs.com/docs/develop/direction#non-goals),
 dan alasannya ditulis.
 
 **Tidak menebak diam-diam.** Tahap yang gagal memahami masukannya mengembalikan
@@ -169,7 +169,7 @@ di nomor yang diberikan editor Anda.
 
 Korpusnya beku di disk dan hash-nya dikirim di `docs/benchmarks/`, jadi tidak seperti
 setiap angka yang kami terbitkan sebelumnya, yang ini bisa diperiksa terhadap byte yang
-sama di rilis berikutnya. [Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks) memuat tiap
+sama di rilis berikutnya. [Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks) memuat tiap
 run beserta korpusnya, dan seberapa berharga angka mana pun bagi Anda bergantung pada
 seberapa banyak minggu Anda sendiri mengulang dirinya.
 
@@ -197,7 +197,7 @@ dengan 1,4%, dan itulah sebabnya ledger kami sendiri justru mencetak angka lebih
 tinggi ketika ditumpuk di atas penyaring pesaing ketimbang di atas milik kami.
 Tabelnya dihasilkan oleh run yang sama dengan setiap angka lain di sini, dan ada di
 halaman Benchmarks.
-[Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks) memuat
+[Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks) memuat
 metodenya dan perintah untuk mereproduksi setiap baris di riwayat Anda sendiri.
 
 Kalau Anda ingin angka yang menggambarkan mesin Anda, bukan mesin orang lain,
@@ -207,6 +207,6 @@ jalankan `veng stats` setelah beberapa hari.
 
 [Discord](https://discord.gg/zHTuvZhF2M) untuk pertanyaan, terutama untuk kasus
 yang paling dipedulikan proyek ini: VENG menyatakan hasil yang tidak didukung
-masukannya. [Issue tracker](https://github.com/fajarhide/veng/issues) juga bisa.
+masukannya. [Issue tracker](https://github.com/fajarhide/omni/issues) juga bisa.
 Laporan yang memuat keluaran mentah dan keluaran hasil olahan berdampingan akan
 diperbaiki lewat jalur mana pun.

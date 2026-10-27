@@ -20,13 +20,13 @@ penanda yang menyebut jumlahnya dan sebuah handle. Sisanya lewat persis byte dem
 byte.
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ```
 
 Di sebuah `Read`, markernya diikuti satu `⋮` untuk tiap baris yang digantikannya:
 
 ```
-[VENG: 40 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
 ⋮
 ⋮      (38 baris lagi)
 ⋮
@@ -163,7 +163,7 @@ menyebut isi yang tidak tersimpan. Dan yang dicatat adalah apa yang **dikirim**,
 bukan apa yang datang: deretan yang berubah jadi penanda tidak pernah sampai ke
 agent, jadi mencatatnya akan membuat kemunculan berikutnya mengklaim
 `already shown` untuk byte yang tidak diterima siapa pun. Itu cacat sungguhan
-([#465](https://github.com/fajarhide/veng/issues/465)) dan ia memotong dua arah,
+([#465](https://github.com/fajarhide/omni/issues/465)) dan ia memotong dua arah,
 karena asal sesi ditagih sepertiga dari asal proyek, sehingga klaim yang salah
 tadi juga membuat ledger tiga kali lebih gampang melipat.
 
@@ -255,9 +255,9 @@ baris, dan pembaca membacanya sebagai sesi *Anda*, padahal belum tentu, lalu
 sebagai klaim bahwa isinya sudah pernah diterima. Penanda run sekarang berbunyi
 `not shown here` dan menyatakan satu-satunya hal yang perlu ditindaklanjuti
 pembaca, yaitu bahwa byte itu tidak pernah sampai
-([#567](https://github.com/fajarhide/veng/issues/567)).
+([#567](https://github.com/fajarhide/omni/issues/567)).
 
-Sejak [#509](https://github.com/fajarhide/veng/issues/509) agent dicatat di setiap
+Sejak [#509](https://github.com/fajarhide/omni/issues/509) agent dicatat di setiap
 baris, dan belum ada yang dikunci padanya. Pengukuran yang memutuskan itu:
 mengunci cakupan pada `(proyek, agent)` akan mengakhiri kasus lintas agent
 sekaligus penggunaan ulang di dalamnya yang memang gratis, dan korpus mengatakan

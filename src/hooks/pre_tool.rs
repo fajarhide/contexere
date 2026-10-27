@@ -191,7 +191,7 @@ fn process_payload(
             hook_specific_output: HookSpecificOutput {
                 hook_event_name: "PreToolUse",
                 permission_decision: "allow",
-                permission_decision_reason: "VENG auto-rewrite to reduce token noise".to_string(),
+                permission_decision_reason: "OMNI auto-rewrite to reduce token noise".to_string(),
                 updated_input,
             },
         };
@@ -245,7 +245,7 @@ fn process_payload(
             if hot_count > 2 {
                 let updated_input = parsed.tool_input.clone();
                 let reason = format!(
-                    "VENG Guard: {} is a hot file (accessed {}x this session). Mutating it may have wide impact. Consider reviewing dependents with `veng context <file>`.",
+                    "OMNI Guard: {} is a hot file (accessed {}x this session). Mutating it may have wide impact. Consider reviewing dependents with `omni context <file>`.",
                     target_file, hot_count
                 );
                 let output = PreHookOutput {
@@ -263,7 +263,7 @@ fn process_payload(
             // If the agent reads the same file repeatedly, we warn them to use context.
             let updated_input = parsed.tool_input.clone();
             let reason = format!(
-                "VENG Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
+                "OMNI Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
                 target_file, hot_count
             );
             let output = PreHookOutput {
@@ -280,7 +280,7 @@ fn process_payload(
         // We only provide a hint, we don't modify the command
         let updated_input = parsed.tool_input.clone();
         let reason = format!(
-            "VENG context available for {}; call veng_context if needed",
+            "OMNI context available for {}; call omni_context if needed",
             target_file
         );
 
@@ -310,7 +310,7 @@ fn process_payload(
         if !top_hot.is_empty() {
             let updated_input = parsed.tool_input.clone();
             let reason = format!(
-                "VENG Guard: mutating command detected. Current hot files: {}. Review impact before proceeding.",
+                "OMNI Guard: mutating command detected. Current hot files: {}. Review impact before proceeding.",
                 top_hot.join(", ")
             );
             let output = PreHookOutput {
@@ -574,7 +574,7 @@ mod tests {
         .to_string();
 
         let output = process_payload(&input, None).expect("Should inject context");
-        assert!(output.contains("VENG context available for src/main.rs"));
+        assert!(output.contains("OMNI context available for src/main.rs"));
         assert!(output.contains("PreToolUse"));
         assert!(output.contains("allow"));
     }

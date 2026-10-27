@@ -8,21 +8,22 @@ veng doctor              # check the result
 
 Restart Claude Code (CLI or desktop) afterwards so it reloads the hooks.
 
+Nothing has to be migrated for VENG to work. `omni` is installed as a link to the
+same binary, existing hooks keep calling it, and OMNI's data in `~/.omni` is read
+where it stands. `veng migrate` only points Claude Code at the new name.
+
 ## What it does
 
-1. **Data.** Copies OMNI's database to `veng.db`, plus `config.toml`, `filters/`,
-   and `signals/`. The copy uses SQLite's own `VACUUM INTO`, so it is consistent
-   even if OMNI is running. Caches, exports, and transcripts are not copied.
-2. **Claude Code hooks.** Replaces OMNI's entries in `~/.claude/settings.json`
+1. **Claude Code hooks.** Replaces OMNI's entries in `~/.claude/settings.json`
    with VENG's in a single write. The original is saved as `settings.json.bak`.
-3. **Claude Code MCP.** Replaces the `omni` server in `~/.claude.json` the same
-   way, saving `.claude.json.bak`.
+2. **Claude Code MCP.** Replaces the `omni` server in `~/.claude.json` the same
+   way, saving `.claude.json.bak`. Tools are then called `veng_*`; a server still
+   started as `omni` keeps the `omni_*` names.
 
 ## What it never does
 
-- It never deletes or modifies `~/.omni`. Going back means OMNI still works.
-- It never overwrites a VENG database that already exists. Running it twice, or
-  after a week on VENG, is safe: the second run reports nothing to do.
+- It never copies, moves or modifies `~/.omni`. VENG reads it in place until a
+  `~/.veng` exists, so going back to an OMNI release finds everything.
 - It never touches Claude Code unless OMNI was installed there. On a machine
   that never had OMNI, use `veng init --claude`.
 - It never rewrites a settings file it cannot parse as JSON.
@@ -33,8 +34,7 @@ Restart Claude Code (CLI or desktop) afterwards so it reloads the hooks.
 ## Environment variables
 
 Any `OMNI_*` variable is read as the matching `VENG_*` one. If both are set, the
-`VENG_*` value is used. A custom `OMNI_HOME` is honoured as the place to read the
-old data from.
+`VENG_*` value is used. A custom `OMNI_HOME` is honoured the same way.
 
 ## Other agents
 
@@ -45,4 +45,4 @@ with `omni init --uninstall` before you uninstall OMNI itself.
 ## Going back
 
 Restore `~/.claude/settings.json` and `~/.claude.json` from their `.bak` files.
-The OMNI data was never changed.
+The OMNI data was never copied or changed.

@@ -64,7 +64,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     "ℹ️".blue()
                 );
                 println!(
-                    "   Please download the latest release from: https://github.com/fajarhide/veng/releases"
+                    "   Please download the latest release from: https://github.com/fajarhide/omni/releases"
                 );
                 return Ok(());
             }
@@ -75,7 +75,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
                 // Run brew upgrade
                 let status = Command::new("brew")
-                    .args(["upgrade", "fajarhide/tap/veng"])
+                    .args(["upgrade", "fajarhide/tap/omni"])
                     .status();
 
                 match status {
@@ -90,7 +90,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     }
                     Err(e) => {
                         return Err(format!(
-                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/veng' manually.",
+                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/omni' manually.",
                             e
                         ));
                     }

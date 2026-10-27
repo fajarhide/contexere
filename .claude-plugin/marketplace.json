@@ -15,8 +15,8 @@
         "name": "fajarhide",
         "url": "https://github.com/fajarhide"
       },
-      "homepage": "https://veng.weekndlabs.com",
-      "repository": "https://github.com/fajarhide/veng",
+      "homepage": "https://omni.weekndlabs.com",
+      "repository": "https://github.com/fajarhide/omni",
       "license": "Apache-2.0",
       "keywords": ["tokens", "context", "hooks", "cli", "distillation"]
     }

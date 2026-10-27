@@ -6,13 +6,13 @@ One small program between your terminal and your agent. Local, no API key, no pr
 Install it and you never type its name again.
 
 ```bash
-brew install fajarhide/tap/veng && veng init
+brew install fajarhide/tap/omni && veng init
 ```
 
 Inside Claude Code, two lines and the agent does the rest:
 
 ```
-/plugin marketplace add fajarhide/veng
+/plugin marketplace add fajarhide/omni
 /plugin install veng@veng
 ```
 
@@ -57,7 +57,7 @@ remembered the first read. You pay full price both times.
 VENG remembers. The second read comes back as one line:
 
 ```
-[VENG: 178 lines already shown, veng retrieve 0000000000000000]
+[OMNI: 178 lines already shown, omni retrieve 0000000000000000]
 ```
 
 **A 7.6 KB file read twice costs 7.6 KB and then 214 bytes.** Nothing was deleted: those
@@ -177,5 +177,5 @@ If you want a number that describes your machine rather than someone else's, run
 
 [Discord](https://discord.gg/zHTuvZhF2M) for questions, and especially for the case this
 project cares about most: VENG stating a result its input does not support. The
-[issue tracker](https://github.com/fajarhide/veng/issues) works too. A report with the raw
+[issue tracker](https://github.com/fajarhide/omni/issues) works too. A report with the raw
 and distilled output side by side gets fixed either way.

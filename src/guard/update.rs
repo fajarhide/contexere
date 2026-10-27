@@ -37,7 +37,7 @@ pub fn get_status() -> Status {
         Some(cache.latest_version)
     } else {
         // Fetch from GitHub
-        let url = "https://api.github.com/repos/fajarhide/veng/releases/latest";
+        let url = "https://api.github.com/repos/fajarhide/omni/releases/latest";
         let agent = ureq::AgentBuilder::new()
             .timeout_read(std::time::Duration::from_secs(2))
             .timeout_connect(std::time::Duration::from_secs(2))
@@ -138,7 +138,7 @@ pub fn print_notification(latest: &str) {
     );
     println!(
         "      Run: {} to upgrade.\n",
-        "brew upgrade fajarhide/tap/veng".cyan()
+        "brew upgrade fajarhide/tap/omni".cyan()
     );
 }
 

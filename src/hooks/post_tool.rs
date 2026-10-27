@@ -237,7 +237,7 @@ fn rewind_marker_text(content: &str, kept_lines: usize, kept_bytes: usize, hash:
 
     if content.len() > crate::guard::limits::MAX_REWIND_BYTES {
         return format!(
-            "\n[VENG: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+            "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
             content.len(),
             crate::guard::limits::MAX_REWIND_BYTES
         );
@@ -248,9 +248,9 @@ fn rewind_marker_text(content: &str, kept_lines: usize, kept_bytes: usize, hash:
     // a swallowed insert, and printed `veng_retrieve("<key>")` for a row that was
     // never written (#388).
     if hash.is_empty() {
-        format!("\n[VENG: {lost} omitted, full output not archived]\n")
+        format!("\n[OMNI: {lost} omitted, full output not archived]\n")
     } else {
-        format!("\n[VENG: {lost} omitted, veng retrieve {hash} for full output]\n")
+        format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
     }
 }
 
@@ -291,7 +291,8 @@ pub(crate) fn returns_archived_bytes(command: &str) -> bool {
     let mut tokens = command.split_whitespace().peekable();
     while let Some(token) = tokens.next() {
         let program = token.rsplit(['/', '\\']).next().unwrap_or(token);
-        if program != "veng" && program != "veng.exe" {
+        // `omni` is the same binary through the rename, and old markers name it (#876).
+        if !matches!(program, "veng" | "veng.exe" | "omni" | "omni.exe") {
             continue;
         }
         // Skip the global flags `veng` accepts before a subcommand.
@@ -468,7 +469,7 @@ fn trim_enormous(content: &str) -> std::borrow::Cow<'_, str> {
     let head = lines[..HEAD_LINES].join("\n");
     let tail = lines[lines.len() - TAIL_LINES..].join("\n");
     Cow::Owned(format!(
-        "{head}\n\n... [VENG: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
+        "{head}\n\n... [OMNI: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
         lines.len() - (HEAD_LINES + TAIL_LINES)
     ))
 }
@@ -668,7 +669,7 @@ fn distil_tool_reply(
             }
             let lines: Vec<&str> = content.lines().collect();
             let summary = format!(
-                "[VENG MultiEdit: {} lines]\n{}",
+                "[OMNI MultiEdit: {} lines]\n{}",
                 lines.len(),
                 lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
             );
@@ -687,7 +688,7 @@ fn distil_tool_reply(
             if content.len() > 2000 {
                 let lines: Vec<&str> = content.lines().collect();
                 let summary = format!(
-                    "[VENG {}: {} lines]\n{}",
+                    "[OMNI {}: {} lines]\n{}",
                     normalized.tool_name,
                     lines.len(),
                     lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
@@ -738,7 +739,7 @@ pub fn process_payload(
                     hook_event_name: "PostToolUse",
                     updated_tool_output: shape_for_host(normalized.raw_response.as_ref(), body),
                     additional_context: Some(format!(
-                        "[VENG: {count} sensitive value(s) redacted in place]"
+                        "[OMNI: {count} sensitive value(s) redacted in place]"
                     )),
                 },
             })
@@ -1095,7 +1096,7 @@ pub fn process_payload(
         }
 
         // Take the route the banner names. Prefixing `Passthrough` onto
-        // `final_out` announced "VENG changed nothing" over bytes a distiller
+        // `final_out` announced "OMNI changed nothing" over bytes a distiller
         // had already deleted lines from: four data rows of a markdown table
         // went, the header and separator stayed, so the table read as present
         // and empty, and the banner told the agent not to re-run (#229). Under
@@ -1453,7 +1454,7 @@ fn build_additional_context(
                 && s.context_pressure != crate::pipeline::ContextPressure::Critical
             {
                 predicted_warn = Some(format!(
-                    "VENG Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
+                    "OMNI Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
                     s.token_consumption_rate.avg_tokens_per_command, commands_left
                 ));
             }
@@ -1479,7 +1480,7 @@ fn build_additional_context(
             && s.loop_context.budget_used > (budget as f64 * 0.8) as u64
         {
             let budget_warn = format!(
-                "VENG Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
+                "OMNI Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
                 s.loop_context.budget_used, budget
             );
             if let Some(pm) = pressure_msg.as_mut() {
@@ -1513,7 +1514,7 @@ fn build_additional_context(
         let pinned_content = crate::hooks::session_start::read_pinned_files(&cwd);
         if !pinned_content.is_empty() {
             msgs.push(format!(
-                "[VENG: Re-injecting critical files due to {} pressure]\n{}",
+                "[OMNI: Re-injecting critical files due to {} pressure]\n{}",
                 s.context_pressure, pinned_content
             ));
             s.pinned_reinject_at = s.command_count;
@@ -1537,7 +1538,7 @@ fn build_additional_context(
     // quieter.
     if saved_bytes_this_call >= 1800 {
         msgs.push(format!(
-            "[VENG: -{} this call | -{} session | {savings:.0}% compression]",
+            "[OMNI: -{} this call | -{} session | {savings:.0}% compression]",
             crate::cli::stats::format_bytes(saved_bytes_this_call as u64),
             crate::cli::stats::format_bytes(session_bytes_total),
             savings = result.savings_pct()
@@ -1545,7 +1546,7 @@ fn build_additional_context(
     } else if command_count > 0 && command_count.is_multiple_of(10) && session_bytes_total >= 3600 {
         // F-10: Inject milestone summary every 10 commands if total savings significant
         msgs.push(format!(
-            "[VENG session milestone: -{} saved across {command_count} commands]",
+            "[OMNI session milestone: -{} saved across {command_count} commands]",
             crate::cli::stats::format_bytes(session_bytes_total)
         ));
     }
@@ -1565,7 +1566,7 @@ fn build_additional_context(
 fn carries_our_marker(content: &str) -> bool {
     content.lines().any(|l| {
         let l = l.trim_start();
-        l.starts_with("[VENG:") || l.starts_with("[VENG ")
+        l.starts_with("[OMNI:") || l.starts_with("[OMNI ")
     })
 }
 
@@ -1603,7 +1604,7 @@ fn process_web_content(content: &str) -> Option<String> {
         .copied()
         .collect();
     let summary = format!(
-        "[VENG WebFetch: {} lines → {} relevant]\n{}{}",
+        "[OMNI WebFetch: {} lines → {} relevant]\n{}{}",
         line_count,
         total_clean,
         meaningful.join("\n"),
@@ -1647,6 +1648,7 @@ mod tests {
             "veng retrieve 0000000000000000",
             "/opt/homebrew/bin/veng retrieve 0000000000000000",
             "cd /tmp && veng retrieve 0000000000000000",
+            "omni retrieve 0000000000000000",
             "veng diff",
         ] {
             assert!(returns_archived_bytes(cmd), "{cmd} must pass through");
@@ -1846,7 +1848,7 @@ mod tests {
         // Split rather than sliced: the handle is the leading hex run of what
         // follows the phrase every marker names it with.
         let mut reachable = String::new();
-        for part in second.split("veng retrieve ").skip(1) {
+        for part in second.split("omni retrieve ").skip(1) {
             let handle: String = part.chars().take_while(char::is_ascii_hexdigit).collect();
             if let Some(text) = store.retrieve_rewind(&handle) {
                 reachable.push_str(&text);
@@ -2140,11 +2142,11 @@ Ran 6 tests across 1 file. [4.00ms]
         let second =
             process_payload(&payload, Some(store.clone()), None).expect("the repeat is rewritten");
 
-        let markers = second.matches("[VENG:").count();
+        let markers = second.matches("[OMNI:").count();
         assert_eq!(markers, 1, "expected one marker, got {markers}: {second}");
 
         let handles: std::collections::HashSet<&str> = second
-            .split("veng retrieve ")
+            .split("omni retrieve ")
             .skip(1)
             .filter_map(|t| t.split([']', ' ']).next())
             .collect();
@@ -2255,8 +2257,8 @@ Ran 6 tests across 1 file. [4.00ms]
         // 0.7.1 changed the wording and after. The comment here used to claim the
         // first was "exactly the shape veng exec emits", which stopped being true
         // the moment the marker named the CLI instead of the MCP tool.
-        let legacy = "test result: ok. 600 passed; 0 failed;\n[VENG: 600 lines omitted, veng_retrieve(\"abc123\") for full output]";
-        let current = "test result: ok. 600 passed; 0 failed;\n[VENG: 600 lines omitted, veng retrieve abc123 for full output]";
+        let legacy = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]";
+        let current = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni retrieve abc123 for full output]";
 
         assert!(
             carries_our_marker(legacy),
@@ -2565,7 +2567,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
     /// #229: `Passthrough` names a route, and the route is what the caller acts
     /// on. The banner was prefixed onto the *distilled* string, so it announced
-    /// "VENG changed nothing" over bytes that had already lost lines, four data
+    /// "OMNI changed nothing" over bytes that had already lost lines, four data
     /// rows of a markdown table, with the header and separator left standing so
     /// the table read as present and empty. An agent that trusts the label does
     /// not re-run the command.
@@ -2650,7 +2652,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
         let marker = stdout
             .lines()
-            .find(|l| l.starts_with("[VENG:"))
+            .find(|l| l.starts_with("[OMNI:"))
             .expect("a lossy reply carries a marker");
         assert!(
             stdout.contains("[Partial signal"),
@@ -2661,7 +2663,7 @@ Ran 6 tests across 1 file. [4.00ms]
         let survived = stdout
             .lines()
             .filter(|l| {
-                !l.trim().is_empty() && !l.starts_with("[VENG:") && !l.starts_with("[Partial")
+                !l.trim().is_empty() && !l.starts_with("[OMNI:") && !l.starts_with("[Partial")
             })
             .count();
         let claimed: usize = marker
@@ -3607,7 +3609,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "the recorded row must name the archive it belongs to"
         );
         assert!(
-            out.contains("veng retrieve "),
+            out.contains("omni retrieve "),
             "the agent cannot call what it was not told: {out}"
         );
     }
@@ -4146,7 +4148,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
         let whole = process_payload(&read(json!({ "path": "src/big.rs" })), None, None);
         assert!(
-            whole.is_some_and(|o| o.contains("VENG ReadFile")),
+            whole.is_some_and(|o| o.contains("OMNI ReadFile")),
             "fixture no longer clears the distiller's gate, so the window arm proves nothing"
         );
         let window = read(json!({ "path": "src/big.rs", "offset": 780, "limit": 340 }));
@@ -4180,7 +4182,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         assert!(out.is_some(), "Large ReadFile must be distilled");
         let res = out.expect("Output exists");
         assert!(
-            res.contains("VENG ReadFile"),
+            res.contains("OMNI ReadFile"),
             "Must have VENG ReadFile label"
         );
         assert!(
@@ -4269,7 +4271,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             file["content"]
                 .as_str()
                 .expect("content")
-                .contains("[VENG:"),
+                .contains("[OMNI:"),
             "the repeated head was not folded: {out}"
         );
         // Thirty lines became one marker, so the survivors moved up by 29 and the
@@ -4318,14 +4320,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        assert!(content.contains("[VENG:"), "neither end was folded: {out}");
+        assert!(content.contains("[OMNI:"), "neither end was folded: {out}");
 
         // Thirty lines stood above the survivors and the markers that replaced
         // them stand there now, so the host starts counting that much later. The
         // tail fold below them moves nothing.
         let above = content
             .lines()
-            .take_while(|l| l.starts_with("[VENG:"))
+            .take_while(|l| l.starts_with("[OMNI:"))
             .count() as u64;
         assert_eq!(
             file["startLine"],
@@ -4389,7 +4391,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .map(|v| v["hookSpecificOutput"]["updatedToolOutput"]["file"]["content"].to_string())
             .unwrap_or_default();
         assert!(
-            !content.contains("[VENG:"),
+            !content.contains("[OMNI:"),
             "the run folded without paying for the filler it needs: {content}"
         );
     }
@@ -4497,7 +4499,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         // Every run folds now, not just the head.
         assert!(
-            content.matches("[VENG:").count() >= 2,
+            content.matches("[OMNI:").count() >= 2,
             "a split payload folds each of its runs: {content}"
         );
         assert_eq!(
@@ -4604,7 +4606,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .expect("content")
             .to_string();
         assert_eq!(
-            content.matches("[VENG:").count(),
+            content.matches("[OMNI:").count(),
             2,
             "the head has to fold as two runs for this to test anything: {content}"
         );
@@ -4612,7 +4614,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // The agent pulled the first marker's handle, so that run owes it a
         // verbatim delivery and cannot fold again.
         let handle = content
-            .split("veng retrieve ")
+            .split("omni retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("a handle in the first marker")
@@ -4671,7 +4673,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        let markers = content.matches("[VENG:").count();
+        let markers = content.matches("[OMNI:").count();
         assert!(markers >= 1, "the repeated head was not folded: {out}");
 
         // Thirty lines stood above the survivors and `markers` lines stand there
@@ -4719,7 +4721,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let content = file["content"].as_str().expect("content");
 
         assert!(
-            content.contains("[VENG:"),
+            content.contains("[OMNI:"),
             "the middle did not fold: {content}"
         );
         assert_eq!(
@@ -4755,7 +4757,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let (parent, sub) = two_reads_of_one_file("parent-session-581", Some("aca4e7ff"));
 
         assert!(
-            !parent.contains("[VENG:"),
+            !parent.contains("[OMNI:"),
             "the parent's own first read must be delivered whole: {parent}"
         );
         assert!(
@@ -4836,7 +4838,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// very marker that sent the reader there, so an agent following the
     /// instruction got the instruction back. Reproduced on `ded23da` before the
     /// fix: step three below returned
-    /// `[VENG: identical to the 200 lines already shown, veng retrieve ...]`.
+    /// `[OMNI: identical to the 200 lines already shown, omni retrieve ...]`.
     ///
     /// The second assertion is the one that keeps this from being a permanent
     /// exemption. Once the reader holds the content the ledger's claim is true
@@ -4861,7 +4863,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let _ = process_payload(&payload, Some(store.clone()), None);
         let folded = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         let handle = folded
-            .split("veng retrieve ")
+            .split("omni retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(|c: char| !c.is_ascii_hexdigit()).next())
             .map(str::to_string)
@@ -4878,14 +4880,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         let answering = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            !answering.contains("veng retrieve"),
+            !answering.contains("omni retrieve"),
             "the delivery answering the pull was folded back into the marker \
              that sent the reader to it: {answering}"
         );
 
         let after = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            after.contains("veng retrieve"),
+            after.contains("omni retrieve"),
             "folding did not resume, so a pulled handle is exempt for good \
              rather than for one delivery: {after}"
         );
@@ -5053,13 +5055,13 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     }
 
     /// #557, review. An earlier guard read the output back and called any line
-    /// starting with `[VENG:` a marker, so a file whose own lines start that way
+    /// starting with `[OMNI:` a marker, so a file whose own lines start that way
     /// defeated it. This repository writes those strings into its changelog and
     /// its docs, so it is not a hypothetical file. The shape is asked of the
     /// ledger's folded indices now, which content cannot spoof.
     #[test]
     fn content_that_looks_like_a_marker_does_not_defeat_the_guard() {
-        let line = |i: usize| format!("[VENG: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
+        let line = |i: usize| format!("[OMNI: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
         let range = |from: usize, to: usize| (from..to).map(line).collect::<String>();
         let payload = |from: usize, to: usize| {
             json!({
@@ -5114,7 +5116,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let out = process_payload(&input.to_string(), None, None);
         assert!(out.is_some(), "Grep output must be distilled");
         let res = out.expect("Output exists");
-        assert!(res.contains("VENG Grep"), "Must have VENG Grep label");
+        assert!(res.contains("OMNI Grep"), "Must have VENG Grep label");
         assert!(res.contains("matches"), "Must show match count");
     }
 
@@ -5166,7 +5168,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // a labeled passthrough instead of None
         if let Some(res) = out {
             assert!(
-                res.contains("VENG") || res.contains("Passthrough"),
+                res.contains("OMNI") || res.contains("Passthrough"),
                 "Labeled passthrough must contain VENG label"
             );
         }
@@ -5195,7 +5197,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // If return Some, must contain VENG label, never silently drops
         if let Some(res) = out {
             assert!(
-                res.contains("VENG") || res.contains("Passthrough"),
+                res.contains("OMNI") || res.contains("Passthrough"),
                 "If not None, must contain VENG label: {}",
                 res
             );
@@ -5422,7 +5424,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         assert!(out.is_some(), "Large MultiEdit must be distilled");
         let res = out.expect("Output exists");
         assert!(
-            res.contains("VENG MultiEdit"),
+            res.contains("OMNI MultiEdit"),
             "Must have VENG MultiEdit label"
         );
     }
@@ -5447,7 +5449,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         );
         let res = out.expect("Output exists");
         assert!(
-            res.contains("VENG SomeRandomTool"),
+            res.contains("OMNI SomeRandomTool"),
             "Must have VENG SomeRandomTool label"
         );
     }

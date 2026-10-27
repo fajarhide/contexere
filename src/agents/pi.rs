@@ -9,7 +9,7 @@ use std::process::Command;
 // ---------------------------------------------------------------------------
 
 /// Default git package source for `pi install`.
-const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/veng";
+const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
 
 /// Environment variable override for the package source.
 const PACKAGE_SOURCE_ENV: &str = "VENG_PI_PACKAGE_SOURCE";
@@ -111,9 +111,15 @@ impl PiSettingsSnapshot {
 }
 
 /// Search a JSON value recursively for strings containing "veng" (case-insensitive).
+/// Both names, so an install made as omni is still found and not doubled (#876).
+fn is_ours(s: &str) -> bool {
+    let s = s.to_lowercase();
+    s.contains("veng") || s.contains("omni")
+}
+
 fn find_veng_references(val: &Value) -> bool {
     match val {
-        Value::String(s) => s.to_lowercase().contains("veng"),
+        Value::String(s) => is_ours(s),
         Value::Array(arr) => arr.iter().any(find_veng_references),
         Value::Object(map) => map.values().any(find_veng_references),
         _ => false,
@@ -129,7 +135,7 @@ fn collect_veng_sources(val: &Value) -> Vec<String> {
 
 fn collect_veng_sources_recursive(val: &Value, out: &mut Vec<String>) {
     match val {
-        Value::String(s) if s.to_lowercase().contains("veng") => {
+        Value::String(s) if is_ours(s) => {
             out.push(s.clone());
         }
         Value::Array(arr) => {
@@ -344,7 +350,7 @@ mod tests {
     #[test]
     fn detects_veng_package_in_settings() {
         let json: Value =
-            serde_json::from_str(r#"{"packages": [{"source": "git:github.com/fajarhide/veng"}]}"#)
+            serde_json::from_str(r#"{"packages": [{"source": "git:github.com/fajarhide/omni"}]}"#)
                 .unwrap();
         assert!(find_veng_references(&json));
     }
@@ -367,12 +373,12 @@ mod tests {
     #[test]
     fn collects_duplicate_sources() {
         let json: Value = serde_json::from_str(
-            r#"{"packages": [{"source": "git:github.com/fajarhide/veng"}, {"source": "git:github.com/wayanjimmy/pi-veng"}]}"#,
+            r#"{"packages": [{"source": "git:github.com/fajarhide/omni"}, {"source": "git:github.com/wayanjimmy/pi-veng"}]}"#,
         )
         .unwrap();
         let sources = collect_veng_sources(&json);
         assert_eq!(sources.len(), 2);
-        assert!(sources[0].contains("veng"));
+        assert!(sources[0].contains("omni"));
         assert!(sources[1].contains("veng"));
     }
 
@@ -394,7 +400,7 @@ mod tests {
     fn package_source_env_override() {
         // Default source
         let default = package_source();
-        assert!(default.contains("veng"));
+        assert!(default.contains("omni"));
 
         // With env override (set and restore)
         // Safety: test is single-threaded.
@@ -435,7 +441,7 @@ mod tests {
     #[test]
     fn finds_references_nested_in_objects() {
         let json: Value = serde_json::from_str(
-            r#"{"level1": {"level2": {"source": "git:github.com/fajarhide/veng"}}}"#,
+            r#"{"level1": {"level2": {"source": "git:github.com/fajarhide/omni"}}}"#,
         )
         .unwrap();
         assert!(find_veng_references(&json));
