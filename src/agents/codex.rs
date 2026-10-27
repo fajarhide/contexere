@@ -42,11 +42,18 @@ impl AgentIntegration for CodexIntegration {
         // sub-table does not satisfy, so install could not repair what uninstall
         // had left behind (#351). Verified in a copied CODEX_HOME on 0.144.6:
         // orphan alone and `codex features list` dies; parent restored and it runs.
-        if !declares_transport(&content) {
-            content.push_str(&format!(
+        let legacy = strip_omni_server(&content);
+        let replaced = legacy.is_some();
+        if let Some(stripped) = legacy {
+            content = stripped;
+        }
+        if replaced || !declares_transport(&content) {
+            if !declares_transport(&content) {
+                content.push_str(&format!(
                 "\n[mcp_servers.veng]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
                 exe_path
-            ));
+                ));
+            }
             fs::write(&config_path, content)?;
         }
 
@@ -97,8 +104,11 @@ impl AgentIntegration for CodexIntegration {
         // Remove MCP from config.toml
         let config_path = codex_dir.join("config.toml");
         if config_path.exists() {
-            let content = fs::read_to_string(&config_path)?;
-            if content.contains("[mcp_servers.veng") {
+            let read = fs::read_to_string(&config_path)?;
+            let legacy = strip_omni_server(&read);
+            let had_legacy = legacy.is_some();
+            let content = legacy.unwrap_or(read);
+            if had_legacy || content.contains("[mcp_servers.veng") {
                 let new_content = strip_veng_server(&content);
                 fs::write(&config_path, new_content.trim_end().to_string() + "\n")?;
                 crate::agent_report!(
@@ -287,12 +297,37 @@ fn declares_transport(config: &str) -> bool {
 /// own parent. Codex then read a server with no transport and refused to start,
 /// which is a working install turned into a dead one by running uninstall (#351).
 fn strip_veng_server(config: &str) -> String {
+    strip_server(config, "veng")
+}
+
+/// The `[mcp_servers.omni]` block an omni install wrote, gone, so `veng init`
+/// does not leave a second server beside its own (#876). `None` when there is no
+/// such block or its command is not the omni binary: then it is someone else's.
+fn strip_omni_server(config: &str) -> Option<String> {
+    let mut in_block = false;
+    let ours = config.lines().any(|line| {
+        let t = line.trim();
+        if t.starts_with('[') {
+            in_block = t == "[mcp_servers.omni]";
+            return false;
+        }
+        in_block
+            && t.split_once('=').is_some_and(|(k, v)| {
+                k.trim() == "command" && super::runs_omni_binary(v.trim().trim_matches('"'))
+            })
+    });
+    ours.then(|| strip_server(config, "omni"))
+}
+
+fn strip_server(config: &str, name: &str) -> String {
+    let parent = format!("[mcp_servers.{name}]");
+    let child = format!("[mcp_servers.{name}.");
     let mut out = String::with_capacity(config.len());
     let mut skip = false;
     for line in config.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            skip = t == "[mcp_servers.veng]" || t.starts_with("[mcp_servers.veng.");
+            skip = t == parent || t.starts_with(&child);
         }
         if !skip {
             out.push_str(line);
@@ -444,7 +479,7 @@ fn ensure_hook_entry(arr_val: &mut Value, cmd: &str) {
 
 /// True for a hook command this tool installed, in either shape it has written.
 fn is_veng_hook_command(cmd: &str) -> bool {
-    cmd.contains("veng")
+    super::names_us(cmd)
         && (cmd.contains("--pre-hook")
             || cmd.contains("--post-hook")
             || cmd.contains("--session-start"))
@@ -495,6 +530,20 @@ pub fn remove_veng_hooks() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    /// #876: the server an omni install registered goes; one someone else named
+    /// omni stays.
+    #[test]
+    fn strips_only_the_omni_server_omni_wrote() {
+        let ours = "[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"/opt/homebrew/bin/omni\"\nargs = [\"--mcp\"]\n\n[mcp_servers.other]\ncommand = \"x\"\n";
+        let out = strip_omni_server(ours).expect("ours");
+        assert!(
+            !out.contains("mcp_servers.omni") && out.contains("mcp_servers.other"),
+            "{out}"
+        );
+        let theirs = "[mcp_servers.omni]\ncommand = \"/opt/their/tool\"\n";
+        assert!(strip_omni_server(theirs).is_none());
+    }
 
     /// #369: dedupe matched the exact command string, so moving the binary left
     /// the previous entry in place. Both fired, every command was distilled

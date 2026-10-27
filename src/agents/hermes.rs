@@ -5,9 +5,20 @@ use std::path::{Path, PathBuf};
 
 pub struct HermesIntegration;
 
+/// The plugin directory, under the name an omni install already gave it when
+/// there is one. Hermes enables a plugin by name, so a second directory would
+/// either run twice or not run at all (#876).
 fn plugin_dir() -> PathBuf {
-    hermes_home_dir().join("plugins").join("veng-signal-engine")
+    let plugins = hermes_home_dir().join("plugins");
+    let legacy = plugins.join(LEGACY_PLUGIN);
+    if legacy.exists() {
+        legacy
+    } else {
+        plugins.join("veng-signal-engine")
+    }
 }
+
+const LEGACY_PLUGIN: &str = "omni-signal-engine";
 
 fn veng_home_dir() -> PathBuf {
     // Hermes' own tree stays where hermes puts it; VENG's does not.
@@ -210,6 +221,11 @@ fn strip_toml_section(config: &str, header: &str) -> String {
 /// Returns `None` when there was nothing of ours to remove, so the caller can
 /// tell "cleaned" from "was never there" and report the truth either way.
 fn remove_veng_mcp_server(config: &str) -> Option<String> {
+    remove_mcp_server(config, "veng")
+}
+
+fn remove_mcp_server(config: &str, name: &str) -> Option<String> {
+    let key = format!("{name}:");
     let lines: Vec<&str> = config.lines().collect();
     let start = lines
         .iter()
@@ -233,7 +249,7 @@ fn remove_veng_mcp_server(config: &str) -> Option<String> {
 
     let veng_at = lines[start + 1..end]
         .iter()
-        .position(|l| indent(l) == child_indent && l.trim() == "veng:")
+        .position(|l| indent(l) == child_indent && l.trim() == key)
         .map(|i| start + 1 + i)?;
 
     let mut veng_end = end;
@@ -313,10 +329,13 @@ impl AgentIntegration for HermesIntegration {
         let dest = plugin_dir();
         fs::create_dir_all(&dest)?;
 
-        let plugin_yaml_content = r#"name: veng-signal-engine
-version: "1.0"
-description: VENG Signal Engine integration for Hermes Agent hooks
-"#;
+        let name = dest
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("veng-signal-engine");
+        let plugin_yaml_content = format!(
+            "name: {name}\nversion: \"1.0\"\ndescription: VENG Signal Engine integration for Hermes Agent hooks\n"
+        );
 
         // The plugin is a real Python file in `plugins/hermes/`, compiled by
         // CI, rather than a Rust string literal. The literal that used to live
@@ -327,7 +346,7 @@ description: VENG Signal Engine integration for Hermes Agent hooks
         fs::write(dest.join("plugin.yaml"), plugin_yaml_content)?;
         fs::write(dest.join("__init__.py"), init_py_content)?;
         actions.push(format!(
-            "{} Installed Hermes plugin to ~/.hermes/plugins/veng-signal-engine/",
+            "{} Installed Hermes plugin to ~/.hermes/plugins/{name}/",
             "✓".green()
         ));
 
@@ -349,7 +368,21 @@ description: VENG Signal Engine integration for Hermes Agent hooks
             );
         }
 
-        if let Ok(config) = fs::read_to_string(&config_path) {
+        if let Ok(read) = fs::read_to_string(&config_path) {
+            // The `omni:` server an omni install registered, replaced rather than
+            // kept beside ours. `OMNI_AGENT_ID` is what that installer wrote, so a
+            // server someone else named omni is left alone (#876).
+            let config = match read
+                .contains("OMNI_AGENT_ID: \"hermes\"")
+                .then(|| remove_mcp_server(&read, "omni"))
+                .flatten()
+            {
+                Some(stripped) => {
+                    fs::write(&config_path, &stripped)?;
+                    stripped
+                }
+                None => read,
+            };
             if configured_veng_mcp(&config_path) {
                 actions.push(
                     format!(
@@ -498,8 +531,17 @@ description: VENG Signal Engine integration for Hermes Agent hooks
         }
 
         let config_path = hermes_config_path();
-        if let Ok(config) = fs::read_to_string(&config_path)
-            && let Some(updated) = remove_veng_mcp_server(&config)
+        if let Ok(read) = fs::read_to_string(&config_path)
+            && let config = match read
+                .contains("OMNI_AGENT_ID: \"hermes\"")
+                .then(|| remove_mcp_server(&read, "omni"))
+                .flatten()
+            {
+                Some(stripped) => stripped,
+                None => read.clone(),
+            }
+            && let Some(updated) =
+                remove_veng_mcp_server(&config).or((config != read).then_some(config))
         {
             fs::write(&config_path, updated)?;
             did_something = true;
@@ -702,6 +744,17 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// #876: the `omni:` server comes out by name, the user's servers stay.
+    #[test]
+    fn removes_the_omni_server_by_name() {
+        let config = "mcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
+        let out = super::remove_mcp_server(config, "omni").expect("removed");
+        assert!(
+            !out.contains("omni:") && out.contains("their-server:"),
+            "{out}"
+        );
+    }
+
     /// The defect #445 filed: an install that lives only in config.yaml was
     /// reported as uninstalled while staying fully configured.
     #[test]

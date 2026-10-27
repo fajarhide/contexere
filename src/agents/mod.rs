@@ -142,6 +142,38 @@ impl Tier {
     }
 }
 
+/// True when a command runs a binary named `omni`.
+///
+/// Compares the binary's file name, not a substring. A substring test would
+/// treat `/home/omni/bin/veng --post-hook` (veng, run by a user called omni) as
+/// omni's.
+pub(crate) fn runs_omni_binary(command: &str) -> bool {
+    command
+        .split_whitespace()
+        .next()
+        .map(|token| token.trim_matches(|c| c == '"' || c == '\''))
+        .and_then(|token| std::path::Path::new(token).file_stem())
+        .is_some_and(|stem| stem == "omni")
+}
+
+/// A hook or server command of ours under either name. `omni` is the same
+/// binary through the rename, so an entry an omni install wrote is replaced by
+/// `veng init` and removed by uninstall, never left beside ours to run twice (#876).
+pub(crate) fn names_us(command: &str) -> bool {
+    command.contains("veng") || runs_omni_binary(command)
+}
+
+/// Drop an `omni` MCP server whose command is the omni binary. A server someone
+/// else named `omni` is theirs and stays. Returns whether one went.
+pub(crate) fn drop_omni_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
+    let ours = servers
+        .get("omni")
+        .and_then(|server| server.get("command"))
+        .and_then(|c| c.as_str())
+        .is_some_and(runs_omni_binary);
+    ours && servers.remove("omni").is_some()
+}
+
 /// Whether `command` is VENG's own hook for the same entry point as `ours`.
 ///
 /// Shared, because Claude Code and Gemini CLI both had their own copy of the
@@ -162,7 +194,7 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
     // `--hook` is a prefix of nothing else here, but `--pre-hook` ends with
     // `-hook`, so the flag is compared as the last token rather than by
     // `contains`.
-    command.contains("veng") && command.rsplit(' ').next() == Some(flag)
+    names_us(command) && command.rsplit(' ').next() == Some(flag)
 }
 
 /// Events that carry more than one VENG hook, with the count.
@@ -183,7 +215,7 @@ pub(crate) fn duplicate_veng_hooks(val: &serde_json::Value) -> Vec<(String, usiz
             .filter_map(|m| m.get("hooks").and_then(|h| h.as_array()))
             .flatten()
             .filter_map(|h| h.get("command").and_then(|c| c.as_str()))
-            .filter(|c| c.contains("veng") && c.contains("-hook") || c.contains("--session-start"))
+            .filter(|c| names_us(c) && c.contains("-hook") || c.contains("--session-start"))
             .count();
         if count > 1 {
             out.push((event.clone(), count));
@@ -384,5 +416,27 @@ mod tier_tests {
             !checked.is_empty(),
             "found no plugin calling `--post-hook`; the scan is looking in the wrong place"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #876: an omni command is ours by binary name, never by substring.
+    #[test]
+    fn knows_an_omni_command_by_its_binary() {
+        assert!(names_us("/opt/homebrew/bin/omni --post-hook"));
+        assert!(names_us("/opt/homebrew/bin/veng --post-hook"));
+        assert!(!names_us("/usr/bin/omnibus --post-hook"));
+        let mut servers = serde_json::json!({
+            "omni": { "command": "/opt/homebrew/bin/omni" },
+            "x": { "command": "omni-other" }
+        });
+        let map = servers.as_object_mut().unwrap();
+        assert!(drop_omni_server(map));
+        assert!(!map.contains_key("omni") && map.contains_key("x"));
+        let mut theirs = serde_json::json!({ "omni": { "command": "/opt/their/tool" } });
+        assert!(!drop_omni_server(theirs.as_object_mut().unwrap()));
     }
 }

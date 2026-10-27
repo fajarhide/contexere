@@ -299,7 +299,7 @@ fn installed_hook_events(hooks_path: &PathBuf) -> Vec<(String, String)> {
             let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) else {
                 continue;
             };
-            if !cmd.contains("veng") {
+            if !super::names_us(cmd) {
                 continue;
             }
             // Longest flag first: `--post-hook` also contains `--hook`.
@@ -360,6 +360,7 @@ fn install_mcp_server(val: &mut Value, exe_path: &str) {
             "env": { "VENG_AGENT_ID": "cursor" }
         }),
     );
+    super::drop_omni_server(servers);
 }
 
 fn remove_mcp_server(val: &mut Value) {
@@ -367,6 +368,7 @@ fn remove_mcp_server(val: &mut Value) {
         && let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
     {
         servers.remove("veng");
+        super::drop_omni_server(servers);
     }
 }
 
@@ -464,7 +466,7 @@ fn retain_non_veng(hooks: &mut serde_json::Map<String, Value>) {
         if let Some(arr) = arr_val.as_array_mut() {
             arr.retain(|v| {
                 v.get("command").and_then(|c| c.as_str()).is_none_or(|c| {
-                    !(c.contains("veng")
+                    !(super::names_us(c)
                         && (c.contains("--pre-hook")
                             || c.contains("--post-hook")
                             || c.contains("--hook")))
@@ -497,6 +499,18 @@ pub fn remove_veng_hooks() -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #876: omni's hooks are replaced, not doubled.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("hooks.json");
+        install_veng_hooks_at(&path, "/opt/homebrew/bin/omni").expect("omni");
+        install_veng_hooks_at(&path, "/opt/homebrew/bin/veng").expect("veng");
+        let text = std::fs::read_to_string(&path).expect("read");
+        assert!(!text.contains("bin/omni"), "{text}");
+        assert!(text.contains("bin/veng"), "{text}");
+    }
 
     #[test]
     fn install_mcp_server_is_idempotent() {

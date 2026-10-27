@@ -90,6 +90,7 @@ impl AgentIntegration for ClaudeIntegration {
                     }
                 }
 
+                changed |= remove_legacy_mcp(&mut val) > 0;
                 if changed {
                     fs::write(&mcp_path, serde_json::to_string_pretty(&val)?)?;
                     crate::agent_report!("  {} Removed MCP Server from .claude.json", "✓".yellow());
@@ -231,7 +232,7 @@ impl AgentIntegration for ClaudeIntegration {
         for p in &[mcp_path, mcpa_path] {
             if p.exists()
                 && let Ok(c) = fs::read_to_string(p)
-                && (c.contains("veng --mcp") || c.contains("\"veng\":"))
+                && (c.contains("veng --mcp") || c.contains("\"veng\":") || c.contains("omni --mcp"))
             {
                 mcp_found = true;
                 crate::agent_report!(
@@ -352,7 +353,7 @@ pub fn remove_veng_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("veng")
+                                super::names_us(c)
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook")
@@ -598,11 +599,12 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             },
         }),
     );
+    super::drop_omni_server(servers);
 
     if let Some(projects) = obj.get_mut("projects").and_then(|p| p.as_object_mut()) {
         for (_path, p_val) in projects.iter_mut() {
             if let Some(ps) = p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
-                && ps.contains_key("veng")
+                && (super::drop_omni_server(ps) | ps.contains_key("veng"))
             {
                 ps.insert(
                     "veng".to_string(),
@@ -627,7 +629,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             && let Some(ps) = inner_obj
                 .get_mut("mcpServers")
                 .and_then(|s| s.as_object_mut())
-            && ps.contains_key("veng")
+            && (super::drop_omni_server(ps) | ps.contains_key("veng"))
         {
             ps.insert(
                 "veng".to_string(),
@@ -649,6 +651,21 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    /// #876: `veng init` on a machine set up by omni replaces omni's hooks in
+    /// place. Left beside ours, both would distil every call.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks() {
+        let mut val = json!({});
+        install_veng_hooks(&mut val, "/opt/homebrew/bin/omni");
+        install_veng_hooks(&mut val, "/opt/homebrew/bin/veng");
+        let text = val.to_string();
+        assert!(!text.contains("bin/omni"), "{text}");
+        assert!(
+            crate::agents::duplicate_veng_hooks(&val).is_empty(),
+            "{text}"
+        );
+    }
     /// #454, found on a real machine: a working install was repointed from a
     /// development build to the released one, and every VENG hook ended up
     /// registered twice, once per path. Two VENG processes per hooked call, and
@@ -867,25 +884,11 @@ const LEGACY_HOOK_FLAGS: &[&str] = &[
     "--pre-compact",
 ];
 
-/// True when a command runs a binary named `omni`.
-///
-/// Compares the binary's file name, not a substring. A substring test would
-/// treat `/home/omni/bin/veng --post-hook` (veng, run by a user called omni) as
-/// omni's and delete a hook that is veng's own.
-fn runs_legacy_binary(command: &str) -> bool {
-    command
-        .split_whitespace()
-        .next()
-        .map(|token| token.trim_matches(|c| c == '"' || c == '\''))
-        .and_then(|token| std::path::Path::new(token).file_stem())
-        .is_some_and(|stem| stem == "omni")
-}
-
 fn is_legacy_hook(hook: &Value) -> bool {
     hook.get("command")
         .and_then(|c| c.as_str())
         .is_some_and(|c| {
-            runs_legacy_binary(c)
+            super::runs_omni_binary(c)
                 && c.split_whitespace()
                     .any(|token| LEGACY_HOOK_FLAGS.contains(&token))
         })
@@ -919,20 +922,10 @@ pub fn remove_legacy_hooks(val: &mut Value) -> usize {
 /// `omni` is theirs.
 pub fn remove_legacy_mcp(val: &mut Value) -> usize {
     fn drop_from(servers: Option<&mut Value>) -> usize {
-        let Some(map) = servers.and_then(|s| s.as_object_mut()) else {
-            return 0;
-        };
-        let ours = map
-            .get("omni")
-            .and_then(|server| server.get("command"))
-            .and_then(|c| c.as_str())
-            .is_some_and(runs_legacy_binary);
-        if ours {
-            map.remove("omni");
-            1
-        } else {
-            0
-        }
+        servers
+            .and_then(|s| s.as_object_mut())
+            .is_some_and(super::drop_omni_server)
+            .into()
     }
 
     let Some(obj) = val.as_object_mut() else {

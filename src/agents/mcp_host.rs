@@ -171,6 +171,7 @@ impl AgentIntegration for &'static McpHost {
                         "env": { "VENG_AGENT_ID": self.agent_id() }
                     }),
                 );
+                super::drop_omni_server(servers);
             }
         }
 
@@ -199,6 +200,7 @@ impl AgentIntegration for &'static McpHost {
             && let Some(servers) = obj.get_mut(self.key).and_then(|v| v.as_object_mut())
         {
             servers.remove("veng");
+            super::drop_omni_server(servers);
         }
 
         fs::write(&path, serde_json::to_string_pretty(&val)?)?;

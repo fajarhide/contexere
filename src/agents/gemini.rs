@@ -51,6 +51,7 @@ impl AgentIntegration for GeminiIntegration {
                         }
                     }),
                 );
+                super::drop_omni_server(servers);
             }
         }
 
@@ -83,6 +84,7 @@ impl AgentIntegration for GeminiIntegration {
             // Remove MCP server
             if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
                 servers.remove("veng");
+                super::drop_omni_server(servers);
             }
         }
 
@@ -296,7 +298,7 @@ pub fn remove_veng_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("veng")
+                                super::names_us(c)
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook"))
@@ -313,6 +315,21 @@ pub fn remove_veng_hooks(val: &mut Value) {
 
 #[cfg(test)]
 mod tests {
+
+    /// #876: omni's hooks are replaced, not doubled.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks() {
+        let mut val = json!({});
+        install_veng_hooks(&mut val, "/opt/homebrew/bin/omni");
+        install_veng_hooks(&mut val, "/opt/homebrew/bin/veng");
+        let text = val.to_string();
+        assert!(!text.contains("bin/omni"), "{text}");
+        remove_veng_hooks(&mut val);
+        assert!(
+            !val.to_string().contains("bin/veng"),
+            "uninstall leaves ours behind"
+        );
+    }
     /// Gemini carried its own copy of the exact-string test that #454 was filed
     /// against for Claude Code. Only one of the two was reported, so this is the
     /// half that was found by looking rather than by being told.

@@ -74,6 +74,7 @@ impl AgentIntegration for ClineIntegration {
             && let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
         {
             servers.remove("veng");
+            super::drop_omni_server(servers);
         }
         remove_veng_hooks(&mut val);
 
@@ -196,7 +197,7 @@ pub fn remove_veng_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("veng")
+                                super::names_us(c)
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook")
