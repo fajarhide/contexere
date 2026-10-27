@@ -30,7 +30,7 @@ impl AgentIntegration for CursorIntegration {
         );
 
         // Install hooks
-        install_omni_hooks(exe_path)?;
+        install_veng_hooks(exe_path)?;
         crate::agent_report!(
             "  {} Configured {} in ~/.cursor/hooks.json",
             "✓".green(),
@@ -57,13 +57,13 @@ impl AgentIntegration for CursorIntegration {
         }
 
         // Remove hooks
-        remove_omni_hooks()?;
+        remove_veng_hooks()?;
         crate::agent_report!("  {} Removed Hooks from ~/.cursor/hooks.json", "✓".yellow());
 
         let rule = project_rule_path();
         if rule.exists() && fs::read_to_string(&rule).unwrap_or_default() == CURSOR_RULE {
             let _ = fs::remove_file(&rule);
-            crate::agent_report!("  {} Removed .cursor/rules/omni.mdc", "✓".yellow());
+            crate::agent_report!("  {} Removed .cursor/rules/veng.mdc", "✓".yellow());
         }
         Ok(())
     }
@@ -79,7 +79,7 @@ impl AgentIntegration for CursorIntegration {
         if mcp_path.exists()
             && let Ok(content) = fs::read_to_string(&mcp_path)
             && let Ok(val) = serde_json::from_str::<Value>(&content)
-            && has_valid_omni_server(&val)
+            && has_valid_veng_server(&val)
         {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -105,7 +105,7 @@ impl AgentIntegration for CursorIntegration {
                     "not configured".bright_black()
                 );
                 warnings.push(
-                    "Cursor MCP server is not configured. Run `omni init --cursor`.".to_string(),
+                    "Cursor MCP server is not configured. Run `veng init --cursor`.".to_string(),
                 );
             }
         }
@@ -136,7 +136,7 @@ impl AgentIntegration for CursorIntegration {
                     crate::agents::report_fix(
                         "Hooks:",
                         "missing hooks installed",
-                        install_omni_hooks(&exe_path.to_string_lossy()),
+                        install_veng_hooks(&exe_path.to_string_lossy()),
                         warnings,
                     );
                 }
@@ -149,13 +149,13 @@ impl AgentIntegration for CursorIntegration {
                         .bold()
                 );
                 warnings.push(format!(
-                    "Cursor hooks missing on {}. Run `omni init --cursor`.",
+                    "Cursor hooks missing on {}. Run `veng init --cursor`.",
                     missing.join(", ")
                 ));
             }
         }
 
-        // The rule is not cosmetic here. `omni_run` is the only path by which a
+        // The rule is not cosmetic here. `veng_run` is the only path by which a
         // shell command is distilled on Cursor, and the agent only reaches for
         // it when a rule says to. Hooks green plus no rule is the Cursor-shaped
         // false green all over again: everything installed, nothing distilled
@@ -165,8 +165,8 @@ impl AgentIntegration for CursorIntegration {
             if rule.exists() {
                 crate::agent_report!(
                     "   {:<21} {}",
-                    "omni_run rule".bright_black(),
-                    "[OK] .cursor/rules/omni.mdc".green()
+                    "veng_run rule".bright_black(),
+                    "[OK] .cursor/rules/veng.mdc".green()
                 );
             } else {
                 all_ok = false;
@@ -175,13 +175,13 @@ impl AgentIntegration for CursorIntegration {
                 } else {
                     crate::agent_report!(
                         "   {:<21} {}",
-                        "omni_run rule".bright_black(),
+                        "veng_run rule".bright_black(),
                         "[WARNING] missing: the agent will keep using the built-in shell"
                             .yellow()
                             .bold()
                     );
                     warnings.push(
-                        "Cursor has no omni_run rule, so nothing is distilled here. Run `omni init --cursor` in this project."
+                        "Cursor has no veng_run rule, so nothing is distilled here. Run `veng init --cursor` in this project."
                             .to_string(),
                     );
                 }
@@ -195,12 +195,12 @@ impl AgentIntegration for CursorIntegration {
 /// The rule text a Cursor user needs, printed rather than written.
 ///
 /// Cursor cannot let a hook replace built-in tool output (#349), so the only way
-/// a command's output is distilled there is if `omni_run` is the tool that ran
+/// a command's output is distilled there is if `veng_run` is the tool that ran
 /// it (#351). That tool exists, and the agent still has to choose it, which is
 /// the difference between a lever being available and being used.
 ///
-/// Printed, not installed, for two reasons. `omni init` is a per-machine action
-/// and `.cursor/rules/` is per-project, so writing one would put OMNI's file in
+/// Printed, not installed, for two reasons. `veng init` is a per-machine action
+/// and `.cursor/rules/` is per-project, so writing one would put VENG's file in
 /// somebody's repository uninvited. And rules are a fixed context cost that
 /// #352 tracks as its own bucket, so the user should decide whether to spend it.
 /// Deliberately two lines: a longer rule makes the bucket it is trying to help
@@ -209,13 +209,13 @@ pub const CURSOR_RULE: &str = "\
 ---
 alwaysApply: true
 ---
-Run shell commands with the `omni_run` MCP tool instead of the built-in shell tool.
+Run shell commands with the `veng_run` MCP tool instead of the built-in shell tool.
 Its output is filtered to signal before it reaches you, which the built-in tool cannot do on this host.
 ";
 
 /// Where a project's Cursor rules live, relative to its root.
 fn project_rule_path() -> PathBuf {
-    PathBuf::from(".cursor/rules/omni.mdc")
+    PathBuf::from(".cursor/rules/veng.mdc")
 }
 
 /// True when the working directory looks like a checkout rather than a home
@@ -228,10 +228,10 @@ fn in_a_project() -> bool {
 ///
 /// Printing alone was the cheap option and it does not work: the user has to
 /// notice a hint, copy it, and create a file, and the tool sits unused when they
-/// do not. `omni_run` is the *only* way a shell command is distilled on Cursor
+/// do not. `veng_run` is the *only* way a shell command is distilled on Cursor
 /// (#349, #351), so an unused tool is the whole feature not working.
 ///
-/// Only inside a project, because `.cursor/rules/` is per-project and OMNI has
+/// Only inside a project, because `.cursor/rules/` is per-project and VENG has
 /// no business writing into a home directory or an unrelated folder. Uninstall
 /// removes it again.
 fn install_cursor_rule() -> anyhow::Result<()> {
@@ -239,14 +239,14 @@ fn install_cursor_rule() -> anyhow::Result<()> {
         crate::agent_report!(
             "\n  {} Not in a project, so the {} rule was not written.",
             "!".yellow().bold(),
-            "omni_run".bold()
+            "veng_run".bold()
         );
         crate::agent_report!(
-            "    Cursor cannot rewrite built-in tool output, so run `omni init --cursor`"
+            "    Cursor cannot rewrite built-in tool output, so run `veng init --cursor`"
         );
         crate::agent_report!(
             "    from a repository, or save this as {}:\n",
-            ".cursor/rules/omni.mdc".bold()
+            ".cursor/rules/veng.mdc".bold()
         );
         for line in CURSOR_RULE.lines() {
             crate::agent_report!("      {}", line.bright_black());
@@ -262,8 +262,8 @@ fn install_cursor_rule() -> anyhow::Result<()> {
     crate::agent_report!(
         "  {} Wrote {} so the agent reaches for {}",
         "✓".green(),
-        ".cursor/rules/omni.mdc".bold(),
-        "omni_run".bold()
+        ".cursor/rules/veng.mdc".bold(),
+        "veng_run".bold()
     );
     crate::agent_report!(
         "    {}",
@@ -282,7 +282,7 @@ const REQUIRED_HOOKS: &[(&str, &str)] = &[
     ("stop", "--hook"),
 ];
 
-/// `(event, flag)` for every OMNI command registered in the file.
+/// `(event, flag)` for every VENG command registered in the file.
 fn installed_hook_events(hooks_path: &PathBuf) -> Vec<(String, String)> {
     let Ok(content) = fs::read_to_string(hooks_path) else {
         return Vec::new();
@@ -299,7 +299,7 @@ fn installed_hook_events(hooks_path: &PathBuf) -> Vec<(String, String)> {
             let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) else {
                 continue;
             };
-            if !cmd.contains("omni") {
+            if !cmd.contains("veng") {
                 continue;
             }
             // Longest flag first: `--post-hook` also contains `--hook`.
@@ -354,10 +354,10 @@ fn install_mcp_server(val: &mut Value, exe_path: &str) {
         .as_object_mut()
         .unwrap();
     servers.insert(
-        "omni".to_string(),
+        "veng".to_string(),
         json!({
             "type": "stdio", "command": exe_path, "args": ["--mcp"],
-            "env": { "OMNI_AGENT_ID": "cursor" }
+            "env": { "VENG_AGENT_ID": "cursor" }
         }),
     );
 }
@@ -366,31 +366,31 @@ fn remove_mcp_server(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
     {
-        servers.remove("omni");
+        servers.remove("veng");
     }
 }
 
-fn has_valid_omni_server(val: &Value) -> bool {
+fn has_valid_veng_server(val: &Value) -> bool {
     val.get("mcpServers")
         .and_then(|v| v.as_object())
-        .and_then(|servers| servers.get("omni"))
-        .is_some_and(|omni| {
-            omni.get("command").and_then(|v| v.as_str()).is_some()
-                && omni
+        .and_then(|servers| servers.get("veng"))
+        .is_some_and(|veng| {
+            veng.get("command").and_then(|v| v.as_str()).is_some()
+                && veng
                     .get("args")
                     .and_then(|v| v.as_array())
                     .is_some_and(|args| args.iter().any(|arg| arg.as_str() == Some("--mcp")))
         })
 }
 
-pub fn install_omni_hooks(exe_path: &str) -> anyhow::Result<()> {
-    install_omni_hooks_at(&get_hooks_path(), exe_path)
+pub fn install_veng_hooks(exe_path: &str) -> anyhow::Result<()> {
+    install_veng_hooks_at(&get_hooks_path(), exe_path)
 }
 
 /// The path is a parameter so the tests drive this without setting `HOME`.
 /// `cargo` runs tests in parallel and a `set_var` here would decide where an
 /// unrelated test writes, which is the failure mode `CONTRIBUTING.md` calls out.
-fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result<()> {
+fn install_veng_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result<()> {
     if let Some(parent) = hooks_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -420,11 +420,11 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
     let post_cmd = format!("{} --post-hook", exe_path);
     let hook_cmd = format!("{} --hook", exe_path);
 
-    // Drop every OMNI entry first, then re-add. Two things this buys: an install
+    // Drop every VENG entry first, then re-add. Two things this buys: an install
     // after the binary moved leaves one command rather than two, and the stale
     // `afterFileEdit` registration from before #340 is purged on upgrade instead
     // of sitting in the file forever, firing on edits that carry no output.
-    retain_non_omni(hooks);
+    retain_non_veng(hooks);
 
     let ensure_hook = |arr_val: &mut Value, cmd: &str| {
         let arr = arr_val.as_array_mut().unwrap();
@@ -444,7 +444,7 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
     for (event, cmd) in [
         ("beforeShellExecution", &pre_cmd),
         ("postToolUse", &post_cmd),
-        // Failed commands carry the error payload OMNI reads for #120.
+        // Failed commands carry the error payload VENG reads for #120.
         ("postToolUseFailure", &hook_cmd),
         // Cursor has no PreCompact, and `stop` is the closest thing to
         // SessionEnd: the flush that lets the next session start informed.
@@ -457,14 +457,14 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
     Ok(())
 }
 
-/// Strips OMNI's own hook entries from every event, leaving other tools' hooks
+/// Strips VENG's own hook entries from every event, leaving other tools' hooks
 /// untouched. Shared by install (so it can re-register cleanly) and uninstall.
-fn retain_non_omni(hooks: &mut serde_json::Map<String, Value>) {
+fn retain_non_veng(hooks: &mut serde_json::Map<String, Value>) {
     for arr_val in hooks.values_mut() {
         if let Some(arr) = arr_val.as_array_mut() {
             arr.retain(|v| {
                 v.get("command").and_then(|c| c.as_str()).is_none_or(|c| {
-                    !(c.contains("omni")
+                    !(c.contains("veng")
                         && (c.contains("--pre-hook")
                             || c.contains("--post-hook")
                             || c.contains("--hook")))
@@ -474,7 +474,7 @@ fn retain_non_omni(hooks: &mut serde_json::Map<String, Value>) {
     }
 }
 
-pub fn remove_omni_hooks() -> anyhow::Result<()> {
+pub fn remove_veng_hooks() -> anyhow::Result<()> {
     let hooks_path = get_hooks_path();
     if !hooks_path.exists() {
         return Ok(());
@@ -487,7 +487,7 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
     if let Some(obj) = val.as_object_mut()
         && let Some(hooks) = obj.get_mut("hooks").and_then(|h| h.as_object_mut())
     {
-        retain_non_omni(hooks);
+        retain_non_veng(hooks);
     }
 
     fs::write(&hooks_path, serde_json::to_string_pretty(&val)?)?;
@@ -501,25 +501,25 @@ mod tests {
     #[test]
     fn install_mcp_server_is_idempotent() {
         let mut val = json!({});
-        install_mcp_server(&mut val, "/usr/local/bin/omni");
-        install_mcp_server(&mut val, "/usr/local/bin/omni");
+        install_mcp_server(&mut val, "/usr/local/bin/veng");
+        install_mcp_server(&mut val, "/usr/local/bin/veng");
         let servers = val
             .get("mcpServers")
             .and_then(|v| v.as_object())
             .expect("mcpServers exists");
         assert_eq!(servers.len(), 1);
-        assert!(servers.contains_key("omni"));
+        assert!(servers.contains_key("veng"));
     }
 
     #[test]
-    fn remove_mcp_server_removes_only_omni() {
-        let mut val = json!({ "mcpServers": { "omni": {"command": "/usr/local/bin/omni", "args": ["--mcp"]}, "other": {"command": "other"} } });
+    fn remove_mcp_server_removes_only_veng() {
+        let mut val = json!({ "mcpServers": { "veng": {"command": "/usr/local/bin/veng", "args": ["--mcp"]}, "other": {"command": "other"} } });
         remove_mcp_server(&mut val);
         let servers = val
             .get("mcpServers")
             .and_then(|v| v.as_object())
             .expect("mcpServers exists");
-        assert!(!servers.contains_key("omni"));
+        assert!(!servers.contains_key("veng"));
         assert!(servers.contains_key("other"));
     }
 
@@ -531,7 +531,7 @@ mod tests {
     fn registers_the_post_hook_on_the_event_that_carries_output() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("hooks.json");
-        install_omni_hooks_at(&path, "/usr/local/bin/omni").expect("install");
+        install_veng_hooks_at(&path, "/usr/local/bin/veng").expect("install");
 
         let installed = installed_hook_events(&path);
         for (event, flag) in REQUIRED_HOOKS {
@@ -546,7 +546,7 @@ mod tests {
         );
     }
 
-    /// #352: the rule is the only thing that makes `omni_run` get used, and it is
+    /// #352: the rule is the only thing that makes `veng_run` get used, and it is
     /// charged to the Rules bucket that issue tracks, so it has to stay small and
     /// it has to be valid. `alwaysApply` is what Cursor reads to include a rule in
     /// every session; without it the rule sits there and never fires.
@@ -557,7 +557,7 @@ mod tests {
             "a rule without alwaysApply is never included:\n{CURSOR_RULE}"
         );
         assert!(
-            CURSOR_RULE.contains("omni_run"),
+            CURSOR_RULE.contains("veng_run"),
             "the rule must name the tool it exists to steer toward"
         );
 
@@ -574,7 +574,7 @@ mod tests {
     }
 
     /// An upgrade has to remove the dead registration, not leave it beside the
-    /// working one. A user who ran an older `omni init --cursor` still has the
+    /// working one. A user who ran an older `veng init --cursor` still has the
     /// `afterFileEdit` entry on disk.
     #[test]
     fn purges_a_stale_registration_left_by_an_earlier_install() {
@@ -583,14 +583,14 @@ mod tests {
         fs::write(
             &path,
             serde_json::to_string_pretty(&json!({"hooks": {
-                "afterFileEdit": [{"command": "/old/path/omni --post-hook"}],
+                "afterFileEdit": [{"command": "/old/path/veng --post-hook"}],
                 "stop": [{"command": "/some/other/tool.sh"}]
             }}))
             .expect("json"),
         )
         .expect("seed");
 
-        install_omni_hooks_at(&path, "/usr/local/bin/omni").expect("install");
+        install_veng_hooks_at(&path, "/usr/local/bin/veng").expect("install");
         let installed = installed_hook_events(&path);
 
         assert!(

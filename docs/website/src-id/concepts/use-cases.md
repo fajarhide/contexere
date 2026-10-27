@@ -1,13 +1,13 @@
-# Di mana OMNI membantu
+# Di mana VENG membantu
 
 Sebelas situasi, masing-masing dengan angka terukurnya. Dua di antaranya kasus
-ketika OMNI menyingkir, dan keduanya sengaja dimuat di sini:
+ketika VENG menyingkir, dan keduanya sengaja dimuat di sini:
 perkakas yang mengaku membantu di mana-mana adalah perkakas yang tidak bisa
 ditebak siapa pun.
 
 Setiap angka berasal dari pemutaran ulang 6.656 perintah nyata yang sama seperti
 yang diuraikan di
-[Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks), jadi semuanya
+[Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks), jadi semuanya
 rata-rata atas campuran perintah yang nyata, bukan hari bagus yang dipetik dari
 sebuah log.
 
@@ -18,7 +18,7 @@ pemanggilnya, kembali lalu membaca `auth.rs` lagi. Enam giliran kemudian ia
 membacanya untuk ketiga kali. Setiap bacaan ditagih penuh, dan tidak satu pun
 pengulangan itu memberi tahu sesuatu yang belum diberi tahu bacaan pertama.
 
-**Yang OMNI lakukan.** Bacaan kedua kembali sebagai penanda dengan handle.
+**Yang VENG lakukan.** Bacaan kedua kembali sebagai penanda dengan handle.
 Baris-barisnya sudah ada di konteks agent; mengirimnya lagi berarti membayar dua
 kali untuk satu fakta.
 
@@ -34,7 +34,7 @@ bekerja, dan itulah alasan penandanya ada.
 Agent Anda membaca semua 412 baris untuk menemukannya, dan kalau run-nya cukup
 panjang host memotong ekornya, yang justru tempat vonis itu tinggal.
 
-**Yang OMNI lakukan.** Distiller test menyimpan hitungannya dan setiap kegagalan
+**Yang VENG lakukan.** Distiller test menyimpan hitungannya dan setiap kegagalan
 lengkap dengan assertion serta posisi berkasnya, lalu membuang baris yang lulus.
 
 **Angkanya: 78,0%** lebih hemat pada keluaran build dan test.
@@ -49,7 +49,7 @@ bahkan sebelum ada yang terlihat dua kali.
 lima baris. Lima belas commit jadi satu setengah layar, padahal agent Anda cuma
 mau subjeknya.
 
-**Yang OMNI lakukan.** Setiap commit disimpan, sebagai satu baris
+**Yang VENG lakukan.** Setiap commit disimpan, sebagai satu baris
 `hash subject`. Tidak ada yang diringkas hilang dan tidak ada commit yang lenyap;
 yang pergi amplop di sekeliling masing-masing.
 
@@ -62,12 +62,12 @@ yang pergi amplop di sekeliling masing-masing.
 dipadatkan. Agent kehilangan alur, membaca ulang berkas yang sudah ia pahami, dan
 Anda menjelaskan ulang tugasnya.
 
-**Yang OMNI lakukan.** Dua hal. Konteks yang terpakai per perintah lebih sedikit
+**Yang VENG lakukan.** Dua hal. Konteks yang terpakai per perintah lebih sedikit
 berarti temboknya datang belakangan. Dan [ingatan antar sesi](../use/memory.md)
 selamat dari pemadatan: pengetahuan proyek, pola galat yang berulang, dan tujuan
-yang Anda pancang dengan `omni goal` ada di SQLite, bukan di jendela konteks.
+yang Anda pancang dengan `veng goal` ada di SQLite, bukan di jendela konteks.
 
-**Di mana batasnya, dan kenapa itu disengaja.** OMNI tidak bisa mencegah pemadatan.
+**Di mana batasnya, dan kenapa itu disengaja.** VENG tidak bisa mencegah pemadatan.
 Ketika pemadatan terjadi, ia sengaja melepas apa yang sudah ia tunjukkan, karena
 sebuah handle hanya jujur selama agent masih memegang baris-baris itu, dan
 pemadatan persis saat hal itu berhenti benar. Aturan itulah yang membuat setiap
@@ -78,7 +78,7 @@ penanda tetap benar di seberang pemadatan.
 **Situasinya.** Anda mulai di Claude Code, pindah ke Codex CLI untuk satu
 perubahan, dan keduanya mulai dari nol.
 
-**Yang OMNI lakukan.** Penyimpanannya satu berkas SQLite yang dikunci pada jalur
+**Yang VENG lakukan.** Penyimpanannya satu berkas SQLite yang dikunci pada jalur
 proyek, bukan pada agent. Agent kedua yang bekerja di direktori yang sama membaca
 pengetahuan proyek yang sama, dan cakupan proyek pada ledger akan memberinya
 handle untuk keluaran yang sudah dihasilkan sesi sebelumnya. Penanda itu berbunyi
@@ -101,7 +101,7 @@ terang soal apa yang hari ini dikunci pada agent dan apa yang tidak.
 **Situasinya.** Anda menyalurkan keluaran terstruktur ke sesuatu yang menguraikan
 keluaran itu.
 
-**Yang OMNI lakukan: tidak ada.** JSON, YAML, NDJSON, CSV dan TSV lewat persis
+**Yang VENG lakukan: tidak ada.** JSON, YAML, NDJSON, CSV dan TSV lewat persis
 byte demi byte. Kompresor yang mengubah format muatan yang sebentar lagi diurai
 perintah berikutnya tidak menghemat apa pun untuk Anda, ia merusak pipeline Anda.
 
@@ -114,7 +114,7 @@ perintah berikutnya tidak menghemat apa pun untuk Anda, ia merusak pipeline Anda
 sebuah offset, lalu berikutnya, lalu berikutnya lagi. Tiap jendela mengulang bagian kepala
 berkasnya, karena memang itu isi sebuah jendela pada offset.
 
-**Yang OMNI lakukan.** Ia melipat kepala yang berulang itu dan menggeser penomoran
+**Yang VENG lakukan.** Ia melipat kepala yang berulang itu dan menggeser penomoran
 barisnya agar cocok, sehingga baris yang masih Anda lihat bernomor sesuai posisi
 sebenarnya di berkas. Paruh kedua itu penting: lipatan yang menomori ulang isi di bawahnya
 lebih buruk daripada tidak melipat sama sekali, dan itu sebabnya kasus ini ditolak selama
@@ -129,7 +129,7 @@ readfile menjangkaunya lebih dulu di 46,6% bagaimanapun.
 **Situasinya.** Agent Anda memunculkan pembantu untuk pekerjaan yang cakupannya sempit.
 Pembantu itu memulai dengan konteks kosong lalu membaca berkas yang sudah dibaca induknya.
 
-**Yang OMNI lakukan.** Ia memberi pembantu itu pandangannya sendiri. Claude Code
+**Yang VENG lakukan.** Ia memberi pembantu itu pandangannya sendiri. Claude Code
 menyerahkan session id milik induk kepada subagent, jadi ledger yang dikunci pada sesi
 saja akan menjawab pembantu itu dengan riwayat induknya dan memberitahunya 200 baris sudah
 ditampilkan, padahal konteks itu tidak pernah menerimanya. Sekarang pembantu itu melihat
@@ -140,10 +140,10 @@ tidak pernah jadi masalah; klaimnya yang bermasalah.
 
 ## 9. Anda mengikuti penanda untuk mengambil isinya kembali
 
-**Situasinya.** Sebuah penanda berbunyi `omni retrieve <handle>`. Anda menjalankannya,
+**Situasinya.** Sebuah penanda berbunyi `veng retrieve <handle>`. Anda menjalankannya,
 atau agent Anda yang menjalankannya, lalu membaca hasilnya.
 
-**Yang OMNI lakukan.** Ia menyerahkan byte itu utuh. Sebelumnya, byte itu kembali melewati
+**Yang VENG lakukan.** Ia menyerahkan byte itu utuh. Sebelumnya, byte itu kembali melewati
 pipeline, menghasilkan hash yang sama, dan terlipat menjadi penanda yang tadi menyuruh
 Anda ke sana, sehingga mengikuti instruksinya justru mengembalikan instruksinya.
 
@@ -157,7 +157,7 @@ hilang.
 **Situasinya.** Sesinya panjang, host memadatkan percakapannya, dan separuh dari yang
 dipegang agent Anda hilang.
 
-**Yang OMNI lakukan.** Ia melupakan. Seluruh lisensi ledger adalah bahwa agent masih
+**Yang VENG lakukan.** Ia melupakan. Seluruh lisensi ledger adalah bahwa agent masih
 memegang byte yang digantikan sebuah handle, dan compaction adalah titik di mana itu
 berhenti benar, jadi himpunan yang sudah ditampilkan ikut pergi. Tidak ada apa pun setelah
 compaction yang mengklaim Anda sudah melihat sesuatu yang tidak lagi Anda pegang.
@@ -167,13 +167,13 @@ pertukaran yang menjaga penandanya tetap benar.
 
 ## 11. Setiap request membawa daftar perkakas yang tidak pernah Anda panggil
 
-**Situasinya.** OMNI mendaftar sebagai server MCP, dan definisi perkakas berada di awal
+**Situasinya.** VENG mendaftar sebagai server MCP, dan definisi perkakas berada di awal
 setiap request di setiap sesi. Berbeda dengan keluaran, byte di awal tidak dibayar sekali:
 ia dibaca ulang di setiap request sesudahnya.
 
-**Yang OMNI lakukan.** Ia hanya mengiklankan perkakas yang memang dipakai tier host Anda,
-sembilan alih-alih dua puluh lima, dengan `OMNI_MCP_TOOLS=all` untuk mengembalikan sisanya
-dan `omni doctor` yang menyebut set mana yang sedang berlaku.
+**Yang VENG lakukan.** Ia hanya mengiklankan perkakas yang memang dipakai tier host Anda,
+sembilan alih-alih dua puluh lima, dengan `VENG_MCP_TOOLS=all` untuk mengembalikan sisanya
+dan `veng doctor` yang menyebut set mana yang sedang berlaku.
 
 **Angkanya: 4.940 byte hilang dari setiap request.** Diukur di 229 sesi: enam belas dari
 dua puluh lima perkakas itu tidak pernah sekali pun dipanggil.
@@ -182,10 +182,10 @@ dua puluh lima perkakas itu tidak pernah sekali pun dipanggil.
 
 `kubectl get pods` dengan 35 pod mengembalikan tabel yang setiap barisnya sebuah
 fakta. Tidak ada basa-basi untuk dibuang dan belum ada yang pernah dilihat, jadi
-OMNI mengembalikan seluruh 35 baris dan melaporkan penghematan 0%.
+VENG mengembalikan seluruh 35 baris dan melaporkan penghematan 0%.
 
 **Sebagian besar panggilan di korpus ini bentuknya begini, dan itulah bentuk
-alatnya.** OMNI bukan barang yang mengecilkan segalanya sedikit. Ia menyingkir
+alatnya.** VENG bukan barang yang mengecilkan segalanya sedikit. Ia menyingkir
 sampai ada yang layak diambil, lalu mengambil banyak sekali: di korpus ini 78,0%
 dari keluaran build dan test, dan 25,0% dari pembacaan file. Angka gabungan 14,9%
 menghitung setiap kali ia menyingkir bersama kemenangan-kemenangan itu, jadi baris
@@ -203,5 +203,5 @@ per kelas itulah yang perlu dibaca untuk beban kerja Anda sendiri.
 | selebihnya | 4.145 | 6,9% |
 | **semuanya** | **6.656** | **14,9%** |
 
-Jalankan `omni stats` setelah beberapa hari dan Anda mendapat tabel ini untuk
+Jalankan `veng stats` setelah beberapa hari dan Anda mendapat tabel ini untuk
 riwayat Anda sendiri, satu-satunya versi yang menggambarkan pekerjaan Anda.

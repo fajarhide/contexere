@@ -31,20 +31,20 @@ impl AgentIntegration for CodexIntegration {
             String::new()
         };
 
-        // A sub-table like `[mcp_servers.omni.tools.x]` declares `mcp_servers.omni`
+        // A sub-table like `[mcp_servers.veng.tools.x]` declares `mcp_servers.veng`
         // on its own. Without the parent block beside it the server has no
         // transport, and Codex refuses to start at all:
         //
         //   Error: config.toml:45:14: invalid transport
-        //   Caused by: invalid transport in `mcp_servers.omni`
+        //   Caused by: invalid transport in `mcp_servers.veng`
         //
-        // The old test was `contains("[mcp_servers.omni]")`, which an orphaned
+        // The old test was `contains("[mcp_servers.veng]")`, which an orphaned
         // sub-table does not satisfy, so install could not repair what uninstall
         // had left behind (#351). Verified in a copied CODEX_HOME on 0.144.6:
         // orphan alone and `codex features list` dies; parent restored and it runs.
         if !declares_transport(&content) {
             content.push_str(&format!(
-                "\n[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
+                "\n[mcp_servers.veng]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
                 exe_path
             ));
             fs::write(&config_path, content)?;
@@ -57,7 +57,7 @@ impl AgentIntegration for CodexIntegration {
         );
 
         // Install hooks in hooks.json
-        install_omni_hooks(exe_path)?;
+        install_veng_hooks(exe_path)?;
         crate::agent_report!(
             "  {} Configured {} in {}",
             "✓".green(),
@@ -98,8 +98,8 @@ impl AgentIntegration for CodexIntegration {
         let config_path = codex_dir.join("config.toml");
         if config_path.exists() {
             let content = fs::read_to_string(&config_path)?;
-            if content.contains("[mcp_servers.omni") {
-                let new_content = strip_omni_server(&content);
+            if content.contains("[mcp_servers.veng") {
+                let new_content = strip_veng_server(&content);
                 fs::write(&config_path, new_content.trim_end().to_string() + "\n")?;
                 crate::agent_report!(
                     "  {} Removed MCP Server from {}",
@@ -110,7 +110,7 @@ impl AgentIntegration for CodexIntegration {
         }
 
         // Remove hooks from hooks.json
-        remove_omni_hooks()?;
+        remove_veng_hooks()?;
         crate::agent_report!(
             "  {} Removed Hooks from {}",
             "✓".yellow(),
@@ -132,7 +132,7 @@ impl AgentIntegration for CodexIntegration {
         if config_path.exists()
             && fs::read_to_string(&config_path)
                 .unwrap_or_default()
-                .contains("omni")
+                .contains("veng")
         {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -158,7 +158,7 @@ impl AgentIntegration for CodexIntegration {
                     "not configured".bright_black()
                 );
                 warnings.push(
-                    "Codex CLI MCP server not configured. Run `omni init --codex`.".to_string(),
+                    "Codex CLI MCP server not configured. Run `veng init --codex`.".to_string(),
                 );
             }
         }
@@ -200,14 +200,14 @@ impl AgentIntegration for CodexIntegration {
                     format!("[WARNING] {} awaiting review in Codex", awaiting.join(", ")).yellow()
                 );
                 warnings.push(format!(
-                    "Codex has not been told to trust OMNI's hooks ({}), so it skips them silently. \
+                    "Codex has not been told to trust VENG's hooks ({}), so it skips them silently. \
                      Start `codex` once and approve them under \"Hooks need review\", or pass \
                      `--dangerously-bypass-hook-trust` for unattended runs.",
                     awaiting.join(", ")
                 ));
             } else {
                 // A record existing is not the same as it matching. Codex stores
-                // the entry's hash and re-checks it, and `omni init --codex`
+                // the entry's hash and re-checks it, and `veng init --codex`
                 // rewrites the entries, so an upgrade invalidates approvals that
                 // were working. The hash preimage is not derivable from the
                 // config, so this cannot be verified here and must not be
@@ -225,7 +225,7 @@ impl AgentIntegration for CodexIntegration {
                     crate::agents::report_fix(
                         "Hooks:",
                         "missing hooks installed",
-                        install_omni_hooks(&exe_path.to_string_lossy()),
+                        install_veng_hooks(&exe_path.to_string_lossy()),
                         warnings,
                     );
                 }
@@ -252,7 +252,7 @@ impl AgentIntegration for CodexIntegration {
                     );
                 }
                 warnings
-                    .push("Codex CLI hooks not configured. Run `omni init --codex`.".to_string());
+                    .push("Codex CLI hooks not configured. Run `veng init --codex`.".to_string());
             }
         }
 
@@ -260,10 +260,10 @@ impl AgentIntegration for CodexIntegration {
     }
 }
 
-/// True when `mcp_servers.omni` is declared *with* a transport, which is the only
+/// True when `mcp_servers.veng` is declared *with* a transport, which is the only
 /// state Codex will start from.
 ///
-/// A bare `[mcp_servers.omni.tools.x]` also declares the server, so presence of
+/// A bare `[mcp_servers.veng.tools.x]` also declares the server, so presence of
 /// the name says nothing. Codex needs the parent block carrying `command`, and
 /// rejects the whole config without it.
 fn declares_transport(config: &str) -> bool {
@@ -271,7 +271,7 @@ fn declares_transport(config: &str) -> bool {
     for line in config.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            in_parent = t == "[mcp_servers.omni]";
+            in_parent = t == "[mcp_servers.veng]";
             continue;
         }
         if in_parent && t.starts_with("command") {
@@ -281,18 +281,18 @@ fn declares_transport(config: &str) -> bool {
     false
 }
 
-/// Removes `[mcp_servers.omni]` **and every `[mcp_servers.omni.*]` sub-table**.
+/// Removes `[mcp_servers.veng]` **and every `[mcp_servers.veng.*]` sub-table**.
 ///
 /// The old version stopped skipping at the next `[`, so a sub-table survived its
 /// own parent. Codex then read a server with no transport and refused to start,
 /// which is a working install turned into a dead one by running uninstall (#351).
-fn strip_omni_server(config: &str) -> String {
+fn strip_veng_server(config: &str) -> String {
     let mut out = String::with_capacity(config.len());
     let mut skip = false;
     for line in config.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            skip = t == "[mcp_servers.omni]" || t.starts_with("[mcp_servers.omni.");
+            skip = t == "[mcp_servers.veng]" || t.starts_with("[mcp_servers.veng.");
         }
         if !skip {
             out.push_str(line);
@@ -307,8 +307,8 @@ fn strip_omni_server(config: &str) -> String {
 /// config Codex never loads, and `doctor` then reports the file it wrote rather
 /// than the file in use. Seen on a machine where a launcher exported
 /// `CODEX_HOME` to its own runtime directory: `~/.codex/config.toml` held the
-/// MCP server, the live home did not, and OMNI reported healthy either way.
-/// The OMNI hook events Codex has no trust record for, and will therefore skip.
+/// MCP server, the live home did not, and VENG reported healthy either way.
+/// The VENG hook events Codex has no trust record for, and will therefore skip.
 ///
 /// Codex 0.144.6 trusts hooks one entry at a time, keyed
 /// `<hooks.json path>:<event>:<group>:<index>` under `[hooks.state]`, with the
@@ -317,7 +317,7 @@ fn strip_omni_server(config: &str) -> String {
 /// all. Proved by deleting one trust record: the hook stopped firing, and came
 /// back when the record was restored (#359).
 ///
-/// OMNI deliberately does not write these records. The hash exists so a human
+/// VENG deliberately does not write these records. The hash exists so a human
 /// approves each command before Codex runs it, and a tool that grants itself
 /// that approval removes the only thing standing between "can write a config
 /// file" and "can execute anything".
@@ -355,7 +355,7 @@ fn codex_dir_from(codex_home: Option<std::ffi::OsString>, home: Option<PathBuf>)
     }
 }
 
-pub fn install_omni_hooks(exe_path: &str) -> anyhow::Result<()> {
+pub fn install_veng_hooks(exe_path: &str) -> anyhow::Result<()> {
     let hooks_path = get_codex_dir().join("hooks.json");
     fs::create_dir_all(get_codex_dir())?;
 
@@ -430,11 +430,11 @@ fn ensure_hook_entry(arr_val: &mut Value, cmd: &str) {
                 inner
                     .iter()
                     .filter_map(|h| h.get("command").and_then(|c| c.as_str()))
-                    .any(is_omni_hook_command)
+                    .any(is_veng_hook_command)
             })
             .unwrap_or(false);
 
-        !(flat.is_some_and(is_omni_hook_command) || nested)
+        !(flat.is_some_and(is_veng_hook_command) || nested)
     });
 
     arr.push(json!({
@@ -443,14 +443,14 @@ fn ensure_hook_entry(arr_val: &mut Value, cmd: &str) {
 }
 
 /// True for a hook command this tool installed, in either shape it has written.
-fn is_omni_hook_command(cmd: &str) -> bool {
-    cmd.contains("omni")
+fn is_veng_hook_command(cmd: &str) -> bool {
+    cmd.contains("veng")
         && (cmd.contains("--pre-hook")
             || cmd.contains("--post-hook")
             || cmd.contains("--session-start"))
 }
 
-pub fn remove_omni_hooks() -> anyhow::Result<()> {
+pub fn remove_veng_hooks() -> anyhow::Result<()> {
     let hooks_path = get_codex_dir().join("hooks.json");
     if !hooks_path.exists() {
         return Ok(());
@@ -479,11 +479,11 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
                             inner
                                 .iter()
                                 .filter_map(|h| h.get("command").and_then(|c| c.as_str()))
-                                .any(is_omni_hook_command)
+                                .any(is_veng_hook_command)
                         })
                         .unwrap_or(false);
 
-                    !(flat.is_some_and(is_omni_hook_command) || nested)
+                    !(flat.is_some_and(is_veng_hook_command) || nested)
                 });
             }
         }
@@ -503,35 +503,35 @@ mod tests {
     #[test]
     fn replaces_an_entry_that_points_at_an_older_binary_path() {
         let mut arr = json!([{
-            "hooks": [{ "type": "command", "command": "/old/path/omni --pre-hook" }]
+            "hooks": [{ "type": "command", "command": "/old/path/veng --pre-hook" }]
         }]);
 
-        ensure_hook_entry(&mut arr, "/new/path/omni --pre-hook");
+        ensure_hook_entry(&mut arr, "/new/path/veng --pre-hook");
 
         let arr = arr.as_array().unwrap();
         assert_eq!(arr.len(), 1, "the old path survived: {arr:?}");
-        assert_eq!(arr[0]["hooks"][0]["command"], "/new/path/omni --pre-hook");
+        assert_eq!(arr[0]["hooks"][0]["command"], "/new/path/veng --pre-hook");
     }
 
-    /// The purge is scoped to OMNI's own entries. A launcher's hooks share the
+    /// The purge is scoped to VENG's own entries. A launcher's hooks share the
     /// file and must come through untouched.
     #[test]
     fn leaves_another_tools_entry_alone() {
         let mut arr = json!([
             { "hooks": [{ "type": "command", "command": "/opt/other/agent-hook.sh" }] },
-            { "hooks": [{ "type": "command", "command": "/old/omni --pre-hook" }] }
+            { "hooks": [{ "type": "command", "command": "/old/veng --pre-hook" }] }
         ]);
 
-        ensure_hook_entry(&mut arr, "/new/omni --pre-hook");
+        ensure_hook_entry(&mut arr, "/new/veng --pre-hook");
 
         let arr = arr.as_array().unwrap();
         assert_eq!(arr.len(), 2, "{arr:?}");
         assert_eq!(arr[0]["hooks"][0]["command"], "/opt/other/agent-hook.sh");
-        assert_eq!(arr[1]["hooks"][0]["command"], "/new/omni --pre-hook");
+        assert_eq!(arr[1]["hooks"][0]["command"], "/new/veng --pre-hook");
     }
 
     /// #367: the Trust check asks only whether a record exists, and Codex also
-    /// re-checks the entry's hash. `omni init --codex` rewrites the entries, so
+    /// re-checks the entry's hash. `veng init --codex` rewrites the entries, so
     /// an upgrade invalidates approvals that were working while doctor still
     /// printed nothing. The presence check stays useful for "never approved",
     /// but it must not be read as "will run".
@@ -556,7 +556,7 @@ mod tests {
     #[test]
     fn writes_the_entry_shape_codex_actually_runs() {
         let mut arr = json!([]);
-        ensure_hook_entry(&mut arr, "/bin/omni --pre-hook");
+        ensure_hook_entry(&mut arr, "/bin/veng --pre-hook");
 
         let entry = &arr.as_array().unwrap()[0];
         let inner = entry
@@ -564,7 +564,7 @@ mod tests {
             .and_then(|h| h.as_array())
             .expect("handlers belong in a nested `hooks` array");
         assert_eq!(inner[0]["type"], "command");
-        assert_eq!(inner[0]["command"], "/bin/omni --pre-hook");
+        assert_eq!(inner[0]["command"], "/bin/veng --pre-hook");
         assert!(
             entry.get("command").is_none(),
             "a top-level command is the shape Codex ignores: {entry}"
@@ -575,9 +575,9 @@ mod tests {
     /// it, not leave the dead entry beside a working one.
     #[test]
     fn replaces_an_old_flat_entry_instead_of_duplicating_it() {
-        let mut arr = json!([{ "command": "/bin/omni --pre-hook" }]);
+        let mut arr = json!([{ "command": "/bin/veng --pre-hook" }]);
 
-        ensure_hook_entry(&mut arr, "/bin/omni --pre-hook");
+        ensure_hook_entry(&mut arr, "/bin/veng --pre-hook");
 
         let arr = arr.as_array().unwrap();
         assert_eq!(arr.len(), 1, "expected one entry, got {arr:?}");
@@ -591,12 +591,12 @@ mod tests {
     /// orphan behind, which is how #351 bricked `config.toml`.
     #[test]
     fn recognises_its_own_command_for_removal() {
-        assert!(is_omni_hook_command("/usr/local/bin/omni --post-hook"));
-        assert!(!is_omni_hook_command("/usr/local/bin/omni --mcp"));
-        assert!(!is_omni_hook_command("/opt/other-tool --pre-hook"));
+        assert!(is_veng_hook_command("/usr/local/bin/veng --post-hook"));
+        assert!(!is_veng_hook_command("/usr/local/bin/veng --mcp"));
+        assert!(!is_veng_hook_command("/opt/other-tool --pre-hook"));
     }
 
-    /// #359: `omni init --codex` wrote a valid hooks.json and every hook was
+    /// #359: `veng init --codex` wrote a valid hooks.json and every hook was
     /// ignored, because Codex runs only entries it has a trust record for and
     /// skips the rest without a word. Doctor said `[OK] installed` throughout.
     #[test]
@@ -623,7 +623,7 @@ mod tests {
     /// Codex resolves its own config through `$CODEX_HOME`, so installing to
     /// `~/.codex` regardless writes a file the running Codex never opens. Found
     /// on a machine whose launcher points `CODEX_HOME` at its own runtime
-    /// directory: `omni init --codex` reported success into `~/.codex` while the
+    /// directory: `veng init --codex` reported success into `~/.codex` while the
     /// home actually in use kept no MCP server at all.
     #[test]
     fn installs_into_the_home_codex_is_actually_using() {
@@ -652,7 +652,7 @@ mod tests {
     }
 
     /// #351: uninstall stopped skipping at the next `[`, so
-    /// `[mcp_servers.omni.tools.x]` outlived its own parent. Codex then reads a
+    /// `[mcp_servers.veng.tools.x]` outlived its own parent. Codex then reads a
     /// server with no transport and refuses to start at all, which turns a
     /// working install into a dead editor by running uninstall. Reproduced on
     /// 0.144.6: `codex features list` dies with `invalid transport`, and comes
@@ -662,20 +662,20 @@ mod tests {
         let config = "\
 model = \"x\"
 
-[mcp_servers.omni]
+[mcp_servers.veng]
 type = \"stdio\"
-command = \"/usr/local/bin/omni\"
+command = \"/usr/local/bin/veng\"
 args = [\"--mcp\"]
 
-[mcp_servers.omni.tools.omni_session]
+[mcp_servers.veng.tools.veng_session]
 approval_mode = \"approve\"
 
 [model_providers.other]
 name = \"Other\"
 ";
-        let out = strip_omni_server(config);
+        let out = strip_veng_server(config);
         assert!(
-            !out.contains("mcp_servers.omni"),
+            !out.contains("mcp_servers.veng"),
             "an orphaned sub-table bricks Codex:\n{out}"
         );
         assert!(
@@ -686,19 +686,19 @@ name = \"Other\"
 
     /// The repair half: a config left holding only the sub-table must be
     /// recognised as *missing* its transport, or install cannot fix what
-    /// uninstall broke. The old check was `contains("[mcp_servers.omni]")`,
+    /// uninstall broke. The old check was `contains("[mcp_servers.veng]")`,
     /// which an orphan does not satisfy.
     #[test]
     fn an_orphaned_sub_table_counts_as_missing_a_transport() {
-        let orphan = "[mcp_servers.omni.tools.omni_session]\napproval_mode = \"approve\"\n";
+        let orphan = "[mcp_servers.veng.tools.veng_session]\napproval_mode = \"approve\"\n";
         assert!(!declares_transport(orphan));
 
-        let complete = "[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"/usr/local/bin/omni\"\nargs = [\"--mcp\"]\n";
+        let complete = "[mcp_servers.veng]\ntype = \"stdio\"\ncommand = \"/usr/local/bin/veng\"\nargs = [\"--mcp\"]\n";
         assert!(declares_transport(complete));
 
         // A `command` belonging to some other server is not ours.
         let other =
-            "[mcp_servers.other]\ncommand = \"/bin/other\"\n\n[mcp_servers.omni.tools.x]\na = 1\n";
+            "[mcp_servers.other]\ncommand = \"/bin/other\"\n\n[mcp_servers.veng.tools.x]\na = 1\n";
         assert!(!declares_transport(other));
     }
 
@@ -716,7 +716,7 @@ name = \"Other\"
             .as_object_mut()
             .unwrap();
 
-        let cmd = "/usr/bin/omni --pre-hook";
+        let cmd = "/usr/bin/veng --pre-hook";
         let arr = hooks.entry("PreToolUse").or_insert_with(|| json!([]));
         arr.as_array_mut().unwrap().push(json!({ "command": cmd }));
 
@@ -732,7 +732,7 @@ name = \"Other\"
         let mut val = json!({ "hooks": { "PreToolUse": [] } });
         let hooks = val.get_mut("hooks").unwrap().as_object_mut().unwrap();
 
-        let cmd = "/usr/bin/omni --pre-hook";
+        let cmd = "/usr/bin/veng --pre-hook";
         let ensure = |arr_val: &mut Value, cmd: &str| {
             let arr = arr_val.as_array_mut().unwrap();
             for v in arr.iter() {

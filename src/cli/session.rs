@@ -23,29 +23,29 @@ const FLAGS: super::Flags = &[
 fn print_help() {
     println!(
         "\n{} {}: Session state management",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "session".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "session".cyan(), "[FLAGS]".bright_black());
+    println!("  veng {} {}", "session".cyan(), "[FLAGS]".bright_black());
 
     super::print_flags(FLAGS);
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni session --status      {}",
+        "  veng session --status      {}",
         "# View current session status".bright_black()
     );
     println!(
-        "  omni session --history     {}",
+        "  veng session --history     {}",
         "# View past sessions".bright_black()
     );
     println!(
-        "  omni session --resume      {}",
+        "  veng session --resume      {}",
         "# Resume interrupted session".bright_black()
     );
     println!(
-        "  omni session --transcript  {}",
+        "  veng session --transcript  {}",
         "# View session transcript".bright_black()
     );
     println!();
@@ -194,7 +194,7 @@ pub fn run_session(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
 
         println!();
         super::print_rule();
-        println!(" {}: Current Session", "OMNI".bold().cyan());
+        println!(" {}: Current Session", "VENG".bold().cyan());
         super::print_rule();
 
         println!(
@@ -275,7 +275,7 @@ fn run_resume() -> anyhow::Result<()> {
         Some(t) => {
             println!();
             super::print_rule();
-            println!(" {}: Interrupted Session Detected", "OMNI".bold().cyan());
+            println!(" {}: Interrupted Session Detected", "VENG".bold().cyan());
             super::print_rule();
 
             let sid = if t.session_id.len() > 8 {
@@ -338,7 +338,7 @@ fn run_resume() -> anyhow::Result<()> {
             println!(
                 "\n  {} Use {} to continue this session.",
                 "Tip:".bold().green(),
-                "omni session --continue".cyan()
+                "veng session --continue".cyan()
             );
             super::print_rule();
         }
@@ -372,7 +372,7 @@ fn run_transcript() -> anyhow::Result<()> {
     super::print_rule();
     println!(
         " {}: Session Transcript ({})",
-        "OMNI".bold().cyan(),
+        "VENG".bold().cyan(),
         sid.cyan()
     );
     super::print_rule();
@@ -451,7 +451,7 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
             .bright_black()
             .bold()
     );
-    println!(" {}: Session Health Dashboard", "OMNI".bold().cyan());
+    println!(" {}: Session Health Dashboard", "VENG".bold().cyan());
     println!(
         "{}",
         "═══════════════════════════════════════════"
@@ -611,7 +611,7 @@ const INJECT_MAX_BYTES: usize = 1000;
 /// useful half-written.
 pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
     let mut out = String::with_capacity(INJECT_MAX_BYTES);
-    out.push_str("[OMNI Context] resuming a session that ran ");
+    out.push_str("[VENG Context] resuming a session that ran ");
     out.push_str(&state.command_count.to_string());
     out.push_str(" commands.\n");
 
@@ -670,7 +670,7 @@ pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
 
     let mut msg = out.trim_end().to_string();
     if msg.len() > INJECT_MAX_BYTES {
-        const MARKER: &str = "\n[truncated, omni session --status]";
+        const MARKER: &str = "\n[truncated, veng session --status]";
         crate::util::text::safe_truncate(&mut msg, INJECT_MAX_BYTES - MARKER.len());
         msg.push_str(MARKER);
     }
@@ -755,7 +755,7 @@ fn run_json(state: &crate::pipeline::SessionState) -> anyhow::Result<()> {
         })
         .collect();
 
-    let agent_id = std::env::var("OMNI_AGENT_ID")
+    let agent_id = std::env::var("VENG_AGENT_ID")
         .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
     let project_path = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
@@ -874,7 +874,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db_path).unwrap()), dir)
     }
 
@@ -999,7 +999,7 @@ mod tests {
         state.add_error("E0499: cannot borrow as mutable");
         state.inferred_task = Some("fix auth bug".to_string());
 
-        // Simulasi logic dari omni_session "context"
+        // Simulasi logic dari veng_session "context"
         let task = state
             .inferred_task
             .as_deref()
@@ -1018,7 +1018,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let mut ctx = format!("[OMNI Context] Task: {}.", task);
+        let mut ctx = format!("[VENG Context] Task: {}.", task);
         if !hot_str.is_empty() {
             ctx.push_str(&format!(" Hot: {}.", hot_str));
         }

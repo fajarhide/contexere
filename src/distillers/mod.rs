@@ -228,7 +228,7 @@ mod tests {
     /// it as `Build: ok`, 9 bytes, and reported a 100% reduction as a win.
     #[test]
     fn hands_back_the_output_of_cargo_commands_that_are_not_builds() {
-        let tree = "omni v0.6.3 (/repo)\n\
+        let tree = "veng v0.6.3 (/repo)\n\
                     ├── anyhow v1.0.100\n\
                     ├── chrono v0.4.42\n\
                     │   ├── iana-time-zone v0.1.64\n\
@@ -522,7 +522,7 @@ mod tests {
 
             assert_eq!(
                 out, inner,
-                "{cmd} produces the inner program's stdout, which OMNI has no grammar for"
+                "{cmd} produces the inner program's stdout, which VENG has no grammar for"
             );
         }
     }
@@ -670,12 +670,12 @@ mod tests {
         let segments = scorer::score_with_command(input, "env", None);
         let output = distill_with_command(&segments, input, "env", None);
 
-        // The redactor prepends `[OMNI: N sensitive value(s) redacted]` since
+        // The redactor prepends `[VENG: N sensitive value(s) redacted]` since
         // #486, so the count is compared without it. The invariant being guarded
         // is that no line is *dropped*, and a header is not a dropped line.
         let body: Vec<&str> = output
             .lines()
-            .filter(|l| !l.starts_with("[OMNI: "))
+            .filter(|l| !l.starts_with("[VENG: "))
             .collect();
         assert_eq!(
             body.len(),
@@ -752,7 +752,7 @@ mod tests {
     fn hands_back_a_document_that_quotes_a_directory_tree() {
         let doc = "# Development Guide\n\
                    \n\
-                   Guide for contributors working on the OMNI codebase.\n\
+                   Guide for contributors working on the VENG codebase.\n\
                    \n\
                    ## Layout\n\
                    \n\

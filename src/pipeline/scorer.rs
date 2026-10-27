@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn classifies_compiling_lines_as_noise() {
-        assert_eq!(classify_line("Compiling omni v0.1"), SignalTier::Noise);
+        assert_eq!(classify_line("Compiling veng v0.1"), SignalTier::Noise);
         assert_eq!(classify_line("Downloading crates"), SignalTier::Noise);
     }
 

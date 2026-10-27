@@ -1639,13 +1639,13 @@ mod tests {
     }
 
     /// #339: an env-var prefix is not a chain, so `is_silent` never saw it and
-    /// the head read as `OMNI_DB_PATH=/tmp/d.db`. `kubectl` lost `Infra` and
+    /// the head read as `VENG_DB_PATH=/tmp/d.db`. `kubectl` lost `Infra` and
     /// `cargo test` lost the test profile, silently, on 1,082 of 9,812 recorded
     /// commands.
     #[test]
     fn resolves_the_program_behind_an_env_assignment() {
         assert_eq!(
-            resolve_profile_for_chain("OMNI_DB_PATH=/tmp/d.db kubectl get pods").collapse,
+            resolve_profile_for_chain("VENG_DB_PATH=/tmp/d.db kubectl get pods").collapse,
             CollapseMode::Infra,
         );
         assert_eq!(
@@ -1653,7 +1653,7 @@ mod tests {
             resolve_profile("cargo test").collapse,
         );
         assert_eq!(
-            sole_output_command("OMNI_DB_PATH=/tmp/d.db kubectl get pods"),
+            sole_output_command("VENG_DB_PATH=/tmp/d.db kubectl get pods"),
             Some("kubectl get pods"),
         );
         // Several prefixes, and a bare assignment still prints nothing.
@@ -1673,7 +1673,7 @@ mod tests {
     }
 
     /// #338: `kubectl logs … | awk … | sort | uniq -c` is a histogram by the time
-    /// it reaches OMNI. Routing it by the `kubectl` head handed an already
+    /// it reaches VENG. Routing it by the `kubectl` head handed an already
     /// aggregated 40-row answer to the pod-table distiller, which delivered 10
     /// rows and dropped both traffic spikes the query existed to find.
     #[test]

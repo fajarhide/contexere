@@ -1,13 +1,13 @@
-/// [BIZ-03] omni goal: North Star Context Pinning
+/// [BIZ-03] veng goal: North Star Context Pinning
 ///
-/// Stores the project goal as a special reserved key `__omni_goal__`
+/// Stores the project goal as a special reserved key `__veng_goal__`
 /// in `project_knowledge`. The goal is injected into every SessionStart
 /// context so the agent always knows the high-level objective.
 use crate::store::sqlite::Store;
 use anyhow::Result;
 use colored::*;
 
-const GOAL_KEY: &str = "__omni_goal__";
+const GOAL_KEY: &str = "__veng_goal__";
 
 fn project_hash() -> String {
     let path = std::env::current_dir()
@@ -28,7 +28,7 @@ pub fn cmd_set(goal: &str, store: &Store) -> Result<()> {
     store.upsert_project_knowledge(&ph, GOAL_KEY, goal, 1.0);
     println!("{} Goal set: {}", "✓".green(), goal.bright_white());
     println!(
-        "  {} OMNI will inject this goal at the start of every new session.",
+        "  {} VENG will inject this goal at the start of every new session.",
         "→".bright_black()
     );
     Ok(())
@@ -41,7 +41,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
         Some(goal) => {
             println!(
                 "\n{} {}: Current goal\n",
-                "omni".bold().cyan(),
+                "veng".bold().cyan(),
                 "goal".bold().yellow()
             );
             println!("  {}", goal.bright_white());
@@ -51,7 +51,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
             println!(
                 "  {} No goal set. Use {} to set one.",
                 "ℹ".blue(),
-                "omni goal set '<your goal>'".bright_cyan()
+                "veng goal set '<your goal>'".bright_cyan()
             );
         }
     }
@@ -75,15 +75,15 @@ pub fn cmd_clear(store: &Store) -> Result<()> {
     Ok(())
 }
 
-/// Entry point for `omni goal [set|show|clear] ...`
+/// Entry point for `veng goal [set|show|clear] ...`
 /// Read by both `print_help` and the guard below (#151).
 const FLAGS: super::Flags = &[("--show, --status", "Print the current goal")];
 
 pub fn run(args: &[String], store: &Store) -> Result<()> {
     // Only the leading token is checked. Free text is the feature here
-    // (`omni goal build the auth module`) and a goal may legitimately contain a
-    // flag (`omni goal set "ship with --release"`), but a *leading* unknown flag
-    // was silently stored as the goal text by the catch-all arm below: `omni goal
+    // (`veng goal build the auth module`) and a goal may legitimately contain a
+    // flag (`veng goal set "ship with --release"`), but a *leading* unknown flag
+    // was silently stored as the goal text by the catch-all arm below: `veng goal
     // --nonsense` set the goal to "--nonsense" and exited 0 (#151).
     if let Some(first) = args.first()
         && first.starts_with("--")
@@ -104,7 +104,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
             Ok(())
         }
         _ => {
-            // Treat the whole args as the goal text (e.g. `omni goal build the auth module`)
+            // Treat the whole args as the goal text (e.g. `veng goal build the auth module`)
             let goal = args.join(" ");
             cmd_set(goal.trim(), store)
         }
@@ -114,12 +114,12 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: North Star context pinning",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "goal".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
     println!(
-        "  omni {} {}",
+        "  veng {} {}",
         "goal".cyan(),
         "[SUBCOMMAND] [TEXT]".bright_black()
     );
@@ -132,11 +132,11 @@ fn print_help() {
     println!("  {: <12} Remove current goal", "clear".cyan());
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni goal set 'Build OAuth2 integration for the API'  {}",
+        "  veng goal set 'Build OAuth2 integration for the API'  {}",
         "# Set a goal".bright_black()
     );
     println!(
-        "  omni goal show                                         {}",
+        "  veng goal show                                         {}",
         "# Display current goal".bright_black()
     );
     println!();
@@ -150,7 +150,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db_path).unwrap()), dir)
     }
 

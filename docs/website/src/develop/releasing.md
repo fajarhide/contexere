@@ -24,13 +24,13 @@ git commit -am "docs(changelog): cut x.y.z"
 make bump VERSION=x.y.z
 ```
 
-A correctly cut build prints `omni vx.y.z [AHEAD/RC]` with no `UNRELEASED` line. Verify
+A correctly cut build prints `veng vx.y.z [AHEAD/RC]` with no `UNRELEASED` line. Verify
 that before pushing the tag.
 
 **The half of that line to trust afterwards is the missing `UNRELEASED`, not the
 label.** `guard::update::get_status` caches the newest known release in
-`~/.omni/update_cache.json` for 14400 seconds, so for four hours after a tag a machine
-that ran `omni doctor` beforehand still holds the previous version and reports `Ahead`
+`~/.veng/update_cache.json` for 14400 seconds, so for four hours after a tag a machine
+that ran `veng doctor` beforehand still holds the previous version and reports `Ahead`
 whatever it is running. Observed on 0.7.5, where the freshly installed release printed
 `[AHEAD/RC]`. `build.rs` computes the unreleased count from the tree with no cache, so
 that half is always current; delete the cache file if you want the label to mean
@@ -66,7 +66,7 @@ has to stay in sync with the release matrix.
 
 ## Things that look like failures and are not
 
-`omni-release.sh` ends in an interactive `read -p`, so an automated run has to pipe
+`veng-release.sh` ends in an interactive `read -p`, so an automated run has to pipe
 `echo y |` into it.
 
 It pushes `main` and the tag together. `main` is branch-protected, and a maintainer
@@ -75,7 +75,7 @@ succeeds anyway with `rc=0`. That line is not an error.
 
 ## The Homebrew step
 
-`update_homebrew_sha.sh` pushes to **two** repositories: the tap, and `omni.rb` back
+`update_homebrew_sha.sh` pushes to **two** repositories: the tap, and `veng.rb` back
 to `main`. Check the tap clone is clean and synced with its remote first, or the run
 aborts partway and leaves the formula half updated.
 
@@ -83,7 +83,7 @@ Afterwards, verify the formula's SHAs against the release's published `SHA256SUM
 rather than trusting the script's own success line, then confirm:
 
 ```sh
-brew info fajarhide/tap/omni      # expect: x.y.z → stable <new>
+brew info fajarhide/tap/veng      # expect: x.y.z → stable <new>
 ```
 
 ## Before merging anything into a release

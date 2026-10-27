@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """#838. A second benchmark corpus, built from SWE-bench Verified.
 
-Every figure OMNI publishes comes from `bench-corpus/`, which is frozen on one
+Every figure VENG publishes comes from `bench-corpus/`, which is frozen on one
 machine and whose payloads stay local (#704). A reader has to take the number on
 trust. This builds a corpus anyone can rebuild byte for byte, because every input
 is public and pinned: SWE-bench Verified names a repository and a base commit per
@@ -10,7 +10,7 @@ instance, and the instance list is written into the manifest.
 **No model, no key, no container, no spend.** The commands are a fixed script, not
 what an agent chose, so this measures compression on realistic payloads and says
 nothing about task success. The arm that answers task success runs a real agent
-against both `OMNI_PASSTHROUGH` settings and costs money; it is deliberately not
+against both `VENG_PASSTHROUGH` settings and costs money; it is deliberately not
 here.
 
 **Every command has to be deterministic given the commit**, or the corpus hash
@@ -21,7 +21,7 @@ clock. Where order is not guaranteed the output is piped through `sort`.
 Usage:
 
     python3 scripts/build-swebench-corpus.py --instances 40 --stride 12
-    OMNI_BENCH_CORPUS=swebench-corpus/traces.jsonl ./scripts/bench.sh
+    VENG_BENCH_CORPUS=swebench-corpus/traces.jsonl ./scripts/bench.sh
 
 Output, under `swebench-corpus/`, which is not committed: the clones are large and
 the file is rebuildable from the manifest's instance list.
@@ -332,7 +332,7 @@ def main():
         help="rebuild exactly the instances a previous manifest names",
     )
     ap.add_argument("--out", default="swebench-corpus")
-    ap.add_argument("--cache", default="~/.cache/omni-swebench")
+    ap.add_argument("--cache", default="~/.cache/veng-swebench")
     build(ap.parse_args())
 
 

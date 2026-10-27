@@ -64,7 +64,7 @@ pub struct McpHost {
     /// The `--[id]` flag and the `agent_id` recorded against its rows.
     pub id: &'static str,
     pub display: &'static str,
-    /// What `omni init` flag the warning should name, when it is not `--{id}`.
+    /// What `veng init` flag the warning should name, when it is not `--{id}`.
     pub init_flag: &'static str,
     pub config: ConfigHome,
     /// `mcpServers` for most, `context_servers` for Zed, `servers` for VS Code.
@@ -151,7 +151,7 @@ impl AgentIntegration for &'static McpHost {
         }
 
         // Parse-or-empty rather than fail: a host's config is the user's file and
-        // one unreadable byte in it must not stop OMNI installing, but neither
+        // one unreadable byte in it must not stop VENG installing, but neither
         // may it be silently rewritten from scratch when it parsed fine.
         let mut val = if path.exists() {
             serde_json::from_str(&fs::read_to_string(&path)?).unwrap_or_else(|_| json!({}))
@@ -163,12 +163,12 @@ impl AgentIntegration for &'static McpHost {
             let servers = obj.entry(self.key).or_insert_with(|| json!({}));
             if let Some(servers) = servers.as_object_mut() {
                 servers.insert(
-                    "omni".to_string(),
+                    "veng".to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
                         "args": ["--mcp"],
-                        "env": { "OMNI_AGENT_ID": self.agent_id() }
+                        "env": { "VENG_AGENT_ID": self.agent_id() }
                     }),
                 );
             }
@@ -198,7 +198,7 @@ impl AgentIntegration for &'static McpHost {
         if let Some(obj) = val.as_object_mut()
             && let Some(servers) = obj.get_mut(self.key).and_then(|v| v.as_object_mut())
         {
-            servers.remove("omni");
+            servers.remove("veng");
         }
 
         fs::write(&path, serde_json::to_string_pretty(&val)?)?;
@@ -217,7 +217,7 @@ impl AgentIntegration for &'static McpHost {
         if path.exists()
             && fs::read_to_string(&path)
                 .unwrap_or_default()
-                .contains("\"omni\"")
+                .contains("\"veng\"")
         {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -246,7 +246,7 @@ impl AgentIntegration for &'static McpHost {
             "not configured".bright_black()
         );
         warnings.push(format!(
-            "{} MCP not configured. Run `omni init {}`.",
+            "{} MCP not configured. Run `veng init {}`.",
             self.display, self.init_flag
         ));
         false
@@ -304,11 +304,11 @@ mod tests {
         servers
             .as_object_mut()
             .unwrap()
-            .insert("omni".to_string(), json!({"command": "/bin/omni"}));
+            .insert("veng".to_string(), json!({"command": "/bin/veng"}));
         assert!(val["mcpServers"]["theirs"].is_object());
 
-        val["mcpServers"].as_object_mut().unwrap().remove("omni");
-        assert!(val["mcpServers"]["omni"].is_null());
+        val["mcpServers"].as_object_mut().unwrap().remove("veng");
+        assert!(val["mcpServers"]["veng"].is_null());
         assert!(
             val["mcpServers"]["theirs"].is_object(),
             "uninstall must leave the user's own servers alone"

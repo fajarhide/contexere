@@ -1,7 +1,7 @@
 {
-  "name": "@fajarhide/omni-pi",
+  "name": "@fajarhide/veng-pi",
   "version": "0.6.0",
-  "description": "Pi extension for OMNI semantic output distillation.",
+  "description": "Pi extension for VENG semantic output distillation.",
   "type": "module",
   "exports": {
     ".": "./index.ts"

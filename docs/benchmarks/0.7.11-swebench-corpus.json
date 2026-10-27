@@ -58,12 +58,12 @@
         "output_bytes": 852777,
         "saved_pct": 62.3
       },
-      "omni_filters": {
+      "veng_filters": {
         "input_bytes": 2259278,
         "output_bytes": 1689234,
         "saved_pct": 25.2
       },
-      "omni_ledger": {
+      "veng_ledger": {
         "input_bytes": 2259278,
         "output_bytes": 1575607,
         "saved_pct": 30.3

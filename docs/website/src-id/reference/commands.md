@@ -1,18 +1,18 @@
 # Perintah
 
-Semua subperintah, dikelompokkan seperti `omni --help` mengelompokkannya:
+Semua subperintah, dikelompokkan seperti `veng --help` mengelompokkannya:
 menurut apa yang sedang Anda coba lakukan, bukan menurut abjad.
 
 ```
-omni <COMMAND> [FLAGS]
-cmd | omni                # suling keluaran perintah apa pun lewat pipa
+veng <COMMAND> [FLAGS]
+cmd | veng                # suling keluaran perintah apa pun lewat pipa
 ```
 
 ## Pemasangan
 
 | perintah | apa yang ia lakukan |
 |---|---|
-| [`init`](cmd/init.md) | Pasang OMNI ke agent Anda, hook dan MCP |
+| [`init`](cmd/init.md) | Pasang VENG ke agent Anda, hook dan MCP |
 | [`doctor`](cmd/doctor.md) | Periksa pemasangannya sehat, dan perbaiki yang tidak |
 | [`update`](cmd/rest.md#update) | Naikkan ke rilis terbaru |
 | [`reset`](cmd/rest.md#reset) | Cabut dengan bersih, sambil menyimpan cadangan konfigurasi Anda |
@@ -31,7 +31,7 @@ cmd | omni                # suling keluaran perintah apa pun lewat pipa
 
 | perintah | apa yang ia lakukan |
 |---|---|
-| [`exec`](cmd/exec.md) | Jalankan satu perintah lewat OMNI, untuk melihat apa yang akan ia lakukan |
+| [`exec`](cmd/exec.md) | Jalankan satu perintah lewat VENG, untuk melihat apa yang akan ia lakukan |
 | [`query`](cmd/rest.md#query) | Cari penyulingan yang sudah lewat |
 | [`patterns`](cmd/rest.md#patterns) | Galat yang terus kembali |
 
@@ -50,9 +50,9 @@ Bukan untuk diketik. Ini yang dipanggil host agent, dan didokumentasikan di
 [Hook](hooks.md).
 
 ```
-omni --pre-hook      omni --post-hook     omni --hook
-omni --session-start omni --session-end   omni --pre-compact
-omni --mcp
+veng --pre-hook      veng --post-hook     veng --hook
+veng --session-start veng --session-end   veng --pre-compact
+veng --mcp
 ```
 
 ## Catatan soal cara flag diurai
@@ -60,9 +60,9 @@ omni --mcp
 Kecocokan pada argumen pertama menentukan rute subperintahnya lalu menyerahkan
 `env::args()` mentah ke modulnya, jadi setiap modul mengurai flag-nya sendiri dan
 menyatakan himpunan flag yang ia terima. `cli::check_flags` menolak apa pun di
-luar himpunan itu, dan itulah yang mencegah `omni stats --detial` mencetak
+luar himpunan itu, dan itulah yang mencegah `veng stats --detial` mencetak
 ikhtisar bawaan lalu keluar dengan status 0.
 
-Bantuan per perintah itu nyata dan layak dibaca: `omni <perintah> --help`. Kalau
+Bantuan per perintah itu nyata dan layak dibaca: `veng <perintah> --help`. Kalau
 rujukan ini dan bantuannya berbeda, yang tercatat di sini adalah apa yang
 diterima kode sumbernya.

@@ -2,7 +2,7 @@
 # Fold changelog.d/ fragments into CHANGELOG.md as a released version section.
 #
 # Run this BEFORE `make bump`, and commit the result. `build.rs` counts what is
-# still uncut and `omni doctor` prints it, so a tag cut over unfolded entries
+# still uncut and `veng doctor` prints it, so a tag cut over unfolded entries
 # ships a binary that accuses itself (#137).
 #
 # Usage: scripts/changelog_cut.sh 0.7.5

@@ -55,19 +55,19 @@ impl AgentConfig {
                 "AGENTS.md".to_string(),
                 "CLAUDE.md".to_string(),
                 ".cursorrules".to_string(),
-                ".omni/CONTEXT.md".to_string(),
+                ".veng/CONTEXT.md".to_string(),
             ]
         })
     }
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub struct OmniConfig {
+pub struct VengConfig {
     pub global: Option<AgentConfig>,
     pub agents: Option<std::collections::HashMap<String, AgentConfig>>,
 }
 
-impl OmniConfig {
+impl VengConfig {
     pub fn for_agent(&self, agent_id: &str) -> AgentConfig {
         // Priority: explicit per-agent config > Hermes defaults > global > generic defaults
         if let Some(agent_cfg) = self.agents.as_ref().and_then(|a| a.get(agent_id)) {
@@ -86,16 +86,16 @@ impl OmniConfig {
     }
 }
 
-pub fn load_config() -> OmniConfig {
-    let path = paths::omni_home().join("config.toml");
+pub fn load_config() -> VengConfig {
+    let path = paths::veng_home().join("config.toml");
 
     if !path.exists() {
-        return OmniConfig::default();
+        return VengConfig::default();
     }
 
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
-        Err(_) => return OmniConfig::default(),
+        Err(_) => return VengConfig::default(),
     };
 
     toml::from_str(&content).unwrap_or_default()
@@ -112,7 +112,7 @@ mod tests {
             [global]
             mode = "efficient"
         "#;
-        let config: OmniConfig = toml::from_str(toml_str).unwrap();
+        let config: VengConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(
             config.global.unwrap().mode,
             Some(DistillationMode::Efficient)
@@ -123,7 +123,7 @@ mod tests {
             [global]
             aggressiveness = "conservative"
         "#;
-        let config2: OmniConfig = toml::from_str(toml_str2).unwrap();
+        let config2: VengConfig = toml::from_str(toml_str2).unwrap();
         assert_eq!(
             config2.global.unwrap().mode,
             Some(DistillationMode::Conservative)
@@ -133,7 +133,7 @@ mod tests {
             [global]
             aggressiveness = "aggressive"
         "#;
-        let config3: OmniConfig = toml::from_str(toml_str3).unwrap();
+        let config3: VengConfig = toml::from_str(toml_str3).unwrap();
         assert_eq!(
             config3.global.unwrap().mode,
             Some(DistillationMode::Aggressive)

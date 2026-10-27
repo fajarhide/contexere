@@ -2,7 +2,7 @@
 //!
 //! This class of defect has been fixed by hand four times: #180 named two
 //! deleted subcommands, #185 two removed flags, #390 four whole documents, and
-//! the sweep in #521 found `omni history` and `omni insight` sitting in shell
+//! the sweep in #521 found `veng history` and `veng insight` sitting in shell
 //! blocks that exit 1, plus a tool count reading 26 against 25 in the source.
 //! Every round was found by a person happening to open one page.
 //!
@@ -10,7 +10,7 @@
 //! prose describing the pipeline in the wrong order, is not checkable here: the
 //! fix for that is for two pages to stop each holding their own copy.
 //!
-//! **Why the source and not the binary.** Probing `omni <cmd>` for real would be
+//! **Why the source and not the binary.** Probing `veng <cmd>` for real would be
 //! the honest level, and is unsafe: `reset` drops the database, `dashboard`
 //! binds a port and blocks, `update` reaches the network. Reading the one
 //! `match` that dispatches them keeps the single source of truth without
@@ -76,13 +76,13 @@ fn real_subcommands() -> BTreeSet<String> {
     found
 }
 
-/// `omni <word>` written inside a shell fence, with the file and line.
+/// `veng <word>` written inside a shell fence, with the file and line.
 ///
-/// Fence-scoped on purpose. `integrations/loops.md` names `omni handoff` in
+/// Fence-scoped on purpose. `integrations/loops.md` names `veng handoff` in
 /// prose precisely to say it is **not** a subcommand, and a check that read
 /// prose would have to be taught about sentences like that one.
 fn commands_in_shell_blocks() -> Vec<(String, String, usize)> {
-    let call = regex::Regex::new(r"(?:^|\s)omni\s+([a-z][a-z-]{2,})").expect("valid regex");
+    let call = regex::Regex::new(r"(?:^|\s)veng\s+([a-z][a-z-]{2,})").expect("valid regex");
     let mut out = Vec::new();
 
     for path in doc_files() {
@@ -117,28 +117,28 @@ fn every_command_in_a_shell_block_is_a_real_subcommand() {
     let broken: Vec<String> = commands_in_shell_blocks()
         .into_iter()
         .filter(|(cmd, _, _)| !real.contains(cmd))
-        .map(|(cmd, file, line)| format!("  {file}:{line}  omni {cmd}"))
+        .map(|(cmd, file, line)| format!("  {file}:{line}  veng {cmd}"))
         .collect();
 
     assert!(
         broken.is_empty(),
         "the manual tells the reader to run commands that do not exist.\n{}\n\
          If the feature moved to MCP, say so in prose instead of leaving it in a \
-         shell block, the way integrations/loops.md handles omni handoff.",
+         shell block, the way integrations/loops.md handles veng handoff.",
         broken.join("\n")
     );
 }
 
 /// Counts in prose, against the thing being counted.
 ///
-/// `26 tools` outlived `omni_learn` in three files at once, because a number in
+/// `26 tools` outlived `veng_learn` in three files at once, because a number in
 /// a sentence has nothing pointing at it when the thing it counts is deleted.
 #[test]
 fn every_documented_count_matches_the_code() {
     let root = repo_root();
     let server =
         std::fs::read_to_string(root.join("src/mcp/server.rs")).expect("read mcp/server.rs");
-    let tools: BTreeSet<&str> = regex::Regex::new(r#"name = "(omni_[a-z_]+)""#)
+    let tools: BTreeSet<&str> = regex::Regex::new(r#"name = "(veng_[a-z_]+)""#)
         .expect("valid regex")
         .captures_iter(&server)
         .map(|c| c.get(1).expect("group 1").as_str())
@@ -178,19 +178,19 @@ fn every_documented_count_matches_the_code() {
         // on its own is ordinary prose that any page may write for other reasons.
         (
             r"(?:save|menghemat) (\d+) (?:bytes over its marker|byte di atas penandanya)",
-            omni::guard::limits::MIN_LEDGER_RUN_GAIN,
+            veng::guard::limits::MIN_LEDGER_RUN_GAIN,
             "bytes a session-origin run must save",
             true,
         ),
         (
             r"(?:under|di bawah) (\d+) (?:bytes never reaches|byte tidak pernah)",
-            omni::guard::limits::MIN_LEDGER_INPUT,
+            veng::guard::limits::MIN_LEDGER_INPUT,
             "bytes below which the ledger is skipped",
             true,
         ),
         (
             r"(?:entire output needs|seluruh keluaran butuh) (\d+) (?:bytes|byte)",
-            omni::guard::limits::MIN_WHOLE_OUTPUT_FOLD,
+            veng::guard::limits::MIN_WHOLE_OUTPUT_FOLD,
             "bytes a whole-output fold needs",
             true,
         ),
@@ -273,14 +273,14 @@ fn every_documented_count_matches_the_code() {
 /// Each template is matched **whole**, with its placeholders turned into the
 /// shape they hold at runtime: `{lines}` is a number and `{handle}` is a hex
 /// digest. Two weaker versions were caught before this one. Comparing the text
-/// before the first `{` checked `[OMNI: ` and `[OMNI: identical to ` and nothing
+/// before the first `{` checked `[VENG: ` and `[VENG: identical to ` and nothing
 /// else, so any page holding any marker satisfied it. Comparing literal
 /// fragments independently let one template borrow another's: the whole-output
-/// session example contains `lines already shown, omni retrieve`, so deleting
+/// session example contains `lines already shown, veng retrieve`, so deleting
 /// the ordinary session marker from the page left the guard green (#567).
 ///
 /// Typed placeholders are what stop the same borrowing here: `\d+` after
-/// `[OMNI: ` cannot match `identical to the 40`.
+/// `[VENG: ` cannot match `identical to the 40`.
 #[test]
 fn every_marker_the_ledger_can_print_is_documented() {
     let root = repo_root();
@@ -288,7 +288,7 @@ fn every_marker_the_ledger_can_print_is_documented() {
     let page = std::fs::read_to_string(root.join("docs/website/src/use/markers.md"))
         .expect("read markers.md");
 
-    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[OMNI: [^"]*)""#)
+    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[VENG: [^"]*)""#)
         .expect("valid regex")
         .captures_iter(&ledger)
         .map(|c| c.get(1).expect("group 1").as_str().to_string())
@@ -376,11 +376,11 @@ fn reserved_example_handle() -> String {
     handle
 }
 
-/// #583. A marker OMNI emitted and a marker printed as an example were
+/// #583. A marker VENG emitted and a marker printed as an example were
 /// byte-identical, and the examples were not even fake: four of the seven
 /// distinct handles in our source and manual still resolved on the maintainer's
 /// machine, the canonical one in 99 places. So neither way of asking whether
-/// OMNI folded anything worked, because grepping for the shape and resolving the
+/// VENG folded anything worked, because grepping for the shape and resolving the
 /// handle both counted our own documentation.
 ///
 /// One reserved value in every example is what makes the resolve check sound.
@@ -395,7 +395,7 @@ fn every_worked_example_uses_the_reserved_handle() {
     // `i18n/` is the one that would have bitten: CONTRIBUTING requires a README
     // change to reach all six translations, so an example added to the guarded
     // README propagates into six unguarded files by policy. `plugins/` ships a
-    // skill file with `omni retrieve` in it, and `tests/` is where a fixture
+    // skill file with `veng retrieve` in it, and `tests/` is where a fixture
     // would go. None of the three carries a handle today, so this is a fence
     // rather than a fix, which is the point of a guard (#588 review).
     let mut files: Vec<PathBuf> = ["src", "tests", "i18n", "plugins"]
@@ -416,12 +416,12 @@ fn every_worked_example_uses_the_reserved_handle() {
             continue;
         };
         // Line at a time, so a marker wrapped across two lines is invisible to
-        // this scan. No `omni retrieve` literal in the tree is broken that way
+        // this scan. No `veng retrieve` literal in the tree is broken that way
         // today, and a scan over joined text would match prose that happens to
         // end in those words. Stated rather than handled (#588 review).
         for (n, line) in text.lines().enumerate() {
-            for (idx, _) in line.match_indices("omni retrieve ") {
-                let rest = &line[idx + "omni retrieve ".len()..];
+            for (idx, _) in line.match_indices("veng retrieve ") {
+                let rest = &line[idx + "veng retrieve ".len()..];
                 let handle: String = rest.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
                 if handle.len() != 16 {
                     continue;
@@ -442,7 +442,7 @@ fn every_worked_example_uses_the_reserved_handle() {
     assert!(
         offenders.is_empty(),
         "these examples use a handle that may resolve to real archived content, \
-         which is what defeats every check for whether OMNI ran (#583):\n  {}",
+         which is what defeats every check for whether VENG ran (#583):\n  {}",
         offenders.join("\n  ")
     );
 }

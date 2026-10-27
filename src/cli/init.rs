@@ -33,7 +33,7 @@ const FLAGS: super::Flags = &[
     ("--hook", "Only install hooks"),
     ("--mcp", "Only register MCP server"),
     ("--status", "Check current installation status"),
-    ("--uninstall", "Remove OMNI hooks and MCP server"),
+    ("--uninstall", "Remove VENG hooks and MCP server"),
 ];
 
 /// Where `FLAGS` stops listing agents and starts listing Claude-specific flags.
@@ -47,12 +47,12 @@ const AGENT_FLAGS: usize = 15;
 
 fn print_help() {
     println!(
-        "\n{} {}: Setup OMNI for your preferred AI Agent",
-        "omni".bold().cyan(),
+        "\n{} {}: Setup VENG for your preferred AI Agent",
+        "veng".bold().cyan(),
         "init".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {}", "init [FLAGS]".cyan());
+    println!("  veng {}", "init [FLAGS]".cyan());
 
     let entries: Vec<_> = FLAGS
         .iter()
@@ -71,15 +71,15 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni init             {}",
+        "  veng init             {}",
         "# Interactive menu".bright_black()
     );
     println!(
-        "  omni init --claude    {}",
+        "  veng init --claude    {}",
         "# Setup for Claude Code".bright_black()
     );
     println!(
-        "  omni init --all       {}",
+        "  veng init --all       {}",
         "# Every host, including a .vscode/mcp.json here".bright_black()
     );
     println!();
@@ -89,7 +89,7 @@ fn print_help() {
 /// there is no integration to point it at.
 ///
 /// Two id vocabularies exist and neither can be derived from the other:
-/// `detect_agent_id` names agents so `omni stats` can group rows, and `init`
+/// `detect_agent_id` names agents so `veng stats` can group rows, and `init`
 /// names install targets. `windsurf`, `aider` and `vscode_continue` are real
 /// answers over there with nothing to install over here, and `terminal` is a
 /// plain shell.
@@ -107,12 +107,12 @@ fn init_id_for_agent(agent_id: &str) -> Option<&'static str> {
 
 /// Which host to configure when there is no terminal to ask on.
 ///
-/// `omni init` is the line the README, the Homebrew caption, the landing page and
+/// `veng init` is the line the README, the Homebrew caption, the landing page and
 /// `install.sh` all print, and the audience for this tool is agents, which run it
 /// with no tty. `dialoguer` can only fail there, so the one documented setup
 /// command exited 1 on `IO error: not a terminal` and named no remedy (#528).
 ///
-/// The host running the command is the host to configure, and OMNI already reads
+/// The host running the command is the host to configure, and VENG already reads
 /// that from the environment on the exec and pipe paths. Anything it cannot name
 /// is an error that lists the flags, rather than a guess: installing into a host
 /// nobody asked for is the worse failure of the two.
@@ -121,8 +121,8 @@ fn non_interactive_host() -> anyhow::Result<&'static str> {
     init_id_for_agent(&agent).ok_or_else(|| {
         anyhow::anyhow!(
             "no terminal to prompt on, and the host here reads as `{agent}`. \
-             Name one instead: `omni init --claude`, every host with \
-             `omni init --all`, or see them all with `omni init --help`."
+             Name one instead: `veng init --claude`, every host with \
+             `veng init --all`, or see them all with `veng init --help`."
         )
     })
 }
@@ -203,8 +203,8 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
     if no_flags {
         println!(
-            "\n{} {}: Setup OMNI for your preferred AI Agent\n",
-            "omni".bold().cyan(),
+            "\n{} {}: Setup VENG for your preferred AI Agent\n",
+            "veng".bold().cyan(),
             "init".bold().yellow()
         );
 
@@ -218,7 +218,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             );
             println!(
                 "  {}\n",
-                "Pick another with omni init --cursor, or take every host with omni init --all"
+                "Pick another with veng init --cursor, or take every host with veng init --all"
                     .bright_black()
             );
         }
@@ -273,14 +273,14 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         println!();
         super::print_rule();
-        println!(" {} OMNI Before & After Preview", "⚡".yellow());
+        println!(" {} VENG Before & After Preview", "⚡".yellow());
         super::print_rule();
-        println!("{}", "Without OMNI:".red());
+        println!("{}", "Without VENG:".red());
         println!("  npm WARN deprecated ... (300 lines of warnings)");
         println!("  git log (2000 lines of history)");
-        println!("{}", "\nWith OMNI:".green());
-        println!("  npm WARN deprecated ... [OMNI: ⚠️ 300 repetitive lines dropped]");
-        println!("  git log [OMNI: ⚠️ truncated to latest 50 lines]");
+        println!("{}", "\nWith VENG:".green());
+        println!("  npm WARN deprecated ... [VENG: ⚠️ 300 repetitive lines dropped]");
+        println!("  git log [VENG: ⚠️ truncated to latest 50 lines]");
         super::print_rule();
         println!();
 
@@ -368,7 +368,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         println!(
             "\n{}",
-            "Claude Code OMNI Installation Status:"
+            "Claude Code VENG Installation Status:"
                 .bold()
                 .bright_white()
         );
@@ -394,7 +394,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             crate::agents::claude::backup_settings(&path)?;
         }
 
-        crate::agents::claude::remove_omni_hooks(&mut val);
+        crate::agents::claude::remove_veng_hooks(&mut val);
 
         let mcp_path = crate::agents::claude::get_claude_json_path();
         if mcp_path.exists()
@@ -403,14 +403,14 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         {
             if let Some(obj) = mcp_val.as_object_mut() {
                 if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
-                    servers.remove("omni");
+                    servers.remove("veng");
                 }
                 if let Some(projects) = obj.get_mut("projects").and_then(|p| p.as_object_mut()) {
                     for (_path, p_val) in projects.iter_mut() {
                         if let Some(ps) =
                             p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
                         {
-                            ps.remove("omni");
+                            ps.remove("veng");
                         }
                     }
                 }
@@ -423,7 +423,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
                             .get_mut("mcpServers")
                             .and_then(|s| s.as_object_mut())
                     {
-                        ps.remove("omni");
+                        ps.remove("veng");
                     }
                 }
             }
@@ -432,7 +432,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         let new_content = serde_json::to_string_pretty(&val)?;
         fs::write(&path, new_content)?;
-        println!("✓ OMNI hooks and MCP server uninstalled from Claude");
+        println!("✓ VENG hooks and MCP server uninstalled from Claude");
         return Ok(());
     }
 
@@ -459,9 +459,9 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             match outcome {
                 Err(e) => eprintln!("  {} Failed: {}", "✗".red(), e),
                 // #684. The success line was the same shape on every host, so
-                // configuring an MCP-only one read as "OMNI is now shortening
+                // configuring an MCP-only one read as "VENG is now shortening
                 // your tool output". It is not, and the user found out from an
-                // empty `omni stats` days later. `doctor` says this correctly and
+                // empty `veng stats` days later. `doctor` says this correctly and
                 // is the wrong place to say it first: installation is the moment
                 // the expectation is set.
                 //
@@ -494,7 +494,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 mod tests {
 
     /// #757. Both flags have promised a half since they shipped and delivered
-    /// the pair, so `omni init --hook` registered an MCP server the user had
+    /// the pair, so `veng init --hook` registered an MCP server the user had
     /// just said they did not want. The parser accepted the flag and the code
     /// ignored it, which is #151 wearing a different name.
     ///
@@ -522,7 +522,7 @@ mod tests {
     use super::*;
 
     /// Every host the no-tty path can pick has to be a real install target, or
-    /// `omni init` reports it and installs nothing. The two id vocabularies are
+    /// `veng init` reports it and installs nothing. The two id vocabularies are
     /// maintained in different files, so a rename on either side breaks this
     /// quietly (#528).
     #[test]
@@ -554,9 +554,9 @@ mod tests {
         }
     }
 
-    /// #684. `omni init --antigravity` printed a green tick and nothing else, so
+    /// #684. `veng init --antigravity` printed a green tick and nothing else, so
     /// the expectation it set was distillation. Antigravity has no hook, records
-    /// nothing, and the user found out from an empty `omni stats` twelve days
+    /// nothing, and the user found out from an empty `veng stats` twelve days
     /// later. `doctor` had said so all along, correctly, and is the wrong place
     /// to say it first: installation is when the expectation is formed.
     ///
@@ -591,7 +591,7 @@ mod tests {
         assert!(
             ok_arm.contains("agent.tier()"),
             "the success arm does not consult `agent.tier()`, so every host gets \
-             the same line whatever OMNI can do there. Arm: {ok_arm}"
+             the same line whatever VENG can do there. Arm: {ok_arm}"
         );
         assert!(
             ok_arm.contains("println!"),

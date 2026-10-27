@@ -53,7 +53,7 @@ pub fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow::Resu
 ///
 /// The match is exact and case-sensitive, so Cursor's `stop`, `postToolUse` and
 /// `postToolUseFailure` fell to the wildcard and did nothing: no session
-/// summary, no error recorded, no distillation, while `omni doctor` reported
+/// summary, no error recorded, no distillation, while `veng doctor` reported
 /// them installed because the entries were present in the file (#384). Cursor
 /// has no `PreCompact`, and `stop` is its session flush; `save_session_summary`
 /// is an `INSERT OR REPLACE` keyed on the session, so firing it per turn
@@ -163,7 +163,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("must succeed");
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (
             Arc::new(Store::open_path(&db_path).expect("must succeed")),
             dir,
@@ -177,7 +177,7 @@ mod tests {
 
         // Buat input PostToolUse valid. The padding is large enough that the
         // distillation still pays after its own rewind marker: since #271 a cut
-        // carries `omni_retrieve("<hash>")`, roughly 75 bytes, and on the old
+        // carries `veng_retrieve("<hash>")`, roughly 75 bytes, and on the old
         // 50-line fixture that marker ate the saving and the hook correctly
         // declined, so a routing test failed for a reason that had nothing to do
         // with routing.
@@ -257,7 +257,7 @@ mod tests {
 
         // Force continuation so the test is deterministic regardless of clock
         unsafe {
-            std::env::set_var("OMNI_CONTINUE", "1");
+            std::env::set_var("VENG_CONTINUE", "1");
         }
 
         let input = json!({
@@ -269,7 +269,7 @@ mod tests {
         let out = process_payload(&input.to_string(), store, session);
 
         unsafe {
-            std::env::remove_var("OMNI_CONTINUE");
+            std::env::remove_var("VENG_CONTINUE");
         }
 
         let res = out.expect("must produce output for continued session");

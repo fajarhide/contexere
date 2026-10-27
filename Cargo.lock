@@ -849,36 +849,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "omni"
-version = "0.7.12"
-dependencies = [
- "anyhow",
- "chrono",
- "colored",
- "dialoguer",
- "dirs",
- "insta",
- "libc",
- "r2d2",
- "r2d2_sqlite",
- "regex",
- "rmcp",
- "rusqlite",
- "schemars",
- "serde",
- "serde_json",
- "sha2",
- "strsim",
- "tempfile",
- "tiktoken-rs",
- "tokio",
- "toml",
- "unicode-width",
- "ureq",
- "walkdir",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1686,6 +1656,36 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "veng"
+version = "0.7.12"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "colored",
+ "dialoguer",
+ "dirs",
+ "insta",
+ "libc",
+ "r2d2",
+ "r2d2_sqlite",
+ "regex",
+ "rmcp",
+ "rusqlite",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strsim",
+ "tempfile",
+ "tiktoken-rs",
+ "tokio",
+ "toml",
+ "unicode-width",
+ "ureq",
+ "walkdir",
+]
 
 [[package]]
 name = "version_check"

@@ -73,13 +73,13 @@ pub struct SessionConfig {
 impl SessionConfig {
     pub fn from_env() -> Self {
         Self {
-            force_fresh: std::env::var("OMNI_FRESH")
+            force_fresh: std::env::var("VENG_FRESH")
                 .map(|v| v == "1")
                 .unwrap_or(false),
-            force_continue: std::env::var("OMNI_CONTINUE")
+            force_continue: std::env::var("VENG_CONTINUE")
                 .map(|v| v == "1")
                 .unwrap_or(false),
-            ttl_mins: std::env::var("OMNI_SESSION_TTL")
+            ttl_mins: std::env::var("VENG_SESSION_TTL")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(240),
@@ -91,7 +91,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[veng] parse error");
             return None;
         }
     };
@@ -222,7 +222,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         && pending.session_id != new_state.session_id
     {
         let summary = format!(
-            "OMNI: Interrupted session detected. {}",
+            "VENG: Interrupted session detected. {}",
             pending.interrupted_summary()
         );
         let out = HookOutput {
@@ -274,7 +274,7 @@ pub fn process_before_agent_start_payload(
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[veng] parse error");
             return None;
         }
     };
@@ -314,7 +314,7 @@ pub fn process_before_agent_start_payload(
         return None;
     }
 
-    // `BeforeAgentStart` is OMNI's own event, emitted and read by the Pi
+    // `BeforeAgentStart` is VENG's own event, emitted and read by the Pi
     // extension, so it keeps `systemPromptAddition`. Only `SessionStart` is
     // constrained by Claude Code and Codex, and renaming this too would break a
     // working host to fix two others (#364).
@@ -360,13 +360,13 @@ fn detect_watch_paths(
     if cwd.join("go.mod").exists() {
         paths.push("go.mod".to_string());
     }
-    if !paths.contains(&".omni/signals/".to_string()) && cwd.join(".omni").join("signals").exists()
+    if !paths.contains(&".veng/signals/".to_string()) && cwd.join(".veng").join("signals").exists()
     {
-        paths.push(".omni/signals/".to_string());
-    } else if !paths.contains(&".omni/filters/".to_string())
-        && cwd.join(".omni").join("filters").exists()
+        paths.push(".veng/signals/".to_string());
+    } else if !paths.contains(&".veng/filters/".to_string())
+        && cwd.join(".veng").join("filters").exists()
     {
-        paths.push(".omni/filters/".to_string());
+        paths.push(".veng/filters/".to_string());
     }
     if cwd.join("Makefile").exists() {
         paths.push("Makefile".to_string());
@@ -384,7 +384,7 @@ fn build_summary(state: &SessionState, now: i64) -> String {
         format!("{}h ago", age_mins / 60)
     };
 
-    let mut out = format!("OMNI: Session continued ({}). ", time_str);
+    let mut out = format!("VENG: Session continued ({}). ", time_str);
 
     if let Some(task) = &state.inferred_task {
         out.push_str(&format!("Last: {}. ", task));
@@ -412,7 +412,7 @@ fn build_summary(state: &SessionState, now: i64) -> String {
 
     if state.estimated_tokens_saved() > 0 {
         out.push_str(&format!(
-            "OMNI saved ~{}tok last session. ",
+            "VENG saved ~{}tok last session. ",
             state.estimated_tokens_saved()
         ));
     }
@@ -561,7 +561,7 @@ mod tests {
         let out = HookOutput {
             hook_specific_output: HookSpecificOutput {
                 hook_event_name: "SessionStart".to_string(),
-                system_prompt_addition: "OMNI: continued".to_string(),
+                system_prompt_addition: "VENG: continued".to_string(),
                 watch_paths: vec![],
             },
         };
@@ -580,7 +580,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("must succeed");
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         // Set transcript dir to clean temp dir so find_pending() doesn't interfere
         let transcript_dir = dir.path().join("transcripts");
         crate::store::transcript::MOCK_TRANSCRIPT_DIR.with(|d| {
@@ -881,7 +881,7 @@ mod tests {
 
         let out = process_payload(&input.to_string(), store.clone(), default_config());
         // Fresh session with no toolchain → no watch_paths → None output is correct
-        // The important thing is: no "[omni] parse error", session IS written to DB
+        // The important thing is: no "[veng] parse error", session IS written to DB
         assert!(out.is_none());
         // Verify the session was actually persisted
         assert!(
@@ -955,7 +955,7 @@ mod tests {
         let out = process_before_agent_start_payload(&input.to_string(), store.clone(), cfg);
         assert!(out.is_some());
         let res = out.expect("must succeed");
-        // Parsed loosely on purpose: `BeforeAgentStart` is OMNI's own event and
+        // Parsed loosely on purpose: `BeforeAgentStart` is VENG's own event and
         // keeps `systemPromptAddition`, while `SessionStart` had to move to the
         // `additionalContext` both Claude Code and Codex read (#364). Sharing a
         // struct here would tie Pi's contract to theirs.

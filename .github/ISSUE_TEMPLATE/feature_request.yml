@@ -1,12 +1,12 @@
 name: Feature Request
-description: Suggest an idea for OMNI (e.g., a new semantic filter).
+description: Suggest an idea for VENG (e.g., a new semantic filter).
 labels: [enhancement]
 body:
   - type: textarea
     id: idea
     attributes:
       label: Feature Idea
-      description: What would you like OMNI to do?
+      description: What would you like VENG to do?
       placeholder: I want a filter for...
     validations:
       required: true

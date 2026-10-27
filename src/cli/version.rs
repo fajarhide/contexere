@@ -13,15 +13,15 @@ const FLAGS: super::Flags = &[("--json", "Machine-readable JSON output")];
 
 pub fn run_version(args: &[String]) {
     if super::wants_help(args) {
-        println!("\nomni version: Build and feature information\n");
-        println!("USAGE:\n  omni version [FLAGS]\n");
+        println!("\nveng version: Build and feature information\n");
+        println!("USAGE:\n  veng version [FLAGS]\n");
         crate::cli::print_flags(FLAGS);
         return;
     }
     // `run_version` returns `()`, so an unknown flag is reported and the process
     // stops here rather than printing a version nobody asked for (#151).
     if let Err(e) = crate::cli::check_flags("version", args, FLAGS) {
-        eprintln!("[omni] {e}");
+        eprintln!("[veng] {e}");
         std::process::exit(1);
     }
 
@@ -31,10 +31,10 @@ pub fn run_version(args: &[String]) {
     if json_flag {
         let output = VersionJson {
             version: version_str,
-            build_date: option_env!("OMNI_BUILD_DATE")
+            build_date: option_env!("VENG_BUILD_DATE")
                 .unwrap_or("unknown")
                 .to_string(),
-            git_hash: option_env!("OMNI_GIT_HASH")
+            git_hash: option_env!("VENG_GIT_HASH")
                 .unwrap_or("unknown")
                 .to_string(),
             features: vec![
@@ -46,7 +46,7 @@ pub fn run_version(args: &[String]) {
         };
         println!("{}", serde_json::to_string_pretty(&output).unwrap());
     } else {
-        println!("OMNI v{}", version_str);
+        println!("VENG v{}", version_str);
     }
 }
 

@@ -233,7 +233,7 @@ fn is_silent(segment: &str) -> bool {
 ///
 /// `is_assignment` already existed but only decided whether a *whole* segment was
 /// silent, and a single-segment command never reaches that branch. So
-/// `OMNI_DB_PATH=/tmp/d.db kubectl get pods` resolved to `Generic` where the bare
+/// `VENG_DB_PATH=/tmp/d.db kubectl get pods` resolved to `Generic` where the bare
 /// command resolves to `Infra`, and `sole_output_command` handed back the string
 /// with the assignment still on the front, which no TOML filter keyed on
 /// `^kubectl\b` can match either (#339).
@@ -725,7 +725,7 @@ mod label_fragments {
         assert_eq!(producer_label("FOO=1 cargo build --release"), "cargo");
         assert_eq!(producer_label("A=1 B=2 make ci"), "make");
         assert_eq!(
-            producer_label("OMNI_DB_PATH=/tmp/d.db kubectl get pods"),
+            producer_label("VENG_DB_PATH=/tmp/d.db kubectl get pods"),
             "kubectl"
         );
         assert_eq!(producer_label("/bin/ls -l /tmp"), "ls");

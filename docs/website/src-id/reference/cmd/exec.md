@@ -1,29 +1,29 @@
-# `omni exec`
+# `veng exec`
 
 Menjalankan satu perintah lewat seluruh pipeline lalu mencetak hasilnya, dengan
 catatan kaki yang menunjukkan berapa ongkosnya.
 
 ```sh
-omni exec cargo test
+veng exec cargo test
 ```
 
 ```
 cargo test: 411 passed, 1 failed
   FAILED ledger::tests::renders_identical_bytes_for_identical_state
-[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[VENG Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 Ini harness yang diminta dipakai setiap laporan bug di proyek ini, karena ia
 mengeluarkan host dari gambar. Kalau sebuah kerusakan tetap muncul lewat
-`omni exec`, itu OMNI.
+`veng exec`, itu VENG.
 
 ## Bentuk argumennya persis
 
 ```sh
-omni exec cargo test          # benar
-omni exec -- cargo test       # gagal: No such file or directory
-omni exec 'cargo test'        # jalan, bentuk string tunggal
-omni exec sh -c 'a; b'        # jalan, bentuk argv terpisah
+veng exec cargo test          # benar
+veng exec -- cargo test       # gagal: No such file or directory
+veng exec 'cargo test'        # jalan, bentuk string tunggal
+veng exec sh -c 'a; b'        # jalan, bentuk argv terpisah
 ```
 
 Bentuk `--` justru yang orang raih dan justru yang tidak bekerja.
@@ -37,7 +37,7 @@ Bentuk `--` justru yang orang raih dan justru yang tidak bekerja.
 | `--help`, `-h` | Bantuan |
 
 Keduanya yang dipakai pre-hook ketika ia menulis ulang sebuah perintah menjadi
-`omni exec`.
+`veng exec`.
 
 `--session` layak diketahui ketika Anda sedang menyelidiki perilaku ledger: ia
 satu-satunya cara menjalankan dua sesi berbeda dengan tangan lalu melihat beda
@@ -50,14 +50,14 @@ sesi memberi masukan ke penilainya. Beri setiap penyelidikan basis datanya
 sendiri:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <perintah>
+VENG_DB_PATH=/tmp/probe.db veng exec <perintah>
 ```
 
 Basis data bersama yang hangat juga membuat penulisan berbaris antre, dan itu
-alasan biasa `omni exec` tampak menggantung.
+alasan biasa `veng exec` tampak menggantung.
 
 ## Terkait
 
-`omni diff` menunjukkan sebelum dan sesudah yang sama untuk perintah
+`veng diff` menunjukkan sebelum dan sesudah yang sama untuk perintah
 **terakhir** yang diproses hook, dan itu yang Anda butuhkan ketika perintah yang
 menarik sudah terlanjur berjalan.

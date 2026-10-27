@@ -1,4 +1,4 @@
-use crate::store::query::{OmniQLQueryResult, OmniQLRow};
+use crate::store::query::{VengQLQueryResult, VengQLRow};
 use crate::store::sqlite::Store;
 use anyhow::Result;
 use colored::*;
@@ -19,7 +19,7 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
 
     let json_mode = super::has_flag(args, "--json");
 
-    match store.execute_omni_query(&raw_query) {
+    match store.execute_veng_query(&raw_query) {
         Ok(result) => {
             if json_mode {
                 println!("{}", serde_json::to_string_pretty(&result)?);
@@ -28,7 +28,7 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
             }
         }
         Err(e) => {
-            eprintln!("{} {}: {}", "error".red(), "omni query".bold(), e);
+            eprintln!("{} {}: {}", "error".red(), "veng query".bold(), e);
             std::process::exit(1);
         }
     }
@@ -39,11 +39,11 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: Natural-language query engine for distillation history",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "query".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "query".cyan(), "<QUERY>".yellow());
+    println!("  veng {} {}", "query".cyan(), "<QUERY>".yellow());
 
     println!("\n{}", "SUPPORTED QUERIES:".bold().bright_white());
     println!(
@@ -68,33 +68,33 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni query errors in last 5 commands  {} Recent errors",
+        "  veng query errors in last 5 commands  {} Recent errors",
         "#".bright_black()
     );
     println!(
-        "  omni query warnings from cargo         {} Cargo warnings",
+        "  veng query warnings from cargo         {} Cargo warnings",
         "#".bright_black()
     );
     println!(
-        "  omni query context for src/main.rs     {} File mentions",
+        "  veng query context for src/main.rs     {} File mentions",
         "#".bright_black()
     );
     println!(
-        "  omni query timeline today              {} Daily timeline",
+        "  veng query timeline today              {} Daily timeline",
         "#".bright_black()
     );
     println!(
-        "  omni query timeline today --json       {} JSON output",
+        "  veng query timeline today --json       {} JSON output",
         "#".bright_black()
     );
     println!();
 }
 
-fn render_result(result: &OmniQLQueryResult) {
+fn render_result(result: &VengQLQueryResult) {
     println!(
         "\n {} {} ({})",
         "⚡".cyan(),
-        "OmniQL Results".bold().bright_white(),
+        "VengQL Results".bold().bright_white(),
         result.query_type.bright_black()
     );
     super::print_rule();
@@ -107,7 +107,7 @@ fn render_result(result: &OmniQLQueryResult) {
 
     for (i, row) in result.results.iter().enumerate() {
         match row {
-            OmniQLRow::ErrorSegment {
+            VengQLRow::ErrorSegment {
                 command,
                 timestamp,
                 line_range,
@@ -133,7 +133,7 @@ fn render_result(result: &OmniQLQueryResult) {
                     );
                 }
             }
-            OmniQLRow::WarningSegment {
+            VengQLRow::WarningSegment {
                 command,
                 timestamp,
                 line_range,
@@ -152,7 +152,7 @@ fn render_result(result: &OmniQLQueryResult) {
                     println!("       {}", line.yellow());
                 }
             }
-            OmniQLRow::ContextMatch {
+            VengQLRow::ContextMatch {
                 command,
                 timestamp,
                 matching_lines,
@@ -175,7 +175,7 @@ fn render_result(result: &OmniQLQueryResult) {
                     );
                 }
             }
-            OmniQLRow::TimelineItem {
+            VengQLRow::TimelineItem {
                 timestamp,
                 command,
                 route,

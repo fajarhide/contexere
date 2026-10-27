@@ -37,13 +37,13 @@ pub fn get_status() -> Status {
         Some(cache.latest_version)
     } else {
         // Fetch from GitHub
-        let url = "https://api.github.com/repos/fajarhide/omni/releases/latest";
+        let url = "https://api.github.com/repos/fajarhide/veng/releases/latest";
         let agent = ureq::AgentBuilder::new()
             .timeout_read(std::time::Duration::from_secs(2))
             .timeout_connect(std::time::Duration::from_secs(2))
             .build();
 
-        match agent.get(url).set("User-Agent", "omni-cli").call() {
+        match agent.get(url).set("User-Agent", "veng-cli").call() {
             Ok(response) => {
                 #[derive(Deserialize)]
                 struct GitHubRelease {
@@ -131,14 +131,14 @@ fn is_newer(latest: &str, current: &str) -> bool {
 
 pub fn print_notification(latest: &str) {
     println!(
-        "\n  {} A new version of OMNI is available: {} → {}",
+        "\n  {} A new version of VENG is available: {} → {}",
         "✨".yellow(),
         env!("CARGO_PKG_VERSION").bright_black(),
         latest.green().bold()
     );
     println!(
         "      Run: {} to upgrade.\n",
-        "brew upgrade fajarhide/tap/omni".cyan()
+        "brew upgrade fajarhide/tap/veng".cyan()
     );
 }
 

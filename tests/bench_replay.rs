@@ -14,14 +14,14 @@
 //!
 //! Ignored by default, it needs a populated trace DB. Run it explicitly:
 //!
-//!   OMNI_BENCH_DB=~/.omni/omni.db \
+//!   VENG_BENCH_DB=~/.veng/veng.db \
 //!     cargo test --release --test bench_replay -- --ignored --nocapture
 //!
 //! Knobs, all optional:
-//!   OMNI_BENCH_ALL=1            replay terminal traces too (not the figure to publish)
-//!   OMNI_BENCH_SINCE=YYYY-MM-DD restrict to traces at or after that UTC date
-//!   OMNI_BENCH_NO_TOKENS=1      skip tokenization (it is the slow half)
-//!   OMNI_BENCH_RTK / _LEANCTX / _CAVEMAN / _HEADROOM
+//!   VENG_BENCH_ALL=1            replay terminal traces too (not the figure to publish)
+//!   VENG_BENCH_SINCE=YYYY-MM-DD restrict to traces at or after that UTC date
+//!   VENG_BENCH_NO_TOKENS=1      skip tokenization (it is the slow half)
+//!   VENG_BENCH_RTK / _LEANCTX / _CAVEMAN / _HEADROOM
 //!                               each names a competitor binary and adds one arm to
 //!                               the head to head. Unset means the arm is absent from
 //!                               the table rather than printed as a zero, so CI never
@@ -31,9 +31,9 @@
 //! - `session: None` + `store: None` → the scorer sees no history, i.e. the
 //!   "fresh HOME per invocation" the method requires (a warm DB is non-deterministic).
 //! - `HOME` is pointed at an empty temp dir so only the embedded signals load, not
-//!   whatever `~/.omni/signals` the measuring machine happens to carry.
+//!   whatever `~/.veng/signals` the measuring machine happens to carry.
 //! - `run_inner` is the same full pipeline (format gate → TOML → distill → guardrail)
-//!   the hook and `omni exec` run, so this measures what an agent actually receives.
+//!   the hook and `veng exec` run, so this measures what an agent actually receives.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Cursor;
@@ -42,7 +42,7 @@ use std::io::Cursor;
 /// `---`, a bare path fragment and a blank recur in every output and would
 /// dominate the count while representing nothing a ledger could hand back as a
 /// handle. Matches the 12 characters the corpus measurement in
-/// `docs/specs/2026-08-08-omni-direction.md` section 2.3 used, so the two
+/// `docs/specs/2026-08-08-veng-direction.md` section 2.3 used, so the two
 /// numbers are comparable.
 const MIN_REPEAT_LINE: usize = 12;
 
@@ -140,7 +140,7 @@ impl GapSeen {
     fn account(&mut self, t: &Trace, text: &str) -> Vec<(bool, u64)> {
         let keys: Vec<(String, u64)> = text
             .split_inclusive('\n')
-            .map(|l| (omni::ledger::line_key(l), l.len() as u64))
+            .map(|l| (veng::ledger::line_key(l), l.len() as u64))
             .collect();
 
         // Session first, project only for what the session did not answer,
@@ -191,7 +191,7 @@ struct Counter(Option<tiktoken_rs::CoreBPE>);
 
 impl Counter {
     fn new() -> Self {
-        if std::env::var("OMNI_BENCH_NO_TOKENS").is_ok() {
+        if std::env::var("VENG_BENCH_NO_TOKENS").is_ok() {
             return Self(None);
         }
         Self(Some(
@@ -250,7 +250,7 @@ fn command_form(cmd: &str) -> &'static str {
 /// same resolver the pipeline routes with, which keeps this table honest about
 /// what the pipeline saw.
 fn trace_class(cmd: &str) -> &'static str {
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = veng::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     match base_command(producer).as_str() {
         "cat" | "head" | "tail" | "sed" | "less" | "bat" => "file read",
         "grep" | "rg" | "ag" | "ack" | "find" | "fd" => "search",
@@ -267,11 +267,11 @@ fn trace_class(cmd: &str) -> &'static str {
 /// Deliberately **generous to rtk**: it is handed the exact filter name, which
 /// its own hook has to infer from the command line. Anything unmapped gets its
 /// bytes back, which is what `rtk pipe` with no filter does anyway, and is the
-/// same treatment omni's passthrough gives.
+/// same treatment veng's passthrough gives.
 ///
 /// Names come from `resolve_filter` in rtk's `cmds/system/pipe_cmd.rs`.
 fn rtk_filter(cmd: &str) -> Option<&'static str> {
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = veng::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     let mut words = producer.split_whitespace();
     let base = words.next().unwrap_or("").rsplit('/').next().unwrap_or("");
     let sub = words.next().unwrap_or("");
@@ -404,10 +404,10 @@ fn caveman_out(bin: &str, home: &str, raw: &str) -> String {
 /// harness exists to avoid.
 ///
 /// Anything it declines to claim gets its bytes back, matching the rtk arm and
-/// omni's own passthrough.
+/// veng's own passthrough.
 fn lean_ctx_bytes(bin: &str, cmd: &str, raw: &str) -> usize {
     use std::io::Write;
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = veng::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     let Ok(mut child) = std::process::Command::new(bin)
         .args(["compress", "diff", "-", "--shell", producer, "--json"])
         .stdin(std::process::Stdio::piped())
@@ -501,7 +501,7 @@ print(total)
 /// The module file behind an installed `headroom`, given whatever the caller
 /// named: the file itself, or the command they actually have.
 ///
-/// `OMNI_BENCH_HEADROOM` documents a path inside headroom's own tree, and what a
+/// `VENG_BENCH_HEADROOM` documents a path inside headroom's own tree, and what a
 /// person has is the console script, so naming `headroom` handed
 /// `spec_from_file_location` something it cannot read and the arm never ran once
 /// (#711). The script's shebang names the interpreter whose site-packages hold
@@ -578,18 +578,18 @@ fn base_command(cmd: &str) -> String {
         .to_string()
 }
 
-/// `OMNI_BENCH_SINCE=YYYY-MM-DD` as a unix timestamp, or 0 for the whole corpus.
+/// `VENG_BENCH_SINCE=YYYY-MM-DD` as a unix timestamp, or 0 for the whole corpus.
 ///
 /// The doc's headline (43.3% all-time) and its recent window (5.6% for
 /// 2026-08-01 onward) are the same measurement over different rows, and
 /// conflating them is the mistake section 1 of the direction doc exists to
 /// correct. One env var keeps both reproducible from one harness.
 fn since_ts() -> i64 {
-    let Ok(day) = std::env::var("OMNI_BENCH_SINCE") else {
+    let Ok(day) = std::env::var("VENG_BENCH_SINCE") else {
         return 0;
     };
     chrono::NaiveDate::parse_from_str(&day, "%Y-%m-%d")
-        .expect("OMNI_BENCH_SINCE must be YYYY-MM-DD")
+        .expect("VENG_BENCH_SINCE must be YYYY-MM-DD")
         .and_hms_opt(0, 0, 0)
         .expect("midnight")
         .and_utc()
@@ -602,19 +602,19 @@ fn replay_execution_traces_net_savings() {
     // Resolve the corpus DB from the REAL home before we repoint HOME below.
     // Build the path with PathBuf, not a hardcoded `/` (CLAUDE.md cross-platform
     // rule 1), review of #202.
-    let db = std::env::var("OMNI_BENCH_DB").unwrap_or_else(|_| {
+    let db = std::env::var("VENG_BENCH_DB").unwrap_or_else(|_| {
         std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
-            .join(".omni")
-            .join("omni.db")
+            .join(".veng")
+            .join("veng.db")
             .to_string_lossy()
             .into_owned()
     });
-    // #704. `OMNI_BENCH_CORPUS` names a frozen corpus and replaces the DB as the
+    // #704. `VENG_BENCH_CORPUS` names a frozen corpus and replaces the DB as the
     // source. It exists because `TRACE_RETENTION_DAYS` is 7, so replaying the DB
     // measures a different input every week and no release-over-release delta was
     // ever attributable to the code. Resolved from the real HOME, like the two
     // paths above, because HOME is repointed at a temp dir a few lines down.
-    let corpus = std::env::var("OMNI_BENCH_CORPUS").ok();
+    let corpus = std::env::var("VENG_BENCH_CORPUS").ok();
     let since = since_ts();
     // Also from the real home, and for the same reason. caveman resolves its own
     // Go binaries under `$HOME/.caveman/bin`, so with HOME repointed below it
@@ -641,7 +641,7 @@ fn replay_execution_traces_net_savings() {
     // #202). If a second test is ever added here, serialize env access first.
     unsafe {
         std::env::set_var("HOME", tmp_home.path());
-        std::env::remove_var("OMNI_PASSTHROUGH");
+        std::env::remove_var("VENG_PASSTHROUGH");
     }
 
     // The frozen corpus is already filtered to model-facing traces and already in
@@ -694,7 +694,7 @@ fn replay_execution_traces_net_savings() {
     });
 
     if from_corpus.is_none() && !std::path::Path::new(&db).exists() {
-        eprintln!("SKIP: no trace DB at {db} (set OMNI_BENCH_DB or OMNI_BENCH_CORPUS)");
+        eprintln!("SKIP: no trace DB at {db} (set VENG_BENCH_DB or VENG_BENCH_CORPUS)");
         return;
     }
 
@@ -709,7 +709,7 @@ fn replay_execution_traces_net_savings() {
     // ever receives, and on the reporting installation they are 888 traces
     // carrying 86 MB, 68% of the corpus by bytes. Replaying everything reported
     // **79.1%** where the model-facing population reports **43.1%**, and the
-    // README quoted the harness. #212 fixed exactly this in `omni stats`, which
+    // README quoted the harness. #212 fixed exactly this in `veng stats`, which
     // now prints "Terminal output is excluded" on its own line; the harness that
     // produces the published figure never got the same fix (#324).
     //
@@ -740,7 +740,7 @@ fn replay_execution_traces_net_savings() {
 
     // A frozen corpus answers all three of these itself: it was filtered to
     // model-facing traces when it was built, so there is no terminal population
-    // to choose between and `OMNI_BENCH_ALL` has nothing to widen to. Asking the
+    // to choose between and `VENG_BENCH_ALL` has nothing to widen to. Asking the
     // empty in-memory DB instead would return zero rows and report a clean 0.0%,
     // which is the shape of failure this file already documents twice.
     let (rows, total_traces, use_everything) = match from_corpus {
@@ -752,7 +752,7 @@ fn replay_execution_traces_net_savings() {
             let model_facing = fetch("AND agent_id IS NOT NULL AND agent_id != 'terminal'");
             let everything = fetch("");
             let total = everything.len();
-            let all = std::env::var("OMNI_BENCH_ALL").is_ok() || model_facing.is_empty();
+            let all = std::env::var("VENG_BENCH_ALL").is_ok() || model_facing.is_empty();
             (if all { everything } else { model_facing }, total, all)
         }
     };
@@ -781,15 +781,15 @@ fn replay_execution_traces_net_savings() {
     // applies it, and it keeps the filter figure above unaffected.
     let ledger_dir = tempfile::tempdir().expect("ledger home");
     let ledger_store =
-        omni::store::sqlite::Store::open_path(&ledger_dir.path().join("ledger.db")).ok();
+        veng::store::sqlite::Store::open_path(&ledger_dir.path().join("ledger.db")).ok();
     let (mut ledger_total, mut ledger_calls) = (0u64, 0u64);
-    // #448. `OMNI_BENCH_PROJECT=off` drops the project scope so the two can be
+    // #448. `VENG_BENCH_PROJECT=off` drops the project scope so the two can be
     // measured apart. There is no env var for the floor: it is
     // `guard::limits::PROJECT_FLOOR_MULT`, and changing the arm means changing
-    // the constant. An `OMNI_PROJECT_FLOOR_MULT` was advertised here and read by
+    // the constant. An `VENG_PROJECT_FLOOR_MULT` was advertised here and read by
     // nothing but this file's own reporting line, so setting it relabelled the
     // output without moving the arm (#472).
-    let project_scope = std::env::var("OMNI_BENCH_PROJECT").ok().as_deref() != Some("off");
+    let project_scope = std::env::var("VENG_BENCH_PROJECT").ok().as_deref() != Some("off");
     // #450's three gates, in repeated bytes the ledger never got to claim.
     let mut gap_seen = GapSeen::default();
     let (mut gap_structured, mut gap_under_floor, mut gap_processed) = (0u64, 0u64, 0u64);
@@ -800,35 +800,35 @@ fn replay_execution_traces_net_savings() {
     // Every run of already-seen lines, so the marker's own size can be priced
     // as the variable it is rather than assumed.
     let mut run_sizes: Vec<u64> = Vec::new();
-    // P4's head-to-head. Off unless `OMNI_BENCH_RTK` names an rtk binary, so CI
+    // P4's head-to-head. Off unless `VENG_BENCH_RTK` names an rtk binary, so CI
     // never needs a competitor installed to run this benchmark.
-    let rtk = std::env::var("OMNI_BENCH_RTK").ok();
+    let rtk = std::env::var("VENG_BENCH_RTK").ok();
     let (mut rtk_total, mut rtk_claimed, mut rtk_marked) = (0u64, 0u64, 0u64);
     let rtk_ledger_dir = tempfile::tempdir().expect("rtk ledger home");
     let rtk_ledger_store =
-        omni::store::sqlite::Store::open_path(&rtk_ledger_dir.path().join("ledger.db")).ok();
+        veng::store::sqlite::Store::open_path(&rtk_ledger_dir.path().join("ledger.db")).ok();
     let mut rtk_ledger_total = 0u64;
     // Second competitor arm, same rule: off unless the binary is named.
-    let lean_ctx = std::env::var("OMNI_BENCH_LEANCTX").ok();
+    let lean_ctx = std::env::var("VENG_BENCH_LEANCTX").ok();
     let (mut lc_total, mut lc_claimed) = (0u64, 0u64);
-    // Fourth arm. `OMNI_BENCH_CAVEMAN` names `~/.caveman/bin/caveman-engine`, not a
+    // Fourth arm. `VENG_BENCH_CAVEMAN` names `~/.caveman/bin/caveman-engine`, not a
     // bare `caveman`, which does not exist. It is the first competitor that ships
-    // both halves of OMNI's shape: `compress` is the filter tier and `retrieve
+    // both halves of VENG's shape: `compress` is the filter tier and `retrieve
     // <handle>` recovers the content behind the handle it leaves in the output, so
     // it earns the same ledger-stacked row rtk gets rather than a filters-only row.
-    let caveman = std::env::var("OMNI_BENCH_CAVEMAN").ok();
+    let caveman = std::env::var("VENG_BENCH_CAVEMAN").ok();
     let (mut cm_total, mut cm_claimed) = (0u64, 0u64);
     let cm_ledger_dir = tempfile::tempdir().expect("caveman ledger home");
     let cm_ledger_store =
-        omni::store::sqlite::Store::open_path(&cm_ledger_dir.path().join("ledger.db")).ok();
+        veng::store::sqlite::Store::open_path(&cm_ledger_dir.path().join("ledger.db")).ok();
     let mut cm_ledger_total = 0u64;
-    // Third arm, and the only one that is not a filter. `OMNI_BENCH_HEADROOM`
+    // Third arm, and the only one that is not a filter. `VENG_BENCH_HEADROOM`
     // names headroom's `transforms/cross_turn_dedup.py`, which is the same idea
     // as our ledger rather than the same idea as rtk: whole-conversation verbatim
     // dedup, not per-payload pattern stripping. So it is fed exactly what the
     // ledger is fed, post-filter output grouped by session in recorded order,
     // and compared against `ledger_total` rather than against `out_total`.
-    let headroom = std::env::var("OMNI_BENCH_HEADROOM").ok();
+    let headroom = std::env::var("VENG_BENCH_HEADROOM").ok();
     let mut hr_blocks: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut hr_structured = 0u64;
 
@@ -861,7 +861,7 @@ fn replay_execution_traces_net_savings() {
         // failed replay would leave `out` empty and be counted as 100% savings,
         // inflating the honest figure (review of #202), exclude it entirely and
         // report the count instead.
-        if omni::hooks::pipe::run_inner(
+        if veng::hooks::pipe::run_inner(
             Cursor::new(t.raw.as_bytes()),
             &mut out,
             &mut err,
@@ -925,10 +925,10 @@ fn replay_execution_traces_net_savings() {
                 c.4 += repeated;
                 c.5 += accounted;
             }
-            if omni::pipeline::format::sniff(&distilled).is_some() {
+            if veng::pipeline::format::sniff(&distilled).is_some() {
                 gap_structured += repeated;
                 n_structured += 1;
-            } else if distilled.len() < omni::guard::limits::MIN_LEDGER_INPUT {
+            } else if distilled.len() < veng::guard::limits::MIN_LEDGER_INPUT {
                 gap_under_floor += repeated;
                 n_under_floor += 1;
             } else {
@@ -954,7 +954,7 @@ fn replay_execution_traces_net_savings() {
                     // marker length is not reachable from a test binary, so the
                     // session form's 65 bytes is written here and pinned by
                     // `session_marker_len_matches_the_ledger` below.
-                    let bar = SESSION_MARKER_LEN + omni::guard::limits::MIN_LEDGER_RUN_GAIN as u64;
+                    let bar = SESSION_MARKER_LEN + veng::guard::limits::MIN_LEDGER_RUN_GAIN as u64;
                     if bytes < bar {
                         m1_under_bar += bytes;
                         m1_under_bar_runs += 1;
@@ -979,9 +979,9 @@ fn replay_execution_traces_net_savings() {
         // half above already uses it; only the ledger was left guessing.
         let after_ledger = ledger_store
             .as_ref()
-            .filter(|_| omni::pipeline::format::sniff(&distilled).is_none())
+            .filter(|_| veng::pipeline::format::sniff(&distilled).is_none())
             .and_then(|s| {
-                let ledger = omni::ledger::Ledger::new(s, &t.session).from(&t.command);
+                let ledger = veng::ledger::Ledger::new(s, &t.session).from(&t.command);
                 let ledger = if project_scope {
                     ledger.with_project(&t.project)
                 } else {
@@ -996,7 +996,7 @@ fn replay_execution_traces_net_savings() {
                 //
                 // Counting by string cannot be made correct from this side. A
                 // substring scan reads a surviving line that quotes the wording;
-                // filtering on the `[OMNI: ` prefix reads a surviving line that
+                // filtering on the `[VENG: ` prefix reads a surviving line that
                 // starts with it, and this repository writes exactly those lines
                 // into its changelog and its manual, so the corpus carries them.
                 // #557 is the same lesson one guard earlier: identity has to come
@@ -1024,7 +1024,7 @@ fn replay_execution_traces_net_savings() {
             // Ordering is the loop's, which is the recorded order, and
             // prefix-monotonicity depends on that as much for their design as
             // for ours.
-            if omni::pipeline::format::sniff(&distilled).is_none() {
+            if veng::pipeline::format::sniff(&distilled).is_none() {
                 hr_blocks
                     .entry(t.session.clone())
                     .or_default()
@@ -1053,9 +1053,9 @@ fn replay_execution_traces_net_savings() {
             // cannot see each other's history.
             let after = rtk_ledger_store
                 .as_ref()
-                .filter(|_| omni::pipeline::format::sniff(&rtk_text).is_none())
+                .filter(|_| veng::pipeline::format::sniff(&rtk_text).is_none())
                 .and_then(|s| {
-                    omni::ledger::Ledger::new(s, &t.session)
+                    veng::ledger::Ledger::new(s, &t.session)
                         .from(&t.command)
                         .with_project(&t.project)
                         .project(&rtk_text)
@@ -1074,9 +1074,9 @@ fn replay_execution_traces_net_savings() {
             }
             let after = cm_ledger_store
                 .as_ref()
-                .filter(|_| omni::pipeline::format::sniff(&cm_text).is_none())
+                .filter(|_| veng::pipeline::format::sniff(&cm_text).is_none())
                 .and_then(|s| {
-                    omni::ledger::Ledger::new(s, &t.session)
+                    veng::ledger::Ledger::new(s, &t.session)
                         .from(&t.command)
                         .with_project(&t.project)
                         .project(&cm_text)
@@ -1135,7 +1135,7 @@ fn replay_execution_traces_net_savings() {
     if since > 0 {
         println!(
             "window:            traces at or after {}",
-            std::env::var("OMNI_BENCH_SINCE").unwrap_or_default()
+            std::env::var("VENG_BENCH_SINCE").unwrap_or_default()
         );
     }
     println!("bytes:             {raw_total} -> {out_total}");
@@ -1171,7 +1171,7 @@ fn replay_execution_traces_net_savings() {
             "                   (util::token_estimate ships 3.6 for Mixed; this is the check on it)"
         );
     } else {
-        println!("\n--- tokens: skipped (OMNI_BENCH_NO_TOKENS) ---");
+        println!("\n--- tokens: skipped (VENG_BENCH_NO_TOKENS) ---");
     }
 
     // #392. The ledger's input. Filtering and repetition are orthogonal: the
@@ -1241,7 +1241,7 @@ fn replay_execution_traces_net_savings() {
     );
     println!(
         "ledger arm:      project_scope={project_scope} floor_mult={} bytes={ledger_total} folds: {ledger_calls} replies (marker shapes pending #766)",
-        omni::guard::limits::PROJECT_FLOOR_MULT
+        veng::guard::limits::PROJECT_FLOOR_MULT
     );
 
     // #450. Every repeated byte the ledger was handed, attributed to the gate
@@ -1287,7 +1287,7 @@ fn replay_execution_traces_net_savings() {
         v.sort_unstable();
         v.get(v.len() / 2).copied().unwrap_or(0)
     });
-    if let Ok(path) = std::env::var("OMNI_BENCH_RUNS_OUT") {
+    if let Ok(path) = std::env::var("VENG_BENCH_RUNS_OUT") {
         let dump: String = run_sizes.iter().map(|b| format!("{b}\n")).collect();
         let _ = std::fs::write(path, dump);
     }
@@ -1316,14 +1316,14 @@ fn replay_execution_traces_net_savings() {
         println!("\n--- head to head, same corpus (each tool given its command) ---");
         println!(
             "{:<22} {:>12} -> {:>12}  {:>7}",
-            "omni, filters only",
+            "veng, filters only",
             raw_total,
             out_total,
             format!("{:.1}%", saved(raw_total, out_total))
         );
         println!(
             "{:<22} {:>12} -> {:>12}  {:>7}",
-            "omni, with ledger",
+            "veng, with ledger",
             raw_total,
             ledger_total,
             format!("{:.1}%", saved(raw_total, ledger_total))
@@ -1455,10 +1455,10 @@ fn replay_execution_traces_net_savings() {
     }
     println!("\nreplayed in {:.1}s\n", started.elapsed().as_secs_f64());
 
-    // The one invariant that must hold: OMNI never adds bytes across the corpus.
+    // The one invariant that must hold: VENG never adds bytes across the corpus.
     assert!(
         out_total <= raw_total,
-        "OMNI added bytes across the corpus: {raw_total} -> {out_total}"
+        "VENG added bytes across the corpus: {raw_total} -> {out_total}"
     );
     // And the ledger only ever takes bytes off what the filters left. A
     // projection that grew the payload would mean a marker cost more than the
@@ -1484,7 +1484,7 @@ fn replay_execution_traces_net_savings() {
 fn resolves_the_headroom_module_from_the_installed_command() {
     // #711: the arm was pointed at `headroom`, which is a console script and not
     // the module, so it resolved nothing and never ran.
-    assert_eq!(headroom_module("omni-no-such-command-711"), None);
+    assert_eq!(headroom_module("veng-no-such-command-711"), None);
 
     // A machine with no headroom is the CI machine, and there the line above is
     // the whole test. Where it is installed, the command has to lead to the file.
@@ -1554,11 +1554,11 @@ fn ignores_lines_under_the_floor() {
 #[test]
 fn session_marker_len_matches_the_ledger() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let store = omni::store::sqlite::Store::open_path(&dir.path().join("l.db")).expect("store");
+    let store = veng::store::sqlite::Store::open_path(&dir.path().join("l.db")).expect("store");
     let text: String = (0..40)
         .map(|i| format!("2026-08-11T00:00:00Z  handler finished request {i} in 12ms\n"))
         .collect();
-    let ledger = omni::ledger::Ledger::new(&store, "s1");
+    let ledger = veng::ledger::Ledger::new(&store, "s1");
     ledger.project(&text);
     let view = ledger
         .project(&format!(
@@ -1568,7 +1568,7 @@ fn session_marker_len_matches_the_ledger() {
 
     let marker = view
         .lines()
-        .find(|l| l.starts_with("[OMNI:"))
+        .find(|l| l.starts_with("[VENG:"))
         .expect("the fold emits a marker");
     // 40 lines, so the count is two digits, which is what the constant assumes.
     assert_eq!(marker.len() as u64, SESSION_MARKER_LEN);

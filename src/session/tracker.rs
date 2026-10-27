@@ -19,7 +19,7 @@ static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// Zero when nothing reached a model. #212 excluded `agent_id='terminal'` rows
 /// from the token headline because they are TTY bytes nobody is billed for, and
 /// `sqlite.rs` has a test for it; the exclusion never reached `SessionState`, so
-/// `estimated_tokens_saved` (the session summary and `omni_context`) counted
+/// `estimated_tokens_saved` (the session summary and `veng_context`) counted
 /// them anyway and overstated the saving.
 ///
 /// Split out because `track_command` does its work on a spawned thread, which a
@@ -51,8 +51,8 @@ impl SessionTracker {
     /// #212 excluded `agent_id='terminal'` rows from the token headline because
     /// they are TTY bytes no model reads, and `sqlite.rs` has a test for it. That
     /// exclusion never reached `SessionState`: this tracker had no agent filter,
-    /// so `estimated_tokens_saved` (the session summary and `omni_context`) still
-    /// counted them and overstated what OMNI had saved. Commands, hot files and
+    /// so `estimated_tokens_saved` (the session summary and `veng_context`) still
+    /// counted them and overstated what VENG had saved. Commands, hot files and
     /// errors are still tracked either way, because they feed relevance scoring
     /// and `session --inject` regardless of who read the output.
     pub fn track_command(
@@ -479,7 +479,7 @@ mod tests {
     /// #212 excluded `agent_id='terminal'` rows from the token headline because
     /// they are TTY bytes nobody is billed for, and `sqlite.rs` has a test for
     /// it. The exclusion never reached `SessionState`, so the session summary
-    /// and `omni_context` kept counting them: the same figure was reported two
+    /// and `veng_context` kept counting them: the same figure was reported two
     /// ways depending on which path you read it from.
     #[test]
     fn output_no_model_read_adds_nothing_to_the_savings_figure() {
@@ -589,7 +589,7 @@ mod tests {
     #[test]
     fn tracks_command_non_blocking() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
 
         let tracker = SessionTracker::new(session, store);
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn test_background_save_not_block_caller() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
 
         let start = std::time::Instant::now();

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 96 1000 604" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hook-lifecycle-title hook-lifecycle-desc">
       <title id="hook-lifecycle-title">One tool call, end to end</title>
-      <desc id="hook-lifecycle-desc">A single Bash tool call passes through OMNI twice: the pre-hook rewrites the command before the shell runs it, and the post-hook distills the output afterwards, consulting the local database for lines already shown and archiving what it removes before the host returns the reply to the agent.</desc>
+      <desc id="hook-lifecycle-desc">A single Bash tool call passes through VENG twice: the pre-hook rewrites the command before the shell runs it, and the post-hook distills the output afterwards, consulting the local database for lines already shown and archiving what it removes before the host returns the reply to the agent.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#56585A"/></marker>
         <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#7A4E00"/></marker>
@@ -94,7 +94,7 @@
 
       <rect x="420" y="120" width="160" height="56" rx="6" fill="#E3E4E0"/>
       <rect x="420" y="120" width="160" height="56" rx="6" fill="rgba(122,78,0,0.08)" stroke="#7A4E00" stroke-width="1"/>
-      <text x="500" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">OMNI</text>
+      <text x="500" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">VENG</text>
       <text x="500" y="163" fill="#7A4E00" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">twice per call</text>
 
       <rect x="620" y="120" width="160" height="56" rx="6" fill="#E3E4E0"/>
@@ -104,7 +104,7 @@
 
       <rect x="810" y="120" width="160" height="56" rx="6" fill="#E3E4E0"/>
       <rect x="810" y="120" width="160" height="56" rx="6" fill="rgba(22,22,26,0.05)" stroke="#56585A" stroke-width="1"/>
-      <text x="890" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">omni.db</text>
+      <text x="890" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">veng.db</text>
       <text x="890" y="163" fill="#56585A" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">local sqlite</text>
 
       <!-- ── legend ──────────────────────────────────────────────────────── -->

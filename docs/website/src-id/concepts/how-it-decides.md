@@ -1,4 +1,4 @@
-# Bagaimana OMNI memutuskan apa yang dipotong
+# Bagaimana VENG memutuskan apa yang dipotong
 
 Pipeline-nya tetap dan setiap muatan melewati tahapan yang sama:
 
@@ -9,7 +9,7 @@ Read → Guard → Score → Distill → [Collapse] → Ledger → Route → Per
 Tidak satu pun boleh mengarang apa pun, dan masing-masing boleh menolak. Collapse
 ditulis dalam kurung karena ia cadangan, bukan langkah wajib: ia hanya berjalan
 kalau bentuk hasil sulingan gagal melewati ambang pengaman.
-[The pipeline, stage by stage](https://omni.weekndlabs.com/docs/develop/pipeline)
+[The pipeline, stage by stage](https://veng.weekndlabs.com/docs/develop/pipeline)
 memuat diagram dan alasannya, dalam bahasa Inggris.
 
 ## Guard
@@ -18,7 +18,7 @@ Gerbangnya. Ia menjawab satu pertanyaan: apakah muatan ini sesuatu yang akan
 diurai langkah berikutnya? Kalau ya, tidak ada tahap sesudahnya yang berjalan dan
 byte-nya kembali persis seperti saat datang.
 [Yang tidak pernah disentuh](format-safety.md) adalah keseluruhan tahap ini dan
-ia pantas punya halaman sendiri, karena "OMNI tidak melakukan apa-apa" biasanya
+ia pantas punya halaman sendiri, karena "VENG tidak melakukan apa-apa" biasanya
 berarti tahap ini bekerja dengan benar, bukan gagal.
 
 ## Score

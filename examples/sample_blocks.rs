@@ -16,14 +16,14 @@
 //!   traces, so the score measures the classifier and not the corpus's age.
 //!
 //! ```sh
-//! OMNI_LABEL_PATTERNS=~/.omni/label-patterns.txt \
+//! VENG_LABEL_PATTERNS=~/.veng/label-patterns.txt \
 //!   cargo run --example sample_blocks -- bench-corpus 40 > sample.jsonl
 //! ```
 use std::collections::BTreeMap;
 use std::io::Write;
 
-use omni::pipeline::registry;
-use omni::pipeline::scorer;
+use veng::pipeline::registry;
+use veng::pipeline::scorer;
 
 /// One candidate trace, held until its class is sorted.
 struct Candidate {
@@ -108,7 +108,7 @@ fn main() {
                     .iter()
                     .enumerate()
             {
-                let text = omni::distillers::system_ops::redact_sensitive_assignments(&seg.content)
+                let text = veng::distillers::system_ops::redact_sensitive_assignments(&seg.content)
                     .unwrap_or_else(|| seg.content.clone());
                 let lower = text.to_lowercase();
                 if patterns.iter().any(|p| lower.contains(p)) {
@@ -161,8 +161,8 @@ fn spread_key(id: i64, seq: i64) -> String {
 /// credential-shaped assignments and nothing else, so it cannot stand in for
 /// employer, client or infrastructure names.
 fn patterns_or_exit() -> Vec<String> {
-    let Ok(path) = std::env::var("OMNI_LABEL_PATTERNS") else {
-        refuse("OMNI_LABEL_PATTERNS is not set");
+    let Ok(path) = std::env::var("VENG_LABEL_PATTERNS") else {
+        refuse("VENG_LABEL_PATTERNS is not set");
     };
     let raw = match std::fs::read_to_string(&path) {
         Ok(raw) => raw,
@@ -183,7 +183,7 @@ fn patterns_or_exit() -> Vec<String> {
 fn refuse(why: &str) -> ! {
     eprintln!(
         "{why}. This corpus is real command output: name the patterns to hold back \
-         in OMNI_LABEL_PATTERNS, one per line, before any of it leaves the machine."
+         in VENG_LABEL_PATTERNS, one per line, before any of it leaves the machine."
     );
     std::process::exit(2);
 }

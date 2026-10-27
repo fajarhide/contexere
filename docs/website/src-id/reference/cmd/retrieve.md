@@ -1,23 +1,23 @@
-# `omni retrieve`
+# `veng retrieve`
 
 Mencetak isi yang diarsipkan sebuah penanda.
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 Handle-nya adalah 16 karakter di dalam sebuah penanda:
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ```
 
 Ia mengembalikan byte aslinya. Bukan ringkasan, bukan menjalankan ulang perintah
 Anda, dan bukan perkiraan.
 
 Bekerja di semua host, di sesi mana pun, dengan atau tanpa MCP terpasang. Agent
-yang server MCP-nya terdaftar memanggil `omni_retrieve` sebagai gantinya dan
+yang server MCP-nya terdaftar memanggil `veng_retrieve` sebagai gantinya dan
 tidak pernah perlu bertanya ke Anda.
 
 ## Apa yang bisa salah

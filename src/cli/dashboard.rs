@@ -5,7 +5,7 @@
 //! terminal cannot show.
 //!
 //! **Every panel is a figure the CLI can also print**, read through the same
-//! `Store` methods `omni stats` reads. A dashboard that computed its own numbers
+//! `Store` methods `veng stats` reads. A dashboard that computed its own numbers
 //! would be a second source of truth, and this project has spent a release
 //! fixing one of those.
 //!
@@ -26,12 +26,12 @@ const DEFAULT_PORT: u16 = 7717;
 
 fn print_help() {
     println!(
-        "\n{} {}: A local dashboard over the numbers omni stats prints",
-        "omni".bold().cyan(),
+        "\n{} {}: A local dashboard over the numbers veng stats prints",
+        "veng".bold().cyan(),
         "dashboard".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "dashboard".cyan(), "[FLAGS]".bright_black());
+    println!("  veng {} {}", "dashboard".cyan(), "[FLAGS]".bright_black());
     println!();
     super::print_flags(FLAGS);
     println!("Binds 127.0.0.1 only. Ctrl-C to stop.\n");
@@ -53,7 +53,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))?;
     println!(
         "\n  {} http://127.0.0.1:{port}",
-        "OMNI dashboard".bold().bright_white()
+        "VENG dashboard".bold().bright_white()
     );
     println!("  {}\n", "Ctrl-C to stop".bright_black());
 
@@ -115,6 +115,82 @@ fn escape(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+const COST_WINDOW_SECS: i64 = 7 * 86_400;
+const STALE_AFTER_SECS: i64 = 30 * 86_400;
+
+/// What Claude Code says the last week cost, read from its own transcripts, so
+/// the figure does not depend on anything veng recorded about itself.
+fn cost_section() -> (String, Vec<String>) {
+    let since = chrono::Utc::now().timestamp() - COST_WINDOW_SECS;
+    let bill = super::bill::transcripts_root()
+        .map(|root| super::bill::read(&root, since))
+        .unwrap_or_default();
+    if bill.is_empty() {
+        return (
+            "<p class=\"muted\">No Claude Code transcript in the last 7 days, so there is no bill to show.</p>"
+                .to_string(),
+            vec!["No Claude Code transcript was found in the last 7 days.".to_string()],
+        );
+    }
+    let spend = bill.spend();
+    let mut notes = Vec::new();
+    if spend.unpriced > 0 {
+        notes.push(format!(
+            "The cost is a lower bound: {} requests used a model with no list price.",
+            spend.unpriced
+        ));
+    }
+    let html = format!(
+        "<p class=\"big\">${:.2}</p><p class=\"muted\">at list price, over {} requests and {} tokens in the last 7 days, from Claude Code's own transcripts.</p>",
+        spend.usd,
+        spend.requests,
+        super::stats::format_compact(spend.tokens)
+    );
+    (html, notes)
+}
+
+/// How much of the memory store is ever read back, with what to do about it.
+fn memory_section(store: &Store) -> (String, Vec<String>) {
+    let cutoff = chrono::Utc::now().timestamp() - STALE_AFTER_SECS;
+    let Some(m) = store.memory_health(cutoff) else {
+        return (
+            "<p class=\"muted\">The memory store could not be read.</p>".to_string(),
+            Vec::new(),
+        );
+    };
+    let mut notes = Vec::new();
+    if m.engrams_stale > 0 {
+        notes.push(format!(
+            "{} of {} engrams were never recalled and are over 30 days old: candidates to clean up.",
+            m.engrams_stale, m.engrams
+        ));
+    }
+    if m.knowledge >= 10 && m.knowledge_never_recalled * 2 > m.knowledge {
+        notes.push(format!(
+            "{} of {} knowledge entries were never retrieved.",
+            m.knowledge_never_recalled, m.knowledge
+        ));
+    }
+    let html = format!(
+        "<table><tr><th>memory</th><th class=\"n\">entries</th><th class=\"n\">never recalled</th></tr>\
+         <tr><td>Engrams</td><td class=\"n\">{}</td><td class=\"n\">{}</td></tr>\
+         <tr><td>Knowledge</td><td class=\"n\">{}</td><td class=\"n\">{}</td></tr></table>",
+        m.engrams, m.engrams_never_recalled, m.knowledge, m.knowledge_never_recalled
+    );
+    (html, notes)
+}
+
+fn insights_section(notes: &[String]) -> String {
+    if notes.is_empty() {
+        return "<p class=\"muted\">Nothing to flag.</p>".to_string();
+    }
+    let items: String = notes
+        .iter()
+        .map(|n| format!("<li>{}</li>", escape(n)))
+        .collect();
+    format!("<ul>{items}</ul>")
+}
+
 fn page(store: &Store) -> String {
     let (sessions, median, longest, compacted) = store.session_lifetime(0);
     let periods = store.multi_period_stats().unwrap_or_default();
@@ -149,7 +225,7 @@ fn page(store: &Store) -> String {
     }
 
     // Top Commands and Agent Distribution, from the same two calls that feed the
-    // CLI tables, so the footer's "same figures as omni stats" stays true.
+    // CLI tables, so the footer's "same figures as veng stats" stays true.
     let mut commands = String::new();
     if let Ok(raw) = store.filter_breakdown(0) {
         for (name, calls, pct, _) in super::stats::group_and_calculate_stats(raw, 0)
@@ -207,11 +283,16 @@ fn page(store: &Store) -> String {
         gates.push_str("<tr><td class=\"muted\" colspan=\"2\">nothing recorded yet</td></tr>");
     }
 
+    let (cost, mut notes) = cost_section();
+    let (memory, memory_notes) = memory_section(store);
+    notes.extend(memory_notes);
+    let insights = insights_section(&notes);
+
     format!(
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OMNI</title>
+<title>VENG</title>
 <style>
 :root {{ color-scheme: light dark; }}
 body {{ font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 auto; max-width: 46rem; padding: 2rem 1rem; }}
@@ -224,7 +305,13 @@ td, th {{ padding: .35rem .5rem; text-align: left; border-bottom: 1px solid rgba
 .n {{ text-align: right; font-variant-numeric: tabular-nums; }}
 footer {{ margin-top: 3rem; font-size: .8rem; opacity: .6; }}
 </style></head><body>
-<h1>OMNI</h1>
+<h1>VENG</h1>
+<h2>Worth a look</h2>
+{insights}
+<h2>Cost, last 7 days</h2>
+{cost}
+<h2>Memory health</h2>
+{memory}
 <h2>Session lifetime</h2>
 {lifetime}
 <h2>Pipeline diagnostic</h2>
@@ -236,7 +323,7 @@ footer {{ margin-top: 3rem; font-size: .8rem; opacity: .6; }}
 <table><tr><th>agent</th><th class="n">calls</th><th class="n">share</th><th class="n">saved</th></tr>{agents}</table>
 <h2>Why payloads were passed through</h2>
 <table><tr><th>gate</th><th class="n">calls</th></tr>{gates}</table>
-<footer>Read-only, from ~/.omni/omni.db. Same figures as <code>omni stats</code>. Reload to refresh.</footer>
+<footer>Read-only, from ~/.veng/veng.db. Same figures as <code>veng stats</code>. Reload to refresh.</footer>
 </body></html>"#
     )
 }
@@ -258,12 +345,30 @@ mod tests {
         assert_eq!(escape("<script>&"), "&lt;script&gt;&amp;");
     }
 
+    /// The three panels this fork adds must be on the page even when there is
+    /// nothing to show, and must say so rather than print a zero.
+    #[test]
+    fn shows_insights_cost_and_memory_health() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
+
+        let html = page(&store);
+
+        for heading in ["Worth a look", "Cost, last 7 days", "Memory health"] {
+            assert!(html.contains(heading), "missing {heading}: {html}");
+        }
+        assert!(
+            html.contains("Engrams") && html.contains("Knowledge"),
+            "{html}"
+        );
+    }
+
     /// An empty database must render the page, not a zero that reads as a
-    /// measurement. Same rule `omni stats` follows.
+    /// measurement. Same rule `veng stats` follows.
     #[test]
     fn says_not_measurable_rather_than_zero() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
 
         let html = page(&store);
 

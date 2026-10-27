@@ -48,4 +48,4 @@ tests/integration_test.rs
   67:    assert!(result.is_ok(), "Should not error on valid input");
   89:    fn test_panic_error_handling() {
 Cargo.toml
-  3:name = "omni"
+  3:name = "veng"

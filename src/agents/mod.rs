@@ -25,7 +25,7 @@ pub use pi::PiIntegration;
 /// Reports the outcome of a `doctor --fix` repair attempt, honestly.
 ///
 /// Every call site did `let _ = self.install(...)` and then printed `[FIXED]`
-/// unconditionally. Against an unwritable home, `omni doctor --json --fix`
+/// unconditionally. Against an unwritable home, `veng doctor --json --fix`
 /// answered `healthy: true`, `hooks installed`, and **zero warnings**, while
 /// nothing had been written: in fix mode the `[FIXED]` line replaced the warning
 /// that would otherwise have been pushed, so the failure had nowhere to surface
@@ -77,7 +77,7 @@ pub trait AgentIntegration {
     /// Returns `true` if healthy or successfully repaired.
     fn doctor_check(&self, fix_mode: bool, warnings: &mut Vec<String>) -> bool;
 
-    /// What this host actually lets OMNI do to the bytes the model reads.
+    /// What this host actually lets VENG do to the bytes the model reads.
     ///
     /// Defaults to `McpOnly` so a new integration has to *claim* distillation
     /// rather than inherit the claim. Installing hooks is not the same as the
@@ -90,20 +90,20 @@ pub trait AgentIntegration {
     }
 }
 
-/// How much of OMNI's job a host permits, stated once so `doctor` and the README
+/// How much of VENG's job a host permits, stated once so `doctor` and the README
 /// cannot drift apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier {
-    /// The host applies OMNI's rewrite, so the model reads distilled output for
+    /// The host applies VENG's rewrite, so the model reads distilled output for
     /// its own built-in tools.
     Full,
-    /// The host cannot rewrite built-in tool output, but OMNI can still be the
-    /// tool that runs the command: `omni_run` returns distilled bytes, and the
+    /// The host cannot rewrite built-in tool output, but VENG can still be the
+    /// tool that runs the command: `veng_run` returns distilled bytes, and the
     /// installed rule is what makes the agent reach for it. Distinct from
     /// `McpOnly` because the model demonstrably reads less here, which is the
     /// unit #352 measures by.
     HandoffFirst,
-    /// Memory, recall and session state only. No path by which OMNI changes what
+    /// Memory, recall and session state only. No path by which VENG changes what
     /// the model reads for a shell command, and no claim that it does.
     McpOnly,
 }
@@ -133,24 +133,24 @@ impl Tier {
     pub fn label(self) -> &'static str {
         match self {
             Tier::Full => "model-facing distill active",
-            Tier::HandoffFirst => "nothing is rewritten unless omni_run ran it",
-            // "no shell distill" until #686 put `omni_run` on this tier. The
+            Tier::HandoffFirst => "nothing is rewritten unless veng_run ran it",
+            // "no shell distill" until #686 put `veng_run` on this tier. The
             // host's own tool output is still never rewritten, which is the
             // difference that matters and the one this has to keep saying.
-            Tier::McpOnly => "memory and session state; only omni_run distils",
+            Tier::McpOnly => "memory and session state; only veng_run distils",
         }
     }
 }
 
-/// Whether `command` is OMNI's own hook for the same entry point as `ours`.
+/// Whether `command` is VENG's own hook for the same entry point as `ours`.
 ///
 /// Shared, because Claude Code and Gemini CLI both had their own copy of the
 /// wrong test and only one of them was reported (#454).
 ///
 /// Identity is the binary name plus the flag, never the whole string. Comparing
 /// the whole string meant that reinstalling from a different path matched
-/// nothing and appended, so a machine that had been set up twice ran OMNI twice
-/// per tool call and `omni doctor` reported `[OK]` throughout (#454).
+/// nothing and appended, so a machine that had been set up twice ran VENG twice
+/// per tool call and `veng doctor` reported `[OK]` throughout (#454).
 pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
     let Some(command) = command else {
         return false;
@@ -162,16 +162,16 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
     // `--hook` is a prefix of nothing else here, but `--pre-hook` ends with
     // `-hook`, so the flag is compared as the last token rather than by
     // `contains`.
-    command.contains("omni") && command.rsplit(' ').next() == Some(flag)
+    command.contains("veng") && command.rsplit(' ').next() == Some(flag)
 }
 
-/// Events that carry more than one OMNI hook, with the count.
+/// Events that carry more than one VENG hook, with the count.
 ///
 /// `doctor` asked whether a hook was present and never how many, so an install
-/// that registered OMNI twice reported `[OK]` while running the pipeline twice
+/// that registered VENG twice reported `[OK]` while running the pipeline twice
 /// per call (#454). The installer no longer creates that state; this is what
 /// notices the machines that are already in it.
-pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usize)> {
+pub(crate) fn duplicate_veng_hooks(val: &serde_json::Value) -> Vec<(String, usize)> {
     let Some(hooks) = val.get("hooks").and_then(|h| h.as_object()) else {
         return Vec::new();
     };
@@ -183,7 +183,7 @@ pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usiz
             .filter_map(|m| m.get("hooks").and_then(|h| h.as_array()))
             .flatten()
             .filter_map(|h| h.get("command").and_then(|c| c.as_str()))
-            .filter(|c| c.contains("omni") && c.contains("-hook") || c.contains("--session-start"))
+            .filter(|c| c.contains("veng") && c.contains("-hook") || c.contains("--session-start"))
             .count();
         if count > 1 {
             out.push((event.clone(), count));
@@ -195,7 +195,7 @@ pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usiz
 
 pub fn all_integrations() -> Vec<Box<dyn AgentIntegration>> {
     // The hosts that do more than write one JSON entry, then the six that do
-    // exactly that, from `mcp_host::HOSTS` (#443). Order is what `omni doctor`
+    // exactly that, from `mcp_host::HOSTS` (#443). Order is what `veng doctor`
     // prints, so the ones with hooks come first.
     let mut all: Vec<Box<dyn AgentIntegration>> = vec![
         Box::new(claude::ClaudeIntegration),
@@ -223,15 +223,15 @@ mod fix_reporting_tests {
     fn counts_the_hooks_an_event_would_run() {
         let val = serde_json::json!({"hooks": {
             "PreToolUse": [
-                {"hooks": [{"command": "/a/omni --pre-hook"}]},
-                {"hooks": [{"command": "/b/omni --pre-hook"}]}
+                {"hooks": [{"command": "/a/veng --pre-hook"}]},
+                {"hooks": [{"command": "/b/veng --pre-hook"}]}
             ],
-            "SessionStart": [{"hooks": [{"command": "/b/omni --session-start"}]}],
+            "SessionStart": [{"hooks": [{"command": "/b/veng --session-start"}]}],
             "OtherTool": [{"hooks": [{"command": "/usr/bin/prettier --write"}]}]
         }});
 
         assert_eq!(
-            super::duplicate_omni_hooks(&val),
+            super::duplicate_veng_hooks(&val),
             vec![("PreToolUse".to_string(), 2)],
             "only the doubled event is reported, and someone else's hook is not ours"
         );
@@ -297,7 +297,7 @@ mod tier_tests {
         )
     }
 
-    /// Whether anything this plugin installs spawns `omni --post-hook`.
+    /// Whether anything this plugin installs spawns `veng --post-hook`.
     fn calls_the_post_hook(dir: &Path) -> bool {
         let mut stack = vec![dir.to_path_buf()];
         while let Some(d) = stack.pop() {
@@ -331,7 +331,7 @@ mod tier_tests {
     ///
     /// Asserting "openclaw declares Full" would be the same hand-maintenance one
     /// layer down. This derives the floor instead: a plugin that spawns
-    /// `--post-hook` is asking OMNI to replace what the model reads, so the
+    /// `--post-hook` is asking VENG to replace what the model reads, so the
     /// integration that installs it cannot be the tier whose whole meaning is
     /// that nothing is replaced. Which of `Full` and `HandoffFirst` it is stays
     /// a judgement, and is written down in each integration's own `tier`.

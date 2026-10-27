@@ -1,7 +1,7 @@
-//! #155: a reader that closes early must not make OMNI panic.
+//! #155: a reader that closes early must not make VENG panic.
 //!
 //! Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so a write to a closed pipe
-//! returns `EPIPE` and `println!` panics on it, `omni --help | head -1` printed
+//! returns `EPIPE` and `println!` panics on it, `veng --help | head -1` printed
 //! a panic and a backtrace note where `ls | head` prints nothing. `main` now
 //! restores `SIG_DFL`, which is what every other Unix tool does.
 //!
@@ -12,11 +12,11 @@
 use std::io::Read;
 use std::process::{Command, Stdio};
 
-fn omni() -> String {
-    env!("CARGO_BIN_EXE_omni").to_string()
+fn veng() -> String {
+    env!("CARGO_BIN_EXE_veng").to_string()
 }
 
-/// Run `omni <args…>`, close the read end of its stdout immediately, and return
+/// Run `veng <args…>`, close the read end of its stdout immediately, and return
 /// whatever it wrote to stderr.
 ///
 /// Dropping the pipe rather than reading it is the whole point: `head -1` only
@@ -25,14 +25,14 @@ fn omni() -> String {
 /// makes it deterministic.
 fn stderr_after_reader_hangs_up(args: &[&str]) -> String {
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let mut child = Command::new(omni())
+    let mut child = Command::new(veng())
         .args(args)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("VENG_DB_PATH", db.path())
+        .env("VENG_QUIET", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn omni");
+        .expect("spawn veng");
 
     drop(child.stdout.take().expect("stdout piped"));
 
@@ -51,7 +51,7 @@ fn help_does_not_panic_when_the_reader_closes() {
 
     assert!(
         !stderr.contains("panicked"),
-        "omni --help panicked on a closed pipe:\n{stderr}"
+        "veng --help panicked on a closed pipe:\n{stderr}"
     );
 }
 
@@ -69,7 +69,7 @@ fn no_command_panics_when_the_reader_closes() {
         let stderr = stderr_after_reader_hangs_up(&args);
         assert!(
             !stderr.contains("panicked"),
-            "omni {} panicked on a closed pipe:\n{stderr}",
+            "veng {} panicked on a closed pipe:\n{stderr}",
             args.join(" ")
         );
     }
@@ -78,37 +78,37 @@ fn no_command_panics_when_the_reader_closes() {
 /// `--help` and `--version` are how the CLI is asked to explain itself, so they
 /// exit 0. They exited 1 because clap reports both as an `Err` and the arm did
 /// not distinguish them from a real parse failure, which made
-/// `omni --help && echo ok` print nothing.
+/// `veng --help && echo ok` print nothing.
 #[test]
 fn help_and_version_exit_zero() {
     for flag in ["--help", "--version"] {
         let db = tempfile::NamedTempFile::new().expect("temp db");
-        let status = Command::new(omni())
+        let status = Command::new(veng())
             .arg(flag)
-            .env("OMNI_DB_PATH", db.path())
-            .env("OMNI_QUIET", "1")
+            .env("VENG_DB_PATH", db.path())
+            .env("VENG_QUIET", "1")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
-            .expect("run omni");
+            .expect("run veng");
 
-        assert!(status.success(), "omni {flag} exited {status}");
+        assert!(status.success(), "veng {flag} exited {status}");
     }
 }
 
-/// The other half of the same arm: a flag OMNI does not know is still a failure,
+/// The other half of the same arm: a flag VENG does not know is still a failure,
 /// and must not be swept into the success path by the fix above (#151).
 #[test]
 fn an_unknown_flag_still_exits_nonzero() {
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let status = Command::new(omni())
+    let status = Command::new(veng())
         .arg("--definitely-not-a-flag")
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("VENG_DB_PATH", db.path())
+        .env("VENG_QUIET", "1")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .expect("run omni");
+        .expect("run veng");
 
     assert!(!status.success(), "an unknown flag must not exit 0");
 }

@@ -8,24 +8,24 @@
 //! rather than `distill_with_command`: the distiller was already correct and a
 //! unit test over it passed in both directions.
 //!
-//! Unix-only, like `exec_fail_passthrough`: `omni exec` wraps in `cmd /C` on
+//! Unix-only, like `exec_fail_passthrough`: `veng exec` wraps in `cmd /C` on
 //! Windows, which does not speak this syntax. The guard itself is OS-agnostic.
 #![cfg(unix)]
 
 use std::process::Command;
 
-/// Run `omni exec <script>` with an isolated DB. A shared `~/.omni/omni.db`
+/// Run `veng exec <script>` with an isolated DB. A shared `~/.veng/veng.db`
 /// serialises writes across the test binary and any live session, which makes a
-/// hand-driven `omni exec` look like a hang.
+/// hand-driven `veng exec` look like a hang.
 fn run_exec(script: &str) -> String {
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let out = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let out = Command::new(env!("CARGO_BIN_EXE_veng"))
         .arg("exec")
         .arg(script)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("VENG_DB_PATH", db.path())
+        .env("VENG_QUIET", "1")
         .output()
-        .expect("spawn omni exec");
+        .expect("spawn veng exec");
     String::from_utf8_lossy(&out.stdout).into_owned()
 }
 

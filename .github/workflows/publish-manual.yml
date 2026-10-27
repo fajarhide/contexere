@@ -1,4 +1,4 @@
-# The manual's source lives here and is published by weekndlabs/omni-pages,
+# The manual's source lives here and is published by weekndlabs/veng-pages,
 # which clones this repository during its own Vercel build. Vercel builds that
 # project when that project is pushed and at no other time, so without this a
 # change to docs/website/ sits merged and unpublished until something unrelated
@@ -10,12 +10,12 @@
 # not a repository variable.
 #
 # Setting it up, once:
-#   Vercel > omni-pages > Settings > Git > Deploy Hooks > Create Hook
+#   Vercel > veng-pages > Settings > Git > Deploy Hooks > Create Hook
 #     name   publish-manual
 #     branch main
 #   then paste the URL into
 #   Settings > Secrets and variables > Actions > New repository secret
-#     name   OMNI_PAGES_DEPLOY_HOOK
+#     name   VENG_PAGES_DEPLOY_HOOK
 #
 # Without the secret this job skips rather than fails, so a fork does not get a
 # red tick for a hook it has no business holding.
@@ -41,14 +41,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Ask omni-pages to rebuild
+      - name: Ask veng-pages to rebuild
         env:
-          HOOK: ${{ secrets.OMNI_PAGES_DEPLOY_HOOK }}
+          HOOK: ${{ secrets.VENG_PAGES_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
           if [ -z "${HOOK:-}" ]; then
-            echo "OMNI_PAGES_DEPLOY_HOOK is not set, so the manual will not"
-            echo "republish until omni-pages is deployed some other way."
+            echo "VENG_PAGES_DEPLOY_HOOK is not set, so the manual will not"
+            echo "republish until veng-pages is deployed some other way."
             echo "See the header of this workflow for how to create it."
             exit 0
           fi

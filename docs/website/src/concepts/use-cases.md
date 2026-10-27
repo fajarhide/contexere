@@ -1,7 +1,7 @@
-# Where OMNI helps
+# Where VENG helps
 
 Eleven situations, with the measured number attached to each. Two of them are cases
-where OMNI stands aside, and those are in here on purpose: a tool that claims to help
+where VENG stands aside, and those are in here on purpose: a tool that claims to help
 everywhere is a tool nobody can predict, and knowing where it declines is what makes
 the rest worth trusting.
 
@@ -16,7 +16,7 @@ check a caller, comes back and reads `auth.rs` again. Six turns later it reads i
 third time. Every read is charged at full price, and none of the repeats told it
 anything the first one did not.
 
-**What OMNI does.** The second read comes back as a marker with a handle. The lines are
+**What VENG does.** The second read comes back as a marker with a handle. The lines are
 already in the agent's context; sending them again is paying twice for one fact.
 
 **The number: 25.0%** off file reads across the corpus, and up to **97.2%** off a
@@ -31,7 +31,7 @@ which is why the marker exists.
 output. Your agent reads all 412 lines to find it, and if the run is long enough the
 host truncates the tail, which is exactly where the verdict lives.
 
-**What OMNI does.** The test distiller keeps the tally and every failure with its
+**What VENG does.** The test distiller keeps the tally and every failure with its
 assertion and file position, and drops the passing lines.
 
 **The number: 78.0%** off build and test output.
@@ -45,7 +45,7 @@ anything has been seen twice.
 **The situation.** One commit's `Author`, `Date` and wrapped body is five lines. Fifteen
 commits is a screen and a half, and your agent wanted the subjects.
 
-**What OMNI does.** Every commit is kept, as one `hash subject` line. Nothing is
+**What VENG does.** Every commit is kept, as one `hash subject` line. Nothing is
 summarised away and no commit disappears; the envelope around each one goes.
 
 **The number: 22.1%** across `git` and `gh` on the corpus, and **94%** on a verbose
@@ -57,12 +57,12 @@ summarised away and no commit disappears; the envelope around each one goes.
 compacts. The agent loses the thread, re-reads files it had already understood, and you
 re-explain the task.
 
-**What OMNI does.** Two things. Less context spent per command means the wall arrives
+**What VENG does.** Two things. Less context spent per command means the wall arrives
 later. And [memory across sessions](../use/memory.md) survives the compaction: project
-knowledge, recurring error patterns, and the goal you pinned with `omni goal` are in
+knowledge, recurring error patterns, and the goal you pinned with `veng goal` are in
 SQLite, not in the context window.
 
-**Where the limit is, and why it is deliberate.** OMNI cannot stop a compaction. When
+**Where the limit is, and why it is deliberate.** VENG cannot stop a compaction. When
 one happens it drops what it had shown you on purpose, because a handle is only honest
 while the agent is still holding those lines, and compaction is exactly when that stops
 being true. That rule is what keeps every marker true on the other side of one.
@@ -72,7 +72,7 @@ being true. That rule is what keeps every marker true on the other side of one.
 **The situation.** You start in Claude Code, move to Codex CLI for a change, and both
 of them start from nothing.
 
-**What OMNI does.** The store is one SQLite file keyed by project path, not by agent.
+**What VENG does.** The store is one SQLite file keyed by project path, not by agent.
 A second agent working in the same directory reads the same project knowledge, and the
 ledger's project scope will hand it a handle for output an earlier session already
 produced. That marker says `not shown here` rather than `already shown`,
@@ -92,7 +92,7 @@ straight about what is and is not keyed on the agent today.
 
 **The situation.** You pipe structured output into something that parses it.
 
-**What OMNI does: nothing.** JSON, YAML, NDJSON, CSV and TSV pass through byte for
+**What VENG does: nothing.** JSON, YAML, NDJSON, CSV and TSV pass through byte for
 byte. A compressor that reformats a payload the next command is about to parse has not
 saved you anything, it has broken your pipeline.
 
@@ -104,7 +104,7 @@ saved you anything, it has broken your pipeline.
 then another, then another. Each window repeats the head of the file, because that is
 what a window at an offset contains.
 
-**What OMNI does.** It folds the repeated head and moves the line numbering to match, so
+**What VENG does.** It folds the repeated head and moves the line numbering to match, so
 the lines you can still see are numbered where the file really has them. That second half
 matters: a fold that renumbers what is under it is worse than no fold, and it is why this
 case was refused for a release until the numbering could be kept true.
@@ -118,7 +118,7 @@ first at 46.6% either way.
 **The situation.** Your agent spawns a helper to do a scoped job. The helper starts with
 an empty context and reads a file the parent already read.
 
-**What OMNI does.** It gives the helper its own view. Claude Code hands a subagent the
+**What VENG does.** It gives the helper its own view. Claude Code hands a subagent the
 parent's session id, so a ledger keyed on the session alone would answer the helper with
 the parent's history and tell it 200 lines were already shown, about bytes that context
 had never received. The helper now sees either the content or a marker that says plainly
@@ -129,10 +129,10 @@ was never the problem; the claim was.
 
 ## 9. You follow a marker to get the content back
 
-**The situation.** A marker says `omni retrieve <handle>`. You run it, or your agent
+**The situation.** A marker says `veng retrieve <handle>`. You run it, or your agent
 does, and reads the result.
 
-**What OMNI does.** It hands those bytes over whole. Before, they went back through the
+**What VENG does.** It hands those bytes over whole. Before, they went back through the
 pipeline, hashed the same, and were folded into the very marker that sent you there, so
 following the instruction returned the instruction.
 
@@ -145,7 +145,7 @@ once, and exempting all of it would trade a false claim for a lost saving.
 **The situation.** The session runs long, the host compacts the conversation, and half
 of what your agent was holding is gone.
 
-**What OMNI does.** It forgets. The ledger's whole licence is that the agent still holds
+**What VENG does.** It forgets. The ledger's whole licence is that the agent still holds
 the bytes a handle replaces, and compaction is where that stops being true, so the
 shown-set goes with it. Nothing after a compaction claims you have already seen something
 you no longer have.
@@ -155,12 +155,12 @@ markers true.
 
 ## 11. Every request carries a tool list you never call
 
-**The situation.** OMNI registers as an MCP server, and tool definitions sit in the
+**The situation.** VENG registers as an MCP server, and tool definitions sit in the
 prefix of every request of every session. Unlike output, a prefix byte is not paid once:
 it is re-read on every request after the first.
 
-**What OMNI does.** It advertises the tools your host's tier actually uses, nine instead
-of twenty-five, with `OMNI_MCP_TOOLS=all` to restore the rest and `omni doctor` naming
+**What VENG does.** It advertises the tools your host's tier actually uses, nine instead
+of twenty-five, with `VENG_MCP_TOOLS=all` to restore the rest and `veng doctor` naming
 which set is in force.
 
 **The number: 4,940 bytes off every request.** Measured across 229 sessions: sixteen of
@@ -169,10 +169,10 @@ the twenty-five had never been called once.
 ## And one more where nothing happens
 
 `kubectl get pods` with 35 pods returns a table where every row is a fact. There is no
-ceremony to drop and nothing has been seen before, so OMNI hands back all 35 rows and
+ceremony to drop and nothing has been seen before, so VENG hands back all 35 rows and
 reports a 0% saving.
 
-**Most calls in this corpus look like this, and that is the shape of the tool.** OMNI is
+**Most calls in this corpus look like this, and that is the shape of the tool.** VENG is
 not a thing that shrinks everything a little. It stands aside until there is something
 worth taking, then takes a great deal: on this corpus, 78.0% off build and test output
 and 25.0% off file reads. The 14.9% aggregate counts every stand-aside in alongside
@@ -190,5 +190,5 @@ those wins, which is why the per-class row is the one to read for your own workl
 | everything else | 4,145 | 6.9% |
 | **all of it** | **6,656** | **14.9%** |
 
-Run `omni stats` after a few days and you get this table for your own history, which is
+Run `veng stats` after a few days and you get this table for your own history, which is
 the only version of it that describes your work.

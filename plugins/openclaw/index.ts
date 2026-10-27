@@ -18,11 +18,11 @@ function sanitizeEnv(): NodeJS.ProcessEnv {
   }
   // Names this host, so rows file under `openclaw` instead of whatever
   // `detect_agent_id` guesses from the surrounding shell.
-  sanitized.OMNI_AGENT_ID = "openclaw";
+  sanitized.VENG_AGENT_ID = "openclaw";
   return sanitized;
 }
 
-async function runOmni(bin: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
+async function runVeng(bin: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
     execFile(bin, args, { shell: false, env: sanitizeEnv() }, (error, stdout, stderr) => {
       // `ErrnoException.code` is the *errno* string ("ENOENT") on a spawn
@@ -39,18 +39,18 @@ async function runOmni(bin: string, args: string[]): Promise<{ stdout: string; s
   });
 }
 
-const OmniCmdParams = Type.Object({
+const VengCmdParams = Type.Object({
   command: Type.String({ description: "The terminal command to execute (e.g. 'npm install' or 'git diff')" })
 });
 
-type PluginConfig = { omniPath?: string };
+type PluginConfig = { vengPath?: string };
 
-function omniBin(api: OpenClawPluginApi): string {
-  return ((api.pluginConfig ?? {}) as PluginConfig).omniPath || "omni";
+function vengBin(api: OpenClawPluginApi): string {
+  return ((api.pluginConfig ?? {}) as PluginConfig).vengPath || "veng";
 }
 
 /**
- * Ask OMNI to shorten one tool result. Returns null to leave the bytes alone.
+ * Ask VENG to shorten one tool result. Returns null to leave the bytes alone.
  *
  * Null on every uncertain path. A hook that guessed would replace a tool result
  * with something it did not read, which is the one failure this project exists
@@ -104,7 +104,7 @@ function distill(
   }
 
   // A replacement that is not shorter is not a saving, and returning it would
-  // spend a hook on nothing. OMNI already declines by emitting no rewrite; this
+  // spend a hook on nothing. VENG already declines by emitting no rewrite; this
   // is the second half of the same rule, on this side of the boundary.
   if (typeof text !== "string" || !text || text.length >= output.length) return null;
   return text;
@@ -126,7 +126,7 @@ function commandOf(params: unknown): string {
  *
  * `tool_result_persist` does not carry the params: OpenClaw's `bash` tool puts
  * `{truncation, fullOutputPath}` in `details` and the command appears nowhere in
- * the result. OMNI picks a distiller by the command string, so without this
+ * the result. VENG picks a distiller by the command string, so without this
  * bridge every shell result would arrive as an unnamed blob and route to the
  * generic fallback.
  *
@@ -152,20 +152,20 @@ function takeCommand(toolCallId: string | undefined): string {
   return command;
 }
 
-function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
+function createVengCmdTool(api: OpenClawPluginApi): AnyAgentTool {
   return {
-    name: "omni_cmd",
-    label: "OMNI Command",
-    description: "Execute terminal tools (git, npm, cargo, docker, etc.) through OMNI's local semantic distillation engine to save 80-90% of token costs.",
-    parameters: OmniCmdParams,
+    name: "veng_cmd",
+    label: "VENG Command",
+    description: "Execute terminal tools (git, npm, cargo, docker, etc.) through VENG's local semantic distillation engine to save 80-90% of token costs.",
+    parameters: VengCmdParams,
     async execute(_toolCallId: string, params: Record<string, unknown>) {
       const command = params.command as string;
 
       try {
-        // `omni exec <cmd>`, not `omni exec -- <cmd>`. The `--` form has never
-        // worked: OMNI treats it as the program name and the call dies with
+        // `veng exec <cmd>`, not `veng exec -- <cmd>`. The `--` form has never
+        // worked: VENG treats it as the program name and the call dies with
         // "No such file or directory" (#628).
-        const { stdout, stderr, code } = await runOmni(omniBin(api), ["exec", command]);
+        const { stdout, stderr, code } = await runVeng(vengBin(api), ["exec", command]);
         let result = stdout || "";
         if (stderr && stderr.trim()) {
           result += `\n[stderr]\n${stderr}`;
@@ -177,7 +177,7 @@ function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text" as const, text: `Error running OMNI: ${message}` }],
+          content: [{ type: "text" as const, text: `Error running VENG: ${message}` }],
           details: { error: true }
         };
       }
@@ -186,9 +186,9 @@ function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
 }
 
 export default definePluginEntry({
-  id: "omni-signal-engine",
-  name: "OMNI Semantic Signal Engine",
-  description: "Local-only semantic context filtering for OpenClaw using OMNI. Saves tokens by distilling shell output.",
+  id: "veng-signal-engine",
+  name: "VENG Semantic Signal Engine",
+  description: "Local-only semantic context filtering for OpenClaw using VENG. Saves tokens by distilling shell output.",
   // A JSON Schema, not a TypeBox object. OpenClaw wants
   // `{safeParse?, parse?, validate?, jsonSchema?}` and a bare `TObject` shares
   // no property with it, so the schema was silently not the shape the host
@@ -199,9 +199,9 @@ export default definePluginEntry({
       type: "object",
       additionalProperties: false,
       properties: {
-        omniPath: {
+        vengPath: {
           type: "string",
-          description: "Path to the omni binary (defaults to 'omni' in PATH)"
+          description: "Path to the veng binary (defaults to 'veng' in PATH)"
         }
       }
     }
@@ -212,7 +212,7 @@ export default definePluginEntry({
     }
     // No cast. `registerTool` takes the tool or a factory, and casting a tool to
     // the factory type is what hid the mismatch behind an assertion.
-    api.registerTool(createOmniCmdTool(api), { optional: true });
+    api.registerTool(createVengCmdTool(api), { optional: true });
 
     // `api.on`, not `api.registerHook`. They are different buses and only one of
     // them can change what the model reads. `registerHook` files a handler in
@@ -231,7 +231,7 @@ export default definePluginEntry({
       if (command) rememberCommand(event.toolCallId, command);
     });
 
-    // The reason this plugin existed and did nothing. `omni_cmd` only reaches
+    // The reason this plugin existed and did nothing. `veng_cmd` only reaches
     // output the model chose to route through it; `tool_result_persist` is the
     // hook that replaces the result of every built-in tool, which is what makes
     // OpenClaw a Full-tier host rather than an MCP-only one (#628).
@@ -243,11 +243,11 @@ export default definePluginEntry({
       const message = event.message;
       if (message?.role !== "toolResult") return;
 
-      // `omni_cmd` already ran its output through `omni exec`, and distilling a
-      // payload that is already a marker plus a remainder would fold OMNI's own
+      // `veng_cmd` already ran its output through `veng exec`, and distilling a
+      // payload that is already a marker plus a remainder would fold VENG's own
       // output.
       const toolName = message.toolName ?? event.toolName ?? "";
-      if (toolName === "omni_cmd") return;
+      if (toolName === "veng_cmd") return;
 
       // One text part only. A result carrying several parts, or an image beside
       // the text, is a shape this hook has not been shown to preserve, and the
@@ -259,7 +259,7 @@ export default definePluginEntry({
       if (part?.type !== "text" || typeof part.text !== "string") return;
 
       const shortened = distill(
-        omniBin(api),
+        vengBin(api),
         toolName,
         takeCommand(event.toolCallId),
         part.text,

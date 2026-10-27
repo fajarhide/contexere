@@ -1,14 +1,14 @@
-/// Security tests, verify OMNI does not introduce attack vectors.
-use omni::pipeline::scorer;
+/// Security tests, verify VENG does not introduce attack vectors.
+use veng::pipeline::scorer;
 
 fn run_pipeline(input: &str) -> String {
     let segments = scorer::score_with_command(input, "", None);
-    omni::distillers::distill_with_command(&segments, input, "", None)
+    veng::distillers::distill_with_command(&segments, input, "", None)
 }
 
 #[test]
 fn test_env_sanitization_denylist() {
-    use omni::guard::env::{DENYLIST, sanitize_vars};
+    use veng::guard::env::{DENYLIST, sanitize_vars};
 
     // Set some dangerous env vars in a mock environment
     let mut mock_env: Vec<(String, String)> = Vec::new();
@@ -104,7 +104,7 @@ fn test_pipeline_deterministic() {
 
 #[test]
 fn test_env_sanitization_removes_dangerous_vars() {
-    use omni::guard::env::{DENYLIST, sanitize_vars};
+    use veng::guard::env::{DENYLIST, sanitize_vars};
 
     // Set beberapa dangerous vars in a mock env
     let mock_env = vec![
@@ -134,7 +134,7 @@ fn test_env_sanitization_removes_dangerous_vars() {
 
 #[test]
 fn test_hook_handles_null_bytes_gracefully() {
-    use omni::hooks::post_tool::process_payload;
+    use veng::hooks::post_tool::process_payload;
 
     // Input dengan null bytes not boleh crash
     let malicious = "{\"tool_name\":\"Bash\",\"tool_response\":{\"content\":\"hello\0world\"}}";
@@ -163,8 +163,8 @@ fn test_dispatcher_catch_unwind_works() {
 
 #[test]
 fn test_hook_json_escaping_quotes_and_newlines() {
-    use omni::hooks::post_tool::process_payload;
     use serde_json::json;
+    use veng::hooks::post_tool::process_payload;
 
     // Input dengan quotes dan newlines dalam content
     let tricky_content = "error: expected `\"` \nfound `\n` at line 42".repeat(30);
@@ -180,7 +180,7 @@ fn test_hook_json_escaping_quotes_and_newlines() {
             .expect("Hook output must be valid JSON even with special chars");
         // #158: `updatedToolOutput`, not `updatedResponse`, this assertion used
         // to hold the wrong key in place, passing happily while the host ignored
-        // every replacement OMNI produced.
+        // every replacement VENG produced.
         assert!(parsed["hookSpecificOutput"]["updatedToolOutput"]["result"].is_string());
         assert_eq!(
             parsed["hookSpecificOutput"]["updatedToolOutput"]["status"],
@@ -193,7 +193,7 @@ fn test_hook_json_escaping_quotes_and_newlines() {
 
 #[test]
 fn test_loop_id_injection_rejected() {
-    use omni::guard::env::{ValidationError, validate_loop_context};
+    use veng::guard::env::{ValidationError, validate_loop_context};
 
     // Shell metacharacters in loop_id
     assert_eq!(
@@ -224,7 +224,7 @@ fn test_loop_id_injection_rejected() {
 
 #[test]
 fn test_goal_shell_metachar_sanitized() {
-    use omni::guard::env::{ValidationError, validate_loop_context};
+    use veng::guard::env::{ValidationError, validate_loop_context};
 
     let dangerous_goals = vec![
         "fix this; echo pwned",
@@ -254,7 +254,7 @@ fn test_goal_shell_metachar_sanitized() {
 
 #[test]
 fn test_goal_too_long_rejected() {
-    use omni::guard::env::{ValidationError, validate_loop_context};
+    use veng::guard::env::{ValidationError, validate_loop_context};
 
     let long_goal = "a".repeat(501);
     assert_eq!(
@@ -269,7 +269,7 @@ fn test_goal_too_long_rejected() {
 
 #[test]
 fn test_budget_overflow_clamped() {
-    use omni::guard::env::{ValidationError, validate_loop_context};
+    use veng::guard::env::{ValidationError, validate_loop_context};
 
     assert_eq!(
         validate_loop_context(None, None, Some(10_000_001)),
@@ -292,7 +292,7 @@ fn test_budget_overflow_clamped() {
 
 #[test]
 fn test_malicious_mcp_params_rejected() {
-    use omni::guard::env::validate_loop_context;
+    use veng::guard::env::validate_loop_context;
 
     // Combined attack: all fields malicious
     assert!(

@@ -1,34 +1,34 @@
 # Loop engineering
 
 Menjalankan agent dalam sebuah loop, ketika setiap iterasi menambah isi jendela
-konteks yang tidak ikut membesar. Bagian OMNI adalah melacak apa yang sudah
+konteks yang tidak ikut membesar. Bagian VENG adalah melacak apa yang sudah
 dihabiskan loop-nya dan membawa ingatan melintasi iterasi yang kalau tidak
 begitu akan direset.
 
 ## Menyiapkan sebuah loop
 
 ```sh
-export OMNI_LOOP_ID=$(uuidgen)
-export OMNI_LOOP_GOAL="Migrate the billing service off the legacy queue"
-export OMNI_LOOP_BUDGET=100000
-export OMNI_LOOP_ITERATION=0
+export VENG_LOOP_ID=$(uuidgen)
+export VENG_LOOP_GOAL="Migrate the billing service off the legacy queue"
+export VENG_LOOP_BUDGET=100000
+export VENG_LOOP_ITERATION=0
 ```
 
 | variabel | batasan |
 |---|---|
-| `OMNI_LOOP_ID` | alfanumerik dan tanda hubung, 64 karakter |
-| `OMNI_LOOP_GOAL` | 500 karakter, tanpa metakarakter shell |
-| `OMNI_LOOP_BUDGET` | anggaran token per iterasi, sampai 10 juta |
-| `OMNI_LOOP_ITERATION` | iterasi saat ini, bawaannya 0 |
-| `OMNI_SUBAGENT=1` | mode subagent |
-| `OMNI_AGENT_ID` | identitas, supaya jejaknya tetap bisa dipisah |
+| `VENG_LOOP_ID` | alfanumerik dan tanda hubung, 64 karakter |
+| `VENG_LOOP_GOAL` | 500 karakter, tanpa metakarakter shell |
+| `VENG_LOOP_BUDGET` | anggaran token per iterasi, sampai 10 juta |
+| `VENG_LOOP_ITERATION` | iterasi saat ini, bawaannya 0 |
+| `VENG_SUBAGENT=1` | mode subagent |
+| `VENG_AGENT_ID` | identitas, supaya jejaknya tetap bisa dipisah |
 
 ## Anggaran
 
 Anggarannya adalah perkiraan pemakaian jendela konteks per iterasi, bukan batas
 belanja.
 
-| bentuk loop | anggaran | yang OMNI lakukan |
+| bentuk loop | anggaran | yang VENG lakukan |
 |---|---|---|
 | perbaikan cepat, 1 sampai 5 iterasi | 200.000 | pelacakan pasif |
 | pengerjaan fitur, 5 sampai 20 | 100.000 | penyulingan aktif, engram |
@@ -36,7 +36,7 @@ belanja.
 | maraton, 100 ke atas | 60.000 | kompresi maksimum, ingatan loop yang bertahan |
 
 Peringatan menyala di 65% dan kritis di 82%, bisa disetel dengan
-`OMNI_PRESSURE_WARN` dan `OMNI_PRESSURE_CRITICAL`.
+`VENG_PRESSURE_WARN` dan `VENG_PRESSURE_CRITICAL`.
 
 > Jangan setel anggaran di atas 1 juta: peringatannya tidak akan pernah menyala
 > sebelum kehabisan sungguhan. Jangan setel di bawah 30 ribu: agent-nya akan
@@ -48,19 +48,19 @@ memuat "test" mempertahankan detail test, "debug" menyimpan konteks galat,
 
 ## Perkakas yang dipanggil orkestrator
 
-Tidak satu pun dari perkakas ini diiklankan secara bawaan. OMNI hanya memberi tahu host
+Tidak satu pun dari perkakas ini diiklankan secara bawaan. VENG hanya memberi tahu host
 tentang perkakas yang memang dipakai tier-nya, dan perkakas loop berada di luar set itu,
-jadi orkestrator yang memanggilnya membutuhkan `OMNI_MCP_TOOLS=all` di environment-nya.
-`omni doctor` menyebutkan set mana yang sedang berlaku. Daftar per tier ada di rujukan
+jadi orkestrator yang memanggilnya membutuhkan `VENG_MCP_TOOLS=all` di environment-nya.
+`veng doctor` menyebutkan set mana yang sedang berlaku. Daftar per tier ada di rujukan
 perkakas MCP.
 
 | perkakas | kapan |
 |---|---|
-| `omni_loop_status` | sekali sebelum tiap iterasi, gambaran lengkap termurah |
-| `omni_budget_status` | sebelum apa pun yang mahal |
-| `omni_set_loop_context` | ketika tujuan atau cakupannya bergeser di tengah loop |
-| `omni_loop_memory` | baca dan tulis ingatan yang selamat dari restart sesi |
-| `omni_verify` | sebagai pemeriksa, untuk menilai pekerjaan terkini si pembuat |
+| `veng_loop_status` | sekali sebelum tiap iterasi, gambaran lengkap termurah |
+| `veng_budget_status` | sebelum apa pun yang mahal |
+| `veng_set_loop_context` | ketika tujuan atau cakupannya bergeser di tengah loop |
+| `veng_loop_memory` | baca dan tulis ingatan yang selamat dari restart sesi |
+| `veng_verify` | sebagai pemeriksa, untuk menilai pekerjaan terkini si pembuat |
 
 ## Pembuat dan pemeriksa
 
@@ -70,15 +70,15 @@ Dua agent, satu lapisan konteks bersama.
 LOOP_ID=$(uuidgen)
 
 # perkakas loop berada di luar set bawaan yang diiklankan
-export OMNI_MCP_TOOLS=all
+export VENG_MCP_TOOLS=all
 
 # pembuat
-export OMNI_AGENT_ID=maker OMNI_LOOP_ID=$LOOP_ID
+export VENG_AGENT_ID=maker VENG_LOOP_ID=$LOOP_ID
 claude "Implement: $GOAL"
 
 # pemeriksa
-export OMNI_AGENT_ID=checker OMNI_SUBAGENT=1
-RESULT=$(claude "Verify the implementation of: $GOAL. Use the omni_verify tool.")
+export VENG_AGENT_ID=checker VENG_SUBAGENT=1
+RESULT=$(claude "Verify the implementation of: $GOAL. Use the veng_verify tool.")
 
 case "$RESULT" in
   *PASS*) echo "verification passed" ;;
@@ -86,8 +86,8 @@ case "$RESULT" in
 esac
 ```
 
-Nilai `OMNI_AGENT_ID` yang berbeda itulah yang menjaga keduanya tidak saling
-mengotori. Jejaknya ditandai per agent, jadi `omni_verify` bisa membaca lintas
+Nilai `VENG_AGENT_ID` yang berbeda itulah yang menjaga keduanya tidak saling
+mengotori. Jejaknya ditandai per agent, jadi `veng_verify` bisa membaca lintas
 sesi sementara penulisannya tetap terisolasi.
 
 Empat hal yang membuatnya bekerja: beri pemeriksanya kriteria yang spesifik dan
@@ -98,14 +98,14 @@ sehingga jejak auditnya nyata.
 ## Pemantauan
 
 ```sh
-omni stats                 # waktu nyata
-omni stats --view detail
-omni stats --json          # untuk dibaca orkestrator
-omni doctor                # kesehatan
+veng stats                 # waktu nyata
+veng stats --view detail
+veng stats --json          # untuk dibaca orkestrator
+veng doctor                # kesehatan
 ```
 
-`omni handoff` **bukan** subperintah CLI. Ia sudah dihapus. Perkakas MCP
-`omni_handoff` tidak berubah, jadi ekspor sesi bisa dijangkau dari klien MCP,
+`veng handoff` **bukan** subperintah CLI. Ia sudah dihapus. Perkakas MCP
+`veng_handoff` tidak berubah, jadi ekspor sesi bisa dijangkau dari klien MCP,
 bukan dari shell.
 
 ## Peringatan soal angkanya

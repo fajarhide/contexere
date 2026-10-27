@@ -1,29 +1,32 @@
-<div align="center">
-  <img src="media/logo.png" alt="OMNI Logo" width="300" />
+> **VENG replaces OMNI.** Already running OMNI? See [docs/veng/MIGRATING.md](docs/veng/MIGRATING.md). What exists today: [docs/veng/README.md](docs/veng/README.md).
 
-<h1>OMNI</h1>
+<div align="center">
+
+  <img src="media/logo.png" alt="VENG Logo" width="300" />
+
+<h1>VENG</h1>
 <p align="center">
-    <em><b>OMNI makes your coding agent read less.</b> It cuts the noise out of command output and stops re-sending files the agent has already seen. Fewer tokens, and nothing lost.</em>
+    <em><b>VENG makes your coding agent read less.</b> It cuts the noise out of command output and stops re-sending files the agent has already seen. Fewer tokens, and nothing lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
+[![CI](https://github.com/fajarhide/veng/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/veng/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/veng)](https://github.com/fajarhide/veng/releases)
   [![Rust](https://img.shields.io/badge/built_with-Rust-dca282.svg)](https://www.rust-lang.org/)
   [![MCP](https://img.shields.io/badge/MCP-compatible-green.svg?style=flat-square)](https://modelcontextprotocol.io/)
   [![Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/zHTuvZhF2M)
-  [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
-  [![Hits](https://hits.sh/github.com/fajarhide/omni.svg)](https://hits.sh/github.com/fajarhide/omni/)
+  [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/veng)](https://github.com/fajarhide/veng/blob/main/LICENSE)
+  [![Hits](https://hits.sh/github.com/fajarhide/veng.svg)](https://hits.sh/github.com/fajarhide/veng/)
   [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 </br></br>
 
 ```bash
-brew install fajarhide/tap/omni && omni init
+brew install fajarhide/tap/veng && veng init
 ```
 
 </br>
-<img src="media/demo.gif" alt="OMNI distilling a noisy cargo test run down to the verdict, then omni stats" width="820" />
+<img src="media/demo.gif" alt="VENG distilling a noisy cargo test run down to the verdict, then veng stats" width="820" />
 </div>
 
 ---
@@ -31,13 +34,13 @@ brew install fajarhide/tap/omni && omni init
 ## What it is
 
 A small program that runs on your own machine, beside your coding agent (Claude Code,
-Codex, Gemini CLI and others). Each time the agent runs a command, OMNI looks at the output
+Codex, Gemini CLI and others). Each time the agent runs a command, VENG looks at the output
 before the model does and takes out what the model does not need. Whatever it takes
 out stays on your machine, and one command brings it back.
 
 ## What it handles
 
-| When your agent... | OMNI... |
+| When your agent... | VENG... |
 |---|---|
 | reads a file it already read | sends one line with a handle instead of the file again |
 | runs a noisy build or test | keeps the result and the failures, drops the progress noise |
@@ -50,14 +53,14 @@ out stays on your machine, and one command brings it back.
 
 - **A smaller bill.** The agent stops paying twice for the same file. How much you save
   depends on how often it re-reads: 97.2% on a file read twice, far less across a whole
-  session (see [Numbers](#numbers)). `omni stats` shows it on your own history.
+  session (see [Numbers](#numbers)). `veng stats` shows it on your own history.
 - **Room in the context.** Long sessions fill up more slowly.
-- **Nothing lost.** `omni retrieve <handle>` brings the original back in full.
+- **Nothing lost.** `veng retrieve <handle>` brings the original back in full.
 - **Secrets kept out.** Tokens and passwords in command output are replaced before the
   model reads them. A failed command's output is the exception and arrives as printed.
 - **Local only.** No proxy, no account, and the database never leaves your machine.
 
-<img src="docs/website/src/media/where-omni-sits.svg" alt="OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back." width="820" />
+<img src="docs/website/src/media/where-veng-sits.svg" alt="VENG runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that veng retrieve reads back." width="820" />
 
 It runs as two hooks around a tool call your agent host already makes. Nothing proxies
 your shell, and the database never leaves the machine.
@@ -66,19 +69,19 @@ your shell, and the database never leaves the machine.
 
 ## The second read is free
 
-An agent re-reads the same file constantly. Without OMNI it pays for every byte
-again. With OMNI the second read is one marker carrying a handle, because those bytes
-are already in its context, and `omni retrieve <hash>` hands the file back in full if
+An agent re-reads the same file constantly. Without VENG it pays for every byte
+again. With VENG the second read is one marker carrying a handle, because those bytes
+are already in its context, and `veng retrieve <hash>` hands the file back in full if
 it is ever needed.
 
 <table>
 <tr>
-<td align="center"><b>Without OMNI</b><br/><sub><code>cat</code> twice: the same 7.6 KB, twice</sub></td>
-<td align="center"><b>With OMNI</b><br/><sub>second read 214 B, <b>97.2%</b> smaller</sub></td>
+<td align="center"><b>Without VENG</b><br/><sub><code>cat</code> twice: the same 7.6 KB, twice</sub></td>
+<td align="center"><b>With VENG</b><br/><sub>second read 214 B, <b>97.2%</b> smaller</sub></td>
 </tr>
 <tr>
-<td valign="top"><img src="media/demo-ledger-without.gif" alt="the same file read twice with no OMNI: two identical screens of source" width="400" /></td>
-<td valign="top"><img src="media/demo-ledger-with.gif" alt="the same file read twice through OMNI: the second returns one marker line and a retrieval handle" width="400" /></td>
+<td valign="top"><img src="media/demo-ledger-without.gif" alt="the same file read twice with no VENG: two identical screens of source" width="400" /></td>
+<td valign="top"><img src="media/demo-ledger-with.gif" alt="the same file read twice through VENG: the second returns one marker line and a retrieval handle" width="400" /></td>
 </tr>
 </table>
 
@@ -92,23 +95,23 @@ on those numbers.
 
 ## The same `git log`, side by side
 
-Without OMNI, one commit's `Author` / `Date` / body already fills the screen. With
-OMNI, **every commit is kept**, as one `hash subject` line. Nothing is summarised away.
+Without VENG, one commit's `Author` / `Date` / body already fills the screen. With
+VENG, **every commit is kept**, as one `hash subject` line. Nothing is summarised away.
 
 <table>
 <tr>
-<td align="center"><b>Without OMNI</b><br/><sub>raw <code>git log -15</code></sub></td>
-<td align="center"><b>With OMNI</b><br/><sub>every commit kept, 94% smaller</sub></td>
+<td align="center"><b>Without VENG</b><br/><sub>raw <code>git log -15</code></sub></td>
+<td align="center"><b>With VENG</b><br/><sub>every commit kept, 94% smaller</sub></td>
 </tr>
 <tr>
 <td valign="top"><img src="media/demo-git-without.gif" alt="a raw verbose git log -15: one commit's Author, Date and body fill the screen" width="400" /></td>
-<td valign="top"><img src="media/demo-git-with.gif" alt="the same git log -15 through OMNI: every commit as a compact hash + subject line, 94% smaller" width="400" /></td>
+<td valign="top"><img src="media/demo-git-with.gif" alt="the same git log -15 through VENG: every commit as a compact hash + subject line, 94% smaller" width="400" /></td>
 </tr>
 </table>
 
 Measured on the fixtures in `tests/fixtures/`, so you can reproduce any row:
 
-| Command | Without OMNI | With OMNI | Saved |
+| Command | Without VENG | With VENG | Saved |
 |---|---|---|---|
 | `cargo test` (490 passed, 10 failed) | 16.5 KB of per-test output | the runner's own pass/fail summary | **93.0%** |
 | `git status` (dirty) | 496 B of porcelain | the branch and the changed paths | **66.7%** |
@@ -116,7 +119,7 @@ Measured on the fixtures in `tests/fixtures/`, so you can reproduce any row:
 | `kubectl get pods` (35 pods, 5 crashing) | the full table | the full table | **0%**, by design |
 
 That last row is the point of the table. A pod listing is an enumeration where every
-row is a datum, so there is nothing to drop, and OMNI reports nothing rather than
+row is a datum, so there is nothing to drop, and VENG reports nothing rather than
 inventing a saving.
 
 ---
@@ -128,17 +131,17 @@ than a sentence asking you to trust it.
 
 | Guarantee | How | Proof |
 |---|---|---|
-| **Get the original back, byte-for-byte** | everything cut is archived in a local SQLite RewindStore; the marker carries a handle, and `omni retrieve <handle>` prints it on any host, with the `omni_retrieve` MCP tool where MCP is wired | [#388](https://github.com/fajarhide/omni/issues/388) |
-| **Never fabricates a result** | a distiller that parsed no signal returns the raw output, never a green `no errors` / `passed` string | [#143](https://github.com/fajarhide/omni/issues/143) |
-| **Failures are never masked** | a command that exits non-zero passes through verbatim | [#120](https://github.com/fajarhide/omni/issues/120) |
+| **Get the original back, byte-for-byte** | everything cut is archived in a local SQLite RewindStore; the marker carries a handle, and `veng retrieve <handle>` prints it on any host, with the `veng_retrieve` MCP tool where MCP is wired | [#388](https://github.com/fajarhide/veng/issues/388) |
+| **Never fabricates a result** | a distiller that parsed no signal returns the raw output, never a green `no errors` / `passed` string | [#143](https://github.com/fajarhide/veng/issues/143) |
+| **Failures are never masked** | a command that exits non-zero passes through verbatim | [#120](https://github.com/fajarhide/veng/issues/120) |
 | **Structured data is never touched** | JSON / YAML / NDJSON / CSV pass through byte-for-byte | `pipeline::format` |
 
 ---
 
-## What OMNI remembers, and for how long
+## What VENG remembers, and for how long
 
 Three tiers, already in the schema, never written down until now. The short answer to
-"will OMNI still know my project after a month away" is yes for the conclusions and no for
+"will VENG still know my project after a month away" is yes for the conclusions and no for
 the raw bytes.
 
 | Tier | What | Kept |
@@ -148,29 +151,29 @@ the raw bytes.
 | **Verbatim, 7 days** | `execution_traces` and the session transcript | shorter on purpose: it is two orders of magnitude heavier per row |
 
 The boundary this sets is worth stating plainly, because it is the one thing a handle
-cannot promise: `omni retrieve` for content archived more than 30 days ago will not
+cannot promise: `veng retrieve` for content archived more than 30 days ago will not
 resolve. Hold the shortest window open while measuring with
-`OMNI_TRACE_RETENTION_DAYS=90`.
+`VENG_TRACE_RETENTION_DAYS=90`.
 
-`omni reset` wipes all of it, and `omni doctor` shows the live counts.
+`veng reset` wipes all of it, and `veng doctor` shows the live counts.
 
 ---
 
-## What each host lets OMNI do
+## What each host lets VENG do
 
 | Tier | Hosts | What you get |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (pipe) | The host applies OMNI's rewrite, so the model reads distilled output from its own built-in tools. |
-| **Handoff-first** | Cursor, Windsurf | The host cannot rewrite built-in tool output. `omni_run` distils anything you route through it, and `omni init --cursor` installs the rule that makes the agent reach for it. |
-| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Memory, recall and session state, plus `omni_run`. The host's own tool output is never rewritten, so `omni_run` is the only path by which the model reads less. |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (pipe) | The host applies VENG's rewrite, so the model reads distilled output from its own built-in tools. |
+| **Handoff-first** | Cursor, Windsurf | The host cannot rewrite built-in tool output. `veng_run` distils anything you route through it, and `veng init --cursor` installs the rule that makes the agent reach for it. |
+| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Memory, recall and session state, plus `veng_run`. The host's own tool output is never rewritten, so `veng_run` is the only path by which the model reads less. |
 
-`omni doctor` prints the tier for every installed host. Savings are only ever counted
+`veng doctor` prints the tier for every installed host. Savings are only ever counted
 where the model actually received less.
 
 Codex CLI needs one extra step. It runs only hooks it has been told to trust and skips
-the rest without a word, so after `omni init --codex` start `codex` once and approve
-them under "Hooks need review". `omni doctor` fails until you do. See
-[#359](https://github.com/fajarhide/omni/issues/359).
+the rest without a word, so after `veng init --codex` start `codex` once and approve
+them under "Hooks need review". `veng doctor` fails until you do. See
+[#359](https://github.com/fajarhide/veng/issues/359).
 
 ---
 
@@ -178,35 +181,35 @@ them under "Hooks need review". `omni doctor` fails until you do. See
 
 **macOS / Linux:**
 ```bash
-brew install fajarhide/tap/omni
-omni init      # interactive setup for Claude, Cursor, VS Code, Codex, Antigravity
-omni doctor    # verify, or `omni doctor --fix`
+brew install fajarhide/tap/veng
+veng init      # interactive setup for Claude, Cursor, VS Code, Codex, Antigravity
+veng doctor    # verify, or `veng doctor --fix`
 ```
 
 **Universal (macOS / Linux / WSL):**
 ```bash
-curl -fsSL omni.weekndlabs.com/install | bash
+curl -fsSL veng.weekndlabs.com/install | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm omni.weekndlabs.com/install.ps1 | iex
+irm veng.weekndlabs.com/install.ps1 | iex
 ```
 
 **Claude Code, from inside the session:**
 ```
-/plugin marketplace add fajarhide/omni
-/plugin install omni@omni
+/plugin marketplace add fajarhide/veng
+/plugin install veng@veng
 ```
 
 **Any agent that reads skills**, listed at
-[skills.sh/fajarhide/skills/omni](https://www.skills.sh/fajarhide/skills/omni):
+[skills.sh/fajarhide/skills/veng](https://www.skills.sh/fajarhide/skills/veng):
 ```bash
-npx skills add fajarhide/skills --skill omni
+npx skills add fajarhide/skills --skill veng
 ```
 
 Both install a skill, not the binary. The skill is what tells the agent how to get
-the binary, verify it, and read the markers OMNI leaves when it shortens output.
+the binary, verify it, and read the markers VENG leaves when it shortens output.
 
 Then run your commands normally. There is nothing to prefix and no proxy to wrap.
 
@@ -214,7 +217,7 @@ Then run your commands normally. There is nothing to prefix and no proxy to wrap
 
 ## Numbers
 
-Every figure OMNI publishes states the corpus it came from and the week it covers,
+Every figure VENG publishes states the corpus it came from and the week it covers,
 because `execution_traces` is pruned after seven days and a number that outlives its
 corpus cannot be checked by anyone, us included.
 
@@ -223,13 +226,13 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
 
 * **0.8% from the filters, 2.4% with the ledger**, and the ledger took **10.3% of
   all the repetition that was there to take**. The last figure is the one that
-  describes OMNI. The first two describe this corpus.
+  describes VENG. The first two describe this corpus.
 * **Read the corpus before the number.** This one is shell-heavy, so it
   *understates* the case the ledger is built for: file reads here average 2.1 KB.
   An earlier week whose file reads averaged 12.4 KB took **twenty times** more
   bytes off that class, on the same code, while the capture rate barely moved.
   Twentyfold in one column, flat in the other, and only one of those two is a fact
-  about OMNI.
+  about VENG.
 * **This corpus does not expire.** It is frozen on disk and its hash is in
   `docs/benchmarks/0.7.11.json`, so the numbers above can be checked against the
   same bytes next release instead of against whatever the last seven days held.
@@ -237,7 +240,7 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
 * **It hands bytes back rather than inventing a saving.** Where there is nothing
   safe to take, a two-line `git status` or a JSON payload a later step parses, the
   output comes back untouched. **No call came back larger** in this measurement.
-  Two did until ([#398](https://github.com/fajarhide/omni/issues/398)), and we published them while they stood.
+  Two did until ([#398](https://github.com/fajarhide/veng/issues/398)), and we published them while they stood.
 * **21 ms per command**, growing with your history rather than with the payload. On a
   205 MB database it is 61 ms.
 * **End to end, the gap favours you.** These are bytes per command, which is not the
@@ -249,11 +252,11 @@ sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
 Per class, with what the filters take, what the ledger adds, and how much of the
 repetition that was there it actually took. `search` captures **0.0%** and that is
 a refusal, not a failure: a `grep` reply folds whole or not at all since
-[#815](https://github.com/fajarhide/omni/issues/815), because folding 9 of 11
+[#815](https://github.com/fajarhide/veng/issues/815), because folding 9 of 11
 matches reads as a file with two, and nothing in this corpus is an identical
 re-run. It cost 4.6 KB across 810 calls.
 
-<!-- omni:corpus-table:start -->
+<!-- veng:corpus-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
 |---|---|---|---|---|---|---|
 | other | 6,457 | 4.81 MB | 0.8% | 2.8% | 15.9% | **12.6%** |
@@ -266,17 +269,17 @@ re-run. It cost 4.6 KB across 810 calls.
 
 | Arm | bytes | saved |
 |---|---|---|
-| headroom dedup, omni's filters | 8,486,830 to 8,061,481 | 5.0% |
+| headroom dedup, veng's filters | 8,486,830 to 8,061,481 | 5.0% |
 | lean-ctx `compress` | 8,486,830 to 8,076,957 | 4.8% |
-| caveman + omni's ledger | 8,486,830 to 8,174,311 | 3.7% |
-| rtk + omni's ledger | 8,486,830 to 8,174,685 | 3.7% |
-| **omni, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
+| caveman + veng's ledger | 8,486,830 to 8,174,311 | 3.7% |
+| rtk + veng's ledger | 8,486,830 to 8,174,685 | 3.7% |
+| **veng, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
 | caveman `compress` | 8,486,830 to 8,311,999 | 2.1% |
 | rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
-| omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
+| veng, filters only | 8,486,830 to 8,417,817 | 0.8% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
-<!-- omni:corpus-table:end -->
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, VENG 0.7.11.
+<!-- veng:corpus-table:end -->
 
 ### A second corpus, and this one you can rebuild
 
@@ -291,7 +294,7 @@ python3 scripts/build-swebench-corpus.py --instances 40 --stride 12
 CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 ```
 
-<!-- omni:swebench-table:start -->
+<!-- veng:swebench-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
 |---|---|---|---|---|---|---|
 | file read | 86 | 2.07 MB | 26.8% | 32.3% | 25.8% | **28.7%** |
@@ -302,16 +305,16 @@ CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 | Arm | bytes | saved |
 |---|---|---|
 | lean-ctx `compress` | 2,259,278 to 852,777 | 62.3% |
-| headroom dedup, omni's filters | 2,259,278 to 1,539,608 | 31.9% |
-| **omni, with the ledger** | 2,259,278 to 1,575,607 | 30.3% |
-| omni, filters only | 2,259,278 to 1,689,234 | 25.2% |
-| rtk + omni's ledger | 2,259,278 to 2,039,856 | 9.7% |
-| caveman + omni's ledger | 2,259,278 to 2,106,392 | 6.8% |
+| headroom dedup, veng's filters | 2,259,278 to 1,539,608 | 31.9% |
+| **veng, with the ledger** | 2,259,278 to 1,575,607 | 30.3% |
+| veng, filters only | 2,259,278 to 1,689,234 | 25.2% |
+| rtk + veng's ledger | 2,259,278 to 2,039,856 | 9.7% |
+| caveman + veng's ledger | 2,259,278 to 2,106,392 | 6.8% |
 | rtk `pipe` | 2,259,278 to 2,192,628 | 3.0% |
 | caveman `compress` | 2,259,278 to 2,259,164 | 0.0% |
 
-Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.11.
-<!-- omni:swebench-table:end -->
+Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, VENG 0.7.11.
+<!-- veng:swebench-table:end -->
 
 **Same code, same build, 25.2% here against 0.8% there.** The difference is the
 workload and nothing else. This corpus is 85% `cat` of source files, which is the
@@ -325,16 +328,16 @@ is not measured here.
 
 It is also the narrower measurement, and in two ways worth naming. The commands
 are a fixed script rather than what a model chose, and three whole files per
-instance is the generous end of what a solver reads. And whether OMNI costs an
+instance is the generous end of what a solver reads. And whether VENG costs an
 agent its task success is a different question, answered by running a real agent
-against both `OMNI_PASSTHROUGH` settings and scoring pass rates, which costs money
+against both `VENG_PASSTHROUGH` settings and scoring pass rates, which costs money
 and is not answered here.
 
 
 `available` is the ceiling. The ledger substitutes lines it has already delivered,
 so it cannot fold what was never repeated, and `captured` is the share of that it
 took. The two columns answer different questions: the saving describes this corpus,
-the capture rate describes OMNI. On a week of large repeated file reads the same
+the capture rate describes VENG. On a week of large repeated file reads the same
 mechanism took 20 times more bytes off the same class, and the capture rate barely
 moved.
 
@@ -347,12 +350,12 @@ table, so it cannot fall a release behind its corpus again. Every arm is handed 
 same bytes. Versions: rtk 0.45.0, lean-ctx 3.9.18, caveman `bin-v1.0.0`, headroom
 0.34.0.
 
-**On this corpus OMNI is last of the arms that carry a ledger, and both of its halves
+**On this corpus VENG is last of the arms that carry a ledger, and both of its halves
 are behind.** headroom's cross-turn dedup takes 5.0% where our ledger takes 2.4% over
 the same filters and the same blocks, so that gap is the dedup engine and nothing else.
 At 0.8% our filter tier is the weakest of the four, against 2.1% for rtk and caveman
-and 4.8% for lean-ctx. That shortfall is what puts `rtk + omni's ledger` and
-`caveman + omni's ledger` above our own stack: the ledger is the same in all three
+and 4.8% for lean-ctx. That shortfall is what puts `rtk + veng's ledger` and
+`caveman + veng's ledger` above our own stack: the ledger is the same in all three
 rows, and only the filters underneath it differ.
 
 The ledger rows read lower than they did in 0.7.8, and no code got worse. The harness
@@ -369,25 +372,25 @@ only be estimated.
 Reproduce all of it:
 
 ```bash
-OMNI_BENCH_DB=~/.omni/omni.db \
+VENG_BENCH_DB=~/.veng/veng.db \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
-`OMNI_BENCH_RTK=/path/to/rtk` adds the competitor arm. `OMNI_BENCH_ALL=1` replays the
+`VENG_BENCH_RTK=/path/to/rtk` adds the competitor arm. `VENG_BENCH_ALL=1` replays the
 wider population including terminal output, and the harness prints which one it used.
 
 ---
 
 ## FAQ
 
-**Does OMNI permanently delete my logs?**
+**Does VENG permanently delete my logs?**
 No. Raw logs are stored locally in the SQLite RewindStore. The agent receives a hash
 and can retrieve the full log at any time.
 
 **Will this slow down my terminal?**
 Measurably, yes, and the cost grows with your history rather than with the payload. A
 496-byte `git status` takes about 21 ms against a fresh database and 61 ms against a
-205 MB one. Budget for it. `OMNI_PASSTHROUGH=1` skips the pipeline entirely.
+205 MB one. Budget for it. `VENG_PASSTHROUGH=1` skips the pipeline entirely.
 
 **Can I add my own filters?**
 There are no filters to add. The pattern-matching layer was retired in 0.7.4 after it
@@ -398,26 +401,26 @@ set that runs is the set the tests cover. If a tool needs handling, open an issu
 ships in the binary for everyone.
 
 **Does it break the prompt cache?**
-OMNI rewrites only the newest tool result. Everything before it stays byte for byte, which
-is what the cache matches on. In a paired run on Claude Code with omni 0.7.10 (20 pairs,
-one six-command workload, one machine), sessions with OMNI wrote 18.1% fewer cache tokens
+VENG rewrites only the newest tool result. Everything before it stays byte for byte, which
+is what the cache matches on. In a paired run on Claude Code with veng 0.7.10 (20 pairs,
+one six-command workload, one machine), sessions with VENG wrote 18.1% fewer cache tokens
 and were billed 11.0% less. Output tokens rose 92.5%. The run measures that
 and not its cause. Run it yourself: `python3 scripts/ab_cache.py run --pairs 20 --model sonnet --out arms.json`, then `python3 scripts/ab_cache.py report arms.json`.
 
-**How do I get back something OMNI folded?**
-`omni retrieve <handle>`, where the handle is the 16 characters inside the marker. It works
+**How do I get back something VENG folded?**
+`veng retrieve <handle>`, where the handle is the 16 characters inside the marker. It works
 on every host, with or without MCP. Agents that have the MCP server wired can call
-`omni_retrieve` instead.
+`veng_retrieve` instead.
 
 **Can I watch the numbers instead of running a command?**
-`omni dashboard` serves them on `127.0.0.1`, read-only, from the same database `omni stats`
+`veng dashboard` serves them on `127.0.0.1`, read-only, from the same database `veng stats`
 reads. It binds loopback and nothing else.
 
 **How do I see my own savings?**
-`omni stats` after a few days. It leads with session lifetime, how many commands a session
+`veng stats` after a few days. It leads with session lifetime, how many commands a session
 carries before the host closes it, because that is what the context window costs you. The
 distillation percentage below it is a diagnostic for one host's pipeline, not a product
-claim. `omni stats --share` prints a copy-pasteable summary, and `omni stats --card` writes
+claim. `veng stats --share` prints a copy-pasteable summary, and `veng stats --card` writes
 it as an image.
 
 ---
@@ -428,23 +431,23 @@ it as an image.
   add a distiller. One document, not four.
 * [CHANGELOG.md](CHANGELOG.md): what shipped, with the evidence behind each entry
 * [SECURITY.md](SECURITY.md): reporting a vulnerability
-* [Discord](https://discord.gg/zHTuvZhF2M): ask a question, or report something OMNI got wrong
+* [Discord](https://discord.gg/zHTuvZhF2M): ask a question, or report something VENG got wrong
 
 ---
 
 ```bash
-brew install fajarhide/tap/omni && omni init
+brew install fajarhide/tap/veng && veng init
 ```
 
 A passion project for the era of agentic AI. Contributions welcome.
 [Apache License 2.0](LICENSE).
 
 <p align="center">
-  <a href="https://star-history.dera.page/#fajarhide/omni&Date">
+  <a href="https://star-history.dera.page/#fajarhide/veng&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date" />
-      <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=fajarhide/omni&type=Date" width="600" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date" />
+      <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=fajarhide/veng&type=Date" width="600" />
     </picture>
   </a>
 </p>

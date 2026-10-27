@@ -1,4 +1,4 @@
-# What OMNI is
+# What VENG is
 
 **A small program on your machine that edits what your AI agent reads, before the agent
 reads it.**
@@ -27,18 +27,18 @@ The obvious fixes are all worse than the problem:
 | Ask a model to summarise | An inference call per command, and a summariser that can be wrong |
 | Tell the agent to be careful | Works until the agent is busy, which is always |
 
-OMNI is the fourth option: a program that knows what `cargo test` output looks like,
+VENG is the fourth option: a program that knows what `cargo test` output looks like,
 remembers what your agent has already been shown, and never guesses when it is unsure.
 
 ## Where it sits
 
 Every serious agent host can run a program when a tool finishes and use what that
 program returns. Claude Code calls it a `PostToolUse` hook, Cursor and the others have
-their own name for the same idea. OMNI installs itself there, and in the matching slot
+their own name for the same idea. VENG installs itself there, and in the matching slot
 before the tool runs, which it uses only to hand a matched command to itself. The
 command still runs unchanged; the shell never knows.
 
-![OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back.](../media/where-omni-sits.svg)
+![VENG runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that veng retrieve reads back.](../media/where-veng-sits.svg)
 
 Two consequences follow from that position, and they are the reason this shape was
 chosen over a proxy.
@@ -48,7 +48,7 @@ delayed waiting on it, and if it dies the host carries on with the raw bytes.
 
 It cannot help where the host will not let it. A host that does not apply a hook's
 rewrite to its built-in shell tool will show the agent the same bytes no matter how
-good the filters get. That is not a bug to fix in OMNI, it is a property of the host,
+good the filters get. That is not a bug to fix in VENG, it is a property of the host,
 and [Supported agents](../reference/agents.md) says which host is on which tier.
 
 ## What it does to a command
@@ -72,24 +72,24 @@ Then the raw input goes into the archive, and the agent gets the result plus a m
 saying what happened.
 
 If you would rather see this as situations than as stages,
-[Where OMNI helps](use-cases.md) has six of them with the measured saving on each.
+[Where VENG helps](use-cases.md) has six of them with the measured saving on each.
 
 ## What it does to itself
 
-Everything above is about output. There is a second thing OMNI edits, and for a long time
+Everything above is about output. There is a second thing VENG edits, and for a long time
 it did not edit it at all: its own weight.
 
-OMNI registers as an MCP server, and tool definitions sit in the **prefix** of every
+VENG registers as an MCP server, and tool definitions sit in the **prefix** of every
 request of every session it is attached to. A prefix byte is not paid once. It is carried
 from the first request and re-read on every one after it, where a byte removed from tool
 output was inserted somewhere in the middle and is read fewer times.
 
-Measured across 229 sessions, sixteen of the twenty-five tools OMNI advertised had never
+Measured across 229 sessions, sixteen of the twenty-five tools VENG advertised had never
 been called once, and those sixteen were 4,940 bytes. The distillers remove a median of
 4,942 bytes from tool output in a session that pushes real volume through the hook. Two
 bytes apart, and the prefix side is the one carried from the start.
 
-So OMNI now tells a host about the tools its tier actually uses. A tool that spends as
+So VENG now tells a host about the tools its tier actually uses. A tool that spends as
 much context describing itself as it saves is not a token-efficiency tool, and noticing
 that required pointing its own measurement at itself.
 
@@ -103,7 +103,7 @@ number loses.
 **Not a summariser.** No model runs inside the pipeline. The budget for a hook is
 single-digit milliseconds and nothing with an inference call fits in it.
 
-**Not a memory product, though it has one.** `omni remember`, `omni goal` and the
+**Not a memory product, though it has one.** `veng remember`, `veng goal` and the
 session handoff exist because the same agent that reads too much also forgets
 everything between sessions. [Memory across sessions](../use/memory.md) covers that
 half.

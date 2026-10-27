@@ -2,7 +2,7 @@ SELECT id, name, version FROM projects WHERE status = 'active';
 +----+-----------+---------+
 | id | name      | version |
 +----+-----------+---------+
-| 1  | OMNI      | 0.4.3   |
+| 1  | VENG      | 0.4.3   |
 | 2  | ForgePod  | 1.2.0   |
 +----+-----------+---------+
 (2 rows returned)

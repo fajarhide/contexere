@@ -1,5 +1,5 @@
 #!/bin/bash
-# update_homebrew_sha.sh — Update SHA-256 values in omni.rb after a GitHub Release
+# update_homebrew_sha.sh — Update SHA-256 values in veng.rb after a GitHub Release
 # Usage: ./scripts/update_homebrew_sha.sh [v0.5.0]
 #
 # If no version is given, reads it from Cargo.toml.
@@ -13,7 +13,7 @@ fi
 
 # Strip leading 'v' for consistency, then re-add
 VERSION="${VERSION#v}"
-BASE_URL="https://github.com/fajarhide/omni/releases/download/v${VERSION}"
+BASE_URL="https://github.com/fajarhide/veng/releases/download/v${VERSION}"
 
 SHA256SUMS_URL="${BASE_URL}/SHA256SUMS"
 TMP_SUMS=$(mktemp)
@@ -29,7 +29,7 @@ fi
 fetch_sha() {
     local target="$1"
     local sha
-    sha=$(grep "omni-v${VERSION}-${target}.tar.gz" "$TMP_SUMS" | awk '{print $1}')
+    sha=$(grep "veng-v${VERSION}-${target}.tar.gz" "$TMP_SUMS" | awk '{print $1}')
     if [ -z "$sha" ]; then
         echo "ERROR: Could not find SHA for ${target} in SHA256SUMS" >&2
         return 1
@@ -44,7 +44,7 @@ SHA_X86_LINUX=$(fetch_sha "x86_64-unknown-linux-musl")
 
 rm -f "$TMP_SUMS"
 
-echo "Updating omni.rb..."
+echo "Updating veng.rb..."
 
 # Use awk to find the url line and replace the sha256 line immediately following it
 awk -v mac_arm="$SHA_AARCH64_MACOS" \
@@ -57,18 +57,18 @@ awk -v mac_arm="$SHA_AARCH64_MACOS" \
     /aarch64-unknown-linux-musl/ { print; getline; sub(/sha256 ".*"/, "sha256 \"" lin_arm "\""); print; next }
     /x86_64-unknown-linux-musl/ { print; getline; sub(/sha256 ".*"/, "sha256 \"" lin_intel "\""); print; next }
     { print }
-    ' omni.rb > omni.rb.tmp && mv omni.rb.tmp omni.rb
+    ' veng.rb > veng.rb.tmp && mv veng.rb.tmp veng.rb
 
 # Also update the version line if it differs
-CURRENT_VERSION=$(grep '  version ' omni.rb | sed 's/.*"\(.*\)".*/\1/')
+CURRENT_VERSION=$(grep '  version ' veng.rb | sed 's/.*"\(.*\)".*/\1/')
 if [ "$CURRENT_VERSION" != "$VERSION" ]; then
-    sed -i.bak "s/version \"${CURRENT_VERSION}\"/version \"${VERSION}\"/" omni.rb
-    rm -f omni.rb.bak
+    sed -i.bak "s/version \"${CURRENT_VERSION}\"/version \"${VERSION}\"/" veng.rb
+    rm -f veng.rb.bak
     echo "  Version updated: ${CURRENT_VERSION} → ${VERSION}"
 fi
 
 echo ""
-echo "✓ omni.rb updated with real SHA-256 values"
+echo "✓ veng.rb updated with real SHA-256 values"
 echo "  AARCH64_MACOS: ${SHA_AARCH64_MACOS}"
 echo "  X86_64_MACOS:  ${SHA_X86_MACOS}"
 echo "  AARCH64_LINUX: ${SHA_AARCH64_LINUX}"
@@ -79,28 +79,28 @@ echo ""
 # Sync with Homebrew Tap
 # ─────────────────────────────────────────────────────────
 TAP_REPO_PATH="../homebrew-tap/Formula" # Default assumption
-BREW_TAP_PATH=$(brew --repository fajarhide/omni 2>/dev/null || echo "")
+BREW_TAP_PATH=$(brew --repository fajarhide/veng 2>/dev/null || echo "")
 
 if [ -d "$TAP_REPO_PATH" ]; then
     echo "🔄 Syncing with Homebrew Tap at $TAP_REPO_PATH..."
-    cp omni.rb "$TAP_REPO_PATH/omni.rb"
-    (cd "$TAP_REPO_PATH" && git add omni.rb && git commit -m "update omni to v$VERSION" && git push origin main)
+    cp veng.rb "$TAP_REPO_PATH/veng.rb"
+    (cd "$TAP_REPO_PATH" && git add veng.rb && git commit -m "update veng to v$VERSION" && git push origin main)
     echo "✅ Tap updated!"
 elif [ -n "$BREW_TAP_PATH" ] && [ -d "$BREW_TAP_PATH" ]; then
     echo "🔄 Syncing with Homebrew Tap at $BREW_TAP_PATH..."
-    cp omni.rb "$BREW_TAP_PATH/omni.rb"
-    (cd "$BREW_TAP_PATH" && git add omni.rb && git commit -m "update omni to v$VERSION" && git push origin main)
+    cp veng.rb "$BREW_TAP_PATH/veng.rb"
+    (cd "$BREW_TAP_PATH" && git add veng.rb && git commit -m "update veng to v$VERSION" && git push origin main)
     echo "✅ Tap updated!"
 else
     echo "⚠️  Tap repository not found at $TAP_REPO_PATH or via brew --repository."
     echo "Please update manually and push to your tap repository."
 fi
 
-# Final Sync for local omni.rb
-echo "📦 Committing updated omni.rb to local repository..."
-git add omni.rb
+# Final Sync for local veng.rb
+echo "📦 Committing updated veng.rb to local repository..."
+git add veng.rb
 git commit -m "chore: update formula SHA-256 for v$VERSION" || echo "No changes to commit in local repo"
 # Uncomment if you want it to push automatically:
 git push origin main
 
-echo "🎉 OMNI v$VERSION formula update complete!"
+echo "🎉 VENG v$VERSION formula update complete!"

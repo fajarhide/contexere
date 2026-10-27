@@ -122,7 +122,7 @@ jobs:
   plugin-hermes:
     name: checks (plugins/hermes)
     # The plugin used to be a Rust raw string, so no job in this file could see
-    # that every copy OMNI installed was a Python syntax error (#628). It is a
+    # that every copy VENG installed was a Python syntax error (#628). It is a
     # real file now and this is the job that compiles it.
     runs-on: ubuntu-latest
     steps:

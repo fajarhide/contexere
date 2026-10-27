@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn test_is_progress() {
-        assert!(is_progress_or_noise("Compiling omni v0.5.8", true));
+        assert!(is_progress_or_noise("Compiling veng v0.5.8", true));
         assert!(is_progress_or_noise(
             "[===============>      ] 75% | downloading",
             true

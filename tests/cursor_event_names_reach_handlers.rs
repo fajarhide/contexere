@@ -1,6 +1,6 @@
 //! #384: Cursor registers `stop`, `postToolUse` and `postToolUseFailure`, and
 //! every one fell through the dispatcher's exact PascalCase match and did
-//! nothing, while `omni doctor` reported them installed because the entries were
+//! nothing, while `veng doctor` reported them installed because the entries were
 //! in the file.
 //!
 //! Driven through the binary because the defect had two layers: the dispatcher
@@ -16,9 +16,9 @@ fn run_hook(event: &str, db: &std::path::Path) {
             "tool_name":"Bash","tool_input":{{"command":"x"}},"error":"Exit code 2"}}"#
     );
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_veng"))
         .arg("--hook")
-        .env("OMNI_DB_PATH", db)
+        .env("VENG_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .spawn()
@@ -38,12 +38,12 @@ fn run_hook(event: &str, db: &std::path::Path) {
 /// Counted through the library rather than the `sqlite3` binary, which is not
 /// guaranteed on the CI runners and would make this test a platform check.
 fn summaries(db: &std::path::Path) -> usize {
-    let store = omni::store::sqlite::Store::open_path(db).expect("open db");
+    let store = veng::store::sqlite::Store::open_path(db).expect("open db");
     store.session_summary_count()
 }
 
 fn recorded_sessions(db: &std::path::Path) -> usize {
-    let store = omni::store::sqlite::Store::open_path(db).expect("open db");
+    let store = veng::store::sqlite::Store::open_path(db).expect("open db");
     store.session_count()
 }
 
@@ -58,8 +58,8 @@ fn fresh(name: &str) -> std::path::PathBuf {
 /// firing it per turn refreshes the row rather than accumulating one per turn.
 #[test]
 fn cursor_stop_writes_a_session_summary_like_session_end() {
-    let cursor = fresh("omni_cursor_stop.db");
-    let claude = fresh("omni_claude_sessionend.db");
+    let cursor = fresh("veng_cursor_stop.db");
+    let claude = fresh("veng_claude_sessionend.db");
 
     run_hook("stop", &cursor);
     run_hook("SessionEnd", &claude);
@@ -74,8 +74,8 @@ fn cursor_stop_writes_a_session_summary_like_session_end() {
 
 #[test]
 fn cursor_failure_event_records_the_error_like_the_pascal_case_one() {
-    let cursor = fresh("omni_cursor_fail.db");
-    let claude = fresh("omni_claude_fail.db");
+    let cursor = fresh("veng_cursor_fail.db");
+    let claude = fresh("veng_claude_fail.db");
 
     run_hook("postToolUseFailure", &cursor);
     run_hook("PostToolUseFailure", &claude);

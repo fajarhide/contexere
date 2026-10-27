@@ -32,13 +32,13 @@ impl AgentIntegration for ClineIntegration {
             let mcp_servers = obj.entry("mcpServers").or_insert_with(|| json!({}));
             if let Some(servers) = mcp_servers.as_object_mut() {
                 servers.insert(
-                    "omni".to_string(),
+                    "veng".to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
                         "args": ["--mcp"],
                         "disabled": false,
-                        "env": { "OMNI_AGENT_ID": "cline" }
+                        "env": { "VENG_AGENT_ID": "cline" }
                     }),
                 );
             }
@@ -50,7 +50,7 @@ impl AgentIntegration for ClineIntegration {
         // `TaskComplete` and `TaskCancel`, and none fires per tool call. Those
         // three were never called, so doctor reported them installed while the
         // agent recorded zero rows (#351). An upgrade removes them.
-        remove_omni_hooks(&mut val);
+        remove_veng_hooks(&mut val);
         fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Configured {} in Cline settings (MCP tier: no per-tool hook on this host)",
@@ -73,9 +73,9 @@ impl AgentIntegration for ClineIntegration {
         if let Some(obj) = val.as_object_mut()
             && let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
         {
-            servers.remove("omni");
+            servers.remove("veng");
         }
-        remove_omni_hooks(&mut val);
+        remove_veng_hooks(&mut val);
 
         fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
@@ -114,7 +114,7 @@ impl AgentIntegration for ClineIntegration {
         let content = fs::read_to_string(&settings_path).unwrap_or_default();
 
         // Check MCP
-        if content.contains("\"omni\"") {
+        if content.contains("\"veng\"") {
             crate::agent_report!(
                 "   {:<15} {} {}",
                 "MCP Server:".bright_black(),
@@ -139,7 +139,7 @@ impl AgentIntegration for ClineIntegration {
                     "[WARNING] not configured".yellow().bold()
                 );
                 warnings
-                    .push("Cline MCP server not configured. Run `omni init --cline`.".to_string());
+                    .push("Cline MCP server not configured. Run `veng init --cline`.".to_string());
             }
         }
 
@@ -186,7 +186,7 @@ fn get_cline_path() -> PathBuf {
     }
 }
 
-pub fn remove_omni_hooks(val: &mut Value) {
+pub fn remove_veng_hooks(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(hooks) = obj.get_mut("hooks").and_then(|h| h.as_object_mut())
     {
@@ -196,7 +196,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("omni")
+                                c.contains("veng")
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook")
@@ -225,13 +225,13 @@ mod tests {
         let mut val = json!({
             "mcpServers": {},
             "hooks": {
-                "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/omni --pre-hook" }] }],
-                "PostToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/omni --post-hook" }] }],
+                "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/veng --pre-hook" }] }],
+                "PostToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/veng --post-hook" }] }],
                 "TaskStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "/other/tool.sh" }] }]
             }
         });
 
-        remove_omni_hooks(&mut val);
+        remove_veng_hooks(&mut val);
         let dumped = serde_json::to_string(&val).expect("json");
 
         assert!(

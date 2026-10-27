@@ -2,7 +2,7 @@
 platform darwin -- Python 3.10.0, pytest-7.1.2, pluggy-1.0.0
 collected 3 items
 
-tests/test_omni.py .F.                                                    [100%]
+tests/test_veng.py .F.                                                    [100%]
 
 =================================== FAILURES ===================================
 _________________________________ test_failure _________________________________
@@ -11,7 +11,7 @@ _________________________________ test_failure _________________________________
 >       assert 1 == 2
 E       assert 1 == 2
 
-tests/test_omni.py:5: AssertionError
+tests/test_veng.py:5: AssertionError
 =========================== short test summary info ============================
-FAILED tests/test_omni.py::test_failure - assert 1 == 2
+FAILED tests/test_veng.py::test_failure - assert 1 == 2
 ========================= 1 failed, 2 passed in 0.05s ==========================

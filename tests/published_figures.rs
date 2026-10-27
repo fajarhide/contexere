@@ -62,7 +62,7 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// Surfaces where a figure reads as what OMNI does today.
+/// Surfaces where a figure reads as what VENG does today.
 ///
 /// The benchmarks page is deliberately absent. It is an archive that labels every
 /// run with the corpus it came from, and says so in its own opening: deleting a
@@ -220,8 +220,8 @@ fn the_archive_names_the_current_corpus() {
 fn the_generated_table_was_produced_from_the_current_corpus() {
     region_matches_its_artifact(
         &artifact(),
-        "<!-- omni:corpus-table:start -->",
-        "<!-- omni:corpus-table:end -->",
+        "<!-- veng:corpus-table:start -->",
+        "<!-- veng:corpus-table:end -->",
     );
 }
 
@@ -235,8 +235,8 @@ fn the_swebench_table_was_produced_from_its_own_artifact() {
     };
     region_matches_its_artifact(
         &data,
-        "<!-- omni:swebench-table:start -->",
-        "<!-- omni:swebench-table:end -->",
+        "<!-- veng:swebench-table:start -->",
+        "<!-- veng:swebench-table:end -->",
     );
 }
 
@@ -350,7 +350,7 @@ fn the_benchmarks_headline_states_the_current_artifact() {
     // the nearest paragraph instead picks whichever note was added last, and the
     // whole page matches a retired sentence from a section two runs old.
     let above = page
-        .split_once("<!-- omni:corpus-table:start -->")
+        .split_once("<!-- veng:corpus-table:start -->")
         .expect("benchmarks.md carries the generated region")
         .0;
     let headline = above

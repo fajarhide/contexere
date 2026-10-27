@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 80 1000 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="where-omni-sits-title where-omni-sits-desc">
-      <title id="where-omni-sits-title">Where OMNI sits</title>
-      <desc id="where-omni-sits-desc">OMNI runs as two hooks around an agent's tool call: a pre-hook rewrites matched commands, and a post-hook distills the command's output before the agent reads it, archiving what it removes to a local SQLite database that omni retrieve reads back.</desc>
+<svg viewBox="0 80 1000 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="where-veng-sits-title where-veng-sits-desc">
+      <title id="where-veng-sits-title">Where VENG sits</title>
+      <desc id="where-veng-sits-desc">VENG runs as two hooks around an agent's tool call: a pre-hook rewrites matched commands, and a post-hook distills the command's output before the agent reads it, archiving what it removes to a local SQLite database that veng retrieve reads back.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#56585A"/></marker>
         <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#7A4E00"/></marker>
@@ -41,12 +41,12 @@
       <rect x="600" y="382" width="76" height="12" rx="2" fill="#E3E4E0"/>
       <text x="638" y="391" fill="#56585A" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SEEN BEFORE?</text>
 
-      <!-- 7. db → omni retrieve -->
+      <!-- 7. db → veng retrieve -->
       <line x1="440" y1="456" x2="224" y2="456" stroke="#56585A" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
       <rect x="292" y="428" width="64" height="12" rx="2" fill="#E3E4E0"/>
       <text x="324" y="437" fill="#56585A" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">ON DEMAND</text>
 
-      <!-- 8. omni retrieve → agent -->
+      <!-- 8. veng retrieve → agent -->
       <line x1="132" y1="424" x2="132" y2="368" stroke="#56585A" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
 
       <!-- ── nodes ───────────────────────────────────────────────────────── -->
@@ -66,7 +66,7 @@
       <rect x="312" y="120" width="32" height="12" rx="2" fill="transparent" stroke="rgba(22,22,26,0.40)" stroke-width="0.8"/>
       <text x="328" y="129" fill="#16161A" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOOK</text>
       <text x="396" y="154" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">PreToolUse</text>
-      <text x="396" y="171" fill="#56585A" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">omni --pre-hook</text>
+      <text x="396" y="171" fill="#56585A" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">veng --pre-hook</text>
 
       <!-- the command -->
       <rect x="576" y="112" width="184" height="72" rx="6" fill="#E3E4E0"/>
@@ -89,13 +89,13 @@
       <rect x="440" y="424" width="184" height="64" rx="6" fill="rgba(22,22,26,0.05)" stroke="#56585A" stroke-width="1"/>
       <rect x="448" y="432" width="32" height="12" rx="2" fill="transparent" stroke="rgba(86,88,90,0.40)" stroke-width="0.8"/>
       <text x="464" y="441" fill="#56585A" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DISK</text>
-      <text x="532" y="462" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">omni.db</text>
+      <text x="532" y="462" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">veng.db</text>
       <text x="532" y="478" fill="#56585A" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">never leaves the machine</text>
 
       <!-- the recovery door -->
       <rect x="48" y="424" width="168" height="64" rx="6" fill="#E3E4E0"/>
       <rect x="48" y="424" width="168" height="64" rx="6" fill="rgba(22,22,26,0.02)" stroke="rgba(22,22,26,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
-      <text x="132" y="454" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">omni retrieve</text>
+      <text x="132" y="454" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">veng retrieve</text>
       <text x="132" y="472" fill="#56585A" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">the original bytes</text>
 
       <!-- ── legend ──────────────────────────────────────────────────────── -->
@@ -106,7 +106,7 @@
       <text x="152" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">where the work happens</text>
 
       <rect x="316" y="546" width="16" height="12" rx="2" fill="#ffffff" stroke="#16161A" stroke-width="1"/>
-      <text x="340" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">OMNI</text>
+      <text x="340" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">VENG</text>
 
       <rect x="412" y="546" width="16" height="12" rx="2" fill="rgba(22,22,26,0.03)" stroke="rgba(22,22,26,0.30)" stroke-width="1"/>
       <text x="436" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">not ours</text>

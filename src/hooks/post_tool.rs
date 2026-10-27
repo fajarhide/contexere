@@ -21,7 +21,7 @@ struct HookSpecificOutput {
     /// This was `updatedResponse` from the first day of the Rust rewrite until
     /// #158, a key Claude Code does not recognise. Unknown keys are dropped
     /// silently, so the agent received the raw output for the whole life of the
-    /// hook while OMNI recorded `Route::Keep` and printed a savings footer for
+    /// hook while VENG recorded `Route::Keep` and printed a savings footer for
     /// each one. The sibling `additionalContext` *was* spelled correctly, which
     /// is why the footer appeared and made the failure look like success.
     ///
@@ -163,7 +163,7 @@ fn shape_for_host_from(
 /// decides whether the marker is affordable, because only the caller knows what
 /// it will hand back if it is not.
 /// `kept_lines` and `kept_bytes` describe what the *distiller* produced, not what
-/// is about to be sent. The two differ once OMNI appends its own commentary, and
+/// is about to be sent. The two differ once VENG appends its own commentary, and
 /// counting a banner as surviving content understated the loss by exactly the
 /// number of banner lines: 10 dropped rows reported as `9 lines omitted` (#301).
 /// They are numbers rather than a `&str` so the caller cannot pass the wrong
@@ -237,7 +237,7 @@ fn rewind_marker_text(content: &str, kept_lines: usize, kept_bytes: usize, hash:
 
     if content.len() > crate::guard::limits::MAX_REWIND_BYTES {
         return format!(
-            "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+            "\n[VENG: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
             content.len(),
             crate::guard::limits::MAX_REWIND_BYTES
         );
@@ -245,12 +245,12 @@ fn rewind_marker_text(content: &str, kept_lines: usize, kept_bytes: usize, hash:
     // A failed write reads the same as no store at all, because what the reader
     // can do about it is the same: the bytes are gone and there is no handle.
     // The old code took the key `store_rewind` returned on every path, including
-    // a swallowed insert, and printed `omni_retrieve("<key>")` for a row that was
+    // a swallowed insert, and printed `veng_retrieve("<key>")` for a row that was
     // never written (#388).
     if hash.is_empty() {
-        format!("\n[OMNI: {lost} omitted, full output not archived]\n")
+        format!("\n[VENG: {lost} omitted, full output not archived]\n")
     } else {
-        format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
+        format!("\n[VENG: {lost} omitted, veng retrieve {hash} for full output]\n")
     }
 }
 
@@ -278,11 +278,11 @@ fn archive_tool_reply(
 
 /// Whether this command exists to hand archived bytes back verbatim.
 ///
-/// `omni retrieve` is the escape hatch every marker names, and its output was
+/// `veng retrieve` is the escape hatch every marker names, and its output was
 /// being distilled like any other Bash stdout: the recovered content came back
 /// as a fresh marker with a fresh handle, so following the instruction produced
 /// another instruction and the original was unreachable past the first hop
-/// (#456). `omni diff` shows an original beside its distilled form, which is the
+/// (#456). `veng diff` shows an original beside its distilled form, which is the
 /// same promise.
 ///
 /// Matched on the token after the program rather than by substring, so a `grep
@@ -291,10 +291,10 @@ pub(crate) fn returns_archived_bytes(command: &str) -> bool {
     let mut tokens = command.split_whitespace().peekable();
     while let Some(token) = tokens.next() {
         let program = token.rsplit(['/', '\\']).next().unwrap_or(token);
-        if program != "omni" && program != "omni.exe" {
+        if program != "veng" && program != "veng.exe" {
             continue;
         }
-        // Skip the global flags `omni` accepts before a subcommand.
+        // Skip the global flags `veng` accepts before a subcommand.
         let sub = tokens.clone().find(|t| !t.starts_with('-'));
         if matches!(sub, Some("retrieve") | Some("diff")) {
             return true;
@@ -303,7 +303,7 @@ pub(crate) fn returns_archived_bytes(command: &str) -> bool {
     false
 }
 
-/// Whether this payload is one OMNI must not touch, and the recording of why.
+/// Whether this payload is one VENG must not touch, and the recording of why.
 ///
 /// Six gates, each of which used to sit inline at the top of `process_payload`.
 /// They are here rather than there because they answer a different question from
@@ -318,7 +318,7 @@ pub(crate) fn returns_archived_bytes(command: &str) -> bool {
 enum Declined {
     /// The host holds the same bytes normalize flattened. The turn is that much
     /// heavier and nothing here said so, which is why 550 declines over 23 days
-    /// were missing from `omni context --tokens` on this machine.
+    /// were missing from `veng context --tokens` on this machine.
     KeepsTheseBytes,
     /// Claude Code above its inline cap. It writes the raw output to a file and
     /// keeps a preview, so what reaches the context is neither these bytes nor
@@ -468,7 +468,7 @@ fn trim_enormous(content: &str) -> std::borrow::Cow<'_, str> {
     let head = lines[..HEAD_LINES].join("\n");
     let tail = lines[lines.len() - TAIL_LINES..].join("\n");
     Cow::Owned(format!(
-        "{head}\n\n... [OMNI: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
+        "{head}\n\n... [VENG: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
         lines.len() - (HEAD_LINES + TAIL_LINES)
     ))
 }
@@ -668,7 +668,7 @@ fn distil_tool_reply(
             }
             let lines: Vec<&str> = content.lines().collect();
             let summary = format!(
-                "[OMNI MultiEdit: {} lines]\n{}",
+                "[VENG MultiEdit: {} lines]\n{}",
                 lines.len(),
                 lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
             );
@@ -687,7 +687,7 @@ fn distil_tool_reply(
             if content.len() > 2000 {
                 let lines: Vec<&str> = content.lines().collect();
                 let summary = format!(
-                    "[OMNI {}: {} lines]\n{}",
+                    "[VENG {}: {} lines]\n{}",
                     normalized.tool_name,
                     lines.len(),
                     lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
@@ -721,7 +721,7 @@ pub fn process_payload(
         // block reached the model as printed (#866). The reader on this path is
         // the model, not a parser, so the value is replaced where it stands and
         // the marker goes to the context message rather than into the document.
-        // `omni exec` and pipe mode do not come through here and stay verbatim.
+        // `veng exec` and pipe mode do not come through here and stay verbatim.
         if matches!(decline, Declined::Structured)
             && let Some((body, count)) =
                 crate::distillers::system_ops::redact_in_place(&normalized.content)
@@ -738,7 +738,7 @@ pub fn process_payload(
                     hook_event_name: "PostToolUse",
                     updated_tool_output: shape_for_host(normalized.raw_response.as_ref(), body),
                     additional_context: Some(format!(
-                        "[OMNI: {count} sensitive value(s) redacted in place]"
+                        "[VENG: {count} sensitive value(s) redacted in place]"
                     )),
                 },
             })
@@ -774,9 +774,9 @@ pub fn process_payload(
         return None;
     }
 
-    // Output OMNI already produced is not distilled a second time.
+    // Output VENG already produced is not distilled a second time.
     //
-    // When the pre-hook rewrites a command into `omni exec`, that child distills
+    // When the pre-hook rewrites a command into `veng exec`, that child distills
     // the output itself; the host's PostToolUse then fires with the distilled
     // text. Both paths inserted into `distillations`, so one rewritten command
     // was recorded twice: a real row, plus a Passthrough of the summary. Agent
@@ -826,7 +826,7 @@ pub fn process_payload(
         // repeated lines into `[N similar lines collapsed]` markers, and a
         // distiller that parses columns reads those markers as data, a 35-pod
         // table came out as `k8s: 2 pods | [5 (lines)`, built entirely from
-        // OMNI's own scaffolding. A distiller is a later stage that parses its
+        // VENG's own scaffolding. A distiller is a later stage that parses its
         // input, exactly what `format::sniff` already protects structured
         // payloads from; so the distiller sees raw content, and collapse is the
         // fallback only for commands no distiller handles (below).
@@ -876,7 +876,7 @@ pub fn process_payload(
         };
 
         // Label the row with the program that produced the output, not with
-        // whatever token came first. `OMNI_DB_PATH=/tmp/d.db sqlite3 …` wrote the
+        // whatever token came first. `VENG_DB_PATH=/tmp/d.db sqlite3 …` wrote the
         // assignment and its value into this column: 1,079 rows and 264 distinct
         // values in one database, which made every aggregate keyed on it useless
         // and hid the routing defect this change fixes (#339).
@@ -884,7 +884,7 @@ pub fn process_payload(
         (
             output,
             if producer.is_empty() {
-                "omni".to_string()
+                "veng".to_string()
             } else {
                 producer.to_string()
             },
@@ -1077,7 +1077,7 @@ pub fn process_payload(
     // a secret's value with `[REDACTED]`, which can make the output *longer* than
     // the input (`hunter2` is shorter than the marker), and handing the raw bytes
     // back under "nothing worth a deletion" would put the password on screen. The
-    // guardrail exists to stop OMNI deleting an answer, not to stop it hiding a
+    // guardrail exists to stop VENG deleting an answer, not to stop it hiding a
     // credential (#342).
     let redacted_here = holds_a_secret;
 
@@ -1095,7 +1095,7 @@ pub fn process_payload(
         }
 
         // Take the route the banner names. Prefixing `Passthrough` onto
-        // `final_out` announced "OMNI changed nothing" over bytes a distiller
+        // `final_out` announced "VENG changed nothing" over bytes a distiller
         // had already deleted lines from: four data rows of a markdown table
         // went, the header and separator stayed, so the table read as present
         // and empty, and the banner told the agent not to re-run (#229). Under
@@ -1235,9 +1235,9 @@ pub fn process_payload(
     if let Some(ref s) = store {
         // The host's id wins when it sent one. `SessionState::session_id` is a
         // wall-clock stamp on a globally persisted state, so it groups by
-        // "whenever OMNI last started" rather than by session: one such id
+        // "whenever VENG last started" rather than by session: one such id
         // covered 16 project paths and 3,739 commands, which is what makes the
-        // banner and every per-session slice of `omni stats` wrong (#118).
+        // banner and every per-session slice of `veng stats` wrong (#118).
         // Fall back to it rather than dropping the row, pipe mode and hosts
         // that send no id still have to be recorded.
         let session_id = normalized
@@ -1278,7 +1278,7 @@ pub fn process_payload(
                 state.loop_context.budget_used += result.filtered_tokens as u64;
 
                 // `context_turns` had no reader and is gone (#270); the in-memory
-                // `current_turn` below is what `omni stats` and the MCP breakdown read.
+                // `current_turn` below is what `veng stats` and the MCP breakdown read.
             }
 
             let tracker = crate::session::tracker::SessionTracker::new(sess.clone(), s.clone());
@@ -1286,7 +1286,7 @@ pub fn process_payload(
             tracker.track_command(&command, &content, &result, true);
 
             // ── Implicit Engram Auto-Capture ────────────────
-            // Zero-config: OMNI silently persists milestone memories.
+            // Zero-config: VENG silently persists milestone memories.
             // No user action required, fires automatically on key events.
             if let Ok(state) = sess.lock() {
                 let had_errors = state.active_errors.len() > 1; // proxy: had errors before this call
@@ -1366,7 +1366,7 @@ pub fn process_payload(
 
     // A passthrough hands back exactly what the command produced, so there is
     // nothing to replace. Emitting those identical bytes with a marker on top
-    // made every no-op *cost* tokens to announce that OMNI had changed nothing:
+    // made every no-op *cost* tokens to announce that VENG had changed nothing:
     // 33,762 across the reporting database and 604 in a single day, at a modal
     // 10 tokens a call (#118 item 5). Emitting nothing leaves the host's own
     // bytes in place at zero marker cost, which is what the format-sniff,
@@ -1453,7 +1453,7 @@ fn build_additional_context(
                 && s.context_pressure != crate::pipeline::ContextPressure::Critical
             {
                 predicted_warn = Some(format!(
-                    "OMNI Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
+                    "VENG Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
                     s.token_consumption_rate.avg_tokens_per_command, commands_left
                 ));
             }
@@ -1479,7 +1479,7 @@ fn build_additional_context(
             && s.loop_context.budget_used > (budget as f64 * 0.8) as u64
         {
             let budget_warn = format!(
-                "OMNI Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
+                "VENG Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
                 s.loop_context.budget_used, budget
             );
             if let Some(pm) = pressure_msg.as_mut() {
@@ -1513,7 +1513,7 @@ fn build_additional_context(
         let pinned_content = crate::hooks::session_start::read_pinned_files(&cwd);
         if !pinned_content.is_empty() {
             msgs.push(format!(
-                "[OMNI: Re-injecting critical files due to {} pressure]\n{}",
+                "[VENG: Re-injecting critical files due to {} pressure]\n{}",
                 s.context_pressure, pinned_content
             ));
             s.pinned_reinject_at = s.command_count;
@@ -1537,7 +1537,7 @@ fn build_additional_context(
     // quieter.
     if saved_bytes_this_call >= 1800 {
         msgs.push(format!(
-            "[OMNI: -{} this call | -{} session | {savings:.0}% compression]",
+            "[VENG: -{} this call | -{} session | {savings:.0}% compression]",
             crate::cli::stats::format_bytes(saved_bytes_this_call as u64),
             crate::cli::stats::format_bytes(session_bytes_total),
             savings = result.savings_pct()
@@ -1545,7 +1545,7 @@ fn build_additional_context(
     } else if command_count > 0 && command_count.is_multiple_of(10) && session_bytes_total >= 3600 {
         // F-10: Inject milestone summary every 10 commands if total savings significant
         msgs.push(format!(
-            "[OMNI session milestone: -{} saved across {command_count} commands]",
+            "[VENG session milestone: -{} saved across {command_count} commands]",
             crate::cli::stats::format_bytes(session_bytes_total)
         ));
     }
@@ -1557,7 +1557,7 @@ fn build_additional_context(
     }
 }
 
-/// True when this text is a summary OMNI wrote, rather than a tool's own output.
+/// True when this text is a summary VENG wrote, rather than a tool's own output.
 ///
 /// Every distilled block carries a bracketed marker line, which is the only
 /// signal available: by the time the post-hook sees it the text is just a
@@ -1565,7 +1565,7 @@ fn build_additional_context(
 fn carries_our_marker(content: &str) -> bool {
     content.lines().any(|l| {
         let l = l.trim_start();
-        l.starts_with("[OMNI:") || l.starts_with("[OMNI ")
+        l.starts_with("[VENG:") || l.starts_with("[VENG ")
     })
 }
 
@@ -1603,7 +1603,7 @@ fn process_web_content(content: &str) -> Option<String> {
         .copied()
         .collect();
     let summary = format!(
-        "[OMNI WebFetch: {} lines → {} relevant]\n{}{}",
+        "[VENG WebFetch: {} lines → {} relevant]\n{}{}",
         line_count,
         total_clean,
         meaningful.join("\n"),
@@ -1636,7 +1636,7 @@ fn strip_html_simple(html: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    /// #456. The marker tells the agent to run `omni retrieve <handle>`, and that
+    /// #456. The marker tells the agent to run `veng retrieve <handle>`, and that
     /// command's own stdout was going back through this pipeline: the recovered
     /// content came back as a fresh marker with a fresh handle, so following the
     /// instruction produced another instruction and the original was unreachable
@@ -1644,10 +1644,10 @@ mod tests {
     #[test]
     fn never_distils_the_command_that_undoes_distillation() {
         for cmd in [
-            "omni retrieve 0000000000000000",
-            "/opt/homebrew/bin/omni retrieve 0000000000000000",
-            "cd /tmp && omni retrieve 0000000000000000",
-            "omni diff",
+            "veng retrieve 0000000000000000",
+            "/opt/homebrew/bin/veng retrieve 0000000000000000",
+            "cd /tmp && veng retrieve 0000000000000000",
+            "veng diff",
         ] {
             assert!(returns_archived_bytes(cmd), "{cmd} must pass through");
         }
@@ -1661,8 +1661,8 @@ mod tests {
             "grep retrieve src/",
             "cat retrieve.md",
             "./scripts/retrieve --all",
-            "omni stats",
-            "omnictl retrieve thing",
+            "veng stats",
+            "vengctl retrieve thing",
         ] {
             assert!(!returns_archived_bytes(cmd), "{cmd} is not ours");
         }
@@ -1673,7 +1673,7 @@ mod tests {
     #[test]
     fn hands_a_retrieval_back_untouched() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let repetitive = (0..200)
             .map(|i| format!("2026-08-11T00:00:00Z  handler finished request {i} in 12ms\n"))
             .collect::<String>();
@@ -1696,7 +1696,7 @@ mod tests {
         );
 
         let retrieval = process_payload(
-            &payload("omni retrieve 0000000000000000"),
+            &payload("veng retrieve 0000000000000000"),
             Some(store.clone()),
             None,
         );
@@ -1716,7 +1716,7 @@ mod tests {
     #[test]
     fn a_fold_does_not_make_the_signal_partial() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let lines: Vec<String> = (0..40)
             .map(|i| {
                 format!(
@@ -1771,7 +1771,7 @@ mod tests {
     #[test]
     fn a_folded_reply_carries_no_second_accounting_of_itself() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let body: String = (0..40)
             .map(|i| {
                 format!(
@@ -1818,7 +1818,7 @@ mod tests {
     #[test]
     fn every_byte_is_in_the_reply_or_behind_a_handle_it_names() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let body: String = (0..40)
             .map(|i| {
                 format!(
@@ -1846,7 +1846,7 @@ mod tests {
         // Split rather than sliced: the handle is the leading hex run of what
         // follows the phrase every marker names it with.
         let mut reachable = String::new();
-        for part in second.split("omni retrieve ").skip(1) {
+        for part in second.split("veng retrieve ").skip(1) {
             let handle: String = part.chars().take_while(char::is_ascii_hexdigit).collect();
             if let Some(text) = store.retrieve_rewind(&handle) {
                 reachable.push_str(&text);
@@ -1874,7 +1874,7 @@ mod tests {
         let session = Arc::new(Mutex::new(SessionState::new()));
         let reply = |stdout: &str| {
             let dir = tempfile::tempdir().expect("tempdir");
-            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
             let payload = serde_json::json!({
                 "session_id": "s-866",
                 "tool_name": "Bash",
@@ -1959,7 +1959,7 @@ Ran 6 tests across 1 file. [4.00ms]
             ),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
-            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
             let payload = serde_json::json!({
                 "session_id": "s-875",
                 "tool_name": "Bash",
@@ -2023,7 +2023,7 @@ Ran 6 tests across 1 file. [4.00ms]
             ("sqlite3 app.db 'select status from jobs'", status),
         ] {
             let dir = tempfile::tempdir().expect("tempdir");
-            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
             let payload = serde_json::json!({
                 "session_id": "s-886",
                 "tool_name": "Bash",
@@ -2047,7 +2047,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn a_declined_payload_records_the_agent_the_hook_resolved() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let body: String = format!(
             "[{}]",
             (0..40)
@@ -2091,7 +2091,7 @@ Ran 6 tests across 1 file. [4.00ms]
         // holds is the weaker property that a decline is filed under the host the
         // hook resolved rather than a constant.
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let codex = serde_json::json!({
             "action": "run",
             "command": "kubectl get pods -o json",
@@ -2124,7 +2124,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn a_re_run_comes_back_as_one_marker_with_one_handle() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let body = (0..60)
             .map(|i| format!("  {:3}  /alpha/item-{i:02}\n", 100 - i))
             .collect::<String>();
@@ -2140,11 +2140,11 @@ Ran 6 tests across 1 file. [4.00ms]
         let second =
             process_payload(&payload, Some(store.clone()), None).expect("the repeat is rewritten");
 
-        let markers = second.matches("[OMNI:").count();
+        let markers = second.matches("[VENG:").count();
         assert_eq!(markers, 1, "expected one marker, got {markers}: {second}");
 
         let handles: std::collections::HashSet<&str> = second
-            .split("omni retrieve ")
+            .split("veng retrieve ")
             .skip(1)
             .filter_map(|t| t.split([']', ' ']).next())
             .collect();
@@ -2165,7 +2165,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn files_a_ledger_line_under_the_same_agent_as_its_distillation() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
         let repetitive = (0..200)
             .map(|i| format!("2026-08-11T00:00:00Z  handler finished request {i} in 12ms\n"))
@@ -2202,7 +2202,7 @@ Ran 6 tests across 1 file. [4.00ms]
     }
 
     /// #534, at the level the promise is made. The manual says
-    /// `OMNI_PASSTHROUGH=1 <cmd>` gives raw output every time. The hook is a
+    /// `VENG_PASSTHROUGH=1 <cmd>` gives raw output every time. The hook is a
     /// process the host spawned, so it inherits the host's environment and never
     /// sees that assignment as a variable; the only place it exists is the
     /// command string. A predicate test cannot show this, because the predicate
@@ -2210,7 +2210,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn the_prefix_the_manual_documents_reaches_the_hook() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let noisy: String = (0..200)
             .map(|i| format!("# comment line {i} explaining a step in the script\n"))
             .collect();
@@ -2235,7 +2235,7 @@ Ran 6 tests across 1 file. [4.00ms]
         );
         assert_eq!(
             process_payload(
-                &payload("OMNI_PASSTHROUGH=1 cat synth.sh"),
+                &payload("VENG_PASSTHROUGH=1 cat synth.sh"),
                 Some(store.clone()),
                 None
             ),
@@ -2244,19 +2244,19 @@ Ran 6 tests across 1 file. [4.00ms]
         );
     }
 
-    /// #379: a rewritten command was recorded twice. `omni exec` distills the
+    /// #379: a rewritten command was recorded twice. `veng exec` distills the
     /// output, then the host's PostToolUse fires with that summary and the
     /// post-hook distilled it again, inserting a second Passthrough row. Agent
     /// Distribution counted double and the extra zero-saving row pulled the
     /// percentage down.
     #[test]
-    fn recognises_a_summary_omni_wrote() {
+    fn recognises_a_summary_veng_wrote() {
         // Both shapes, because a warm session can hold markers written before
         // 0.7.1 changed the wording and after. The comment here used to claim the
-        // first was "exactly the shape omni exec emits", which stopped being true
+        // first was "exactly the shape veng exec emits", which stopped being true
         // the moment the marker named the CLI instead of the MCP tool.
-        let legacy = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]";
-        let current = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni retrieve abc123 for full output]";
+        let legacy = "test result: ok. 600 passed; 0 failed;\n[VENG: 600 lines omitted, veng_retrieve(\"abc123\") for full output]";
+        let current = "test result: ok. 600 passed; 0 failed;\n[VENG: 600 lines omitted, veng retrieve abc123 for full output]";
 
         assert!(
             carries_our_marker(legacy),
@@ -2269,7 +2269,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// stops distilling anything on hosts that never rewrite the command.
     #[test]
     fn leaves_a_tools_own_output_alone() {
-        let theirs = "test result: ok. 600 passed; 0 failed;\nwarning: unused variable `x`\nnote: OMNI is mentioned here but not as a marker";
+        let theirs = "test result: ok. 600 passed; 0 failed;\nwarning: unused variable `x`\nnote: VENG is mentioned here but not as a marker";
 
         assert!(!carries_our_marker(theirs), "false positive on real output");
     }
@@ -2328,7 +2328,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn a_grep_tool_reply_is_not_folded_in_part() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // One path per line, and no comma anywhere: a shared prefix is hoisted by
         // `distill_grep` so the recorded bytes stop matching, and one comma per
         // line reads as CSV to `format::sniff`, which refuses the ledger
@@ -2465,7 +2465,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
     /// #688. The sibling of the test below, on the far side of the boundary.
     ///
-    /// That one proves OMNI *writes* `updatedToolOutput`. It cannot prove anyone
+    /// That one proves VENG *writes* `updatedToolOutput`. It cannot prove anyone
     /// *reads* it, and `plugins/pi/index.ts` read `updatedResponse` for the whole
     /// life of the plugin: the hook ran, the subprocess was spawned, the work was
     /// done, and the result was dropped on the floor because the key it looked for
@@ -2473,7 +2473,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// tests do not compile.
     ///
     /// So this scans the plugin sources themselves. Any plugin that spawns
-    /// `--post-hook` is a consumer of that contract and has to name the key OMNI
+    /// `--post-hook` is a consumer of that contract and has to name the key VENG
     /// actually emits. Cheap, and it covers a plugin written in any language,
     /// which matters because the three that exist are TypeScript and Python.
     #[test]
@@ -2540,13 +2540,13 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(
             offenders.is_empty(),
             "these plugins spawn `--post-hook` and never read `updatedToolOutput`, \
-             so whatever OMNI returns is discarded (#688): {offenders:?}"
+             so whatever VENG returns is discarded (#688): {offenders:?}"
         );
     }
 
     /// #158. The host replaces what the model sees only when it finds
     /// `updatedToolOutput`; any other key is dropped without a word, and the
-    /// agent silently keeps the raw output while OMNI records the saving.
+    /// agent silently keeps the raw output while VENG records the saving.
     ///
     /// This asserts on the **serialized bytes** on purpose. A test that builds
     /// `HookSpecificOutput` and reads `.updated_tool_output` back passes with
@@ -2565,7 +2565,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
     /// #229: `Passthrough` names a route, and the route is what the caller acts
     /// on. The banner was prefixed onto the *distilled* string, so it announced
-    /// "OMNI changed nothing" over bytes that had already lost lines, four data
+    /// "VENG changed nothing" over bytes that had already lost lines, four data
     /// rows of a markdown table, with the header and separator left standing so
     /// the table read as present and empty. An agent that trusts the label does
     /// not re-run the command.
@@ -2577,7 +2577,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// Since #118 item 5 there is no banner. A passthrough declines, the host
     /// keeps its own bytes, and the guarantee is stronger than it was, the
     /// agent cannot receive altered bytes under a "changed nothing" label
-    /// because it receives nothing from OMNI at all. The recorded
+    /// because it receives nothing from VENG at all. The recorded
     /// `passthrough_events` row is what proves this input really reached that
     /// branch rather than an earlier return.
     #[test]
@@ -2601,7 +2601,7 @@ Ran 6 tests across 1 file. [4.00ms]
         .to_string();
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
 
         let out = process_payload(&payload, Some(store), None);
@@ -2625,12 +2625,12 @@ Ran 6 tests across 1 file. [4.00ms]
 
     /// #301: the marker states how many lines are missing, and an agent uses
     /// that number to decide whether fetching the rewind is worth it. It was
-    /// computed against a `final_out` that already carried OMNI's own
+    /// computed against a `final_out` that already carried VENG's own
     /// `[Partial signal]` banner, so every banner line counted as content that
     /// survived and the loss was understated by exactly that many. Reported as
     /// `9 lines omitted` for 10 dropped rows.
     #[test]
-    fn the_omitted_count_ignores_omnis_own_banner() {
+    fn the_omitted_count_ignores_vengs_own_banner() {
         let rows: Vec<String> = (0..20)
             .map(|i| format!("context-{i:02}-cluster-name"))
             .collect();
@@ -2650,18 +2650,18 @@ Ran 6 tests across 1 file. [4.00ms]
 
         let marker = stdout
             .lines()
-            .find(|l| l.starts_with("[OMNI:"))
+            .find(|l| l.starts_with("[VENG:"))
             .expect("a lossy reply carries a marker");
         assert!(
             stdout.contains("[Partial signal"),
             "fixture must reach the banner path or it does not guard this: {stdout}"
         );
 
-        // Everything that is not OMNI's own commentary is content that survived.
+        // Everything that is not VENG's own commentary is content that survived.
         let survived = stdout
             .lines()
             .filter(|l| {
-                !l.trim().is_empty() && !l.starts_with("[OMNI:") && !l.starts_with("[Partial")
+                !l.trim().is_empty() && !l.starts_with("[VENG:") && !l.starts_with("[Partial")
             })
             .count();
         let claimed: usize = marker
@@ -2727,7 +2727,7 @@ Ran 6 tests across 1 file. [4.00ms]
         // matching the same command that then fails `beats_guardrail` makes the
         // hook fall through to the distiller, which is exactly what #110 asked
         // for. On CI that fall-through fired for real, and the diagnostic said
-        // why: seven `learned_*` filters written into `$HOME/.omni` **by the
+        // why: seven `learned_*` filters written into `$HOME/.veng` **by the
         // suite itself** matched `black --check .` first and stripped nothing
         // (667 B in, 667 B out). Filed as its own defect; a test run must not
         // write to the user's config.
@@ -2914,7 +2914,7 @@ Ran 6 tests across 1 file. [4.00ms]
             .to_string();
 
             let dir = tempfile::tempdir().expect("tempdir");
-            let db = dir.path().join("omni.db");
+            let db = dir.path().join("veng.db");
             let store = Arc::new(Store::open_path(&db).expect("store"));
             process_payload(&payload, Some(store), None);
 
@@ -2940,7 +2940,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// #589. The banner's bar was expressed in the same estimated unit as the
     /// figure it gates, so moving the figure to bytes without moving the bar
     /// would have fired it on a saving 3.6 times smaller, quietly tripling how
-    /// often OMNI writes into the agent's context. Nothing guarded that, which
+    /// often VENG writes into the agent's context. Nothing guarded that, which
     /// is why a saving in the gap between the old number and the new one is
     /// asserted silent here.
     #[test]
@@ -2977,7 +2977,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// estimates is not the same comparison as subtracting the bytes, and it is
     /// right. What makes it acceptable is the direction rather than the size: a
     /// saving in the window fired the old bar and is silent now, never the
-    /// reverse, so the conversion cannot make OMNI write into the agent's
+    /// reverse, so the conversion cannot make VENG write into the agent's
     /// context more often than it used to.
     #[test]
     fn the_converted_bar_is_never_noisier_than_the_one_it_replaced() {
@@ -3121,7 +3121,7 @@ Ran 6 tests across 1 file. [4.00ms]
     fn files_a_distillation_under_the_host_session_id() {
         // Arrange
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
         let payload = json!({
             "session_id": "4ba52c00-c43f-46ed-9e0e-9069d5294302",
@@ -3138,7 +3138,7 @@ Ran 6 tests across 1 file. [4.00ms]
         assert_eq!(
             recorded_session_ids(&db),
             vec!["4ba52c00-c43f-46ed-9e0e-9069d5294302".to_string()],
-            "the row was filed under OMNI's own id, not the host's"
+            "the row was filed under VENG's own id, not the host's"
         );
     }
 
@@ -3148,7 +3148,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn falls_back_to_a_local_id_when_the_host_sends_none() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
         let payload = json!({
             "tool_name": "Bash",
@@ -3518,7 +3518,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         .to_string();
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
 
         let reply = process_payload(&payload, Some(store), None);
@@ -3585,7 +3585,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         })
         .to_string();
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
 
         // Act
@@ -3607,7 +3607,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "the recorded row must name the archive it belongs to"
         );
         assert!(
-            out.contains("omni retrieve "),
+            out.contains("veng retrieve "),
             "the agent cannot call what it was not told: {out}"
         );
     }
@@ -3635,7 +3635,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         })
         .to_string();
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
 
         // Act
@@ -3669,7 +3669,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         })
         .to_string();
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
         store
             .pool
@@ -3683,7 +3683,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         // Assert
         assert!(
-            !out.contains("omni_retrieve("),
+            !out.contains("veng_retrieve("),
             "a handle was promised for content that was never archived: {out}"
         );
         assert!(
@@ -3694,7 +3694,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
     /// A passthrough declines, so the host keeps its own bytes and nothing was
     /// lost. An archive written on the way to that decision would sit in
-    /// `rewind_store` naming content the agent still holds, and `omni stats`
+    /// `rewind_store` naming content the agent still holds, and `veng stats`
     /// would count a rewind that never applied.
     ///
     /// Same fixture as `passthrough_leaves_the_agent_holding_the_original_bytes`,
@@ -3719,7 +3719,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         })
         .to_string();
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
 
         // Act
@@ -3801,7 +3801,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             })
             .to_string();
             let dir = tempfile::tempdir().expect("tempdir");
-            let db = dir.path().join("omni.db");
+            let db = dir.path().join("veng.db");
             let store = Arc::new(Store::open_path(&db).expect("store"));
 
             let Some(out) = process_payload(&payload, Some(store), None) else {
@@ -3835,11 +3835,11 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// the fix that was supposed to end it.
     ///
     /// The assertion that matters is the negative one. `status`/`result` is a
-    /// well-formed object that serialises cleanly and that OMNI's own tests were
+    /// well-formed object that serialises cleanly and that VENG's own tests were
     /// happy with; the only thing wrong with it is that **Claude Code's Bash
     /// schema rejects it**. So this test is written from the host's schema
     /// (`stdout: string`, `stderr: string`, `interrupted: boolean`) and not from
-    /// OMNI's struct, asserting on the same field names we serialised is what
+    /// VENG's struct, asserting on the same field names we serialised is what
     /// let both halves of this bug through.
     #[test]
     fn replies_in_the_hosts_bash_result_shape() {
@@ -3991,7 +3991,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
     /// #610. Prompt caching is prefix-matched, so a tool that rewrites anything
     /// already in the conversation invalidates every token after the edit. That
-    /// is the standing objection to this whole category of tool, and OMNI's
+    /// is the standing objection to this whole category of tool, and VENG's
     /// answer is structural rather than careful: it can only address the tool
     /// call it was handed.
     ///
@@ -4041,7 +4041,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
                 "`{key}` is not one of the three keys that address the current \
                  call. If it edits anything already in the conversation it \
                  invalidates the prompt cache from that point on, which is the \
-                 failure OMNI exists to avoid (#610): {v}"
+                 failure VENG exists to avoid (#610): {v}"
             );
         }
     }
@@ -4146,7 +4146,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
         let whole = process_payload(&read(json!({ "path": "src/big.rs" })), None, None);
         assert!(
-            whole.is_some_and(|o| o.contains("OMNI ReadFile")),
+            whole.is_some_and(|o| o.contains("VENG ReadFile")),
             "fixture no longer clears the distiller's gate, so the window arm proves nothing"
         );
         let window = read(json!({ "path": "src/big.rs", "offset": 780, "limit": 340 }));
@@ -4180,8 +4180,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         assert!(out.is_some(), "Large ReadFile must be distilled");
         let res = out.expect("Output exists");
         assert!(
-            res.contains("OMNI ReadFile"),
-            "Must have OMNI ReadFile label"
+            res.contains("VENG ReadFile"),
+            "Must have VENG ReadFile label"
         );
         assert!(
             res.contains("pub fn function_0"),
@@ -4199,7 +4199,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     #[test]
     fn folds_a_repeated_read_across_turns() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // Distinct lines, long enough to clear the ledger's own floors, and a
         // payload big enough to reach the readfile distiller at all.
         let body: String = (0..200)
@@ -4258,7 +4258,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload(100, 130), Some(store.clone()), None);
         let out = process_payload(&payload(100, 200), Some(store.clone()), None)
             .expect("the head repeats, so this folds");
@@ -4269,7 +4269,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             file["content"]
                 .as_str()
                 .expect("content")
-                .contains("[OMNI:"),
+                .contains("[VENG:"),
             "the repeated head was not folded: {out}"
         );
         // Thirty lines became one marker, so the survivors moved up by 29 and the
@@ -4308,7 +4308,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // Two earlier reads, one at each end of the window that follows.
         let _ = process_payload(&payload(100, 130), Some(store.clone()), None);
         let _ = process_payload(&payload(170, 200), Some(store.clone()), None);
@@ -4318,14 +4318,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        assert!(content.contains("[OMNI:"), "neither end was folded: {out}");
+        assert!(content.contains("[VENG:"), "neither end was folded: {out}");
 
         // Thirty lines stood above the survivors and the markers that replaced
         // them stand there now, so the host starts counting that much later. The
         // tail fold below them moves nothing.
         let above = content
             .lines()
-            .take_while(|l| l.starts_with("[OMNI:"))
+            .take_while(|l| l.starts_with("[VENG:"))
             .count() as u64;
         assert_eq!(
             file["startLine"],
@@ -4363,7 +4363,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // The short run is shown first, padded past `MIN_LEDGER_INPUT` with lines
         // that appear nowhere else: at 220 bytes on its own the first read is
         // under the floor and nothing is recorded at all, which makes the second
@@ -4389,7 +4389,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .map(|v| v["hookSpecificOutput"]["updatedToolOutput"]["file"]["content"].to_string())
             .unwrap_or_default();
         assert!(
-            !content.contains("[OMNI:"),
+            !content.contains("[VENG:"),
             "the run folded without paying for the filler it needs: {content}"
         );
     }
@@ -4434,7 +4434,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload(&seen), Some(store.clone()), None);
         let out = process_payload(&payload(&split), Some(store.clone()), None);
 
@@ -4486,7 +4486,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload(&seen), Some(store.clone()), None);
         let out = process_payload(&payload(&split), Some(store.clone()), None)
             .expect("the head repeats, so it folds");
@@ -4497,7 +4497,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         // Every run folds now, not just the head.
         assert!(
-            content.matches("[OMNI:").count() >= 2,
+            content.matches("[VENG:").count() >= 2,
             "a split payload folds each of its runs: {content}"
         );
         assert_eq!(
@@ -4593,7 +4593,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload("earlier", 100, 115), Some(store.clone()), None);
         let _ = process_payload(&payload("current", 115, 130), Some(store.clone()), None);
         let out = process_payload(&body(split("fresh_one"), 100), Some(store.clone()), None)
@@ -4604,7 +4604,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .expect("content")
             .to_string();
         assert_eq!(
-            content.matches("[OMNI:").count(),
+            content.matches("[VENG:").count(),
             2,
             "the head has to fold as two runs for this to test anything: {content}"
         );
@@ -4612,7 +4612,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // The agent pulled the first marker's handle, so that run owes it a
         // verbatim delivery and cannot fold again.
         let handle = content
-            .split("omni retrieve ")
+            .split("veng retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("a handle in the first marker")
@@ -4660,7 +4660,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // An earlier session saw the first half of the head, this one saw the
         // second, so the two runs are adjacent and differently attributed.
         let _ = process_payload(&payload("earlier", 100, 115), Some(store.clone()), None);
@@ -4671,7 +4671,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        let markers = content.matches("[OMNI:").count();
+        let markers = content.matches("[VENG:").count();
         assert!(markers >= 1, "the repeated head was not folded: {out}");
 
         // Thirty lines stood above the survivors and `markers` lines stand there
@@ -4708,7 +4708,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload(130, 165), Some(store.clone()), None);
         let raw = range(100, 200);
         let out = process_payload(&payload(100, 200), Some(store.clone()), None)
@@ -4719,7 +4719,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let content = file["content"].as_str().expect("content");
 
         assert!(
-            content.contains("[OMNI:"),
+            content.contains("[VENG:"),
             "the middle did not fold: {content}"
         );
         assert_eq!(
@@ -4755,7 +4755,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let (parent, sub) = two_reads_of_one_file("parent-session-581", Some("aca4e7ff"));
 
         assert!(
-            !parent.contains("[OMNI:"),
+            !parent.contains("[VENG:"),
             "the parent's own first read must be delivered whole: {parent}"
         );
         assert!(
@@ -4794,7 +4794,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// same host session id. Returns what the host was handed each time.
     fn two_reads_of_one_file(session: &str, agent: Option<&str>) -> (String, String) {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         // 200 distinct lines clears MIN_LEDGER_INPUT and the run gain; a shorter
         // payload returns cleanly and would prove nothing.
         let body: String = (0..200)
@@ -4831,12 +4831,12 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         (first, second)
     }
 
-    /// #581. A marker tells the reader to run `omni retrieve <handle>`. Those
+    /// #581. A marker tells the reader to run `veng retrieve <handle>`. Those
     /// bytes come back through the hook, hash the same, and were folded into the
     /// very marker that sent the reader there, so an agent following the
     /// instruction got the instruction back. Reproduced on `ded23da` before the
     /// fix: step three below returned
-    /// `[OMNI: identical to the 200 lines already shown, omni retrieve ...]`.
+    /// `[VENG: identical to the 200 lines already shown, veng retrieve ...]`.
     ///
     /// The second assertion is the one that keeps this from being a permanent
     /// exemption. Once the reader holds the content the ledger's claim is true
@@ -4846,7 +4846,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     #[test]
     fn a_pull_is_answered_once_and_then_folding_resumes() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let body: String = (0..200)
             .map(|i| format!("2026-08-12T00:00:00Z  handler finished request {i} in 12ms\n"))
             .collect();
@@ -4861,7 +4861,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let _ = process_payload(&payload, Some(store.clone()), None);
         let folded = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         let handle = folded
-            .split("omni retrieve ")
+            .split("veng retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(|c: char| !c.is_ascii_hexdigit()).next())
             .map(str::to_string)
@@ -4878,14 +4878,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         let answering = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            !answering.contains("omni retrieve"),
+            !answering.contains("veng retrieve"),
             "the delivery answering the pull was folded back into the marker \
              that sent the reader to it: {answering}"
         );
 
         let after = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            after.contains("omni retrieve"),
+            after.contains("veng retrieve"),
             "folding did not resume, so a pulled handle is exempt for good \
              rather than for one delivery: {after}"
         );
@@ -4893,7 +4893,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
     /// #586, review on #594. The hooks page first said the reply mirrors whatever
     /// shape arrived. That is true for the wrapped `Read` and false for the bare
-    /// one, which comes back in OMNI's own `{status, result}` shape. I asserted
+    /// one, which comes back in VENG's own `{status, result}` shape. I asserted
     /// it after testing only the request side, which is the exact failure #187
     /// is about: a contract crossed and checked on one side.
     ///
@@ -4919,7 +4919,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .to_string();
 
             let dir = tempfile::tempdir().expect("tempdir");
-            let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+            let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
             let _ = process_payload(&payload, Some(store.clone()), None);
             let out = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
             let v: serde_json::Value = serde_json::from_str(&out).unwrap_or(json!({}));
@@ -4938,7 +4938,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let bare = reply_keys(false);
         assert!(
             bare.contains(&"result".to_string()) && !bare.contains(&"file".to_string()),
-            "the manual now says a bare Read replies in OMNI's shape, got {bare:?}"
+            "the manual now says a bare Read replies in VENG's shape, got {bare:?}"
         );
     }
 
@@ -5053,13 +5053,13 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     }
 
     /// #557, review. An earlier guard read the output back and called any line
-    /// starting with `[OMNI:` a marker, so a file whose own lines start that way
+    /// starting with `[VENG:` a marker, so a file whose own lines start that way
     /// defeated it. This repository writes those strings into its changelog and
     /// its docs, so it is not a hypothetical file. The shape is asked of the
     /// ledger's folded indices now, which content cannot spoof.
     #[test]
     fn content_that_looks_like_a_marker_does_not_defeat_the_guard() {
-        let line = |i: usize| format!("[OMNI: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
+        let line = |i: usize| format!("[VENG: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
         let range = |from: usize, to: usize| (from..to).map(line).collect::<String>();
         let payload = |from: usize, to: usize| {
             json!({
@@ -5078,7 +5078,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("store"));
         let _ = process_payload(&payload(130, 165), Some(store.clone()), None);
         let raw = range(100, 200);
         let out = process_payload(&payload(100, 200), Some(store.clone()), None)
@@ -5114,7 +5114,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let out = process_payload(&input.to_string(), None, None);
         assert!(out.is_some(), "Grep output must be distilled");
         let res = out.expect("Output exists");
-        assert!(res.contains("OMNI Grep"), "Must have OMNI Grep label");
+        assert!(res.contains("VENG Grep"), "Must have VENG Grep label");
         assert!(res.contains("matches"), "Must show match count");
     }
 
@@ -5166,8 +5166,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // a labeled passthrough instead of None
         if let Some(res) = out {
             assert!(
-                res.contains("OMNI") || res.contains("Passthrough"),
-                "Labeled passthrough must contain OMNI label"
+                res.contains("VENG") || res.contains("Passthrough"),
+                "Labeled passthrough must contain VENG label"
             );
         }
         // None is also acceptable for single-line content that GenericDistiller
@@ -5192,18 +5192,18 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "tool_response": { "content": content }
         });
         let out = process_payload(&input.to_string(), None, None);
-        // If return Some, must contain OMNI label, never silently drops
+        // If return Some, must contain VENG label, never silently drops
         if let Some(res) = out {
             assert!(
-                res.contains("OMNI") || res.contains("Passthrough"),
-                "If not None, must contain OMNI label: {}",
+                res.contains("VENG") || res.contains("Passthrough"),
+                "If not None, must contain VENG label: {}",
                 res
             );
         }
     }
 
     /// Was `labels_passthrough_for_large_output_without_reduction`, asserting
-    /// the reply contained "OMNI: Passthrough". That label is what #118 item 5
+    /// the reply contained "VENG: Passthrough". That label is what #118 item 5
     /// removed: it made every no-op cost tokens to say nothing happened. The
     /// behaviour worth guarding is that unreducible output is not replaced.
     #[test]
@@ -5260,7 +5260,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     }
 
     /// The payload shape under test is `{stdout, stderr, interrupted}` rather
-    /// than `{content}`. The command was `ls -la`, which OMNI passes through
+    /// than `{content}`. The command was `ls -la`, which VENG passes through
     /// verbatim by design (#200), so once a passthrough stopped emitting a
     /// banner the test had nothing left to assert. A reducible command keeps
     /// the original intent, this payload shape is parsed and distilled.
@@ -5387,7 +5387,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         // keeps error blocks by design, so that output was never reduced and
         // the assertion below was satisfied by the passthrough banner rather
         // than by distillation. With the banner gone (#118 item 5) the payload
-        // has to be one OMNI really does distil for this to test anything.
+        // has to be one VENG really does distil for this to test anything.
         let mut stdout = String::new();
         for i in 0..200 {
             stdout.push_str(&format!("   Compiling crate_{i} v0.1.0\n"));
@@ -5422,8 +5422,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         assert!(out.is_some(), "Large MultiEdit must be distilled");
         let res = out.expect("Output exists");
         assert!(
-            res.contains("OMNI MultiEdit"),
-            "Must have OMNI MultiEdit label"
+            res.contains("VENG MultiEdit"),
+            "Must have VENG MultiEdit label"
         );
     }
 
@@ -5447,8 +5447,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         );
         let res = out.expect("Output exists");
         assert!(
-            res.contains("OMNI SomeRandomTool"),
-            "Must have OMNI SomeRandomTool label"
+            res.contains("VENG SomeRandomTool"),
+            "Must have VENG SomeRandomTool label"
         );
     }
 

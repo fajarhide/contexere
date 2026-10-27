@@ -16,7 +16,7 @@ pub struct ContextTurn {
     /// `serde(default)` because `SessionState` is persisted as JSON and
     /// `list_recent_sessions` skips a row it cannot parse **silently**
     /// (`sqlite.rs:1435` matches on `Ok`). Without it, every session stored
-    /// before this rename would vanish from `omni stats` with no error, which is
+    /// before this rename would vanish from `veng stats` with no error, which is
     /// a worse defect than the unit this rename fixes (#595 review).
     ///
     /// Deliberately not `serde(alias)` on the old names: those held
@@ -42,7 +42,7 @@ mod tests {
 
     /// #595 review. `SessionState` is persisted as JSON and
     /// `list_recent_sessions` skips a row it cannot parse without saying so, so
-    /// a rename here does not fail loudly: it deletes history from `omni stats`.
+    /// a rename here does not fail loudly: it deletes history from `veng stats`.
     /// The old names held `size_bytes / 4`, which is why they are dropped rather
     /// than aliased into fields that now mean bytes.
     #[test]

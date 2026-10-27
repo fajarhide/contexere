@@ -12,11 +12,11 @@ Fixes go into the next release off `main`. Only the current minor line gets them
 
 ## Reporting a Vulnerability
 
-**Do not open a public issue.** OMNI runs in the hook path of every command a
+**Do not open a public issue.** VENG runs in the hook path of every command a
 developer types, so a report needs an embargo until there is a release to upgrade
 to.
 
-1. **[Report a vulnerability privately](https://github.com/fajarhide/omni/security/advisories/new)**.
+1. **[Report a vulnerability privately](https://github.com/fajarhide/veng/security/advisories/new)**.
    GitHub's private reporting is enabled on this repository, and the thread stays
    between you and the maintainer.
 2. **Email** [security@weekndlabs.com](mailto:security@weekndlabs.com) if you would
@@ -28,10 +28,10 @@ You will get an acknowledgement within 48 hours and a timeline with it.
 
 ## Security Considerations
 
-- **Local-only processing**: OMNI processes all data locally. No data is sent to external servers during distillation.
-- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.omni/omni.db`. **No data ever leaves your machine.**
+- **Local-only processing**: VENG processes all data locally. No data is sent to external servers during distillation.
+- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.veng/veng.db`. **No data ever leaves your machine.**
 - **MCP Server**: The MCP server runs locally via `stdio` transport and does not expose any network ports.
-- **`omni update`**: Only reads the public GitHub Releases API (no authentication required) to download the latest binary. No data is uploaded.
+- **`veng update`**: Only reads the public GitHub Releases API (no authentication required) to download the latest binary. No data is uploaded.
 
 ## Verifying a Release
 
@@ -40,7 +40,7 @@ from which commit. `SHA256SUMS` only proves a file has not changed since it was
 published; provenance is what says who published it.
 
 ```bash
-gh attestation verify omni-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/omni
+gh attestation verify veng-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/veng
 ```
 
 Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.
@@ -49,63 +49,63 @@ Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.
 
 ## 1. Project Trust Boundary
 
-OMNI will **not** load project-local configurations or custom TOML signals (inside `.omni/signals/`) until you explicitly trust the project. This prevents a malicious repository from injecting custom signal rules that could hide important output from your AI agent.
+VENG will **not** load project-local configurations or custom TOML signals (inside `.veng/signals/`) until you explicitly trust the project. This prevents a malicious repository from injecting custom signal rules that could hide important output from your AI agent.
 
 ### How it Works
 
-OMNI uses `omni_config.json` as the trust anchor for a repository. 
+VENG uses `veng_config.json` as the trust anchor for a repository. 
 
 ```
  Your Project/
- ├── omni_config.json   ← OMNI sees this but WON'T load signals unless trusted
- ├── .omni/signals/     ← Local custom rules
+ ├── veng_config.json   ← VENG sees this but WON'T load signals unless trusted
+ ├── .veng/signals/     ← Local custom rules
  └── ...
 
- ~/.omni/
+ ~/.veng/
  └── trusted-projects.json  ← Trust registry (path + SHA-256 hash)
 ```
 
-1. OMNI detects project-local configurations.
-2. It checks `~/.omni/trusted-projects.json` for the project path **and** a matching SHA-256 hash of the `omni_config.json` anchor file.
-3. If not found or hash doesn't match → **local configs & signals are skipped**, OMNI logs a warning.
-4. If trusted and hash matches → configs and local `.omni/signals/` are loaded normally.
+1. VENG detects project-local configurations.
+2. It checks `~/.veng/trusted-projects.json` for the project path **and** a matching SHA-256 hash of the `veng_config.json` anchor file.
+3. If not found or hash doesn't match → **local configs & signals are skipped**, VENG logs a warning.
+4. If trusted and hash matches → configs and local `.veng/signals/` are loaded normally.
 
 ### Quick Start
 
 **Trust a project for the first time:**
 ```bash
-omni trust
+veng trust
 ```
-Or call the `omni_trust` MCP tool manually from Claude Code.
+Or call the `veng_trust` MCP tool manually from Claude Code.
 
 The tool will:
 - Display the config contents for your review.
 - Show the SHA-256 fingerprint.
-- Add the project to `~/.omni/trusted-projects.json`.
+- Add the project to `~/.veng/trusted-projects.json`.
 
 **After editing your local config:**
 ```bash
-omni trust
+veng trust
 ```
 Run it again to re-verify and update the hash.
 
 > [!IMPORTANT]
-> If you modify `omni_config.json` after trusting, OMNI will **stop loading project signals** until you re-trust. This protects against silent repo tampering.
+> If you modify `veng_config.json` after trusting, VENG will **stop loading project signals** until you re-trust. This protects against silent repo tampering.
 
 ### Trust Flow
 
-| Scenario | OMNI Behavior |
+| Scenario | VENG Behavior |
 | :--- | :--- |
 | No local config exists | Global and Built-in filters only (normal) |
-| Local config exists, **not trusted** | Skipped. Logs: `⚠ Local config not trusted. Run omni trust to review and trust.` |
+| Local config exists, **not trusted** | Skipped. Logs: `⚠ Local config not trusted. Run veng trust to review and trust.` |
 | Local config exists, **trusted** | Loaded and merged with global configs |
-| Local config **modified** after trust | Skipped. Logs: `⚠ Local config modified since last trust. Run omni trust to re-verify.` |
+| Local config **modified** after trust | Skipped. Logs: `⚠ Local config modified since last trust. Run veng trust to re-verify.` |
 
 ---
 
 ## 2. Sandbox Environment Denylist
 
-OMNI **strips ~25 dangerous environment variables** from child processes it manages (e.g., when routing commands through `omni exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
+VENG **strips ~25 dangerous environment variables** from child processes it manages (e.g., when routing commands through `veng exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
 
 ### Why This Matters
 
@@ -120,9 +120,9 @@ Some environment variables can inject code into any process that reads them:
 | `PYTHONSTARTUP` | Python executes this file on startup |
 | `JAVA_TOOL_OPTIONS` | Injects JVM arguments into every Java process |
 
-### What OMNI Blocks
+### What VENG Blocks
 
-All commands that are wrapped by OMNI (e.g., `omni exec <cmd>`) receive a **sanitized** copy of `process.env` with these categories removed:
+All commands that are wrapped by VENG (e.g., `veng exec <cmd>`) receive a **sanitized** copy of `process.env` with these categories removed:
 
 - **Shell injection**: `BASH_ENV`, `ENV`, `ZDOTDIR`, `BASH_PROFILE`, `PROMPT_COMMAND`, `IFS`, etc.
 - **Runtime hijacking**: `NODE_OPTIONS`, `PYTHONSTARTUP`, `RUBYOPT`, `JAVA_TOOL_OPTIONS`
@@ -131,7 +131,7 @@ All commands that are wrapped by OMNI (e.g., `omni exec <cmd>`) receive a **sani
 - **Git injection**: `GIT_ASKPASS`, `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`
 
 > [!NOTE]
-> This is transparent. You don't need to configure anything: OMNI sanitizes the environment automatically to protect command executions.
+> This is transparent. You don't need to configure anything: VENG sanitizes the environment automatically to protect command executions.
 
 ---
 
@@ -139,8 +139,8 @@ All commands that are wrapped by OMNI (e.g., `omni exec <cmd>`) receive a **sani
 
 | Tool | Purpose | When to Use |
 | :--- | :--- | :--- |
-| `omni trust` | Trust a project's local configurations | After cloning a repo with custom filters, or after editing the config anchor |
+| `veng trust` | Trust a project's local configurations | After cloning a repo with custom filters, or after editing the config anchor |
 
 ---
 
-Thank you for helping keep OMNI secure!
+Thank you for helping keep VENG secure!

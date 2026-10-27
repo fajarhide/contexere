@@ -59,7 +59,7 @@ binary-check:
 	@echo "=== Building Release Binary ==="
 	cargo build --profile ci
 	@echo "=== Checking Binary Size ==="
-	@SIZE=$$(stat -c%s target/ci/omni 2>/dev/null || stat -f%z target/ci/omni); \
+	@SIZE=$$(stat -c%s target/ci/veng 2>/dev/null || stat -f%z target/ci/veng); \
 	SIZE_MB=$$((SIZE / 1048576)); \
 	echo "Binary size: $${SIZE_MB}MB ($${SIZE} bytes)"; \
 	if [ $$SIZE -gt 15728640 ]; then \
@@ -71,12 +71,12 @@ binary-check:
 	chmod +x tests/smoke_test.sh
 	# The smoke test drives the binary directly, so cargo's `[env]` block does
 	# not reach it and it would learn filters into the developer's live
-	# `~/.omni` (#307). It gets its own home rather than the suite's, and a
+	# `~/.veng` (#307). It gets its own home rather than the suite's, and a
 	# clean one each run: it asserts things like "pipe output <= input", and
 	# session history feeds the scorer, so inheriting whatever `cargo test`
 	# left behind makes those assertions depend on test ordering.
-	rm -rf $(CURDIR)/target/omni-smoke
-	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh ./target/ci/omni
+	rm -rf $(CURDIR)/target/veng-smoke
+	VENG_HOME=$(CURDIR)/target/veng-smoke tests/smoke_test.sh ./target/ci/veng
 
 ci: fmt clippy test security binary-check
 	@echo "========================================"
@@ -104,4 +104,4 @@ release-sha:
 release:
 	@if [ -z "$(VERSION)" ]; then echo "Usage: make release VERSION=0.5.1"; exit 1; fi
 	@$(MAKE) bump VERSION=$(VERSION)
-	./scripts/omni-release.sh $(VERSION)
+	./scripts/veng-release.sh $(VERSION)

@@ -45,7 +45,7 @@ echo "Verifying build..."
 cargo build --quiet
 
 # 6. Verify version output
-ACTUAL=$(./target/debug/omni version 2>&1)
+ACTUAL=$(./target/debug/veng version 2>&1)
 if echo "$ACTUAL" | grep -q "$NEW"; then
     echo "✓ Version output: $ACTUAL"
 else
@@ -61,5 +61,5 @@ git commit -m "chore: bump version to $NEW"
 echo ""
 echo "Done! Version bumped to $NEW (commit is local)"
 echo "Next steps:"
-echo "  Run: ./scripts/omni-release.sh $NEW"
+echo "  Run: ./scripts/veng-release.sh $NEW"
 echo "  (This will validate the build and push the branch + tag together)"

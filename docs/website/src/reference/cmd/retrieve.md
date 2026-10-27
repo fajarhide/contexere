@@ -1,23 +1,23 @@
-# `omni retrieve`
+# `veng retrieve`
 
 Prints the content a marker archived.
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 The handle is the 16 characters inside a marker:
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ```
 
 It returns the original bytes. Not a summary, not a re-run of your command, and not an
 approximation.
 
 Works on every host, in any session, whether or not MCP is wired. Agents with the MCP
-server registered call `omni_retrieve` instead and never have to ask you.
+server registered call `veng_retrieve` instead and never have to ask you.
 
 ## What can go wrong
 

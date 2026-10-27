@@ -4,11 +4,11 @@ use std::env;
 use std::io::Write;
 
 /// Read by both `print_help` and `super::check_flags`, so this list is what
-/// `omni reset` documents *and* what it accepts (#151, #444).
+/// `veng reset` documents *and* what it accepts (#151, #444).
 const FLAGS: super::Flags = &[
     (
         "--all",
-        "Uninstall every integration and offer to wipe omni.db",
+        "Uninstall every integration and offer to wipe veng.db",
     ),
     ("--claude", "Uninstall Claude Code (Anthropic)"),
     ("--cursor", "Uninstall Cursor AI"),
@@ -66,12 +66,12 @@ fn targets_from_args(args: &[String]) -> Vec<&'static str> {
 fn print_help() {
     println!(
         "\n{} {}",
-        "OMNI RESET".bold().red(),
-        "- Wipe All Omni AI Connections".bold().white()
+        "VENG RESET".bold().red(),
+        "- Wipe All Veng AI Connections".bold().white()
     );
-    println!("Use this command to cleanly remove OMNI configurations from all IDEs and tools.");
+    println!("Use this command to cleanly remove VENG configurations from all IDEs and tools.");
     println!();
-    println!("Usage: omni reset [OPTIONS]");
+    println!("Usage: veng reset [OPTIONS]");
     println!();
     super::print_flags(FLAGS);
     println!("Run with no flags for an interactive menu.");
@@ -97,7 +97,7 @@ pub fn handle_reset() -> anyhow::Result<()> {
     if target_ids.is_empty() && !is_all {
         println!(
             "\n{} {}",
-            "OMNI RESET".bold().red(),
+            "VENG RESET".bold().red(),
             "- Interactive Mode".bold().white()
         );
         println!("Which integrations would you like to remove?");
@@ -152,7 +152,7 @@ pub fn handle_reset() -> anyhow::Result<()> {
 
 fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
     if is_all {
-        println!("\n{} Removing ALL omni agent integrations...", "⟳".yellow());
+        println!("\n{} Removing ALL veng agent integrations...", "⟳".yellow());
         for agent in all_integrations() {
             if let Err(e) = agent.uninstall() {
                 println!(
@@ -166,7 +166,7 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
 
         // Wipe Database Optional behavior
         println!(
-            "\n{} Would you like to wipe the SQLite database (~/.omni/omni.db)? [y/N]",
+            "\n{} Would you like to wipe the SQLite database (~/.veng/veng.db)? [y/N]",
             "?".yellow()
         );
         let mut input = String::new();
@@ -185,7 +185,7 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
                     path.push(sidecar);
                     std::fs::remove_file(std::path::PathBuf::from(path)).ok();
                 }
-                println!("  {} Omni database wiped.", "✓".green());
+                println!("  {} Veng database wiped.", "✓".green());
             }
         }
 
@@ -219,7 +219,7 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    /// #640. `omni reset` kept its own hand-written list of hosts beside the
+    /// #640. `veng reset` kept its own hand-written list of hosts beside the
     /// registry, and the list fell behind: OpenClaw shipped with no flag, so its
     /// `uninstall` was reachable only through `--all`. Checking the registry
     /// against `FLAGS` while writing that fix found `vscode` missing too, which
@@ -275,7 +275,7 @@ mod tests {
 
     /// `check_flags` accepts `--flag=value` and validates the name alone, so a
     /// consumer comparing the whole argument accepts the input and then routes
-    /// nothing. `omni reset --openclaw=1` passed validation, selected no
+    /// nothing. `veng reset --openclaw=1` passed validation, selected no
     /// integration, and fell into the interactive menu with the plugin still on
     /// disk. Confident behaviour over an argument that was never really parsed is
     /// #151 wearing a different flag.

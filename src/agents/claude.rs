@@ -7,7 +7,7 @@ use std::path::PathBuf;
 /// Which tool results Claude Code hands to the PostToolUse hook.
 ///
 /// Claude Code matches this as a regex, so alternation is how one registration
-/// covers several tools. It is a constant because `install_omni_hooks` writes it
+/// covers several tools. It is a constant because `install_veng_hooks` writes it
 /// and the tests assert on it, and a widened matcher that only half the code
 /// knows about is worse than a narrow one (#172).
 const POST_TOOL_MATCHER: &str = "Bash|Read|Grep|WebFetch";
@@ -43,7 +43,7 @@ impl AgentIntegration for ClaudeIntegration {
         if settings_path.exists() {
             let content = fs::read_to_string(&settings_path)?;
             if let Ok(mut val) = serde_json::from_str::<Value>(&content) {
-                remove_omni_hooks(&mut val);
+                remove_veng_hooks(&mut val);
                 fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
                 crate::agent_report!("  {} Removed Hooks from Claude settings", "✓".yellow());
             }
@@ -57,7 +57,7 @@ impl AgentIntegration for ClaudeIntegration {
 
                 if let Some(obj) = val.as_object_mut() {
                     if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
-                        && servers.remove("omni").is_some()
+                        && servers.remove("veng").is_some()
                     {
                         changed = true;
                     }
@@ -67,7 +67,7 @@ impl AgentIntegration for ClaudeIntegration {
                         for (_, p_val) in projects.iter_mut() {
                             if let Some(ps) =
                                 p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
-                                && ps.remove("omni").is_some()
+                                && ps.remove("veng").is_some()
                             {
                                 changed = true;
                             }
@@ -83,7 +83,7 @@ impl AgentIntegration for ClaudeIntegration {
                             && let Some(ps) = inner_obj
                                 .get_mut("mcpServers")
                                 .and_then(|s| s.as_object_mut())
-                            && ps.remove("omni").is_some()
+                            && ps.remove("veng").is_some()
                         {
                             changed = true;
                         }
@@ -106,7 +106,7 @@ impl AgentIntegration for ClaudeIntegration {
         crate::agent_report!("  {}", "Claude Code:".cyan());
         let path = get_settings_path();
         if path.exists() {
-            // An install that registered OMNI twice ran the pipeline twice per
+            // An install that registered VENG twice ran the pipeline twice per
             // call and reported [OK] throughout, because this check asked
             // whether a hook was present and never how many (#454). The
             // installer no longer creates that state; this is what tells the
@@ -114,16 +114,16 @@ impl AgentIntegration for ClaudeIntegration {
             if let Ok(content) = fs::read_to_string(&path)
                 && let Ok(val) = serde_json::from_str::<Value>(&content)
             {
-                for (event, count) in crate::agents::duplicate_omni_hooks(&val) {
+                for (event, count) in crate::agents::duplicate_veng_hooks(&val) {
                     all_ok = false;
                     crate::agent_report!(
                         "   {:<15} {} {}",
                         "Duplicate:".bright_black(),
-                        format!("{event} runs OMNI {count} times per call"),
+                        format!("{event} runs VENG {count} times per call"),
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(format!(
-                        "{event} has {count} OMNI hooks. Re-run `omni init --claude` to collapse them."
+                        "{event} has {count} VENG hooks. Re-run `veng init --claude` to collapse them."
                     ));
                 }
             }
@@ -158,7 +158,7 @@ impl AgentIntegration for ClaudeIntegration {
                     if !fmt_hook("PostToolUse", "PostToolUse") {
                         all_ok = false;
                         warnings.push(
-                            "PostToolUse hook is not installed. Run `omni init`.".to_string(),
+                            "PostToolUse hook is not installed. Run `veng init`.".to_string(),
                         );
                     }
                     if !fmt_hook("SessionStart", "SessionStart") {
@@ -197,7 +197,7 @@ impl AgentIntegration for ClaudeIntegration {
                         "Hooks:".bright_black(),
                         "[WARNING] no hooks found".yellow().bold()
                     );
-                    warnings.push("OMNI hooks are not configured. Run `omni init`.".to_string());
+                    warnings.push("VENG hooks are not configured. Run `veng init`.".to_string());
                     all_ok = false;
                 }
             }
@@ -231,7 +231,7 @@ impl AgentIntegration for ClaudeIntegration {
         for p in &[mcp_path, mcpa_path] {
             if p.exists()
                 && let Ok(c) = fs::read_to_string(p)
-                && (c.contains("omni --mcp") || c.contains("\"omni\":"))
+                && (c.contains("veng --mcp") || c.contains("\"veng\":"))
             {
                 mcp_found = true;
                 crate::agent_report!(
@@ -249,7 +249,7 @@ impl AgentIntegration for ClaudeIntegration {
             // two tool definitions sit in the prefix of every request, and the
             // host discards the whole prompt cache when an MCP server connects or
             // disconnects with its tools loaded. Someone who ran
-            // `omni init --hook`, or who removed the entry on purpose after
+            // `veng init --hook`, or who removed the entry on purpose after
             // reading that, was being told their install was broken and then
             // having the decision undone by the next `doctor --fix`.
             //
@@ -260,7 +260,7 @@ impl AgentIntegration for ClaudeIntegration {
                 "   {:<15} {}  {}",
                 "MCP Server:".bright_black(),
                 "[not registered]".bright_black(),
-                "optional here, `omni init --mcp` adds it".bright_black()
+                "optional here, `veng init --mcp` adds it".bright_black()
             );
         }
 
@@ -303,7 +303,7 @@ pub fn initialize_settings() -> anyhow::Result<(PathBuf, Value)> {
         json!({})
     };
 
-    install_omni_hooks(&mut val, ""); // Temp to ensure object exists
+    install_veng_hooks(&mut val, ""); // Temp to ensure object exists
     Ok((path, val))
 }
 
@@ -342,7 +342,7 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
     )
 }
 
-pub fn remove_omni_hooks(val: &mut Value) {
+pub fn remove_veng_hooks(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(hooks) = obj.get_mut("hooks").and_then(|h| h.as_object_mut())
     {
@@ -352,7 +352,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("omni")
+                                c.contains("veng")
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook")
@@ -369,7 +369,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
     }
 }
 
-pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
+pub fn install_veng_hooks(val: &mut Value, exe_path: &str) {
     let obj = match val.as_object_mut() {
         Some(o) => o,
         None => {
@@ -405,7 +405,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
             if installed {
                 // Bring the path up to date as well as the matcher. Matching on
                 // the exact string meant a reinstall from a different binary
-                // matched nothing and pushed a second entry, so OMNI ran twice
+                // matched nothing and pushed a second entry, so VENG ran twice
                 // per call (#454).
                 if let Some(inner) = v
                     .get_mut("hooks")
@@ -548,7 +548,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
 
 /// The half of the install that does the work.
 ///
-/// Separate from the MCP registration because `omni init --hook` has promised
+/// Separate from the MCP registration because `veng init --hook` has promised
 /// "Only install hooks" since it shipped and installed both anyway, which is the
 /// shape of #151: a flag the parser accepts and the code ignores. On this host
 /// the hooks are what shortens output and the MCP server is a convenience whose
@@ -558,7 +558,7 @@ pub fn install_hooks(exe_path: &str) -> anyhow::Result<()> {
     let (path, mut val) = initialize_settings()?;
     let _ = backup_settings(&path);
 
-    install_omni_hooks(&mut val, exe_path);
+    install_veng_hooks(&mut val, exe_path);
     fs::write(&path, serde_json::to_string_pretty(&val)?)?;
     crate::agent_report!(
         "  {} {} installed in Claude settings",
@@ -588,13 +588,13 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("mcpServers is not an object"))?;
 
     servers.insert(
-        "omni".to_string(),
+        "veng".to_string(),
         json!({
             "type": "stdio",
             "command": exe_path,
             "args": ["--mcp"],
             "env": {
-                "OMNI_AGENT_ID": "claude_code"
+                "VENG_AGENT_ID": "claude_code"
             },
         }),
     );
@@ -602,16 +602,16 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
     if let Some(projects) = obj.get_mut("projects").and_then(|p| p.as_object_mut()) {
         for (_path, p_val) in projects.iter_mut() {
             if let Some(ps) = p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
-                && ps.contains_key("omni")
+                && ps.contains_key("veng")
             {
                 ps.insert(
-                    "omni".to_string(),
+                    "veng".to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
                         "args": ["--mcp"],
                         "env": {
-                            "OMNI_AGENT_ID": "claude_code"
+                            "VENG_AGENT_ID": "claude_code"
                         },
                     }),
                 );
@@ -627,16 +627,16 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             && let Some(ps) = inner_obj
                 .get_mut("mcpServers")
                 .and_then(|s| s.as_object_mut())
-            && ps.contains_key("omni")
+            && ps.contains_key("veng")
         {
             ps.insert(
-                "omni".to_string(),
+                "veng".to_string(),
                 json!({
                     "type": "stdio",
                     "command": exe_path,
                     "args": ["--mcp"],
                     "env": {
-                        "OMNI_AGENT_ID": "claude_code"
+                        "VENG_AGENT_ID": "claude_code"
                     },
                 }),
             );
@@ -650,15 +650,15 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     /// #454, found on a real machine: a working install was repointed from a
-    /// development build to the released one, and every OMNI hook ended up
-    /// registered twice, once per path. Two OMNI processes per hooked call, and
-    /// `omni doctor` reported `[OK]` throughout because it asks whether a hook is
+    /// development build to the released one, and every VENG hook ended up
+    /// registered twice, once per path. Two VENG processes per hooked call, and
+    /// `veng doctor` reported `[OK]` throughout because it asks whether a hook is
     /// present, never how many.
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});
-        install_omni_hooks(&mut val, "/repo/target/debug/omni");
-        install_omni_hooks(&mut val, "/opt/homebrew/bin/omni");
+        install_veng_hooks(&mut val, "/repo/target/debug/veng");
+        install_veng_hooks(&mut val, "/opt/homebrew/bin/veng");
 
         let hooks = val["hooks"].as_object().expect("hooks written");
         assert!(!hooks.is_empty(), "no hooks were written at all");
@@ -669,18 +669,18 @@ mod tests {
                 .iter()
                 .flat_map(|m| m["hooks"].as_array().cloned().unwrap_or_default())
                 .filter_map(|h| h["command"].as_str().map(str::to_string))
-                .filter(|c| c.contains("omni"))
+                .filter(|c| c.contains("veng"))
                 .map(|c| Box::leak(c.into_boxed_str()) as &str)
                 .collect();
             assert_eq!(
                 ours.len(),
                 1,
-                "{event} carries {} OMNI hooks, so OMNI would run {} times: {ours:?}",
+                "{event} carries {} VENG hooks, so VENG would run {} times: {ours:?}",
                 ours.len(),
                 ours.len()
             );
             assert!(
-                ours[0].starts_with("/opt/homebrew/bin/omni"),
+                ours[0].starts_with("/opt/homebrew/bin/veng"),
                 "{event} still points at the old path: {ours:?}"
             );
         }
@@ -692,22 +692,22 @@ mod tests {
     #[test]
     fn tells_the_hook_flags_apart_even_when_one_ends_with_another() {
         assert!(crate::agents::is_our_hook(
-            Some("/a/omni --pre-hook"),
-            "/b/omni --pre-hook"
+            Some("/a/veng --pre-hook"),
+            "/b/veng --pre-hook"
         ));
         assert!(!crate::agents::is_our_hook(
-            Some("/a/omni --pre-hook"),
-            "/b/omni --hook"
+            Some("/a/veng --pre-hook"),
+            "/b/veng --hook"
         ));
         assert!(!crate::agents::is_our_hook(
-            Some("/a/omni --post-hook"),
-            "/b/omni --hook"
+            Some("/a/veng --post-hook"),
+            "/b/veng --hook"
         ));
         assert!(!crate::agents::is_our_hook(
             Some("/usr/bin/other --pre-hook"),
-            "/b/omni --pre-hook"
+            "/b/veng --pre-hook"
         ));
-        assert!(!crate::agents::is_our_hook(None, "/b/omni --pre-hook"));
+        assert!(!crate::agents::is_our_hook(None, "/b/veng --pre-hook"));
     }
 
     use super::*;
@@ -715,7 +715,7 @@ mod tests {
     #[test]
     fn test_init_hook_creates_valid_settings_json() {
         let mut val = json!({});
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
 
         let hooks = val.get("hooks").unwrap().as_object().unwrap();
         assert!(hooks.contains_key("PostToolUse"));
@@ -726,7 +726,7 @@ mod tests {
     #[test]
     fn test_init_hook_idempotent_run_2x_not_duplicate() {
         let mut val = json!({});
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
 
         let get_count = |v: &Value| -> usize {
             v.get("hooks")
@@ -740,7 +740,7 @@ mod tests {
 
         assert_eq!(get_count(&val), 1);
 
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
         assert_eq!(get_count(&val), 1, "Should be idempotent");
     }
 
@@ -750,7 +750,7 @@ mod tests {
     #[test]
     fn registers_post_tool_for_the_tools_it_can_distil() {
         let mut val = json!({});
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
 
         let matcher = val["hooks"]["PostToolUse"][0]["matcher"]
             .as_str()
@@ -774,12 +774,12 @@ mod tests {
             "hooks": {
                 "PostToolUse": [{
                     "matcher": "Bash",
-                    "hooks": [{"type": "command", "command": "/usr/bin/omni --post-hook"}]
+                    "hooks": [{"type": "command", "command": "/usr/bin/veng --post-hook"}]
                 }]
             }
         });
 
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
 
         assert_eq!(
             val["hooks"]["PostToolUse"][0]["matcher"].as_str(),
@@ -796,22 +796,22 @@ mod tests {
     #[test]
     fn test_init_status_reports_expected_status() {
         let mut val = json!({});
-        let exe = "/usr/bin/omni";
-        install_omni_hooks(&mut val, exe);
+        let exe = "/usr/bin/veng";
+        install_veng_hooks(&mut val, exe);
 
         // Check status with correct path
         let (post, sess, pre) = check_status(&val, exe);
         assert!(post && sess && pre);
 
         // Check status with incorrect path
-        let (post_f, sess_f, pre_f) = check_status(&val, "/different/omni");
+        let (post_f, sess_f, pre_f) = check_status(&val, "/different/veng");
         assert!(!post_f && !sess_f && !pre_f);
     }
 
     #[test]
     fn test_init_hook_writes_matcher_for_all_events() {
         let mut val = json!({});
-        install_omni_hooks(&mut val, "/usr/bin/omni");
+        install_veng_hooks(&mut val, "/usr/bin/veng");
 
         let hooks = val.get("hooks").unwrap().as_object().unwrap();
         for (event, entries) in hooks {
@@ -828,12 +828,12 @@ mod tests {
     #[test]
     fn test_init_uninstall_removes_all_entries() {
         let mut val = json!({});
-        let exe = "/usr/bin/omni";
-        install_omni_hooks(&mut val, exe);
+        let exe = "/usr/bin/veng";
+        install_veng_hooks(&mut val, exe);
 
         assert!(check_status(&val, exe).0); // terpasang
 
-        remove_omni_hooks(&mut val);
+        remove_veng_hooks(&mut val);
 
         assert!(!check_status(&val, exe).0); // hilang
 
@@ -849,5 +849,167 @@ mod tests {
             0,
             "Array must be empty after retain cleans it out"
         );
+    }
+}
+
+// ─── Leftovers from omni ─────────────────────────────────────────────────────
+//
+// veng replaced omni. A machine that had omni installed still has omni's hooks
+// and MCP entry in Claude Code's files, and `veng migrate` has to find exactly
+// those and nothing else.
+
+/// The flags omni's hooks were registered with.
+const LEGACY_HOOK_FLAGS: &[&str] = &[
+    "--hook",
+    "--post-hook",
+    "--pre-hook",
+    "--session-start",
+    "--pre-compact",
+];
+
+/// True when a command runs a binary named `omni`.
+///
+/// Compares the binary's file name, not a substring. A substring test would
+/// treat `/home/omni/bin/veng --post-hook` (veng, run by a user called omni) as
+/// omni's and delete a hook that is veng's own.
+fn runs_legacy_binary(command: &str) -> bool {
+    command
+        .split_whitespace()
+        .next()
+        .map(|token| token.trim_matches(|c| c == '"' || c == '\''))
+        .and_then(|token| std::path::Path::new(token).file_stem())
+        .is_some_and(|stem| stem == "omni")
+}
+
+fn is_legacy_hook(hook: &Value) -> bool {
+    hook.get("command")
+        .and_then(|c| c.as_str())
+        .is_some_and(|c| {
+            runs_legacy_binary(c)
+                && c.split_whitespace()
+                    .any(|token| LEGACY_HOOK_FLAGS.contains(&token))
+        })
+}
+
+/// Remove omni's hook entries from a settings object, returning how many went.
+pub fn remove_legacy_hooks(val: &mut Value) -> usize {
+    let mut removed = 0;
+    if let Some(hooks) = val.get_mut("hooks").and_then(|h| h.as_object_mut()) {
+        for (_event, entries) in hooks.iter_mut() {
+            if let Some(arr) = entries.as_array_mut() {
+                arr.retain(|entry| {
+                    let legacy = entry
+                        .get("hooks")
+                        .and_then(|h| h.as_array())
+                        .is_some_and(|inner| inner.iter().any(is_legacy_hook));
+                    if legacy {
+                        removed += 1;
+                    }
+                    !legacy
+                });
+            }
+        }
+    }
+    removed
+}
+
+/// Remove an `omni` MCP server from `.claude.json`, wherever Claude Code keeps
+/// one (global, per project, or under another top-level key). Only an entry
+/// whose command really is the omni binary goes: a server someone else named
+/// `omni` is theirs.
+pub fn remove_legacy_mcp(val: &mut Value) -> usize {
+    fn drop_from(servers: Option<&mut Value>) -> usize {
+        let Some(map) = servers.and_then(|s| s.as_object_mut()) else {
+            return 0;
+        };
+        let ours = map
+            .get("omni")
+            .and_then(|server| server.get("command"))
+            .and_then(|c| c.as_str())
+            .is_some_and(runs_legacy_binary);
+        if ours {
+            map.remove("omni");
+            1
+        } else {
+            0
+        }
+    }
+
+    let Some(obj) = val.as_object_mut() else {
+        return 0;
+    };
+    let mut removed = drop_from(obj.get_mut("mcpServers"));
+    if let Some(projects) = obj.get_mut("projects").and_then(|p| p.as_object_mut()) {
+        for (_path, project) in projects.iter_mut() {
+            removed += drop_from(project.get_mut("mcpServers"));
+        }
+    }
+    for (key, inner) in obj.iter_mut() {
+        if key != "mcpServers" && key != "projects" {
+            removed += drop_from(inner.get_mut("mcpServers"));
+        }
+    }
+    removed
+}
+
+#[cfg(test)]
+mod legacy_tests {
+    use super::*;
+
+    #[test]
+    fn removes_only_omni_hooks_and_keeps_veng_and_user_hooks() {
+        let mut val = json!({ "hooks": { "PostToolUse": [
+            { "hooks": [{ "type": "command", "command": "/usr/bin/omni --post-hook" }] },
+            { "hooks": [{ "type": "command", "command": "/usr/bin/veng --post-hook" }] },
+            { "hooks": [{ "type": "command", "command": "/home/me/bin/lint.sh" }] }
+        ]}});
+
+        assert_eq!(remove_legacy_hooks(&mut val), 1);
+
+        let left = val["hooks"]["PostToolUse"].as_array().expect("array");
+        assert_eq!(left.len(), 2);
+        let text = val.to_string();
+        assert!(text.contains("veng --post-hook") && text.contains("lint.sh"));
+        assert!(!text.contains("omni"), "{text}");
+    }
+
+    #[test]
+    fn a_path_that_merely_contains_omni_is_not_omni() {
+        let mut val = json!({ "hooks": { "PostToolUse": [
+            { "hooks": [{ "type": "command", "command": "/home/omni/bin/veng --post-hook" }] }
+        ]}});
+
+        assert_eq!(remove_legacy_hooks(&mut val), 0);
+        assert_eq!(
+            val["hooks"]["PostToolUse"].as_array().expect("array").len(),
+            1
+        );
+    }
+
+    #[test]
+    fn removes_the_mcp_entry_in_all_three_places() {
+        let omni = json!({ "type": "stdio", "command": "/usr/local/bin/omni", "args": ["--mcp"] });
+        let mut val = json!({
+            "mcpServers": { "omni": omni.clone(), "other": { "command": "/bin/other" } },
+            "projects": { "/work/a": { "mcpServers": { "omni": omni.clone() } } },
+            "extra": { "mcpServers": { "omni": omni } }
+        });
+
+        assert_eq!(remove_legacy_mcp(&mut val), 3);
+
+        let text = val.to_string();
+        assert!(!text.contains("omni"), "{text}");
+        assert!(
+            text.contains("/bin/other"),
+            "an unrelated server was removed: {text}"
+        );
+    }
+
+    #[test]
+    fn a_server_someone_else_named_omni_is_left_alone() {
+        let mut val = json!({ "mcpServers": { "omni": { "command": "/opt/their-tool" } } });
+
+        assert_eq!(remove_legacy_mcp(&mut val), 0);
+        assert!(val["mcpServers"]["omni"].is_object());
     }
 }

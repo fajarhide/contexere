@@ -24,7 +24,7 @@ pub const MAX_DISTILLATION_HISTORY: usize = 5;
 /// Threshold for meaningful compression (e.g., 0.90 means at least 10% savings)
 pub const MEANINGFUL_COMPRESSION_THRESHOLD: f64 = 0.90;
 
-/// Default context window size hint (tokens). Configurable via OMNI_CONTEXT_WINDOW env.
+/// Default context window size hint (tokens). Configurable via VENG_CONTEXT_WINDOW env.
 pub const DEFAULT_CONTEXT_WINDOW_SIZE: u64 = 200_000;
 
 /// Threshold ratio at which pressure becomes Warning (default 0.65)
@@ -43,7 +43,7 @@ pub const RERUN_WINDOW_SECS: i64 = 300;
 
 /// Minimum rows required on *each* arm before a filter's re-run delta is
 /// reported. Below this the delta is noise, and publishing it would be the
-/// confident-but-unsupported number OMNI exists to stop emitting.
+/// confident-but-unsupported number VENG exists to stop emitting.
 pub const RERUN_MIN_SAMPLES: u64 = 8;
 
 /// Commit timestamp of the #158 fix, `fix(hooks): emit the key Claude Code
@@ -122,13 +122,13 @@ impl LoopContext {
         let mut new_goal = None;
         let mut new_budget = self.budget_tokens;
 
-        if let Ok(val) = std::env::var("OMNI_LOOP_ID") {
+        if let Ok(val) = std::env::var("VENG_LOOP_ID") {
             new_loop_id = Some(val);
         }
-        if let Ok(val) = std::env::var("OMNI_LOOP_GOAL") {
+        if let Ok(val) = std::env::var("VENG_LOOP_GOAL") {
             new_goal = Some(val);
         }
-        if let Ok(val) = std::env::var("OMNI_LOOP_BUDGET") {
+        if let Ok(val) = std::env::var("VENG_LOOP_BUDGET") {
             new_budget = val.parse().ok().or(self.budget_tokens);
         }
 
@@ -139,7 +139,7 @@ impl LoopContext {
             new_budget,
         ) {
             eprintln!(
-                "[omni:security] Loop context validation failed: {:?}. Ignoring inputs.",
+                "[veng:security] Loop context validation failed: {:?}. Ignoring inputs.",
                 e
             );
         } else {
@@ -153,7 +153,7 @@ impl LoopContext {
             self.budget_tokens = new_budget;
         }
 
-        if let Ok(val) = std::env::var("OMNI_LOOP_ITERATION")
+        if let Ok(val) = std::env::var("VENG_LOOP_ITERATION")
             && let Ok(new_iter) = val.parse::<u32>()
             && new_iter != self.iteration
         {
@@ -161,7 +161,7 @@ impl LoopContext {
             self.budget_used = 0; // Reset budget per iteration
         }
 
-        if let Ok(val) = std::env::var("OMNI_SUBAGENT")
+        if let Ok(val) = std::env::var("VENG_SUBAGENT")
             && val == "1"
         {
             self.mode = LoopMode::SubAgent;
@@ -284,14 +284,14 @@ pub struct DistillResult {
     ///
     /// The two are not the same thing and the difference is what made the
     /// headline untrue: on Claude Code's large-output path the host discarded
-    /// OMNI's result and persisted the raw output, while `output_bytes` recorded
+    /// VENG's result and persisted the raw output, while `output_bytes` recorded
     /// a 93% saving for it (#212). It is 0 where no model reads the path at all -
-    /// `omni exec` and the shell pipe write to a TTY, and those rows were 73% of
-    /// every byte OMNI claimed to have saved, in a unit where "tokens" means
+    /// `veng exec` and the shell pipe write to a TTY, and those rows were 73% of
+    /// every byte VENG claimed to have saved, in a unit where "tokens" means
     /// nothing.
     ///
     /// **This is derived, not acknowledged.** No host tells a hook whether it
-    /// applied the replacement, so this records what OMNI handed over. With the
+    /// applied the replacement, so this records what VENG handed over. With the
     /// host-cap path detected above, that is the same value on every route this
     /// table books, which is the point: the number now comes from what was
     /// delivered rather than from what a distiller intended.
@@ -303,7 +303,7 @@ pub struct DistillResult {
 /// A tool result is not read once. It enters the transcript and is re-sent on
 /// every later turn of the session, so distilling 20 KB to 2 KB at turn 5 of a
 /// 40-turn session saves those bytes on turn 5 and again on every turn after it.
-/// OMNI counted the first and discarded the rest (#173).
+/// VENG counted the first and discarded the rest (#173).
 ///
 /// The multiplier is not full price, and publishing it as though it were would
 /// be the bigger-but-not-truer number this tracker exists to fight. With prompt
@@ -565,7 +565,7 @@ impl SessionState {
 
     /// Get the effective context window size (env > field > default)
     pub fn context_window_size(&self) -> u64 {
-        std::env::var("OMNI_CONTEXT_WINDOW")
+        std::env::var("VENG_CONTEXT_WINDOW")
             .ok()
             .and_then(|v| v.parse().ok())
             .or(self.context_window_size_hint)
@@ -574,11 +574,11 @@ impl SessionState {
 
     /// Compute pressure thresholds from env or defaults
     fn pressure_thresholds(&self) -> (f64, f64) {
-        let mut warn = std::env::var("OMNI_PRESSURE_WARN")
+        let mut warn = std::env::var("VENG_PRESSURE_WARN")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PRESSURE_WARNING_THRESHOLD);
-        let crit = std::env::var("OMNI_PRESSURE_CRITICAL")
+        let crit = std::env::var("VENG_PRESSURE_CRITICAL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PRESSURE_CRITICAL_THRESHOLD);
@@ -622,10 +622,10 @@ impl SessionState {
         match self.context_pressure {
             ContextPressure::Normal => None,
             ContextPressure::Warning => Some(format!(
-                "⚠️ OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
+                "⚠️ VENG: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
             )),
             ContextPressure::Critical => Some(format!(
-                "🚨 OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
+                "🚨 VENG: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
             )),
         }
     }

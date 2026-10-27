@@ -1,22 +1,22 @@
 {
-  "name": "omni",
-  "description": "OMNI, the local token-efficiency layer for coding agents",
+  "name": "veng",
+  "description": "VENG, the local token-efficiency layer for coding agents",
   "owner": {
     "name": "fajarhide",
     "url": "https://github.com/fajarhide"
   },
   "plugins": [
     {
-      "name": "omni",
+      "name": "veng",
       "source": "./plugins/claude-code",
-      "displayName": "OMNI",
-      "description": "Install OMNI, verify it, and read the markers it leaves when it shortens command output.",
+      "displayName": "VENG",
+      "description": "Install VENG, verify it, and read the markers it leaves when it shortens command output.",
       "author": {
         "name": "fajarhide",
         "url": "https://github.com/fajarhide"
       },
-      "homepage": "https://omni.weekndlabs.com",
-      "repository": "https://github.com/fajarhide/omni",
+      "homepage": "https://veng.weekndlabs.com",
+      "repository": "https://github.com/fajarhide/veng",
       "license": "Apache-2.0",
       "keywords": ["tokens", "context", "hooks", "cli", "distillation"]
     }

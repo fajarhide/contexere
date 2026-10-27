@@ -1,10 +1,10 @@
-# `omni session`
+# `veng session`
 
 Session state: what this session has spent, on what, and how to carry it across a
 restart.
 
 ```sh
-omni session --status
+veng session --status
 ```
 
 ## Flags
@@ -22,7 +22,7 @@ omni session --status
 | `--json` | Machine readable |
 | `--help`, `-h` | Help |
 
-`omni sessions` is accepted as an alias.
+`veng sessions` is accepted as an alias.
 
 ## What a session is here
 
@@ -31,7 +31,7 @@ distinction was a real defect: an internal wall-clock id once covered 16 project
 one value, which would let the ledger tell one session it had been shown output that
 went to another.
 
-That is also why `omni exec` takes `--session`: without a forwarded host id there is
+That is also why `veng exec` takes `--session`: without a forwarded host id there is
 no ledger scope, and for a while the exec path therefore ran no ledger at all.
 
 ## Continuity across a restart
@@ -42,10 +42,10 @@ not lose the project context.
 
 `--inject` is the manual form of that, for a host wired to consume it.
 
-For crossing to a machine that shares no database, use the `omni_handoff` MCP tool,
+For crossing to a machine that shares no database, use the `veng_handoff` MCP tool,
 which exports the state as portable markdown. The CLI subcommand of that name was
 removed; the MCP tool is unchanged. It is outside the default advertised set, so it
-needs `OMNI_MCP_TOOLS=all`.
+needs `VENG_MCP_TOOLS=all`.
 
 ## Retention
 

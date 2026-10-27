@@ -3,20 +3,20 @@
 Work down this page in order. The first three sections rule out the look-alikes, which
 is where most suspicions end.
 
-## First, is OMNI even involved
+## First, is VENG even involved
 
 ```sh
-OMNI_PASSTHROUGH=1 <the command>
+VENG_PASSTHROUGH=1 <the command>
 ```
 
-Identical output with and without it means OMNI did nothing. That is the end of the
+Identical output with and without it means VENG did nothing. That is the end of the
 investigation, and it settles more cases than anything else here.
 
 Then check which path ran, because they are not the same:
 
 ```sh
-omni --version && ls -la "$(which omni)"   # the installed binary, not your checkout
-omni doctor
+veng --version && ls -la "$(which veng)"   # the installed binary, not your checkout
+veng doctor
 ```
 
 A closed issue still bites if the fix is unreleased.
@@ -32,19 +32,19 @@ than the compression saves on a short payload.
 **Most calls saving nothing.** Expected. Taking anything would have been unsafe or
 would not have paid for its own marker.
 
-**File reads showing zero token savings in a session that read many files.** OMNI's
+**File reads showing zero token savings in a session that read many files.** VENG's
 surface on most hosts is shell output. Your agent's own file-reading tool, skill files
 and the system prompt are outside it.
 
-**`kubectl` binary streams corrupting.** SPDY does that with or without OMNI.
+**`kubectl` binary streams corrupting.** SPDY does that with or without VENG.
 
 **Shell word splitting and quoting.** That is your shell.
 
 ## The traps that produce false conclusions
 
-**Do not judge OMNI by output you read through OMNI.** A `cargo test` read through the
+**Do not judge VENG by output you read through VENG.** A `cargo test` read through the
 hook once reported "1 failed" for a suite cargo itself called 398 passed. Redirect to
-a file with `OMNI_PASSTHROUGH=1` before making any claim about a result.
+a file with `VENG_PASSTHROUGH=1` before making any claim about a result.
 
 **Do not grep the distilled output.** Grepping hides the group headers that often make
 output lossless after all. A 116 line search result looked like it had dropped every
@@ -55,7 +55,7 @@ indented under it. Read the whole thing.
 scorer, so the same command can distill differently on two runs. Isolate it:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <command>
+VENG_DB_PATH=/tmp/probe.db veng exec <command>
 ```
 
 **A failed reproduction is not a verdict.** If a bug does not reproduce, read the
@@ -67,11 +67,11 @@ had come back clean.
 ## Common problems
 
 **The hook is installed but nothing is distilled.**
-`omni doctor` checks the wiring. Then check the host's tier: a Handoff-first or
+`veng doctor` checks the wiring. Then check the host's tier: a Handoff-first or
 MCP-only host cannot rewrite its built-in shell tool's output at all. See
 [Supported agents](../reference/agents.md).
 
-**Codex CLI does nothing after `omni init --codex`.**
+**Codex CLI does nothing after `veng init --codex`.**
 It runs only hooks it has been told to trust and skips the rest silently. Start
 `codex` once and approve them under "Hooks need review".
 
@@ -90,26 +90,26 @@ The attachment carries the host's verbatim reason.
 Expected, and it grows with database size rather than payload size: about 21 ms
 against a fresh database and 61 ms against a 205 MB one.
 
-**`omni exec` appears to hang.**
-A warm shared database serialises writes. Give it its own with `OMNI_DB_PATH`.
+**`veng exec` appears to hang.**
+A warm shared database serialises writes. Give it its own with `VENG_DB_PATH`.
 
 ## Reporting it
 
 Worth reporting, in this order of importance:
 
-1. **A false claim.** OMNI asserting a result its input does not support: a success
+1. **A false claim.** VENG asserting a result its input does not support: a success
    reported for a failure, a count that does not match the runner's own.
 2. **Lost signal.** Something needed was dropped without a marker saying so.
 3. **Noise.** Verbose but harmless.
 
 A good report carries the raw output and the distilled output side by side, including
-the `[OMNI Active]` footer, the exact `omni exec` command, and `omni --version`. The
+the `[VENG Active]` footer, the exact `veng exec` command, and `veng --version`. The
 footer is often the point: the worst bugs here report the highest reductions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real
 terminal output carries hostnames, account ids and internal addresses more often than
 people expect.
 
-Tracker: <https://github.com/fajarhide/omni/issues>
+Tracker: <https://github.com/fajarhide/veng/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, if you would rather ask before filing.

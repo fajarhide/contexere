@@ -12,11 +12,11 @@ pub struct PatternCandidate {
 
 /// Lines that are never noise, however often they repeat.
 ///
-/// `omni_find_noise` reports these to a human deciding whether a tool is worth a
+/// `veng_find_noise` reports these to a human deciding whether a tool is worth a
 /// distiller, so a bad candidate costs real work. Two classes have to be excluded
 /// by construction rather than by frequency (#266):
 ///
-/// * **OMNI's own channel markers.** Stripping `[stderr]` hides that a command
+/// * **VENG's own channel markers.** Stripping `[stderr]` hides that a command
 ///   wrote to the error channel at all, which is worse than dropping output: the
 ///   reader gets no signal that anything was hidden.
 /// * **Structural keys.** `spec:`, a lone brace, a markdown fence and a YAML
@@ -29,7 +29,7 @@ fn is_never_noise(line: &str) -> bool {
 
     let t = line.trim();
 
-    if t.starts_with("[stderr]") || t.starts_with("[stdout]") || t.starts_with("[OMNI") {
+    if t.starts_with("[stderr]") || t.starts_with("[stdout]") || t.starts_with("[VENG") {
         return true;
     }
 
@@ -96,7 +96,7 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
 mod tests {
     use super::*;
 
-    /// The detector is what `omni_find_noise` reports, and the filter layer it
+    /// The detector is what `veng_find_noise` reports, and the filter layer it
     /// used to feed is gone (#505). A prefix with digits in it has to survive
     /// as one candidate rather than one per number, or every log line with a
     /// counter reads as its own pattern.

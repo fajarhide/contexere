@@ -3,21 +3,21 @@
 Kerjakan halaman ini berurutan. Tiga bagian pertama menyingkirkan yang mirip-mirip
 saja, dan di situlah kecurigaan biasanya berakhir.
 
-## Pertama, apakah OMNI memang terlibat
+## Pertama, apakah VENG memang terlibat
 
 ```sh
-OMNI_PASSTHROUGH=1 <perintahnya>
+VENG_PASSTHROUGH=1 <perintahnya>
 ```
 
-Keluaran yang identik dengan dan tanpa variabel itu berarti OMNI tidak melakukan
+Keluaran yang identik dengan dan tanpa variabel itu berarti VENG tidak melakukan
 apa-apa. Itu akhir penyelidikannya, dan itu menyelesaikan lebih banyak kasus
 daripada apa pun di halaman ini.
 
 Lalu periksa jalur mana yang berjalan, karena keduanya tidak sama:
 
 ```sh
-omni --version && ls -la "$(which omni)"   # binary yang terpasang, bukan checkout Anda
-omni doctor
+veng --version && ls -la "$(which veng)"   # binary yang terpasang, bukan checkout Anda
+veng doctor
 ```
 
 Issue yang sudah ditutup tetap menggigit kalau perbaikannya belum dirilis.
@@ -37,19 +37,19 @@ tidak aman atau tidak sepadan dengan ongkos penandanya, dan memang tidak ada yan
 dihemat.
 
 **Pembacaan berkas menunjukkan nol penghematan token di sesi yang membaca banyak
-berkas.** Permukaan OMNI di sebagian besar host adalah keluaran shell. Perkakas
+berkas.** Permukaan VENG di sebagian besar host adalah keluaran shell. Perkakas
 pembaca berkas milik agent Anda, berkas skill dan system prompt ada di luarnya.
 
-**Aliran biner `kubectl` rusak.** SPDY melakukan itu, ada atau tidak ada OMNI.
+**Aliran biner `kubectl` rusak.** SPDY melakukan itu, ada atau tidak ada VENG.
 
 **Pemisahan kata dan kutip di shell.** Itu shell Anda.
 
 ## Jebakan yang menghasilkan kesimpulan salah
 
-**Jangan menilai OMNI dari keluaran yang Anda baca lewat OMNI.** Sebuah
+**Jangan menilai VENG dari keluaran yang Anda baca lewat VENG.** Sebuah
 `cargo test` yang dibaca lewat hook pernah melaporkan "1 failed" untuk suite yang
 oleh cargo sendiri disebut 398 lulus. Alihkan ke sebuah berkas dengan
-`OMNI_PASSTHROUGH=1` sebelum membuat klaim apa pun tentang sebuah hasil.
+`VENG_PASSTHROUGH=1` sebelum membuat klaim apa pun tentang sebuah hasil.
 
 **Jangan mem-`grep` keluaran sulingannya.** Mem-`grep` menyembunyikan judul grup
 yang sering justru membuat keluarannya ternyata tidak kehilangan apa pun. Hasil
@@ -62,7 +62,7 @@ memberi masukan ke penilainya, jadi perintah yang sama bisa disuling berbeda di
 dua run. Isolasi:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <perintah>
+VENG_DB_PATH=/tmp/probe.db veng exec <perintah>
 ```
 
 **Reproduksi yang gagal bukan sebuah vonis.** Kalau sebuah bug tidak muncul lagi,
@@ -74,11 +74,11 @@ Tiga reproduksi yang dibuat tangan sudah lebih dulu kembali bersih.
 ## Masalah yang umum
 
 **Hook-nya terpasang tapi tidak ada yang disuling.**
-`omni doctor` memeriksa sambungannya. Lalu periksa tingkat host-nya: host yang
+`veng doctor` memeriksa sambungannya. Lalu periksa tingkat host-nya: host yang
 mengutamakan handoff atau hanya MCP sama sekali tidak bisa menulis ulang keluaran
 tool shell bawaannya. Lihat [Agent yang didukung](../reference/agents.md).
 
-**Codex CLI tidak melakukan apa-apa setelah `omni init --codex`.**
+**Codex CLI tidak melakukan apa-apa setelah `veng init --codex`.**
 Ia hanya menjalankan hook yang sudah dinyatakan tepercaya dan melewati sisanya
 diam-diam. Jalankan `codex` sekali lalu setujui di bagian "Hooks need review".
 
@@ -97,15 +97,15 @@ Lampiran itu membawa alasan host apa adanya.
 Wajar, dan ia tumbuh mengikuti ukuran basis data, bukan ukuran muatan: sekitar 21
 ms terhadap basis data yang baru dan 61 ms terhadap yang 205 MB.
 
-**`omni exec` tampak menggantung.**
+**`veng exec` tampak menggantung.**
 Basis data bersama yang hangat membuat penulisan berbaris antre. Beri ia miliknya
-sendiri dengan `OMNI_DB_PATH`.
+sendiri dengan `VENG_DB_PATH`.
 
 ## Melaporkannya
 
 Yang layak dilaporkan, dalam urutan kepentingan ini:
 
-1. **Klaim palsu.** OMNI menyatakan hasil yang tidak didukung masukannya: sukses
+1. **Klaim palsu.** VENG menyatakan hasil yang tidak didukung masukannya: sukses
    dilaporkan untuk sebuah kegagalan, hitungan yang tidak cocok dengan hitungan
    runner-nya sendiri.
 2. **Sinyal yang hilang.** Sesuatu yang dibutuhkan dibuang tanpa penanda yang
@@ -113,15 +113,15 @@ Yang layak dilaporkan, dalam urutan kepentingan ini:
 3. **Kebisingan.** Bertele-tele tapi tidak berbahaya.
 
 Laporan yang baik membawa keluaran mentah dan keluaran sulingan berdampingan,
-termasuk catatan kaki `[OMNI Active]`, perintah `omni exec` yang persis, dan
-`omni --version`. Catatan kakinya sering justru intinya: bug terburuk di sini
+termasuk catatan kaki `[VENG Active]`, perintah `veng exec` yang persis, dan
+`veng --version`. Catatan kakinya sering justru intinya: bug terburuk di sini
 melaporkan pengurangan paling besar.
 
 Reproduksi pada perintah sintetis kalau bisa, supaya tidak ada yang perlu
 disamarkan. Keluaran terminal sungguhan membawa nama host, id akun dan alamat
 internal lebih sering daripada dugaan orang.
 
-Tracker: <https://github.com/fajarhide/omni/issues>
+Tracker: <https://github.com/fajarhide/veng/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, kalau Anda lebih suka bertanya sebelum
 melapor.

@@ -1,30 +1,30 @@
 # Hooks
 
-The entry points an agent host invokes. You never type these; `omni init` writes them
+The entry points an agent host invokes. You never type these; `veng init` writes them
 into the host's configuration.
 
 | entry point | when the host calls it |
 |---|---|
-| `omni --pre-hook` | Before a tool runs |
-| `omni --post-hook` | After a tool produces output |
-| `omni --hook` | Universal dispatcher, for hosts with one hook slot |
-| `omni --session-start` | Session begins |
-| `omni --session-end` | Session ends |
-| `omni --pre-compact` | Before the host compacts the conversation |
-| `omni --mcp` | Run as an MCP server over stdio |
-| `cmd \| omni` | Pipe mode, no host involved |
+| `veng --pre-hook` | Before a tool runs |
+| `veng --post-hook` | After a tool produces output |
+| `veng --hook` | Universal dispatcher, for hosts with one hook slot |
+| `veng --session-start` | Session begins |
+| `veng --session-end` | Session ends |
+| `veng --pre-compact` | Before the host compacts the conversation |
+| `veng --mcp` | Run as an MCP server over stdio |
+| `cmd \| veng` | Pipe mode, no host involved |
 
 ## One call, both hooks
 
-![One Bash tool call passes through OMNI twice: the pre-hook may rewrite the command before the shell runs it, and the post-hook distills the output afterwards, reading the local database for lines already shown and archiving what it removes.](../media/hook-lifecycle.svg)
+![One Bash tool call passes through VENG twice: the pre-hook may rewrite the command before the shell runs it, and the post-hook distills the output afterwards, reading the local database for lines already shown and archiving what it removes.](../media/hook-lifecycle.svg)
 
-The shell runs whatever the pre-hook handed it and never knows OMNI exists. Only the
+The shell runs whatever the pre-hook handed it and never knows VENG exists. Only the
 reply is rewritten, which is why nothing here can change what your command did.
 
 ## What each one does
 
-**Pre-tool** decides whether a command should be routed through OMNI at all, and can
-rewrite it into `omni exec`. That rewrite wraps the **entire** command string,
+**Pre-tool** decides whether a command should be routed through VENG at all, and can
+rewrite it into `veng exec`. That rewrite wraps the **entire** command string,
 redirection included, which is why a matched command's log file on disk can turn out
 to be the distilled version. Break the prefix (`env cargo test`) when you need the raw
 log.
@@ -49,7 +49,7 @@ knowledge, the pinned goal.
 `post_tool` and `pipe` are separate entry points that run the same stages, and keeping
 them in step has been a recurring source of bugs. Three separate fixes each corrected
 one copy and left the other. The ledger stage existed in `post_tool` for a release
-before `pipe` had it at all, so a command the pre-hook rewrote into `omni exec` got
+before `pipe` had it at all, so a command the pre-hook rewrote into `veng exec` got
 the filters and nothing else.
 
 If you are changing pipeline behaviour, change both, or check why not.
@@ -69,8 +69,8 @@ confidently.
 
 Register the hook, and then honour what it returns.
 
-The second half is not guaranteed. OMNI once emitted its distilled output under a key
-Claude Code ignores, so nothing was applied on that path for two releases while OMNI
+The second half is not guaranteed. VENG once emitted its distilled output under a key
+Claude Code ignores, so nothing was applied on that path for two releases while VENG
 recorded a saving and printed a footer for each one. The fix corrected the key and
 left the value shape wrong, and the symptom survived unnoticed.
 
@@ -81,7 +81,7 @@ Two things that taught, both non-obvious:
 - The fields are independent. A rejected rewrite still lets the context message
   through, so the savings footer prints for a distillation that was reverted.
 
-So the proof that a hook is working is not the footer and it is not `omni stats`. It
+So the proof that a hook is working is not the footer and it is not `veng stats`. It
 is the host's own session transcript:
 
 ```sh
@@ -97,10 +97,10 @@ terminal fills with rejections.
 Feed it a payload directly rather than guessing which path ran:
 
 ```sh
-echo '<host payload json>' | omni --post-hook
+echo '<host payload json>' | veng --post-hook
 ```
 
-`omni exec` and the post-hook route differently, so a result from one is not evidence
+`veng exec` and the post-hook route differently, so a result from one is not evidence
 about the other.
 
 ### The payload shape, which differs per tool
@@ -133,7 +133,7 @@ against **the host tool's own output schema**. A wrapped `Read` gets a `file` re
 which is the shape the host accepts.
 
 A bare `tool_response.content` does **not** get a bare reply. Verified rather than assumed:
-it comes back as `{status, result}`, which is OMNI's own shape and is what #187 was about.
+it comes back as `{status, result}`, which is VENG's own shape and is what #187 was about.
 So the bare form is fine for asking what the ledger did, and its reply is not what a real
 `Read` would accept.
 

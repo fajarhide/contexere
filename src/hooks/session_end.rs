@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 /// Claude Code sends snake_case and names the field `reason`.
 ///
 /// `session_id` is deliberately absent: nothing reads it. The guard that did
-/// compared the host's UUID against OMNI's internal timestamp id, which are
+/// compared the host's UUID against VENG's internal timestamp id, which are
 /// different namespaces, so it only ever dropped valid work.
 ///
 /// This struct demanded `hookEventName`, so `from_str` failed on every real
@@ -40,7 +40,7 @@ pub fn process_payload(
     let state = session.lock().unwrap_or_else(|p| p.into_inner()).clone();
 
     // No id comparison here. The host's `session_id` is its own UUID, while
-    // `state.session_id` is OMNI's internal id, a millisecond timestamp from
+    // `state.session_id` is VENG's internal id, a millisecond timestamp from
     // `SessionState::new`. They are different namespaces and never match, so the
     // guard that used to sit here dropped every real `SessionEnd` on Claude Code
     // even once the payload parsed. It also protected nothing: the summary is
@@ -58,7 +58,7 @@ pub fn process_payload(
         .unwrap_or_else(|_| "unknown".to_string());
 
     // Detect agent_id from env (set by hook dispatcher context)
-    let agent_id = std::env::var("OMNI_AGENT_ID")
+    let agent_id = std::env::var("VENG_AGENT_ID")
         .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
     // Find top filter from this session
@@ -96,7 +96,7 @@ pub fn process_payload(
     store.sync_agent_session(&agent_id, &state.session_id, &project_hash, &state_json);
 
     // Optional CSV export
-    if std::env::var("OMNI_EXPORT_CSV")
+    if std::env::var("VENG_EXPORT_CSV")
         .map(|v| v == "1")
         .unwrap_or(false)
     {
@@ -151,7 +151,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db).expect("store")), dir)
     }
 

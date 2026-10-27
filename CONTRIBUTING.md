@@ -1,4 +1,4 @@
-# Contributing to OMNI
+# Contributing to VENG
 
 One document. Standards, architecture and workflow, for humans and for AI assistants
 alike, because there is no useful version of this that differs between the two.
@@ -6,10 +6,10 @@ alike, because there is no useful version of this that differs between the two.
 ## Get it building
 
 ```bash
-git clone https://github.com/fajarhide/omni
-cd omni
+git clone https://github.com/fajarhide/veng
+cd veng
 cargo build
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+VENG_DB_PATH=/tmp/veng-test.db cargo test
 ```
 
 The toolchain is pinned in `rust-toolchain.toml`. `rustup` reads it automatically; a
@@ -18,15 +18,15 @@ so run `source "$HOME/.cargo/env"` first if you have both.
 
 `cargo install cargo-insta` for snapshot review.
 
-**Set `OMNI_DB_PATH` before running tests.** Parallel tests competing for
-`~/.omni/omni.db` cause SQLite locks: 79 seconds green against an isolated database,
+**Set `VENG_DB_PATH` before running tests.** Parallel tests competing for
+`~/.veng/veng.db` cause SQLite locks: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one.
 
-## What OMNI is trying to be
+## What VENG is trying to be
 
 Read this before writing code. It decides what a good change looks like here.
 
-OMNI removes noise from what an agent reads, **without removing the answer and without
+VENG removes noise from what an agent reads, **without removing the answer and without
 overstating what it removed.** Compression is the easy half. A distiller that deletes
 a whole `kubectl` table and reports 99% saved compressed perfectly and did the job
 wrongly.
@@ -144,7 +144,7 @@ rather than in each author remembering, so it holds for all 12 by construction.
 
 ## There is no signal layer any more
 
-The TOML filter layer, `signals/`, `omni learn` and `omni doctor --test-filter` were
+The TOML filter layer, `signals/`, `veng learn` and `veng doctor --test-filter` were
 all retired in 0.7.4 (#505). Measured over 6,656 recorded commands the layer moved
 2,018 bytes, 0.031% of the corpus, and infrastructure commands scored better without
 it. It cost 5 to 7 ms of a 10 ms hook budget, about a third of the total, and removing
@@ -157,7 +157,7 @@ be shadowed by a regex that merely matched first.
 
 ## Measure before you build
 
-`~/.omni/omni.db` prices a proposal in one query, and the answer is often the opposite
+`~/.veng/veng.db` prices a proposal in one query, and the answer is often the opposite
 of the request.
 
 "Improve the python3 distiller" became two facts in two queries: `python3` was already
@@ -174,7 +174,7 @@ is correct before pricing what it is worth, too: an import-graph feature sized a
 traces until the graph itself turned out to be wrong, then sized at 26.
 
 Read the rows before quoting an aggregate over them, and never read `sqlite3` output
-through the Bash hook while investigating OMNI, because the pipeline can fold the rows
+through the Bash hook while investigating VENG, because the pipeline can fold the rows
 you are counting.
 
 ## Rust standards
@@ -211,14 +211,14 @@ The CI matrix includes `windows-latest`. Four rules keep it green.
    The ledger splits with `split_inclusive('\n')` rather than `lines()` for exactly
    this reason: `lines()` drops the terminator, so rebuilding would silently rewrite
    every CRLF payload on Windows.
-3. **The binary is not always `./omni`.** Use `std::env::consts::EXE_SUFFIX`.
+3. **The binary is not always `./veng`.** Use `std::env::consts::EXE_SUFFIX`.
 4. **Windows environment variables are case-insensitive.** Use `eq_ignore_ascii_case`
    when reading `std::env::vars()`.
 
 ## Testing
 
 ```bash
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+VENG_DB_PATH=/tmp/veng-test.db cargo test
 cargo test --test hook_e2e
 cargo test --test savings_assertions
 cargo test --test security_tests
@@ -311,21 +311,21 @@ and fix or reply before merging.
 The bar is higher than "describe the problem", because a distiller bug is only
 believable with both outputs side by side.
 
-1. **A runnable reproduction using `omni exec`.** The form is exact:
-   `omni exec npm run dev`, not `omni exec -- npm run dev`.
-2. **Raw against distilled, quoted verbatim**, including the `[OMNI Active]` footer.
+1. **A runnable reproduction using `veng exec`.** The form is exact:
+   `veng exec npm run dev`, not `veng exec -- npm run dev`.
+2. **Raw against distilled, quoted verbatim**, including the `[VENG Active]` footer.
    The footer is often the point: the worst bugs here report the highest reductions.
 3. **The line in `src/` that decides it**, if you traced it. Say plainly when you did
    not; an issue that overstates a mechanism gets fixed in the wrong place.
-4. **Environment**: `omni --version`, OS, and the real toolchain versions.
+4. **Environment**: `veng --version`, OS, and the real toolchain versions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real
 terminal output carries hostnames, account ids and internal addresses more often than
 people expect.
 
 Read the **whole** distilled output before filing. Grepping it hides the group headers
-that often make the output lossless after all, and OMNI is non-deterministic against a
-warm database, so isolate `OMNI_DB_PATH` per run.
+that often make the output lossless after all, and VENG is non-deterministic against a
+warm database, so isolate `VENG_DB_PATH` per run.
 
 Three classes, and they are not equally urgent:
 
@@ -339,7 +339,7 @@ Three classes, and they are not equally urgent:
 
 - A distiller for a tool not covered
 - A signal for a tool whose noise is line-shaped
-- **A reproduction of any case where OMNI's output claims more than its input
+- **A reproduction of any case where VENG's output claims more than its input
   supports.** Worth more than it sounds, and the reason this project keeps its
   standards where it does.
 - Performance work, with a before and after measured by removal rather than by
@@ -351,7 +351,7 @@ Three classes, and they are not equally urgent:
 `README.md` changes must reach `i18n/README-{ja,zh,ar,id,vi,ko}.md`. Those files sit
 one level deeper, so assets are `../media/…` and root links are `../CONTRIBUTING.md`.
 
-Keep **OMNI**, **RewindStore**, **MCP** and **Hook** as they are. Translate
+Keep **VENG**, **RewindStore**, **MCP** and **Hook** as they are. Translate
 "distillation" and "Semantic Signal Engine" with local technical terms.
 
 ## Licence

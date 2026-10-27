@@ -4,7 +4,7 @@ One developer's real command history, replayed. Every figure in a section comes 
 same run as the rest of that section, including the ones that do not flatter us.
 
 **Two runs are published here and they disagree by a factor of fifteen.** That is the most
-useful thing on the page: the number OMNI reports is a property of the week it replays, not
+useful thing on the page: the number VENG reports is a property of the week it replays, not
 a constant. Read the corpus line before the figure, every time.
 
 ## Correction, 2026-09-03: every ledger figure below is overstated
@@ -18,12 +18,12 @@ Re-measured on the same frozen corpus, same commit, with only that fixed:
 
 | arm | as published | with the guards visible |
 | --- | --- | --- |
-| omni, with the ledger | 4.9% | **3.0%** |
+| veng, with the ledger | 4.9% | **3.0%** |
 | rtk + our ledger | 5.7% | 3.7% |
 | caveman + our ledger | 5.6% | 3.7% |
 | headroom dedup | 5.8% | 5.8% |
 | lean-ctx compress | 4.8% | 4.8% |
-| omni, filters only | 1.4% | 1.4% |
+| veng, filters only | 1.4% | 1.4% |
 
 Per class, with the ledger: file read 4.3% to **1.5%**, other 4.6% to 2.8%, git 8.6% to
 6.4%, search 4.2% to 4.0%, infra 3.8% to 3.6%, build and test 11.1% to 10.7%. The capture
@@ -57,7 +57,7 @@ and one written without that field was measured this way.
 
 **Corpus**: 9,478 traces, 8,458,937 bytes, 70 sessions, all `agent_id='claude_code'`,
 0 terminal rows, 0 errored. Frozen on disk and hashed as `0b63218ef78a1edb`, replayed
-in 7.1 s on OMNI 0.7.8.
+in 7.1 s on VENG 0.7.8.
 
 Every run above this line on this page was measured on `execution_traces`, which prunes
 at seven days, so none of them can be re-derived. This one is a file. That is the whole
@@ -88,7 +88,7 @@ in it qualifies any more. The refusal cost 4.6 KB over 810 calls, 0.054% of
 the corpus. Checked against the 0.7.10 binary, an identical re-run still folds to
 one marker and a partially-seen reply now folds nothing.
 
-<!-- omni:corpus-table:start -->
+<!-- veng:corpus-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
 |---|---|---|---|---|---|---|
 | other | 6,457 | 4.81 MB | 0.8% | 2.8% | 15.9% | **12.6%** |
@@ -101,28 +101,28 @@ one marker and a partially-seen reply now folds nothing.
 
 | Arm | bytes | saved |
 |---|---|---|
-| headroom dedup, omni's filters | 8,486,830 to 8,061,481 | 5.0% |
+| headroom dedup, veng's filters | 8,486,830 to 8,061,481 | 5.0% |
 | lean-ctx `compress` | 8,486,830 to 8,076,957 | 4.8% |
-| caveman + omni's ledger | 8,486,830 to 8,174,311 | 3.7% |
-| rtk + omni's ledger | 8,486,830 to 8,174,685 | 3.7% |
-| **omni, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
+| caveman + veng's ledger | 8,486,830 to 8,174,311 | 3.7% |
+| rtk + veng's ledger | 8,486,830 to 8,174,685 | 3.7% |
+| **veng, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
 | caveman `compress` | 8,486,830 to 8,311,999 | 2.1% |
 | rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
-| omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
+| veng, filters only | 8,486,830 to 8,417,817 | 0.8% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
-<!-- omni:corpus-table:end -->
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, VENG 0.7.11.
+<!-- veng:corpus-table:end -->
 
 **`available` and `captured` are new, and `captured` is the figure that survives a
 change of workload.** The ledger substitutes lines it has already delivered, so it can
 never fold what was not repeated; `available` is that ceiling and `captured` is the share
 of it taken. Between this corpus and the 0.7.5 run below, the file-read saving moves by a
 factor of twenty. The capture rate barely moves. Only one of those two is a statement
-about OMNI.
+about VENG.
 
 **Why the savings column is so much lower than the run below: this corpus is mostly
 one-line shell plumbing.** 4,815 of the 9,478 calls begin with `cd`, carrying 3.98 MB at
-1.2%, and the median repeated run is 10 bytes. It was a week of driving OMNI's own
+1.2%, and the median repeated run is 10 bytes. It was a week of driving VENG's own
 development from a terminal, so the payloads are `git`, `gh`, `sed` and `sqlite3` output
 that is either tiny, structured, or seen once. Repetition is 16.3% of raw bytes here
 against 80.6% in the window below.
@@ -142,12 +142,12 @@ a subcommand it knows, so it falls through to shrink mode and hands back the inp
 #711's failure wearing a different binary. `caveman-engine compress` is the entry point
 that works (#712).
 
-**On this corpus OMNI is last of the four rows that carry a ledger, and both halves are
+**On this corpus VENG is last of the four rows that carry a ledger, and both halves are
 behind.** headroom's dedup takes 5.0% where ours takes 2.4% over identical filters and
 identical blocks, so that 2.6 points is the dedup engine alone. It read 0.9 points until
 #760, which is the correction at the top of this page and not a change in the code. Our filter tier is the
 weakest of the four at 0.8%, against 2.1% for rtk and caveman and 4.8% for lean-ctx,
-and that shortfall is what carries `rtk + omni's ledger` and `caveman + omni's ledger`
+and that shortfall is what carries `rtk + veng's ledger` and `caveman + veng's ledger`
 above our own stack: the ledger is identical in all three rows and only the filters
 underneath it differ.
 
@@ -207,7 +207,7 @@ everything below. 148 of the 5,984 calls carry 64.7% of all bytes, 286 groups of
 byte-identical payloads account for 80.6% of the total, and the single largest
 contributor is five traces of exactly 820,000 bytes whose content is one sentence
 repeated to fill. It is the week this machine did nothing but develop and benchmark
-OMNI. A corpus of ordinary work reads far lower: the same harness on 6,656 traces in
+VENG. A corpus of ordinary work reads far lower: the same harness on 6,656 traces in
 August 2026 read 2.7% and 14.9%.
 
 ### Which commands benefit
@@ -265,10 +265,10 @@ Identical bytes into every arm. Versions: rtk 0.45.0, lean-ctx 3.9.18, caveman 1
 |---|---|---:|---|
 | rtk `pipe` | 23,086,649 to 21,655,277 | **6.2%** | |
 | caveman `tools compress` | 23,086,649 to 21,516,757 | **6.8%** | |
-| omni, filters only | 23,086,649 to 15,557,823 | **32.6%** | |
+| veng, filters only | 23,086,649 to 15,557,823 | **32.6%** | |
 | lean-ctx `compress` | 23,086,649 to 11,678,975 | **49.4%** | 425 of 5,984 |
 | headroom dedup, our filters | 23,086,649 to 7,905,764 | **65.8%** | |
-| **omni, with the ledger** | 23,086,649 to 7,026,021 | **69.6%** | |
+| **veng, with the ledger** | 23,086,649 to 7,026,021 | **69.6%** | |
 | rtk + our ledger | 23,086,649 to 8,906,376 | **61.4%** | |
 | caveman + our ledger | 23,086,649 to 8,844,105 | **61.7%** | |
 
@@ -314,7 +314,7 @@ did succeed. Noise, not an enumeration.
 ## Method
 
 ```sh
-OMNI_BENCH_DB=~/.omni/omni.db \
+VENG_BENCH_DB=~/.veng/veng.db \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
@@ -323,30 +323,30 @@ replay reads, and `execution_traces` prunes at seven days, so a run against the 
 measures a corpus that is already different from the one anybody else would get.
 
 ```sh
-sqlite3 ~/.omni/omni.db ".backup /tmp/bench-corpus.db"
-OMNI_BENCH_DB=/tmp/bench-corpus.db \
+sqlite3 ~/.veng/veng.db ".backup /tmp/bench-corpus.db"
+VENG_BENCH_DB=/tmp/bench-corpus.db \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
 | | |
 |---|---|
 | corpus | `execution_traces.raw_input`, real usage, replayed. Not synthetic. Shell commands only: no `Read` payload is in this table, so no figure here covers the ledger's file-read path |
-| population | calls whose result reached a model. `OMNI_BENCH_ALL=1` widens it |
+| population | calls whose result reached a model. `VENG_BENCH_ALL=1` widens it |
 | state | `session: None`, `store: None`, `HOME` at an empty temp dir |
-| path | `run_inner`, the same pipeline the hook and `omni exec` run, markers included |
+| path | `run_inner`, the same pipeline the hook and `veng exec` run, markers included |
 | binary | release build |
-| arms | `OMNI_BENCH_RTK`, `_LEANCTX`, `_CAVEMAN`, `_HEADROOM`, each off unless it names a binary, so CI never needs a competitor installed |
+| arms | `VENG_BENCH_RTK`, `_LEANCTX`, `_CAVEMAN`, `_HEADROOM`, each off unless it names a binary, so CI never needs a competitor installed |
 
 **Terminal output is excluded, and it is worth two different headlines.** On an
 installation carrying it, it was 68% of raw bytes: 79.1% including it against 43.3%
-model-facing. The harness and `omni stats` both counted it until that was fixed, and
+model-facing. The harness and `veng stats` both counted it until that was fixed, and
 both now print which population they used.
 
 **Every figure comes from one run.** This file once published 15.7% and 16.1% from two
 replays a day apart without saying so.
 
 **Every window closes.** `execution_traces` prunes at 7 days, so this corpus is gone a
-week after it was measured. Hold one open with `OMNI_TRACE_RETENTION_DAYS`.
+week after it was measured. Hold one open with `VENG_TRACE_RETENTION_DAYS`.
 
 **Old figures are deleted, not kept for comparison.** Releases keep changing the rule
 that decides whether the ledger folds a run, so an older number describes a pipeline
@@ -367,8 +367,8 @@ Whether the removed lines were signal.
 ## Measure your own
 
 ```sh
-omni stats
-omni stats --share
+veng stats
+veng stats --share
 ```
 
 Both read the same aggregation, so the share card cannot drift from the report.

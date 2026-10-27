@@ -1,4 +1,4 @@
-// OMNI Library, re-exports for integration tests and external usage.
+// VENG Library, re-exports for integration tests and external usage.
 
 #![deny(clippy::string_slice)]
 
@@ -10,6 +10,7 @@ pub mod graph;
 pub mod guard;
 pub mod hooks;
 pub mod ledger;
+pub mod legacy;
 pub mod mcp;
 pub mod paths;
 pub mod pipeline;

@@ -16,8 +16,8 @@ fn main() {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    println!("cargo:rustc-env=OMNI_GIT_HASH={}", git_hash);
-    println!("cargo:rustc-env=OMNI_BUILD_DATE={}", build_date);
+    println!("cargo:rustc-env=VENG_GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=VENG_BUILD_DATE={}", build_date);
 
     // #137: how many changelog entries this build carries that no release does.
     //
@@ -25,7 +25,7 @@ fn main() {
     // release than mine". It cannot answer "are there fixes that have not been
     // released at all", because in that state the newest release *is* the
     // running version — which is how six correctness fixes sat merged and
-    // unshipped in #127 while `omni doctor` printed `[LATEST]`.
+    // unshipped in #127 while `veng doctor` printed `[LATEST]`.
     //
     // A build-time count is the honest source: `## [Unreleased]` describes the
     // tree this binary was compiled from. A properly cut release has none, so a
@@ -42,9 +42,9 @@ fn main() {
         .map(|s| count_unreleased_entries(&s))
         .unwrap_or(0)
         + count_fragments(std::path::Path::new("changelog.d"));
-    println!("cargo:rustc-env=OMNI_UNRELEASED_ENTRIES={}", unreleased);
+    println!("cargo:rustc-env=VENG_UNRELEASED_ENTRIES={}", unreleased);
 }
 
 // One implementation, used by the build script and compiled into the library,
-// so the number `omni doctor` prints and the number under test cannot diverge.
+// so the number `veng doctor` prints and the number under test cannot diverge.
 include!("src/util/changelog.rs");

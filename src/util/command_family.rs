@@ -2,7 +2,7 @@
 ///
 /// The key has to look like an environment name, so `--out=file` and a path
 /// carrying an `=` are not mistaken for one. Without this the family of
-/// `OMNI_DB_PATH=/tmp/x/d.db cargo test` was the path itself: a per-invocation
+/// `VENG_DB_PATH=/tmp/x/d.db cargo test` was the path itself: a per-invocation
 /// string that can never match a later command, which is how `retrieve_events`
 /// filled with rows nothing could ever read back (#512).
 fn is_env_assignment(token: &str) -> bool {
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn skips_leading_environment_assignments() {
         assert_eq!(
-            command_family("OMNI_DB_PATH=/tmp/a1b2/d.db cargo test foo"),
+            command_family("VENG_DB_PATH=/tmp/a1b2/d.db cargo test foo"),
             "cargo test"
         );
         assert_eq!(command_family("FOO=1 BAR=2 git status -s"), "git status");

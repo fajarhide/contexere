@@ -1,18 +1,18 @@
 import { execFile } from "node:child_process";
 import type { ExtensionAPI, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 
-const OMNI_AGENT_ID = "pi";
-const DEFAULT_OMNI_PATH = "omni";
-const OMNI_TIMEOUT_MS = 10_000;
-const OMNI_STDIN_LIMIT_BYTES = 16 * 1024 * 1024;
+const VENG_AGENT_ID = "pi";
+const DEFAULT_VENG_PATH = "veng";
+const VENG_TIMEOUT_MS = 10_000;
+const VENG_STDIN_LIMIT_BYTES = 16 * 1024 * 1024;
 
-/** Tools whose results are NOT sent to OMNI (mutation ops handled separately). */
+/** Tools whose results are NOT sent to VENG (mutation ops handled separately). */
 const EXCLUDE_TOOL_NAMES = new Set(["edit", "write"]);
 
 type JsonObject = Record<string, unknown>;
 
 /**
- * `updatedToolOutput`, not `updatedResponse`. OMNI stopped emitting the second
+ * `updatedToolOutput`, not `updatedResponse`. VENG stopped emitting the second
  * one in 0.6.5 (#158), and this file kept reading it, so `updated` was always
  * undefined and Pi received raw output on every call while the hook ran, spawned
  * the subprocess and did the work (#688). Probed rather than assumed: a Pi-shaped
@@ -20,11 +20,11 @@ type JsonObject = Record<string, unknown>;
  * `updatedToolOutput: { result: <7,365 chars>, status: "success" }`.
  *
  * `result` because that is the field Pi's own `toolResultPayload` sends the text
- * in, and OMNI echoes the shape it was given. A host whose tool result names the
+ * in, and VENG echoes the shape it was given. A host whose tool result names the
  * field differently gets that name back instead, which is why this is typed as a
  * record and read by key rather than as a string.
  */
-type OmniHookOutput = {
+type VengHookOutput = {
   hookSpecificOutput?: {
     systemPromptAddition?: string;
     updatedToolOutput?: { result?: string; status?: string };
@@ -32,28 +32,28 @@ type OmniHookOutput = {
   };
 };
 
-/** State shared across hooks — toggled by /omni command */
-let omniEnabled = true;
+/** State shared across hooks — toggled by /veng command */
+let vengEnabled = true;
 
 /** Centralized setter: updates state + footer status in one call. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function setOmniEnabled(ctx: any, enabled: boolean): void {
-  omniEnabled = enabled;
+function setVengEnabled(ctx: any, enabled: boolean): void {
+  vengEnabled = enabled;
   const label = enabled ? "on" : "off";
-ctx.ui.setStatus("omni", ctx.ui.theme.fg("accent", `omni (${label})`));
+ctx.ui.setStatus("veng", ctx.ui.theme.fg("accent", `veng (${label})`));
 }
 
 
-function omniPathOrDefault(config?: unknown): string {
+function vengPathOrDefault(config?: unknown): string {
   if (typeof config === "object" && config !== null) {
     const obj = config as Record<string, unknown>;
-    if (typeof obj._omniPath === "string") return obj._omniPath;
+    if (typeof obj._vengPath === "string") return obj._vengPath;
     const cfg = obj.config as JsonObject | undefined;
-    if (cfg?.omniPath && typeof cfg.omniPath === "string") return cfg.omniPath as string;
+    if (cfg?.vengPath && typeof cfg.vengPath === "string") return cfg.vengPath as string;
     const ext = obj.extensionConfig as JsonObject | undefined;
-    if (ext?.omniPath && typeof ext.omniPath === "string") return ext.omniPath as string;
+    if (ext?.vengPath && typeof ext.vengPath === "string") return ext.vengPath as string;
   }
-  return DEFAULT_OMNI_PATH;
+  return DEFAULT_VENG_PATH;
 }
 
 function sessionId(ctx: unknown): string {
@@ -67,35 +67,35 @@ function sessionId(ctx: unknown): string {
 }
 
 /**
- * Call the `omni` binary.
- * JSON goes in via stdin; OMNI_AGENT_ID is injected as an env var.
- * The extension flags used by the Pi runtime have NO relation to OMNI CLI flags —
- * `--stdin` and `--agent-id` do NOT exist on the OMNI binary and would cause
+ * Call the `veng` binary.
+ * JSON goes in via stdin; VENG_AGENT_ID is injected as an env var.
+ * The extension flags used by the Pi runtime have NO relation to VENG CLI flags —
+ * `--stdin` and `--agent-id` do NOT exist on the VENG binary and would cause
  * "unknown command" failures that get silently swallowed.
  */
-function runOmni(
-  omniFlag: string,
+function runVeng(
+  vengFlag: string,
   payload: JsonObject,
   cwd: string,
   ctxForConfig?: unknown,
-): Promise<OmniHookOutput | undefined> {
+): Promise<VengHookOutput | undefined> {
   return new Promise((resolve) => {
-    const omni = omniPathOrDefault(ctxForConfig);
+    const veng = vengPathOrDefault(ctxForConfig);
     const body = JSON.stringify(payload);
 
-    if (Buffer.byteLength(body, "utf8") > OMNI_STDIN_LIMIT_BYTES) {
+    if (Buffer.byteLength(body, "utf8") > VENG_STDIN_LIMIT_BYTES) {
       resolve(undefined);
       return;
     }
 
     const child = execFile(
-      omni,
-      [omniFlag],
+      veng,
+      [vengFlag],
       {
         cwd,
-        timeout: OMNI_TIMEOUT_MS,
-        maxBuffer: OMNI_STDIN_LIMIT_BYTES,
-        env: { ...process.env, OMNI_AGENT_ID },
+        timeout: VENG_TIMEOUT_MS,
+        maxBuffer: VENG_STDIN_LIMIT_BYTES,
+        env: { ...process.env, VENG_AGENT_ID },
       },
       (error, stdout) => {
         if (error) {
@@ -103,7 +103,7 @@ function runOmni(
           return;
         }
         try {
-          resolve(JSON.parse(stdout) as OmniHookOutput);
+          resolve(JSON.parse(stdout) as VengHookOutput);
         } catch {
           resolve(undefined);
         }
@@ -116,9 +116,9 @@ function runOmni(
   });
 }
 
-// ── Helpers for OMNI payloads ──
+// ── Helpers for VENG payloads ──
 
-function toolNameForOmni(name: string): string {
+function toolNameForVeng(name: string): string {
   const n = name.toLowerCase().trim();
   switch (n) {
     case "bash":
@@ -157,7 +157,7 @@ function extractText(value: unknown): string {
   return "";
 }
 
-function toolInputForOmni(event: ToolResultEvent): unknown {
+function toolInputForVeng(event: ToolResultEvent): unknown {
   const obj = event as unknown as JsonObject;
   return obj.toolInput ?? obj.input ?? obj.parameters ?? obj.args;
 }
@@ -196,7 +196,7 @@ return (c as unknown as { text: string }).text;
     .join("\n") ?? extractText((event as { output?: unknown }).output);
 
   return {
-    toolName: toolNameForOmni((event as { toolName: string }).toolName),
+    toolName: toolNameForVeng((event as { toolName: string }).toolName),
     result: text,
     isError: !!(event as { isError?: boolean }).isError,
   };
@@ -204,25 +204,25 @@ return (c as unknown as { text: string }).text;
 
 // ── Extension entry point ──
 
-export default function omniExtension(pi: ExtensionAPI): void {
+export default function vengExtension(pi: ExtensionAPI): void {
   // ── Slash command ──
 
-  pi.registerCommand("omni", {
-    description: "Enable, disable, or check OMNI status",
+  pi.registerCommand("veng", {
+    description: "Enable, disable, or check VENG status",
     async handler(argStr, ctx) {
       const arg = argStr.trim().toLowerCase();
       if (arg === "off" || arg === "disable") {
-        setOmniEnabled(ctx, false);
-        ctx.ui.notify("OMNI disabled", "info");
+        setVengEnabled(ctx, false);
+        ctx.ui.notify("VENG disabled", "info");
         return;
       }
       if (arg === "on" || arg === "enable") {
-        setOmniEnabled(ctx, true);
-        ctx.ui.notify("OMNI enabled", "info");
+        setVengEnabled(ctx, true);
+        ctx.ui.notify("VENG enabled", "info");
         return;
       }
       ctx.ui.notify(
-        omniEnabled ? "OMNI is enabled" : "OMNI is disabled",
+        vengEnabled ? "VENG is enabled" : "VENG is disabled",
         "info",
       );
     },
@@ -231,9 +231,9 @@ export default function omniExtension(pi: ExtensionAPI): void {
   // ── Hook: session_start ──
 
 pi.on("session_start", async (event, ctx) => {
-    setOmniEnabled(ctx, omniEnabled);
-    if (!omniEnabled) return;
-    runOmni(
+    setVengEnabled(ctx, vengEnabled);
+    if (!vengEnabled) return;
+    runVeng(
       "--session-start",
       {
         hookEventName: "SessionStart",
@@ -250,14 +250,14 @@ pi.on("session_start", async (event, ctx) => {
 
   // ── Hook: before_agent_start ──
   //
-  // Return `{ systemPrompt }` to chain OMNI's session-continuation summary
+  // Return `{ systemPrompt }` to chain VENG's session-continuation summary
   // onto the existing system prompt. Returning `undefined` is fail-open
   // (Pi keeps the original prompt unchanged).
 
   pi.on("before_agent_start", async (event, ctx) => {
-    if (!omniEnabled) return undefined;
+    if (!vengEnabled) return undefined;
     try {
-      const out = await runOmni(
+      const out = await runVeng(
         "--before-agent-start",
         {
           hookEventName: "BeforeAgentStart",
@@ -283,12 +283,12 @@ pi.on("session_start", async (event, ctx) => {
   // ── Hook: session_before_compact ──
   //
   // Pi doesn't currently expose a way to inject text into the compaction
-  // prompt from this hook, so we just notify OMNI for telemetry/session
+  // prompt from this hook, so we just notify VENG for telemetry/session
   // tracking and discard the response.
 
   pi.on("session_before_compact", async (event, ctx) => {
-    if (!omniEnabled) return;
-    runOmni(
+    if (!vengEnabled) return;
+    runVeng(
       "--pre-compact",
       {
         hookEventName: "PreCompact",
@@ -306,21 +306,21 @@ pi.on("session_start", async (event, ctx) => {
 
   // ── Hook: tool_result (non-mutating only) ──
   //
-  // Await OMNI and return `{ content: [...] }` so Pi REPLACES the raw tool
-  // output with the distilled version. Without this return, OMNI runs but
+  // Await VENG and return `{ content: [...] }` so Pi REPLACES the raw tool
+  // output with the distilled version. Without this return, VENG runs but
   // its distillation never reaches the LLM.
 
   pi.on("tool_result", async (event, ctx) => {
-    if (!omniEnabled) return undefined;
+    if (!vengEnabled) return undefined;
     const name = (event as { toolName: string }).toolName;
     if (EXCLUDE_TOOL_NAMES.has(name)) return undefined;
 
-    const toolName = toolNameForOmni(name);
-    const toolInput = toolInputForOmni(event);
+    const toolName = toolNameForVeng(name);
+    const toolInput = toolInputForVeng(event);
     const command = commandFromToolInput(toolName, toolInput);
 
     try {
-      const out = await runOmni(
+      const out = await runVeng(
         "--post-hook",
         {
           hookEventName: "ToolResult",

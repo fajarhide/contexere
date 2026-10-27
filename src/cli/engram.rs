@@ -28,8 +28,8 @@ const FLAGS: super::Flags = &[("--json", "Machine-readable JSON output")];
 
 pub fn run_engram(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
     if super::wants_help(args) {
-        println!("\nomni engram: View engrams (subtask digests)\n");
-        println!("USAGE:\n  omni engram [list] [FLAGS]\n");
+        println!("\nveng engram: View engrams (subtask digests)\n");
+        println!("USAGE:\n  veng engram [list] [FLAGS]\n");
         super::print_flags(FLAGS);
         return Ok(());
     }

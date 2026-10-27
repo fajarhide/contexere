@@ -1,12 +1,12 @@
 //! Path utilities - single source of truth for all filesystem paths
 //!
-//! This module centralizes all path resolution for OMNI.
+//! This module centralizes all path resolution for VENG.
 //! All paths are automatically OS-agnostic using cross-platform libraries.
 //! No conditional compilation is needed here - `dirs` and `std::env::temp_dir`
 //! handle platform differences automatically.
 //!
 //! **Single source of truth means every caller asks here.** A call site that
-//! builds `dirs::home_dir().join(".omni")` itself is outside every override this
+//! builds `dirs::home_dir().join(".veng")` itself is outside every override this
 //! module offers, and that is not hypothetical: `session::learn::queue_for_learn`
 //! wrote the learn queue to the real home whatever the configuration said
 //! (#312), and `toml_filter::resolve_user_signal_dir` read the developer's live
@@ -18,32 +18,32 @@ use dirs::home_dir;
 use std::env;
 use std::path::PathBuf;
 
-/// The legacy tree, `~/.omni`, whether or not it exists.
+/// The legacy tree, `~/.veng`, whether or not it exists.
 fn legacy_home() -> PathBuf {
-    home_dir().unwrap_or_else(temp_dir).join(".omni")
+    home_dir().unwrap_or_else(temp_dir).join(".veng")
 }
 
 /// Resolve one of the two roots.
 ///
 /// Precedence, most specific first (#217):
 ///
-/// 1. `OMNI_HOME` puts the whole tree in one place.
-/// 2. `OMNI_CONFIG_HOME` / `OMNI_DATA_HOME` split config from data.
-/// 3. **An existing `~/.omni` wins over XDG.** This is the migration decision
+/// 1. `VENG_HOME` puts the whole tree in one place.
+/// 2. `VENG_CONFIG_HOME` / `VENG_DATA_HOME` split config from data.
+/// 3. **An existing `~/.veng` wins over XDG.** This is the migration decision
 ///    and it is deliberate: an install that already has a tree keeps using it,
 ///    so upgrading never appears to lose a database. #217 offered moving the
 ///    directory with a notice as an alternative; silently continuing to work is
 ///    the boring option and the one that cannot surprise anyone.
-/// 4. `XDG_CONFIG_HOME/omni` / `XDG_DATA_HOME/omni` for a fresh install on a
+/// 4. `XDG_CONFIG_HOME/veng` / `XDG_DATA_HOME/veng` for a fresh install on a
 ///    machine that asked for the spec.
-/// 5. `~/.omni`.
+/// 5. `~/.veng`.
 ///
 /// Read once through a `LazyLock` at each call site below. Cargo runs tests in
 /// parallel in one process, so a value re-read per call could change under a
 /// test that set it, which is the process-state hazard this repo has already
 /// paid for once.
 fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
-    if let Some(p) = env::var_os("OMNI_HOME").filter(|p| !p.is_empty()) {
+    if let Some(p) = env::var_os("VENG_HOME").filter(|p| !p.is_empty()) {
         return PathBuf::from(p);
     }
     if let Some(p) = env::var_os(split_var).filter(|p| !p.is_empty()) {
@@ -54,7 +54,7 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
         return legacy;
     }
     if let Some(p) = env::var_os(xdg_var).filter(|p| !p.is_empty()) {
-        return PathBuf::from(p).join("omni");
+        return PathBuf::from(p).join("veng");
     }
     legacy
 }
@@ -63,7 +63,7 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
 #[inline]
 pub fn config_home() -> PathBuf {
     static ROOT: std::sync::LazyLock<PathBuf> =
-        std::sync::LazyLock::new(|| resolve_root("OMNI_CONFIG_HOME", "XDG_CONFIG_HOME"));
+        std::sync::LazyLock::new(|| resolve_root("VENG_CONFIG_HOME", "XDG_CONFIG_HOME"));
     ROOT.clone()
 }
 
@@ -71,18 +71,18 @@ pub fn config_home() -> PathBuf {
 #[inline]
 pub fn data_home() -> PathBuf {
     static ROOT: std::sync::LazyLock<PathBuf> =
-        std::sync::LazyLock::new(|| resolve_root("OMNI_DATA_HOME", "XDG_DATA_HOME"));
+        std::sync::LazyLock::new(|| resolve_root("VENG_DATA_HOME", "XDG_DATA_HOME"));
     ROOT.clone()
 }
 
-/// The OMNI home directory.
+/// The VENG home directory.
 ///
 /// Kept as the name most of the tree already asks for, and equal to
 /// [`config_home`]. With no environment set at all, every root here is the same
-/// `~/.omni`, so splitting config from data changes nothing for an existing
+/// `~/.veng`, so splitting config from data changes nothing for an existing
 /// install and only matters to someone who asked for it.
 #[inline]
-pub fn omni_home() -> PathBuf {
+pub fn veng_home() -> PathBuf {
     config_home()
 }
 
@@ -96,10 +96,10 @@ pub fn temp_dir() -> PathBuf {
     env::temp_dir()
 }
 
-/// Get path to OMNI SQLite database
+/// Get path to VENG SQLite database
 #[inline]
 pub fn database_path() -> PathBuf {
-    data_home().join("omni.db")
+    data_home().join("veng.db")
 }
 
 /// Get path to the user configuration file.
@@ -120,14 +120,14 @@ pub fn exports_directory() -> PathBuf {
     data_home().join("exports")
 }
 
-/// Narrow a path OMNI owns to its owner: `0700` for a directory, `0600` for a
+/// Narrow a path VENG owns to its owner: `0700` for a directory, `0600` for a
 /// file.
 ///
-/// Nothing in the tree asked for a mode before this, so `~/.omni` and the
+/// Nothing in the tree asked for a mode before this, so `~/.veng` and the
 /// database inherited the umask and a default 022 left 147 MB of recorded
 /// command output world readable (#631). Redaction does not cover it and is not
 /// meant to: redaction protects what the *model* sees, while the archive keeps
-/// the original on purpose so `omni retrieve` can return it.
+/// the original on purpose so `veng retrieve` can return it.
 ///
 /// Reads the mode before writing it, because this sits on the hook path and a
 /// `stat` is cheaper than a `chmod` on the run where nothing has to change,
@@ -158,7 +158,7 @@ pub fn restrict_to_owner(_path: &std::path::Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
-    /// #631. Nothing in the tree set a mode, so `~/.omni` and a 147 MB database
+    /// #631. Nothing in the tree set a mode, so `~/.veng` and a 147 MB database
     /// of recorded command output sat at 0755 and 0644 under a default umask.
     ///
     /// Driven from deliberately loose modes rather than by setting a umask: the
@@ -172,9 +172,9 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let sub = dir.path().join("omni-home");
+        let sub = dir.path().join("veng-home");
         std::fs::create_dir(&sub).expect("mkdir");
-        let file = sub.join("omni.db");
+        let file = sub.join("veng.db");
         std::fs::write(&file, b"rows").expect("write");
 
         std::fs::set_permissions(&sub, std::fs::Permissions::from_mode(0o777)).expect("chmod dir");
@@ -186,24 +186,24 @@ mod tests {
 
         let mode =
             |p: &std::path::Path| std::fs::metadata(p).expect("stat").permissions().mode() & 0o777;
-        assert_eq!(mode(&sub), 0o700, "a directory OMNI owns is owner only");
-        assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
+        assert_eq!(mode(&sub), 0o700, "a directory VENG owns is owner only");
+        assert_eq!(mode(&file), 0o600, "a file VENG owns is owner only");
     }
 
     /// #307: without an override the suite wrote into the developer's live
-    /// `~/.omni`. `.cargo/config.toml` points `OMNI_HOME` at the workspace's
+    /// `~/.veng`. `.cargo/config.toml` points `VENG_HOME` at the workspace's
     /// `target/`, so this fails if either half is removed: the config entry, or
     /// the reading of it here.
     #[test]
     fn a_test_run_never_resolves_to_the_developers_real_home() {
-        let home = omni_home();
+        let home = veng_home();
         assert!(
-            home.ends_with("omni-home"),
-            "OMNI_HOME is not in effect: a test run would write to {}",
+            home.ends_with("veng-home"),
+            "VENG_HOME is not in effect: a test run would write to {}",
             home.display()
         );
 
-        let real = home_dir().map(|h| h.join(".omni"));
+        let real = home_dir().map(|h| h.join(".veng"));
         assert_ne!(
             Some(home.clone()),
             real,
@@ -213,7 +213,7 @@ mod tests {
 
     /// #315: the previous version of the test above asserted only that the
     /// *accessor* was overridden, and passed while the filter loader read the
-    /// real `~/.omni/filters` on every hook. Every path the product actually
+    /// real `~/.veng/filters` on every hook. Every path the product actually
     /// opens is checked here, so a new call site that derives its own is caught
     /// by the one test rather than by a CI flake months later. The filter paths
     /// left this list with the layer they served (#505).
@@ -244,7 +244,7 @@ mod tests {
     }
 
     /// The migration decision, stated as a test because it is the one thing an
-    /// upgrade could get visibly wrong: an install that already has `~/.omni`
+    /// upgrade could get visibly wrong: an install that already has `~/.veng`
     /// keeps using it, even when XDG is set.
     #[test]
     fn an_existing_legacy_tree_wins_over_xdg() {
@@ -254,13 +254,13 @@ mod tests {
         let legacy = legacy_home();
         if legacy.exists() {
             assert_eq!(
-                resolve_root("OMNI_DATA_HOME_UNSET_FOR_TEST", "XDG_DATA_HOME"),
-                if env::var_os("OMNI_HOME").is_some_and(|p| !p.is_empty()) {
-                    omni_home()
+                resolve_root("VENG_DATA_HOME_UNSET_FOR_TEST", "XDG_DATA_HOME"),
+                if env::var_os("VENG_HOME").is_some_and(|p| !p.is_empty()) {
+                    veng_home()
                 } else {
                     legacy
                 },
-                "an existing ~/.omni must keep being used"
+                "an existing ~/.veng must keep being used"
             );
         }
     }
@@ -334,7 +334,7 @@ mod project_key_tests {
     #[test]
     fn a_linked_worktree_answers_the_main_checkout() {
         let d = tempfile::tempdir().expect("tempdir");
-        let main = d.path().join("omni");
+        let main = d.path().join("veng");
         let tree = main.join(".git-worktrees/520");
         std::fs::create_dir_all(main.join(".git/worktrees/520")).expect("mkdir");
         std::fs::create_dir_all(tree.join("src")).expect("mkdir");

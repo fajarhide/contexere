@@ -17,7 +17,7 @@
 //! ## What it does
 //!
 //! A **run** of consecutive lines that were all emitted earlier in this session
-//! becomes one marker naming the count and an `omni_retrieve` handle. Everything
+//! becomes one marker naming the count and an `veng_retrieve` handle. Everything
 //! else passes through byte for byte.
 //!
 //! ## The rules it inherits
@@ -137,12 +137,12 @@ impl Origin {
             // 15 bytes more than the wording it replaces on this arm only.
             Self::Session if matches!(source, SourceOfSighting::ThisCommandAgain) => (
                 format!(
-                    "[OMNI: {lines} lines identical to an earlier run, omni retrieve {handle}]"
+                    "[VENG: {lines} lines identical to an earlier run, veng retrieve {handle}]"
                 ),
                 "session_rerun",
             ),
             Self::Session => (
-                format!("[OMNI: {lines} lines already shown{from}, omni retrieve {handle}]"),
+                format!("[VENG: {lines} lines already shown{from}, veng retrieve {handle}]"),
                 "session_run",
             ),
             // #567. `from an earlier session` states provenance and reads as
@@ -157,7 +157,7 @@ impl Origin {
             // session form's trim was worth 0.3 points on its own (#450), so the
             // honest wording is the cheaper one here rather than a trade.
             Self::Project => (
-                format!("[OMNI: {lines} lines not shown here{from}, omni retrieve {handle}]"),
+                format!("[VENG: {lines} lines not shown here{from}, veng retrieve {handle}]"),
                 "project_run",
             ),
         }
@@ -189,7 +189,7 @@ impl Origin {
         match self {
             Self::Session => (
                 format!(
-                    "[OMNI: identical to the {lines} lines already shown{from}, omni retrieve {handle}]"
+                    "[VENG: identical to the {lines} lines already shown{from}, veng retrieve {handle}]"
                 ),
                 "session_whole",
             ),
@@ -198,7 +198,7 @@ impl Origin {
             // marker is already gated at `MIN_WHOLE_OUTPUT_FOLD` (#567).
             Self::Project => (
                 format!(
-                    "[OMNI: identical to {lines} lines from an earlier session{from}, none shown here, omni retrieve {handle}]"
+                    "[VENG: identical to {lines} lines from an earlier session{from}, none shown here, veng retrieve {handle}]"
                 ),
                 "project_whole",
             ),
@@ -318,7 +318,7 @@ pub fn scope_for(session: &str, agent: Option<&str>) -> String {
 /// The session half of a scope key, which is the inverse of `scope_for`.
 ///
 /// Kept beside it so the two cannot drift: a fold row records the project in its
-/// `scope` column by design, and `omni_explain_savings` still has to be able to
+/// `scope` column by design, and `veng_explain_savings` still has to be able to
 /// ask "what did this session fold" (#602). Agent ids carry no `/`, so the first
 /// segment is the session.
 pub fn session_of(scope: &str) -> &str {
@@ -1044,7 +1044,7 @@ impl<'a> Ledger<'a> {
             // costs one delivery rather than exempting the content for good.
             // The run, and the payload it was cut out of. A fold archives one
             // block of a reply, never the reply, so a handle that reported its
-            // own length as the whole let `omni retrieve` present ten of
+            // own length as the whole let `veng retrieve` present ten of
             // fourteen lines as a complete answer (#627).
             match long_enough
                 .then(|| self.store.store_rewind(&body, payload_bytes))
@@ -1265,7 +1265,7 @@ mod tests {
 
     fn temp_store() -> (Store, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         (store, dir)
     }
 
@@ -1402,11 +1402,11 @@ mod tests {
         // earlier draft of this test passed with the handle column written blank,
         // which would have shipped a retrieve rate that is always zero.
         let handle = again
-            .split("omni retrieve ")
+            .split("veng retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("the marker carries a handle");
-        store.record_retrieve_event("omni retrieve", handle, "claude_code");
+        store.record_retrieve_event("veng retrieve", handle, "claude_code");
 
         let after = store.marker_retrieve_rates(0);
         let rerun = after
@@ -1427,7 +1427,7 @@ mod tests {
         // used to multiply its own marker through the join: the fold count
         // stopped counting markers and the retrieval sum stopped counting
         // answered questions.
-        store.record_retrieve_event("omni retrieve", handle, "claude_code");
+        store.record_retrieve_event("veng retrieve", handle, "claude_code");
         let twice = store.marker_retrieve_rates(0);
         let after_two = twice
             .iter()
@@ -1446,7 +1446,7 @@ mod tests {
 
     /// #627. A fold archives the run it replaced, never the reply, so the handle
     /// has to carry the size of the payload it came out of. Without it
-    /// `omni retrieve` frames ten folded lines of a fourteen line output as
+    /// `veng retrieve` frames ten folded lines of a fourteen line output as
     /// `10 lines · 227 B`, which reads as the whole answer.
     #[test]
     fn a_folded_run_records_the_payload_it_was_cut_from() {
@@ -1468,7 +1468,7 @@ mod tests {
         let view = ledger.project(&second_input).expect("the repeat folds");
 
         let handle = view
-            .split("omni retrieve ")
+            .split("veng retrieve ")
             .nth(1)
             .and_then(|s| s.split(']').next())
             .expect("the marker names a handle");
@@ -1560,7 +1560,7 @@ mod tests {
     #[test]
     fn records_whether_a_fold_covered_the_whole_output() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         let text = payload();
         let ledger = Ledger::new(&store, "s1");
@@ -1671,9 +1671,9 @@ mod tests {
         let out = cmd
             .env("GIT_CONFIG_GLOBAL", dir.join("no-such-gitconfig"))
             .env("GIT_CONFIG_SYSTEM", dir.join("no-such-gitconfig"))
-            .env("GIT_AUTHOR_NAME", "omni test")
+            .env("GIT_AUTHOR_NAME", "veng test")
             .env("GIT_AUTHOR_EMAIL", "test@example.invalid")
-            .env("GIT_COMMITTER_NAME", "omni test")
+            .env("GIT_COMMITTER_NAME", "veng test")
             .env("GIT_COMMITTER_EMAIL", "test@example.invalid")
             .output()
             .expect("git has to be on PATH for this test to mean anything");
@@ -1756,7 +1756,7 @@ mod tests {
         let second = ledger.project(&text).expect("projectable");
 
         let handle = second
-            .split_once("omni retrieve ")
+            .split_once("veng retrieve ")
             .and_then(|(_, rest)| rest.split_once(']'))
             .map(|(h, _)| h.to_string())
             .expect("a handle was offered");
@@ -1838,7 +1838,7 @@ mod tests {
     #[test]
     fn records_which_agent_was_shown_each_line() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         // Above `MIN_LEDGER_INPUT` and below the project scope's fold bar, so
         // the second agent is *shown* every line rather than handed a marker.
@@ -1894,7 +1894,7 @@ mod tests {
     #[test]
     fn records_the_agent_whose_lines_a_project_fold_replaced() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         let (repeated, payload) = project_repeat_then_fresh();
 
@@ -2077,7 +2077,7 @@ mod tests {
     #[test]
     fn a_project_fold_needs_a_fresh_sighting() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         let repeated = project_repeat();
 
@@ -2132,7 +2132,7 @@ mod tests {
     #[test]
     fn a_line_shown_again_is_fresh_again() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         let repeated = project_repeat();
 
@@ -2321,7 +2321,7 @@ mod tests {
             "cat a.md;tail -5 b.md",
             // #751. Words that introduce a command without being one.
             "sudo tail -20 /var/log/app.log",
-            "env OMNI_PASSTHROUGH=1 sed -n '335,360p' src/hooks/post_tool.rs",
+            "env VENG_PASSTHROUGH=1 sed -n '335,360p' src/hooks/post_tool.rs",
             // #751. A wrapper's argument list is somebody else's command line,
             // so the name counts anywhere inside it.
             "docker exec app tail -5 /var/log/app.log",
@@ -2852,7 +2852,7 @@ mod tests {
             "the error was elided on the re-run: {second}"
         );
         assert!(
-            second.contains("[OMNI:"),
+            second.contains("[VENG:"),
             "the repeated context should still fold, or this proves nothing: {second}"
         );
     }
@@ -3010,8 +3010,8 @@ mod tests {
             .map(|i| format!("{i:02}:export * from \"./module-name-{i:02}\";\n"))
             .collect();
         // What the command printed around them.
-        let scaffolding = "=== versi terpasang:\nomni 0.7.6\n\
-             lrwxr-xr-x@ 1 user  admin  29 Aug 18 16:33 /opt/local/bin/omni\n\
+        let scaffolding = "=== versi terpasang:\nveng 0.7.6\n\
+             lrwxr-xr-x@ 1 user  admin  29 Aug 18 16:33 /opt/local/bin/veng\n\
              === repro 1 (persis yang tadi, urutan sort):\n";
         let payload = format!("{scaffolding}{answer}");
 

@@ -3,4 +3,4 @@ source: src/distillers/mod.rs
 expression: output
 ---
 ========================= 1 failed, 2 passed in 0.05s ==========================
-FAILED tests/test_omni.py::test_failure - assert 1 == 2
+FAILED tests/test_veng.py::test_failure - assert 1 == 2

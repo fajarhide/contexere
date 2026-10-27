@@ -13,7 +13,7 @@ const FLAGS: super::Flags = &[
     ("--project-scoped", "Scope to this project (the default)"),
 ];
 
-/// The parsed form of `omni remember`, hand-read from argv.
+/// The parsed form of `veng remember`, hand-read from argv.
 ///
 /// This was the one subcommand of seventeen that used clap's result rather than
 /// discarding it and re-parsing (#506). Four fields is less code than the
@@ -69,7 +69,7 @@ fn parse(args: &[String]) -> Result<RememberArgs> {
 
     Ok(RememberArgs {
         content: content
-            .ok_or_else(|| anyhow::anyhow!("nothing to remember: omni remember \"<text>\""))?,
+            .ok_or_else(|| anyhow::anyhow!("nothing to remember: veng remember \"<text>\""))?,
         category,
         tags,
         project_scoped,

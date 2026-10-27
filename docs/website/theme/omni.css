@@ -1,5 +1,5 @@
 /* ==========================================================================
-   OMNI docs, wearing omni.weekndlabs.com's clothes.
+   VENG docs, wearing veng.weekndlabs.com's clothes.
 
    The site's design system is "the receipt": quiet paper, one instrument,
    itemised numbers. Its two rules are inherited here without exception.
@@ -8,7 +8,7 @@
         Never mix the two inside one block.
      2. Yellow appears only inside the terminal. It is the instrument's
         colour, so it never leaks onto the page. The accent both themes
-        spend is --accent, the same one omni.weekndlabs.com uses.
+        spend is --accent, the same one veng.weekndlabs.com uses.
 
    Rule 2 is also what decides the dark theme. mdBook's `light` is the site's
    paper; its `navy` is the instrument, which is the one place amber belongs.
@@ -45,10 +45,10 @@
    from @weekndlabs/design, and every one of them carries the pre-system value
    as its fallback.
 
-   The tokens are not vendored here. omni-pages depends on that package for its
+   The tokens are not vendored here. veng-pages depends on that package for its
    own pages and, at publish time, drops the same copy into this book and links
    it from theme/head.hbs (see scripts/build-docs.sh over there). That is what
-   keeps /docs and the rest of omni.weekndlabs.com on one palette through a
+   keeps /docs and the rest of veng.weekndlabs.com on one palette through a
    style change: one version bump, in one repository.
 
    The consequence to know about: `mdbook serve` here renders the fallbacks, so

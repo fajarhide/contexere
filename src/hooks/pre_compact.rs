@@ -21,7 +21,7 @@ struct HookInput {
 /// `PreCompact` records the snapshot; it never replies with one.
 ///
 /// The reply used to carry the snapshot as
-/// `hookSpecificOutput.systemPromptAddition`. Claude Code is the only host OMNI
+/// `hookSpecificOutput.systemPromptAddition`. Claude Code is the only host VENG
 /// registers this hook with (`agents/claude.rs:485`), and its `PreCompact` reply
 /// contract has no content field at all, so renaming to `additionalContext`
 /// would not have helped either: the summary was discarded whatever it was
@@ -41,7 +41,7 @@ pub fn process_payload(
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[veng] parse error");
             return None;
         }
     };
@@ -135,7 +135,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     //   - Footer:           ~100 tokens
 
     let mut out = format!(
-        "⚡ OMNI Context Snapshot, preserved before compaction\n\
+        "⚡ VENG Context Snapshot, preserved before compaction\n\
         CRITICAL: This is injected context. Do NOT re-read files listed here, \n\
         use this summary directly. File contents below are accurate as of this session.\n\
         \n\
@@ -162,7 +162,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         };
 
         out.push_str(&format!(
-            "\n## OMNI Loop Checkpoint\n\
+            "\n## VENG Loop Checkpoint\n\
             - **Loop ID:** {}\n\
             - **Iteration:** {}\n\
             - **Goal:** {}\n\
@@ -233,7 +233,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     };
 
     out.push_str(&format!(
-        "\n## OMNI Session ROI\n\
+        "\n## VENG Session ROI\n\
         Tokens saved this session: ~{}\n\
         Commands distilled: {} (recent)\n\
         Top command: {} ({:.1}% reduction)\n\
@@ -270,7 +270,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     out.push_str(&crate::hooks::session_start::read_pinned_files(&cwd));
 
     out.push_str(
-        "\nREMINDER: The above is OMNI's session context snapshot. Trust this data, \n\
+        "\nREMINDER: The above is VENG's session context snapshot. Trust this data, \n\
         it was computed from actual command outputs. Do not re-run commands \n\
         to verify information already present here.\n",
     );
@@ -287,7 +287,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         // Approximate character length for 6000 tokens
         let target_chars = ((6000.0 / current_tokens as f64) * out.len() as f64) as usize;
         crate::util::text::safe_truncate(&mut out, target_chars.saturating_sub(50));
-        out.push_str("\n... [OMNI: Intelligently omitted to stay within 6000 token budget]\n");
+        out.push_str("\n... [VENG: Intelligently omitted to stay within 6000 token budget]\n");
     }
 
     out
@@ -301,7 +301,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("must succeed");
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (
             Arc::new(Store::open_path(&db_path).expect("must succeed")),
             dir,
@@ -417,7 +417,7 @@ mod tests {
         });
 
         let _ = process_payload(&input.to_string(), store.clone(), session);
-        assert!(recorded_snapshot(&store, "123").contains("OMNI Context Snapshot"));
+        assert!(recorded_snapshot(&store, "123").contains("VENG Context Snapshot"));
     }
 
     #[test]
@@ -512,7 +512,7 @@ mod tests {
 
         let events = store.search_session_events(&session_id, "PreCompact", 10);
         assert_eq!(events.len(), 1);
-        assert!(events[0].contains("OMNI Context Snapshot"));
+        assert!(events[0].contains("VENG Context Snapshot"));
     }
 
     #[test]

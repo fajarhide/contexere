@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 /// emits; anything below this is that command's content (#266).
 const MIN_COMMANDS_FOR_NOISE: usize = 2;
 
-/// How long `omni_run` waits for a command before abandoning it.
+/// How long `veng_run` waits for a command before abandoning it.
 ///
 /// Below every host MCP timeout we know of (Cursor's is 120s) so the model reads
 /// which command stalled instead of an opaque `-32001` (#544). Overridable
@@ -24,7 +24,7 @@ const MIN_COMMANDS_FOR_NOISE: usize = 2;
 const RUN_TIMEOUT_SECS: u64 = 60;
 
 fn run_timeout() -> std::time::Duration {
-    let secs = std::env::var("OMNI_RUN_TIMEOUT_SECS")
+    let secs = std::env::var("VENG_RUN_TIMEOUT_SECS")
         .ok()
         .and_then(|v| v.trim().parse::<u64>().ok())
         .filter(|s| *s > 0)
@@ -41,7 +41,7 @@ fn run_timeout() -> std::time::Duration {
 /// The failure branch is #122 and is not an optimisation: a command that exited
 /// non-zero passes through verbatim, because distilling a failure is how a
 /// broken build gets reported as a clean one. `run_inner` is the same entry
-/// point `omni exec` uses, so the filters, the format gate and the redaction all
+/// point `veng exec` uses, so the filters, the format gate and the redaction all
 /// apply here exactly as they do everywhere else.
 pub(crate) fn run_and_distill(
     command: &str,
@@ -52,7 +52,7 @@ pub(crate) fn run_and_distill(
 }
 
 /// The body of `run_and_distill`, with the deadline passed in so a test can
-/// drive it without setting `OMNI_RUN_TIMEOUT_SECS` on the whole process. Cargo
+/// drive it without setting `VENG_RUN_TIMEOUT_SECS` on the whole process. Cargo
 /// runs tests in parallel, and an env var one test writes is an env var every
 /// other test reads.
 fn run_with_timeout(
@@ -83,7 +83,7 @@ fn run_with_timeout(
 
     let child = match spawned {
         Ok(c) => c,
-        Err(e) => return format!("omni_run: failed to start `{command}`: {e}"),
+        Err(e) => return format!("veng_run: failed to start `{command}`: {e}"),
     };
 
     // `wait_with_output` drains both pipes at once. Draining stdout to EOF and
@@ -96,15 +96,15 @@ fn run_with_timeout(
 
     let output = match rx.recv_timeout(timeout) {
         Ok(Ok(o)) => o,
-        Ok(Err(e)) => return format!("omni_run: `{command}` could not be waited on: {e}"),
+        Ok(Err(e)) => return format!("veng_run: `{command}` could not be waited on: {e}"),
         // ponytail: the reader thread owns the child, so a timed-out command is
         // abandoned rather than killed. The case that gets us here is a
         // grandchild holding the pipe open, which killing the shell would not
         // reach anyway. Revisit if orphaned shells show up in the wild.
         Err(_) => {
             return format!(
-                "omni_run: `{command}` did not finish within {}s and was abandoned. \
-                 Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher.",
+                "veng_run: `{command}` did not finish within {}s and was abandoned. \
+                 Run it outside VENG, or set VENG_RUN_TIMEOUT_SECS higher.",
                 timeout.as_secs()
             );
         }
@@ -148,17 +148,17 @@ fn run_with_timeout(
 }
 
 #[derive(Clone)]
-pub struct OmniServer {
+pub struct VengServer {
     store: Arc<Store>,
     session: Arc<Mutex<SessionState>>,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniRetrieveParams {
+pub struct VengRetrieveParams {
     // Not a doc comment: schemars puts one in the advertised schema, and that
     // schema is billed on every session (#609).
     //
-    // Every marker says `omni retrieve <handle>`, and so does the CLI's usage
+    // Every marker says `veng retrieve <handle>`, and so does the CLI's usage
     // line, so an agent that copies what it was told to run sent `handle` and got
     // `missing field hash` back (#826). The schema now names what the marker
     // names; `hash` stays as an alias so a caller written against the old field
@@ -168,22 +168,22 @@ pub struct OmniRetrieveParams {
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniDensityParams {
+pub struct VengDensityParams {
     pub text: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniQueryParams {
+pub struct VengQueryParams {
     pub query: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniRecallParams {
+pub struct VengRecallParams {
     pub query: String, // Upgraded recall parameter from tool to query
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniRememberParams {
+pub struct VengRememberParams {
     pub content: String,
     pub category: Option<String>,
     pub tags: Option<String>,
@@ -191,50 +191,50 @@ pub struct OmniRememberParams {
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniContextParams {
+pub struct VengContextParams {
     pub file_path: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniSessionParams {
+pub struct VengSessionParams {
     pub action: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniSearchParams {
+pub struct VengSearchParams {
     pub query: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniHistoryParams {
+pub struct VengHistoryParams {
     pub limit: Option<u32>,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniExplainSavingsParams {
+pub struct VengExplainSavingsParams {
     pub limit: Option<u32>,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniRunParams {
+pub struct VengRunParams {
     /// The shell command to run, exactly as it would be typed.
     pub command: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniFindNoiseParams {
+pub struct VengFindNoiseParams {
     pub limit: Option<u32>,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniKnowledgeParams {
+pub struct VengKnowledgeParams {
     pub action: String,
     pub key: Option<String>,
     pub value: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniSetLoopContextParams {
+pub struct VengSetLoopContextParams {
     pub loop_id: Option<String>,
     pub iteration: Option<u32>,
     pub budget_tokens: Option<u64>,
@@ -243,14 +243,14 @@ pub struct OmniSetLoopContextParams {
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniVerifyParams {
+pub struct VengVerifyParams {
     pub session_id: String,
     pub criteria: String,
     pub last_n_calls: usize,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniLoopMemoryParams {
+pub struct VengLoopMemoryParams {
     /// Action: get, set, list, or forget
     pub action: String,
     /// Loop goal string (used as namespace via SHA-256)
@@ -265,22 +265,22 @@ pub struct OmniLoopMemoryParams {
 
 // L3-03: Loop-Native MCP Tool Suite Params
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniLoopStatusParams {}
+pub struct VengLoopStatusParams {}
 
 #[derive(Deserialize, JsonSchema)]
-pub struct OmniSignalExtractParams {
+pub struct VengSignalExtractParams {
     pub text: String,
     pub context: Option<String>,
 }
 
 // Automatically bind tool signatures
 #[tool_router]
-impl OmniServer {
+impl VengServer {
     #[tool(
-        name = "omni_retrieve",
-        description = "Retrieve full content omitted by OMNI distillation (handle from the marker)"
+        name = "veng_retrieve",
+        description = "Retrieve full content omitted by VENG distillation (handle from the marker)"
     )]
-    pub async fn omni_retrieve(&self, params: Parameters<OmniRetrieveParams>) -> String {
+    pub async fn veng_retrieve(&self, params: Parameters<VengRetrieveParams>) -> String {
         let handle = params.0.handle;
         if let Some(content) = self.store.retrieve_rewind(&handle) {
             self.store.record_rewind_pull(&handle);
@@ -291,10 +291,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_verify",
+        name = "veng_verify",
         description = "As a checker sub-agent, retrieve and evaluate the maker agent's recent work. Returns structured pass/fail with specific issues."
     )]
-    pub async fn omni_verify(&self, params: Parameters<OmniVerifyParams>) -> String {
+    pub async fn veng_verify(&self, params: Parameters<VengVerifyParams>) -> String {
         let checker_ctx = crate::agents::checker::CheckerContext::new(
             &params.0.session_id,
             &params.0.criteria,
@@ -304,10 +304,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_loop_memory",
+        name = "veng_loop_memory",
         description = "Read/write persistent loop memory that survives session restarts. Use to remember patterns across loop iterations. Actions: get, set, list, forget."
     )]
-    pub async fn omni_loop_memory(&self, params: Parameters<OmniLoopMemoryParams>) -> String {
+    pub async fn veng_loop_memory(&self, params: Parameters<VengLoopMemoryParams>) -> String {
         let goal_hash = crate::util::text::short_hash(&params.0.goal);
 
         match params.0.action.as_str() {
@@ -381,10 +381,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_density",
+        name = "veng_density",
         description = "Measure how much signal vs noise in text"
     )]
-    pub async fn omni_density(&self, params: Parameters<OmniDensityParams>) -> String {
+    pub async fn veng_density(&self, params: Parameters<VengDensityParams>) -> String {
         let text = params.0.text;
         let current_session = self
             .session
@@ -397,7 +397,7 @@ impl OmniServer {
             &text,
             crate::pipeline::SegmentationMode::Line,
             Some(&current_session),
-            "omni_density",
+            "veng_density",
         );
 
         let mut critical_lines = 0;
@@ -426,26 +426,26 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_query",
-        description = "Query distillation history using OmniQL. Supported queries: 'errors in last N commands', 'warnings from <tool>', 'context for <file_path>', 'timeline today'"
+        name = "veng_query",
+        description = "Query distillation history using VengQL. Supported queries: 'errors in last N commands', 'warnings from <tool>', 'context for <file_path>', 'timeline today'"
     )]
-    pub async fn omni_query(&self, params: Parameters<OmniQueryParams>) -> String {
+    pub async fn veng_query(&self, params: Parameters<VengQueryParams>) -> String {
         let query = params.0.query;
-        self.store.record_memory_read("omni_query", &query);
-        match self.store.execute_omni_query(&query) {
+        self.store.record_memory_read("veng_query", &query);
+        match self.store.execute_veng_query(&query) {
             Ok(result) => serde_json::to_string_pretty(&result)
                 .unwrap_or_else(|e| format!("Serialization error: {}", e)),
-            Err(e) => format!("OmniQL error: {}", e),
+            Err(e) => format!("VengQL error: {}", e),
         }
     }
 
     #[tool(
-        name = "omni_recall",
+        name = "veng_recall",
         description = "Recall cross-session memories using semantic search across Engrams, Knowledge, and Distillation history"
     )]
-    pub async fn omni_recall(&self, params: Parameters<OmniRecallParams>) -> String {
+    pub async fn veng_recall(&self, params: Parameters<VengRecallParams>) -> String {
         let query = params.0.query;
-        self.store.record_memory_read("omni_recall", &query);
+        self.store.record_memory_read("veng_recall", &query);
         let limit = 5;
 
         let project_path = std::env::current_dir()
@@ -492,10 +492,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_adaptive_insights",
+        name = "veng_adaptive_insights",
         description = "Analyze retrieval patterns to surface actionable insights about distillation effectiveness. Returns JSON."
     )]
-    pub async fn omni_adaptive_insights(&self) -> String {
+    pub async fn veng_adaptive_insights(&self) -> String {
         let project_path = std::env::current_dir()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default();
@@ -506,10 +506,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_remember",
-        description = "Store important knowledge, decisions, or gotchas to OMNI's persistent memory"
+        name = "veng_remember",
+        description = "Store important knowledge, decisions, or gotchas to VENG's persistent memory"
     )]
-    pub async fn omni_remember(&self, params: Parameters<OmniRememberParams>) -> String {
+    pub async fn veng_remember(&self, params: Parameters<VengRememberParams>) -> String {
         let content = params.0.content;
         if content.trim().len() < 10 {
             return "Memory entry too short. Please be more specific (min 10 chars).".to_string();
@@ -563,11 +563,11 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_insight",
+        name = "veng_insight",
         description = "Show the top recurring issues and error patterns across the entire project"
     )]
-    pub async fn omni_insight(&self) -> String {
-        self.store.record_memory_read("omni_insight", "");
+    pub async fn veng_insight(&self) -> String {
+        self.store.record_memory_read("veng_insight", "");
         let mut report = String::new();
 
         // Proactive: Context Pressure Notification (Item 10)
@@ -622,10 +622,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_context",
+        name = "veng_context",
         description = "Show lightweight dependency context for a file"
     )]
-    pub async fn omni_context(&self, params: Parameters<OmniContextParams>) -> String {
+    pub async fn veng_context(&self, params: Parameters<VengContextParams>) -> String {
         let file_path = params.0.file_path;
         if file_path.trim().is_empty() {
             return "Please provide a file_path".to_string();
@@ -648,7 +648,7 @@ impl OmniServer {
             .and_then(|s| s.hot_files.get(&ctx.file_path).copied())
             .unwrap_or(0);
 
-        let mut out = format!("OMNI Context for {}\n", ctx.file_path);
+        let mut out = format!("VENG Context for {}\n", ctx.file_path);
         if ctx.imports.is_empty() {
             out.push_str("Imports: none detected\n");
         } else {
@@ -684,10 +684,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_session",
-        description = "Manage OMNI session state manually (status | context | clear)"
+        name = "veng_session",
+        description = "Manage VENG session state manually (status | context | clear)"
     )]
-    pub async fn omni_session(&self, params: Parameters<OmniSessionParams>) -> String {
+    pub async fn veng_session(&self, params: Parameters<VengSessionParams>) -> String {
         let action = params.0.action;
         let action = if action.is_empty() {
             "status".to_string()
@@ -708,7 +708,7 @@ impl OmniServer {
 
                 let goal_str = self
                     .store
-                    .get_knowledge(&project_hash, "__omni_goal__")
+                    .get_knowledge(&project_hash, "__veng_goal__")
                     .map(|g| format!("Goal: {}\n", g))
                     .unwrap_or_default();
 
@@ -732,7 +732,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 format!(
-                    "OMNI Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
+                    "VENG Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
                     s.session_id, goal_str, s.command_count, task, domain, hot_str, err
                 )
             }
@@ -747,7 +747,7 @@ impl OmniServer {
 
                 let goal_str = self
                     .store
-                    .get_knowledge(&project_hash, "__omni_goal__")
+                    .get_knowledge(&project_hash, "__veng_goal__")
                     .map(|g| format!("[Goal] {} ", g))
                     .unwrap_or_default();
 
@@ -785,7 +785,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 let mut msg = format!(
-                    "{}{}[OMNI Context] Task: {}. Hot: {}. Error: {}",
+                    "{}{}[VENG Context] Task: {}. Hot: {}. Error: {}",
                     goal_str, last_session_str, task, hot_str, err
                 );
                 if msg.len() > 400 {
@@ -814,10 +814,10 @@ impl OmniServer {
         }
     }
     #[tool(
-        name = "omni_search",
+        name = "veng_search",
         description = "Search current session history (logs, outputs, commands)"
     )]
-    pub async fn omni_search(&self, params: Parameters<OmniSearchParams>) -> String {
+    pub async fn veng_search(&self, params: Parameters<VengSearchParams>) -> String {
         let query = params.0.query;
         if query.trim().is_empty() {
             return "Please provide a query".to_string();
@@ -840,10 +840,10 @@ impl OmniServer {
         }
     }
     #[tool(
-        name = "omni_history",
+        name = "veng_history",
         description = "Show recent distillation history with per-call token savings and compression ratios"
     )]
-    pub async fn omni_history(&self, params: Parameters<OmniHistoryParams>) -> String {
+    pub async fn veng_history(&self, params: Parameters<VengHistoryParams>) -> String {
         let limit = params.0.limit;
         let limit = limit.unwrap_or(10).min(50) as usize;
         let session = match self.session.lock() {
@@ -854,7 +854,7 @@ impl OmniServer {
         let total_saved = session.estimated_tokens_saved();
         let cmd_count = session.command_count;
 
-        // Same reason as `omni_explain_savings`: the id on this side is minted
+        // Same reason as `veng_explain_savings`: the id on this side is minted
         // locally and the rows are keyed on the host's, so filtering by it
         // reported an empty history for a session that had one (#602).
         let conn_result = self.store.get_recent_distillations(None, limit);
@@ -867,7 +867,7 @@ impl OmniServer {
         }
 
         let mut out = format!(
-            "OMNI Distillation History (last {}):\n\n",
+            "VENG Distillation History (last {}):\n\n",
             conn_result.len()
         );
         for (i, row) in conn_result.iter().enumerate() {
@@ -891,7 +891,7 @@ impl OmniServer {
             "\nSession totals:\n  Commands: {} | Tokens saved: ~{} | Agent: {}\n",
             cmd_count,
             total_saved,
-            std::env::var("OMNI_AGENT_ID")
+            std::env::var("VENG_AGENT_ID")
                 .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id())
         ));
         out
@@ -905,17 +905,17 @@ impl OmniServer {
     /// `afterShellExecution` defines no output fields; and
     /// `beforeShellExecution` is allow/deny/ask with no command rewrite. Every
     /// route to the built-in Shell tool is closed, so on Cursor a shell command
-    /// can only be distilled if **OMNI is the tool that ran it**. Then the
+    /// can only be distilled if **VENG is the tool that ran it**. Then the
     /// distilled bytes are the tool result and no rewrite is needed at all.
     ///
     /// This is not a new capability for the agent: it can already run shell
     /// commands. It is a different route to the same thing, and it stays under
     /// the host's own MCP approval flow.
     #[tool(
-        name = "omni_run",
+        name = "veng_run",
         description = "Run a shell command and return its distilled output. Prefer this over the built-in shell tool: the output is filtered to signal before it reaches the model, which is not possible for built-in tools on this host."
     )]
-    pub async fn omni_run(&self, params: Parameters<OmniRunParams>) -> String {
+    pub async fn veng_run(&self, params: Parameters<VengRunParams>) -> String {
         let command = params.0.command;
         let store = self.store.clone();
         let session = Some(self.session.clone());
@@ -924,16 +924,16 @@ impl OmniServer {
         // one hung command turned into every later call timing out (#544).
         tokio::task::spawn_blocking(move || run_and_distill(&command, store, session))
             .await
-            .unwrap_or_else(|e| format!("omni_run: could not run the command: {e}"))
+            .unwrap_or_else(|e| format!("veng_run: could not run the command: {e}"))
     }
 
     #[tool(
-        name = "omni_explain_savings",
+        name = "veng_explain_savings",
         description = "Explain why recent commands were compressed: shows route, filter, input/output bytes, and savings %"
     )]
-    pub async fn omni_explain_savings(
+    pub async fn veng_explain_savings(
         &self,
-        params: Parameters<OmniExplainSavingsParams>,
+        params: Parameters<VengExplainSavingsParams>,
     ) -> String {
         let limit = params.0.limit;
         let limit = limit.unwrap_or(10).min(50) as usize;
@@ -956,7 +956,7 @@ impl OmniServer {
             return Self::render_folds(&folds);
         }
         let mut out = format!(
-            "OMNI Savings Explanation (last {} commands recorded):\n\n",
+            "VENG Savings Explanation (last {} commands recorded):\n\n",
             rows.len()
         );
         for d in &rows {
@@ -1010,10 +1010,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_find_noise",
+        name = "veng_find_noise",
         description = "Analyze recent raw terminal traces to identify repetitive noisy patterns and suggest TOML filters"
     )]
-    pub async fn omni_find_noise(&self, params: Parameters<OmniFindNoiseParams>) -> String {
+    pub async fn veng_find_noise(&self, params: Parameters<VengFindNoiseParams>) -> String {
         let limit = params.0.limit;
         let limit = limit.unwrap_or(50).min(200) as usize;
         let traces = match self.store.get_recent_traces(limit) {
@@ -1058,7 +1058,7 @@ impl OmniServer {
             );
         }
         let mut out = format!(
-            "OMNI Noise Analysis (from {} recent traces):\n\n",
+            "VENG Noise Analysis (from {} recent traces):\n\n",
             traces.len()
         );
         out.push_str("Identified repetitive patterns:\n");
@@ -1073,7 +1073,7 @@ impl OmniServer {
             ));
         }
         out.push_str(
-            "\nThese are a finding, not a filter. OMNI's TOML filter layer was retired in #505 \
+            "\nThese are a finding, not a filter. VENG's TOML filter layer was retired in #505 \
              after measuring at 2,018 bytes over 6,656 commands against 5 to 7 ms per hook, \
              so a recurring pattern here is the case for a distiller, not a config file.",
         );
@@ -1081,10 +1081,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_budget",
+        name = "veng_budget",
         description = "Show token budget usage and compression efficiency for this session"
     )]
-    pub async fn omni_budget(&self) -> String {
+    pub async fn veng_budget(&self) -> String {
         let session = match self.session.lock() {
             Ok(s) => s.clone(),
             Err(_) => return "Error: session lock failed".to_string(),
@@ -1129,17 +1129,17 @@ impl OmniServer {
         let tilde = if is_actual { "" } else { "~" };
 
         format!(
-            "OMNI Token Budget Report:\n\
+            "VENG Token Budget Report:\n\
              \n  Measurement Method: {}\n\
              \n  Raw processed:   {}{display_raw} tokens\
-             \n  After OMNI:      {}{display_filtered} tokens\
+             \n  After VENG:      {}{display_filtered} tokens\
              \n  Saved:           {}{display_saved} tokens ({overall_pct:.1}% reduction)\
              \n\
              \n  Commands processed: {}\
              \n  Active errors:      {}\
              \n  Hot files tracked:  {}\
              \n\
-             \nTip: Call omni_history() for per-command breakdown.\
+             \nTip: Call veng_history() for per-command breakdown.\
              ",
             method,
             tilde,
@@ -1152,10 +1152,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_context_breakdown",
+        name = "veng_context_breakdown",
         description = "Show token breakdown by source for the current context turn"
     )]
-    pub async fn omni_context_breakdown(&self) -> String {
+    pub async fn veng_context_breakdown(&self) -> String {
         let session = match self.session.lock() {
             Ok(s) => s.clone(),
             Err(_) => return "Error: session lock failed".to_string(),
@@ -1166,16 +1166,16 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_agents",
+        name = "veng_agents",
         description = "Show other AI agents currently active on this project (multi-agent awareness)"
     )]
-    pub async fn omni_agents(&self) -> String {
+    pub async fn veng_agents(&self) -> String {
         let project_path = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| "unknown".to_string());
 
         let project_hash = compute_project_hash_str(&project_path);
-        let my_agent = std::env::var("OMNI_AGENT_ID")
+        let my_agent = std::env::var("VENG_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
         let peers = self
@@ -1219,17 +1219,17 @@ impl OmniServer {
                 agent_id = peer.agent_id,
             ));
         }
-        out.push_str("Use omni_session(\"context\") to share your state with peers.");
+        out.push_str("Use veng_session(\"context\") to share your state with peers.");
         out
     }
 
     #[tool(
-        name = "omni_knowledge",
+        name = "veng_knowledge",
         description = "Query or store cross-session project knowledge (persistent across sessions)"
     )]
-    pub async fn omni_knowledge(&self, params: Parameters<OmniKnowledgeParams>) -> String {
+    pub async fn veng_knowledge(&self, params: Parameters<VengKnowledgeParams>) -> String {
         let action = params.0.action;
-        self.store.record_memory_read("omni_knowledge", &action);
+        self.store.record_memory_read("veng_knowledge", &action);
         let key = params.0.key;
         let value = params.0.value;
         let project_path = std::env::current_dir()
@@ -1241,7 +1241,7 @@ impl OmniServer {
             "list" => {
                 let knowledge = self.store.get_project_knowledge(&project_hash);
                 if knowledge.is_empty() {
-                    return "No project knowledge stored yet.\nUse omni_knowledge(\"set\", \"key\", \"value\") to add.".to_string();
+                    return "No project knowledge stored yet.\nUse veng_knowledge(\"set\", \"key\", \"value\") to add.".to_string();
                 }
                 let mut out = format!("Project knowledge for {}:\n\n", project_path);
                 for (k, v, conf) in &knowledge {
@@ -1253,7 +1253,7 @@ impl OmniServer {
                 let k = key.unwrap_or_default();
                 let v = value.unwrap_or_default();
                 if k.is_empty() || v.is_empty() {
-                    return "Usage: omni_knowledge(\"set\", \"key\", \"value\")".to_string();
+                    return "Usage: veng_knowledge(\"set\", \"key\", \"value\")".to_string();
                 }
                 self.store.upsert_project_knowledge(&project_hash, &k, &v, 0.9);
                 format!("Stored: [{k}] = \"{v}\"\nThis knowledge persists across sessions for this project.")
@@ -1261,21 +1261,21 @@ impl OmniServer {
             "forget" => {
                 let k = key.unwrap_or_default();
                 if k.is_empty() {
-                    return "Usage: omni_knowledge(\"forget\", \"key\")".to_string();
+                    return "Usage: veng_knowledge(\"forget\", \"key\")".to_string();
                 }
                 // Set confidence to 0 effectively forgets it (below 0.5 threshold)
                 self.store.upsert_project_knowledge(&project_hash, &k, "", 0.0);
                 format!("Forgotten: [{k}]")
             }
-            _ => "Actions: list | set | forget\nExample: omni_knowledge(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")".to_string(),
+            _ => "Actions: list | set | forget\nExample: veng_knowledge(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")".to_string(),
         }
     }
 
     #[tool(
-        name = "omni_handoff",
+        name = "veng_handoff",
         description = "Export current session state as portable markdown for pasting into a new session or terminal (no network needed)"
     )]
-    pub async fn omni_handoff(&self) -> String {
+    pub async fn veng_handoff(&self) -> String {
         let session = match self.session.lock() {
             Ok(s) => s.clone(),
             Err(_) => return "Error: session lock failed".to_string(),
@@ -1286,10 +1286,10 @@ impl OmniServer {
             .as_deref()
             .unwrap_or("general development");
         let domain = session.inferred_domain.as_deref().unwrap_or("unknown");
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("VENG_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
-        let mut out = String::from("# OMNI Session Handoff\n\n");
+        let mut out = String::from("# VENG Session Handoff\n\n");
         out.push_str(&format!("**Session:** {}\n", session.session_id));
         out.push_str(&format!("**Agent:** {}\n", agent_id));
         out.push_str(&format!("**Task:** {}\n", task));
@@ -1361,12 +1361,12 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_set_loop_context",
+        name = "veng_set_loop_context",
         description = "Update the loop context dynamically. Call this from the loop orchestrator."
     )]
-    pub async fn omni_set_loop_context(
+    pub async fn veng_set_loop_context(
         &self,
-        params: Parameters<OmniSetLoopContextParams>,
+        params: Parameters<VengSetLoopContextParams>,
     ) -> String {
         let mut session = self.session.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(id) = params.0.loop_id {
@@ -1398,10 +1398,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_budget_status",
+        name = "veng_budget_status",
         description = "Get current token budget status for this loop iteration. Call before expensive operations."
     )]
-    pub async fn omni_budget_status(&self) -> String {
+    pub async fn veng_budget_status(&self) -> String {
         let session = self.session.lock().unwrap_or_else(|p| p.into_inner());
         let loop_id = session
             .loop_context
@@ -1440,10 +1440,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_loop_status",
+        name = "veng_loop_status",
         description = "One-call status check for orchestrator before each iteration"
     )]
-    pub async fn omni_loop_status(&self, _params: Parameters<OmniLoopStatusParams>) -> String {
+    pub async fn veng_loop_status(&self, _params: Parameters<VengLoopStatusParams>) -> String {
         let lock = match self.session.lock() {
             Ok(s) => s,
             Err(_) => return r#"{"error": "Session lock failed"}"#.to_string(),
@@ -1476,10 +1476,10 @@ impl OmniServer {
     }
 
     #[tool(
-        name = "omni_signal_extract",
+        name = "veng_signal_extract",
         description = "Extract signal from raw text without passing through hook pipeline"
     )]
-    pub async fn omni_signal_extract(&self, params: Parameters<OmniSignalExtractParams>) -> String {
+    pub async fn veng_signal_extract(&self, params: Parameters<VengSignalExtractParams>) -> String {
         let text = params.0.text;
         let context = params.0.context.unwrap_or_default();
         let segments = crate::pipeline::scorer::score_segments(
@@ -1525,7 +1525,7 @@ impl OmniServer {
     ///
     /// `schemars` stamps every parameter struct with `$schema`, a 56 byte URL
     /// naming the JSON Schema draft, and `title`, which is the Rust struct name
-    /// (`OmniRunParams`). Neither changes how a tool is called, and both sit in
+    /// (`VengRunParams`). Neither changes how a tool is called, and both sit in
     /// the prefix of every request for the life of a session, which is the unit
     /// #609 measured the surface in. Over the nine advertised tools: 2,972 B to
     /// 2,286 B, 23.1%, with no tool removed and no description shortened.
@@ -1583,7 +1583,7 @@ impl OmniServer {
 }
 
 #[rmcp::tool_handler(router = Self::active_tool_router())]
-impl rmcp::ServerHandler for OmniServer {}
+impl rmcp::ServerHandler for VengServer {}
 
 fn compute_project_hash_str(project_path: &str) -> String {
     crate::agents::multiagent::project_hash(project_path)
@@ -1603,22 +1603,22 @@ fn mcp_session_id() -> String {
 }
 
 pub async fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow::Result<()> {
-    // #686. `omni_run` distils through `pipe::run_inner`, which has carried the
+    // #686. `veng_run` distils through `pipe::run_inner`, which has carried the
     // ledger stage since #416, and that stage is gated on a host session id. Only
-    // `omni exec --session` ever set one, so on an MCP host the gate stood shut and
-    // cross-turn folding never ran: the tier with no hook, where `omni_run` is the
+    // `veng exec --session` ever set one, so on an MCP host the gate stood shut and
+    // cross-turn folding never ran: the tier with no hook, where `veng_run` is the
     // only way the model reads less, was the tier that folded nothing.
     //
     // Minted per process, and deliberately not `SessionState::session_id`. That one
     // is a wall-clock stamp on globally persisted state, and `init_globals` hands
     // this process whichever session was last written by anything, so scoping by it
     // would tell one agent it had been shown output that went to another (#118). An
-    // `omni --mcp` process serves one stdio client for its lifetime, so the process
+    // `veng --mcp` process serves one stdio client for its lifetime, so the process
     // is the session: it begins when the client connects and ends when it
     // disconnects, which is exactly the boundary a fold may reason across.
     crate::hooks::pipe::set_host_session(&mcp_session_id());
 
-    let server = OmniServer { store, session };
+    let server = VengServer { store, session };
 
     // Setup transport over standard IO seamlessly
     use tokio::io::{stdin, stdout};
@@ -1636,13 +1636,13 @@ mod tests {
     use tempfile::tempdir;
 
     /// #351: on Cursor every route to the built-in Shell tool is closed, so the
-    /// only way a command's output can be distilled is if OMNI is the tool that
+    /// only way a command's output can be distilled is if VENG is the tool that
     /// ran it. This is that path, and it must actually shorten.
     #[cfg(unix)]
     #[test]
-    fn omni_run_returns_distilled_output_on_success() {
+    fn veng_run_returns_distilled_output_on_success() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
         // 400 near-identical lines: noisy enough that any real filter shortens it.
         let cmd = "for i in $(seq 1 400); do echo \"INFO  worker ready seq=$i\"; done";
@@ -1651,7 +1651,7 @@ mod tests {
         let raw_lines = 400;
         assert!(
             out.lines().count() < raw_lines,
-            "omni_run must hand the model less than the command printed, got {} lines",
+            "veng_run must hand the model less than the command printed, got {} lines",
             out.lines().count()
         );
         assert!(!out.is_empty(), "and it must not hand back nothing");
@@ -1662,15 +1662,15 @@ mod tests {
     /// broken build gets reported as a clean one.
     #[cfg(unix)]
     #[test]
-    fn omni_run_never_distills_a_failed_command() {
+    fn veng_run_never_distills_a_failed_command() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
-        let cmd = "echo 'error: could not compile omni'; echo 'line two'; exit 7";
+        let cmd = "echo 'error: could not compile veng'; echo 'line two'; exit 7";
         let out = run_and_distill(cmd, store, None);
 
         assert!(
-            out.contains("could not compile omni") && out.contains("line two"),
+            out.contains("could not compile veng") && out.contains("line two"),
             "a failure must reach the model whole:\n{out}"
         );
         assert!(
@@ -1688,9 +1688,9 @@ mod tests {
     /// rather than hanging the suite.
     #[cfg(unix)]
     #[test]
-    fn omni_run_survives_a_command_that_floods_stderr() {
+    fn veng_run_survives_a_command_that_floods_stderr() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
         // 200 KB of stderr, past any pipe buffer, with stdout written only after.
         let cmd = "yes ERRLINE | head -c 200000 1>&2; echo done-stdout";
@@ -1714,9 +1714,9 @@ mod tests {
     /// not as the host's opaque idle timeout (#544).
     #[cfg(unix)]
     #[test]
-    fn omni_run_gives_up_on_a_command_that_never_finishes() {
+    fn veng_run_gives_up_on_a_command_that_never_finishes() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
         let out = run_with_timeout("sleep 30", store, None, std::time::Duration::from_secs(1));
 
@@ -1727,14 +1727,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_retrieve_returns_not_found_for_unknown_hash() {
+    async fn test_veng_retrieve_returns_not_found_for_unknown_hash() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        let server = OmniServer { store, session };
+        let server = VengServer { store, session };
         let output = server
-            .omni_retrieve(Parameters(OmniRetrieveParams {
+            .veng_retrieve(Parameters(VengRetrieveParams {
                 handle: "abc".to_string(),
             }))
             .await;
@@ -1742,36 +1742,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_retrieve_returns_stored_content() {
+    async fn test_veng_retrieve_returns_stored_content() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let handle = store
             .store_rewind_whole("testing_payload")
             .expect("archived");
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        let server = OmniServer { store, session };
+        let server = VengServer { store, session };
         let output = server
-            .omni_retrieve(Parameters(OmniRetrieveParams { handle }))
+            .veng_retrieve(Parameters(VengRetrieveParams { handle }))
             .await;
         assert_eq!(output, "testing_payload");
     }
 
-    /// #826. The marker says `omni retrieve <handle>`, so an agent that copies it
+    /// #826. The marker says `veng retrieve <handle>`, so an agent that copies it
     /// sends `handle`; every caller written before this sends `hash`. Both have
     /// to land on the same field or one of the two readers of a marker cannot
     /// spend it.
     #[tokio::test]
     async fn the_word_in_the_marker_and_the_old_field_both_deserialize() {
-        let by_marker: OmniRetrieveParams =
+        let by_marker: VengRetrieveParams =
             serde_json::from_str(r#"{"handle":"1921a5ca788d987e"}"#).expect("handle");
         assert_eq!(by_marker.handle, "1921a5ca788d987e");
 
-        let by_old_name: OmniRetrieveParams =
+        let by_old_name: VengRetrieveParams =
             serde_json::from_str(r#"{"hash":"1921a5ca788d987e"}"#).expect("hash still accepted");
         assert_eq!(by_old_name.handle, "1921a5ca788d987e");
 
-        let schema = schemars::schema_for!(OmniRetrieveParams);
+        let schema = schemars::schema_for!(VengRetrieveParams);
         let json = serde_json::to_string(&schema).expect("schema");
         assert!(
             json.contains("handle"),
@@ -1780,15 +1780,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_density_returns_valid_analysis() {
+    async fn test_veng_density_returns_valid_analysis() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        let server = OmniServer { store, session };
+        let server = VengServer { store, session };
         let text = "error: something failed\nCompiling deps v1.0".to_string();
         let density = server
-            .omni_density(Parameters(OmniDensityParams { text }))
+            .veng_density(Parameters(VengDensityParams { text }))
             .await;
         assert!(density.contains("Signal analysis:"));
         assert!(density.contains("Critical:"));
@@ -1797,19 +1797,19 @@ mod tests {
     // ── Phase 2 MCP Tests ──
 
     #[tokio::test]
-    async fn test_omni_handoff_exports_markdown() {
+    async fn test_veng_handoff_exports_markdown() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let mut state = SessionState::new();
         state.inferred_task = Some("fix auth bug".to_string());
         state.add_hot_file("src/auth.rs");
         state.add_command("cargo test");
         let session = Arc::new(Mutex::new(state));
 
-        let server = OmniServer { store, session };
-        let out = server.omni_handoff().await;
+        let server = VengServer { store, session };
+        let out = server.veng_handoff().await;
         assert!(
-            out.contains("OMNI Session Handoff"),
+            out.contains("VENG Session Handoff"),
             "should be markdown format"
         );
         assert!(out.contains("fix auth bug"), "should contain task");
@@ -1822,9 +1822,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_handoff_includes_engrams() {
+    async fn test_veng_handoff_includes_engrams() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let mut state = SessionState::new();
         state.add_engram(crate::session::engram::Engram {
             label: "Fixed clippy warning".to_string(),
@@ -1835,8 +1835,8 @@ mod tests {
         });
         let session = Arc::new(Mutex::new(state));
 
-        let server = OmniServer { store, session };
-        let out = server.omni_handoff().await;
+        let server = VengServer { store, session };
+        let out = server.veng_handoff().await;
         assert!(
             out.contains("Fixed clippy warning"),
             "should contain engram label"
@@ -1848,9 +1848,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_session_summary_action() {
+    async fn test_veng_session_summary_action() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let mut state = SessionState::new();
         state.add_tool_call(crate::session::engram::ToolCallEntry {
             tool_family: "git".to_string(),
@@ -1861,9 +1861,9 @@ mod tests {
         });
         let session = Arc::new(Mutex::new(state));
 
-        let server = OmniServer { store, session };
+        let server = VengServer { store, session };
         let out = server
-            .omni_session(Parameters(OmniSessionParams {
+            .veng_session(Parameters(VengSessionParams {
                 action: "summary".to_string(),
             }))
             .await;
@@ -1872,14 +1872,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_omni_session_summary_empty() {
+    async fn test_veng_session_summary_empty() {
         let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        let server = OmniServer { store, session };
+        let server = VengServer { store, session };
         let out = server
-            .omni_session(Parameters(OmniSessionParams {
+            .veng_session(Parameters(VengSessionParams {
                 action: "summary".to_string(),
             }))
             .await;
@@ -1898,18 +1898,18 @@ mod tests {
     /// The old 3,000 gate stayed green through that whole regression, which is
     /// what a bound set far above the measurement buys you.
     ///
-    /// Ratcheted again to 2,200 when `omni_context` left the surface: it was the
+    /// Ratcheted again to 2,200 when `veng_context` left the surface: it was the
     /// only advertised tool never called once in 253 sessions, and it cost 189 B
     /// of every request. Kept just above the 2,098 that measures today, for the
     /// same reason: a gate with room in it does not notice a regression.
     ///
     /// Ratcheted to 500 when the admission rule stopped being "called at least
     /// once" and started being priced (#609). On this tier the list is
-    /// `omni_retrieve` and `omni_explain_savings`, which carried 138 of the 149
+    /// `veng_retrieve` and `veng_explain_savings`, which carried 138 of the 149
     /// calls in the 256-session corpus; the six that left cost 1,631 B for 11.
     #[test]
     fn the_advertised_surface_is_smaller_than_it_was() {
-        let router = OmniServer::router_from("claude_code", false);
+        let router = VengServer::router_from("claude_code", false);
         let listed = router.list_all();
         let bytes: usize = listed
             .iter()
@@ -1932,14 +1932,14 @@ mod tests {
     /// removing it would leave the install with nothing to do (`strategy.md`
     /// section 5).
     #[test]
-    fn a_handoff_first_host_is_still_told_about_omni_run() {
-        let names: Vec<String> = OmniServer::router_from("cursor", false)
+    fn a_handoff_first_host_is_still_told_about_veng_run() {
+        let names: Vec<String> = VengServer::router_from("cursor", false)
             .list_all()
             .into_iter()
             .map(|t| t.name.to_string())
             .collect();
         assert!(
-            names.iter().any(|n| n == "omni_run"),
+            names.iter().any(|n| n == "veng_run"),
             "advertised: {names:?}"
         );
     }
@@ -1957,7 +1957,7 @@ mod tests {
     #[test]
     fn the_advertised_schemas_carry_no_boilerplate() {
         for keep_everything in [false, true] {
-            for tool in OmniServer::router_from("claude_code", keep_everything).list_all() {
+            for tool in VengServer::router_from("claude_code", keep_everything).list_all() {
                 for key in ["$schema", "title"] {
                     assert!(
                         !tool.input_schema.contains_key(key),
@@ -1973,8 +1973,8 @@ mod tests {
     /// reported as a missing feature.
     #[test]
     fn the_override_restores_every_tool() {
-        let all = OmniServer::tool_router().list_all().len();
-        let restored = OmniServer::router_from("claude_code", true)
+        let all = VengServer::tool_router().list_all().len();
+        let restored = VengServer::router_from("claude_code", true)
             .list_all()
             .len();
         assert_eq!(restored, all);
@@ -1986,7 +1986,7 @@ mod tests {
     /// failing: `doctor` then prints a count the router cannot serve.
     #[test]
     fn every_policy_name_resolves_to_a_route() {
-        let routes: Vec<String> = OmniServer::tool_router()
+        let routes: Vec<String> = VengServer::tool_router()
             .list_all()
             .into_iter()
             .map(|t| t.name.to_string())
@@ -2010,7 +2010,7 @@ mod tests {
     #[test]
     fn the_declared_tool_count_matches_the_router() {
         assert_eq!(
-            OmniServer::tool_router().list_all().len(),
+            VengServer::tool_router().list_all().len(),
             crate::mcp::policy::ALL_TOOL_COUNT
         );
     }
@@ -2025,11 +2025,11 @@ mod tests {
     /// So this reads `run`'s own body. Narrow window on purpose: "somewhere in the
     /// file" would pass on the call inside this test module.
     /// #351: on Cursor every route to the built-in Shell tool is closed, so the
-    /// only way a command's output can be distilled is if OMNI is the tool that
+    /// only way a command's output can be distilled is if VENG is the tool that
     /// ran it. This is that path, and it must actually shorten.
-    /// #686. `omni_run` distils through `pipe::run_inner`, whose ledger stage is
+    /// #686. `veng_run` distils through `pipe::run_inner`, whose ledger stage is
     /// gated on a host session id, and nothing on this path ever set one. So the
-    /// tier where `omni_run` is the only way the model reads less was the tier
+    /// tier where `veng_run` is the only way the model reads less was the tier
     /// that never folded across turns.
     ///
     /// Driven through the real entry point rather than by calling the ledger, and
@@ -2043,9 +2043,9 @@ mod tests {
     /// reason that has nothing to do with the ledger.
     #[cfg(unix)]
     #[test]
-    fn a_repeated_omni_run_folds_against_what_the_first_one_showed() {
+    fn a_repeated_veng_run_folds_against_what_the_first_one_showed() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
         // The gate this test exists for. Without it the two runs come back the
         // same length and the assertion below is meaningless.

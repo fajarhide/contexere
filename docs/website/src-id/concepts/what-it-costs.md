@@ -33,14 +33,14 @@ memori residen lebih banyak daripada log pendek.
 
 ## Disk
 
-Satu berkas SQLite di `~/.omni/omni.db`.
+Satu berkas SQLite di `~/.veng/veng.db`.
 
 Isi yang diarsipkan dibatasi 64 KB per blok. Batas itu datang dari pengukuran:
 mengarsipkan setiap penyulingan yang kehilangan data berongkos 83,1 MB selama 30
 hari, dan batas tersebut menurunkannya ke 13,3 MB sambil tetap mencakup 3.604
 dari 3.657 baris.
 
-Jejak benchmark dipangkas pada hari ketujuh (`OMNI_TRACE_RETENTION_DAYS`).
+Jejak benchmark dipangkas pada hari ketujuh (`VENG_TRACE_RETENTION_DAYS`).
 Pemangkasan itu alasan tidak ada angka yang diterbitkan bisa diturunkan ulang
 seminggu setelah ia diukur.
 
@@ -75,22 +75,22 @@ karena alasan itu.
 ## Prompt cache
 
 Alat yang menulis ulang prompt merusak cache milik penyedia, karena cache mencocokkan
-awalan. OMNI hanya menulis ulang hasil tool yang paling baru, yaitu ekornya, sehingga
+awalan. VENG hanya menulis ulang hasil tool yang paling baru, yaitu ekornya, sehingga
 semua yang ada sebelumnya tetap sama byte demi byte.
 
-Diukur, bukan diperdebatkan: uji berpasangan di Claude Code dengan omni 0.7.10, 20
+Diukur, bukan diperdebatkan: uji berpasangan di Claude Code dengan veng 0.7.10, 20
 pasangan, workload enam perintah yang sama dengan hook menyala dan dengan
-`OMNI_PASSTHROUGH=1`, satu mesin.
+`VENG_PASSTHROUGH=1`, satu mesin.
 
-| | dengan OMNI | tanpa | |
+| | dengan VENG | tanpa | |
 |---|---|---|---|
 | byte hasil tool | 965.414 | 1.585.160 | -39,1% |
 | token cache-write | 1.014.764 | 1.238.503 | -18,1% |
 | token output | 22.617 | 11.748 | +92,5% |
 | biaya tertagih | $4,26 | $4,78 | -11,0% |
 
-Baris output melawan OMNI. Uji ini mengukur kenaikannya dan tidak menetapkan
-penyebabnya. Sesi dengan OMNI memuat 41 blok thinking, lawan 5, dan di situlah tempat
+Baris output melawan VENG. Uji ini mengukur kenaikannya dan tidak menetapkan
+penyebabnya. Sesi dengan VENG memuat 41 blok thinking, lawan 5, dan di situlah tempat
 pertama untuk melihat. Di sini output hanya 0,3% dari seluruh token dan tagihannya tetap
 turun. Pada workload yang sedikit lipatannya, biaya itu bisa menjadi
 sisi yang lebih besar.
@@ -102,7 +102,7 @@ python3 scripts/ab_cache.py report arms.json
 
 Ini memakai token sungguhan, sekitar setengah dolar per pasangan.
 
-## Ongkos yang bukan tanggungan OMNI
+## Ongkos yang bukan tanggungan VENG
 
 Pada paket berlangganan tetap, kompresi sama sekali tidak mengurangi tagihan.
 Yang ia beli adalah umur sesi dan lebih sedikit run ulang. Pembacaan prompt cache
@@ -112,7 +112,7 @@ uang yang dihemat per giliran.
 Itu sebabnya ukuran utama proyek ini sendiri adalah tekanan jendela konteks untuk
 pekerjaan yang sama, dan persentase pengurangan adalah alat diagnosis, bukan
 judul. Lihat
-[Where OMNI is going](https://omni.weekndlabs.com/docs/develop/direction).
+[Where VENG is going](https://veng.weekndlabs.com/docs/develop/direction).
 
 ## Kalau ia panik
 

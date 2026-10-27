@@ -235,7 +235,7 @@ fn normalize_relative(root: &Path, path: &Path) -> String {
 /// two different keys: the graph answered "imports: none detected" for one of
 /// them, and a hot-file lookup keyed on the result said "no" for a file the
 /// session had touched four times. Found by review on #609 when the tool became
-/// `omni context`, and it was there for as long as the MCP tool was.
+/// `veng context`, and it was there for as long as the MCP tool was.
 ///
 /// `..` is kept. Dropping it would change which file is named, and this function
 /// decides a key rather than resolving a path against the filesystem.

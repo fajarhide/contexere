@@ -111,7 +111,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db).expect("store")), dir)
     }
 

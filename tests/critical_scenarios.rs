@@ -1,8 +1,8 @@
-use omni::agents::checker::CheckerContext;
-use omni::pipeline::{SegmentationMode, SessionState, scorer::score_segments};
-use omni::store::sqlite::Store;
 use std::sync::Arc;
 use tempfile::tempdir;
+use veng::agents::checker::CheckerContext;
+use veng::pipeline::{SegmentationMode, SessionState, scorer::score_segments};
+use veng::store::sqlite::Store;
 
 #[test]
 fn test_loop_100_iterations_stays_within_budget() {
@@ -22,7 +22,7 @@ fn test_loop_100_iterations_stays_within_budget() {
         state.recalculate_pressure();
 
         // Simulate compacting if pressure is critical
-        if state.context_pressure == omni::pipeline::ContextPressure::Critical {
+        if state.context_pressure == veng::pipeline::ContextPressure::Critical {
             state.estimated_current_tokens /= 2; // Compacted
             state.active_errors.clear();
         }
@@ -34,19 +34,19 @@ fn test_loop_100_iterations_stays_within_budget() {
 #[tokio::test]
 async fn test_maker_checker_full_flow() {
     let dir = tempdir().unwrap();
-    let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+    let store = Arc::new(Store::open_path(&dir.path().join("veng.db")).unwrap());
 
     let session_id = "test_session";
     let mut state = SessionState::new();
     state.session_id = session_id.to_string();
     store.upsert_session(&state);
 
-    let result = omni::pipeline::DistillResult {
+    let result = veng::pipeline::DistillResult {
         filter_name: "test_filter".to_string(),
         input_bytes: 100,
         output_bytes: 50,
         output: "FAILED: 2 errors".to_string(),
-        route: omni::pipeline::Route::Keep,
+        route: veng::pipeline::Route::Keep,
         score: 1.0,
         context_score: 1.0,
         latency_ms: 10,
@@ -83,8 +83,8 @@ fn test_streaming_distill_1k_line_output() {
 
     let mut critical_count = 0;
     for seg in &segments {
-        if seg.tier == omni::pipeline::SignalTier::Critical
-            || seg.tier == omni::pipeline::SignalTier::Important
+        if seg.tier == veng::pipeline::SignalTier::Critical
+            || seg.tier == veng::pipeline::SignalTier::Important
         {
             critical_count += 1;
         }
@@ -98,9 +98,9 @@ fn test_streaming_distill_1k_line_output() {
 
 #[test]
 fn test_l1_loop_context_env_detection() {
-    use omni::pipeline::LoopMode;
+    use veng::pipeline::LoopMode;
 
-    let ctx = omni::pipeline::LoopContext::default();
+    let ctx = veng::pipeline::LoopContext::default();
     assert_eq!(ctx.mode, LoopMode::Interactive);
     assert!(ctx.loop_id.is_none());
     assert!(ctx.goal.is_none());
@@ -127,9 +127,9 @@ fn test_l1_engram_tracking() {
     let mut state = SessionState::new();
     assert!(state.engrams.is_empty());
 
-    state.add_engram(omni::session::engram::Engram {
+    state.add_engram(veng::session::engram::Engram {
         label: "Tests passing: 42/42".to_string(),
-        trigger: omni::session::engram::EngramTrigger::LoopCheckpoint,
+        trigger: veng::session::engram::EngramTrigger::LoopCheckpoint,
         timestamp: chrono::Utc::now().timestamp(),
         files: vec![],
         detail: None,
@@ -154,7 +154,7 @@ fn test_l1_hot_file_tracking() {
 #[test]
 fn test_l2_session_persistence_roundtrip() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
 
     let mut state = SessionState::new();
     state.session_id = "roundtrip-test".to_string();
@@ -178,7 +178,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Normal
+        veng::pipeline::ContextPressure::Normal
     );
 
     // Push to Warning (65% of ~200K default)
@@ -186,7 +186,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Warning
+        veng::pipeline::ContextPressure::Warning
     );
 
     // Push to Critical (82%+)
@@ -194,7 +194,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Critical
+        veng::pipeline::ContextPressure::Critical
     );
 }
 
@@ -224,7 +224,7 @@ fn test_l3_token_consumption_rate() {
 
 #[test]
 fn test_l4_validate_loop_context_combined() {
-    use omni::guard::env::validate_loop_context;
+    use veng::guard::env::validate_loop_context;
 
     // All None = valid
     assert!(validate_loop_context(None, None, None).is_ok());
@@ -246,7 +246,7 @@ fn test_l4_validate_loop_context_combined() {
 #[test]
 fn test_l4_store_roundtrip_with_loop_context() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
 
     let mut state = SessionState::new();
     state.session_id = "loop-ctx-test".to_string();
@@ -267,7 +267,7 @@ fn test_l4_store_roundtrip_with_loop_context() {
 #[test]
 fn test_l4_loop_memory_persistence() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
 
     store.loop_memory_set(
         "goal_hash_abc",
@@ -286,7 +286,7 @@ fn test_l4_loop_memory_persistence() {
 #[test]
 fn test_l4_loop_memory_list_and_forget() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
 
     store.loop_memory_set("hash1", "key1", "value1", 0.8);
     store.loop_memory_set("hash1", "key2", "value2", 0.7);

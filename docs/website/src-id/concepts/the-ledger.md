@@ -20,13 +20,13 @@ penanda yang menyebut jumlahnya dan sebuah handle. Sisanya lewat persis byte dem
 byte.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ```
 
 Di sebuah `Read`, markernya diikuti satu `⋮` untuk tiap baris yang digantikannya:
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ⋮
 ⋮      (38 baris lagi)
 ⋮
@@ -146,7 +146,7 @@ yang tadi menyuruh pembacanya ke sana. Satu kali kirim, bukan pengecualian: peng
 berikutnya melipat lagi.
 
 Polanya lebih berharga daripada ketiga kasusnya. Ketika ledger mengejutkan Anda, tanyakan
-pembaca mana yang sedang memegang byte-nya, dan apakah ada sesuatu yang memberi tahu OMNI
+pembaca mana yang sedang memegang byte-nya, dan apakah ada sesuatu yang memberi tahu VENG
 bahwa pembacanya sudah berganti.
 
 ## Alurnya, satu perintah pada satu waktu
@@ -163,7 +163,7 @@ menyebut isi yang tidak tersimpan. Dan yang dicatat adalah apa yang **dikirim**,
 bukan apa yang datang: deretan yang berubah jadi penanda tidak pernah sampai ke
 agent, jadi mencatatnya akan membuat kemunculan berikutnya mengklaim
 `already shown` untuk byte yang tidak diterima siapa pun. Itu cacat sungguhan
-([#465](https://github.com/fajarhide/omni/issues/465)) dan ia memotong dua arah,
+([#465](https://github.com/fajarhide/veng/issues/465)) dan ia memotong dua arah,
 karena asal sesi ditagih sepertiga dari asal proyek, sehingga klaim yang salah
 tadi juga membuat ledger tiga kali lebih gampang melipat.
 
@@ -196,7 +196,7 @@ sendiri di kesempatan berikutnya.
 ### Ambil kembali
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 Pencarian persis pada alamat isi. Tidak ada himpunan kandidat, tidak ada
@@ -209,7 +209,7 @@ agent yang memutuskan apakah isinya sepadan dengan satu pengambilan. Itu
 pertukaran yang jadi tumpuan seluruh rancangan ini: kasus terburuknya bukan
 "jawabannya hilang", melainkan "jawabannya berharga satu kali bolak-balik".
 
-Kalau MCP terpasang, agent memanggil `omni_retrieve` sendiri. Kalau tidak, ia
+Kalau MCP terpasang, agent memanggil `veng_retrieve` sendiri. Kalau tidak, ia
 menjalankan perintah shell yang dicetak penandanya.
 
 ### Lupa
@@ -255,9 +255,9 @@ baris, dan pembaca membacanya sebagai sesi *Anda*, padahal belum tentu, lalu
 sebagai klaim bahwa isinya sudah pernah diterima. Penanda run sekarang berbunyi
 `not shown here` dan menyatakan satu-satunya hal yang perlu ditindaklanjuti
 pembaca, yaitu bahwa byte itu tidak pernah sampai
-([#567](https://github.com/fajarhide/omni/issues/567)).
+([#567](https://github.com/fajarhide/veng/issues/567)).
 
-Sejak [#509](https://github.com/fajarhide/omni/issues/509) agent dicatat di setiap
+Sejak [#509](https://github.com/fajarhide/veng/issues/509) agent dicatat di setiap
 baris, dan belum ada yang dikunci padanya. Pengukuran yang memutuskan itu:
 mengunci cakupan pada `(proyek, agent)` akan mengakhiri kasus lintas agent
 sekaligus penggunaan ulang di dalamnya yang memang gratis, dan korpus mengatakan
@@ -296,16 +296,16 @@ pernah sampai ke ledger.
 ## Berapa nilainya
 
 Dari pemutaran ulang yang sama, ledger memberi tambahan 12,2 poin di atas
-penyaring OMNI sendiri dan 11,4 poin di atas milik pesaing, dan itu pernyataan
+penyaring VENG sendiri dan 11,4 poin di atas milik pesaing, dan itu pernyataan
 paling jelas bahwa ia tegak lurus terhadap pola siapa yang berjalan:
 
 | | byte | hemat |
 |---|---|---|
-| omni, penyaring saja | 6.469.047 ke 6.292.856 | 2,7% |
+| veng, penyaring saja | 6.469.047 ke 6.292.856 | 2,7% |
 | rtk `pipe` | 6.469.047 ke 6.067.012 | 6,2% |
 | lean-ctx `compress` | 6.469.047 ke 6.073.757 | 6,1% |
-| omni, dengan ledger | 6.469.047 ke 5.506.627 | **14,9%** |
-| rtk `pipe` + ledger omni | 6.469.047 ke 5.333.483 | 17,6% |
+| veng, dengan ledger | 6.469.047 ke 5.506.627 | **14,9%** |
+| rtk `pipe` + ledger veng | 6.469.047 ke 5.333.483 | 17,6% |
 
 Baris terakhir disengaja. Pembaca yang mau angka sebesar mungkin akan menjalankan
 penyaring mereka dengan ledger kami, dan mengatakannya lebih murah daripada

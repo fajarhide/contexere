@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 // Enum for parsed queries
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OmniQLQuery {
+pub enum VengQLQuery {
     ErrorsInLastCommands(usize),
     WarningsFromTool(String),
     ContextForFile(String),
@@ -24,7 +24,7 @@ pub enum OmniQLQuery {
 /// non-boundary instead of panicking.
 #[allow(clippy::string_slice)]
 #[allow(clippy::collapsible_if)]
-pub fn parse_query(q: &str) -> Option<OmniQLQuery> {
+pub fn parse_query(q: &str) -> Option<VengQLQuery> {
     let q_trimmed = q.trim();
     let q_lower = q_trimmed.to_lowercase();
 
@@ -32,13 +32,13 @@ pub fn parse_query(q: &str) -> Option<OmniQLQuery> {
         let parts: Vec<&str> = q_lower.split_whitespace().collect();
         if parts.len() >= 4 {
             if let Ok(n) = parts[3].parse::<usize>() {
-                return Some(OmniQLQuery::ErrorsInLastCommands(n));
+                return Some(VengQLQuery::ErrorsInLastCommands(n));
             }
         }
     } else if q_lower.starts_with("warnings from ") {
         let tool = q_lower.strip_prefix("warnings from ")?.trim().to_string();
         if !tool.is_empty() {
-            return Some(OmniQLQuery::WarningsFromTool(tool));
+            return Some(VengQLQuery::WarningsFromTool(tool));
         }
     } else if q_lower.starts_with("context for ") {
         // The guard used to test `to_lowercase()` and then slice the *original*
@@ -54,24 +54,24 @@ pub fn parse_query(q: &str) -> Option<OmniQLQuery> {
             return None;
         };
         if !file.is_empty() {
-            return Some(OmniQLQuery::ContextForFile(file));
+            return Some(VengQLQuery::ContextForFile(file));
         }
     } else if q_lower == "timeline today" {
-        return Some(OmniQLQuery::TimelineToday);
+        return Some(VengQLQuery::TimelineToday);
     }
 
     None
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OmniQLQueryResult {
+pub struct VengQLQueryResult {
     pub query_type: String,
-    pub results: Vec<OmniQLRow>,
+    pub results: Vec<VengQLRow>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
-pub enum OmniQLRow {
+pub enum VengQLRow {
     #[serde(rename = "error_segment")]
     ErrorSegment {
         command: String,
@@ -102,12 +102,12 @@ pub enum OmniQLRow {
 }
 
 impl Store {
-    pub fn execute_omni_query(&self, raw_query: &str) -> anyhow::Result<OmniQLQueryResult> {
+    pub fn execute_veng_query(&self, raw_query: &str) -> anyhow::Result<VengQLQueryResult> {
         let parsed = parse_query(raw_query)
-            .ok_or_else(|| anyhow::anyhow!("Invalid OmniQL query grammar. Supported query types:\n  - errors in last N commands\n  - warnings from <tool>\n  - context for <file_path>\n  - timeline today"))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid VengQL query grammar. Supported query types:\n  - errors in last N commands\n  - warnings from <tool>\n  - context for <file_path>\n  - timeline today"))?;
 
         match parsed {
-            OmniQLQuery::ErrorsInLastCommands(n) => {
+            VengQLQuery::ErrorsInLastCommands(n) => {
                 let mut entries: Vec<(i64, String, String)> = Vec::new();
                 {
                     let conn = self.pool.get()?;
@@ -141,7 +141,7 @@ impl Store {
                         );
                         for seg in segments {
                             if seg.tier == SignalTier::Critical {
-                                results.push(OmniQLRow::ErrorSegment {
+                                results.push(VengQLRow::ErrorSegment {
                                     command: command.clone(),
                                     timestamp: ts,
                                     line_range: seg.line_range,
@@ -152,13 +152,13 @@ impl Store {
                     }
                 }
 
-                Ok(OmniQLQueryResult {
+                Ok(VengQLQueryResult {
                     query_type: "errors_in_last_commands".to_string(),
                     results,
                 })
             }
 
-            OmniQLQuery::WarningsFromTool(tool) => {
+            VengQLQuery::WarningsFromTool(tool) => {
                 let mut entries: Vec<(i64, String, String)> = Vec::new();
                 {
                     let conn = self.pool.get()?;
@@ -193,7 +193,7 @@ impl Store {
                         );
                         for seg in segments {
                             if seg.tier == SignalTier::Important {
-                                results.push(OmniQLRow::WarningSegment {
+                                results.push(VengQLRow::WarningSegment {
                                     command: command.clone(),
                                     timestamp: ts,
                                     line_range: seg.line_range,
@@ -204,13 +204,13 @@ impl Store {
                     }
                 }
 
-                Ok(OmniQLQueryResult {
+                Ok(VengQLQueryResult {
                     query_type: "warnings_from_tool".to_string(),
                     results,
                 })
             }
 
-            OmniQLQuery::ContextForFile(file_path) => {
+            VengQLQuery::ContextForFile(file_path) => {
                 let mut matches: Vec<(String, String, i64)> = Vec::new();
                 {
                     let conn = self.pool.get()?;
@@ -247,7 +247,7 @@ impl Store {
                     }
 
                     if !matching_lines.is_empty() {
-                        results.push(OmniQLRow::ContextMatch {
+                        results.push(VengQLRow::ContextMatch {
                             command: cmd,
                             timestamp: ts,
                             matching_lines,
@@ -255,13 +255,13 @@ impl Store {
                     }
                 }
 
-                Ok(OmniQLQueryResult {
+                Ok(VengQLQueryResult {
                     query_type: "context_for_file".to_string(),
                     results,
                 })
             }
 
-            OmniQLQuery::TimelineToday => {
+            VengQLQuery::TimelineToday => {
                 let now = chrono::Utc::now().timestamp();
                 let midnight = now - (now % 86400);
 
@@ -302,7 +302,7 @@ impl Store {
                         format!("Completed successfully (saved {:.0}% tokens)", savings)
                     };
 
-                    results.push(OmniQLRow::TimelineItem {
+                    results.push(VengQLRow::TimelineItem {
                         timestamp: ts,
                         command,
                         route,
@@ -310,7 +310,7 @@ impl Store {
                     });
                 }
 
-                Ok(OmniQLQueryResult {
+                Ok(VengQLQueryResult {
                     query_type: "timeline_today".to_string(),
                     results,
                 })
@@ -327,19 +327,19 @@ mod tests {
     fn test_parse_query() {
         assert_eq!(
             parse_query("errors in last 5 commands"),
-            Some(OmniQLQuery::ErrorsInLastCommands(5))
+            Some(VengQLQuery::ErrorsInLastCommands(5))
         );
         assert_eq!(
             parse_query("warnings from cargo"),
-            Some(OmniQLQuery::WarningsFromTool("cargo".to_string()))
+            Some(VengQLQuery::WarningsFromTool("cargo".to_string()))
         );
         assert_eq!(
             parse_query("context for src/main.rs"),
-            Some(OmniQLQuery::ContextForFile("src/main.rs".to_string()))
+            Some(VengQLQuery::ContextForFile("src/main.rs".to_string()))
         );
         assert_eq!(
             parse_query("timeline today"),
-            Some(OmniQLQuery::TimelineToday)
+            Some(VengQLQuery::TimelineToday)
         );
         assert_eq!(parse_query("invalid query here"), None);
     }

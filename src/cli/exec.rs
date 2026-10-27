@@ -13,7 +13,7 @@ pub fn run_exec(
     session: Option<Arc<Mutex<SessionState>>>,
 ) -> Result<()> {
     if args.len() < 3 {
-        eprintln!("Usage: omni exec <command> [args...]");
+        eprintln!("Usage: veng exec <command> [args...]");
         std::process::exit(1);
     }
 
@@ -34,7 +34,7 @@ pub fn run_exec(
     // A flag with no command behind it is a malformed rewrite, not a command
     // named `--agent`. Falling through executed the flag itself.
     if args.len() <= i {
-        eprintln!("Usage: omni exec [--agent <id>] [--session <id>] <command> [args...]");
+        eprintln!("Usage: veng exec [--agent <id>] [--session <id>] <command> [args...]");
         std::process::exit(1);
     }
     let rest = &args[i..];
@@ -43,9 +43,9 @@ pub fn run_exec(
     let cmd_args = &rest[1..];
 
     // A shell is needed only when the whole command arrived as a SINGLE string
-    // (`omni exec 'a; b'`), then the metacharacters and word boundaries are the
-    // shell's to interpret. When argv is already split (`omni exec sh -c '…'`,
-    // `omni exec npm run dev`), each element belongs to the program being run;
+    // (`veng exec 'a; b'`), then the metacharacters and word boundaries are the
+    // shell's to interpret. When argv is already split (`veng exec sh -c '…'`,
+    // `veng exec npm run dev`), each element belongs to the program being run;
     // re-joining and wrapping it in a second `sh -c` corrupts the command (#125).
     // Those run verbatim via the non-shell branch below.
     let needs_shell = cmd_args.is_empty()
@@ -77,7 +77,7 @@ pub fn run_exec(
             .spawn()
             .map_err(|e| {
                 anyhow::anyhow!(
-                    "omni exec: failed to execute shell command '{}': {}",
+                    "veng exec: failed to execute shell command '{}': {}",
                     full_cmd,
                     e
                 )
@@ -91,7 +91,7 @@ pub fn run_exec(
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|e| anyhow::anyhow!("omni exec: failed to execute '{}': {}", cmd, e))?;
+            .map_err(|e| anyhow::anyhow!("veng exec: failed to execute '{}': {}", cmd, e))?;
         (c, full_cmd)
     };
 

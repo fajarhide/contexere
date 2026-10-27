@@ -1,6 +1,6 @@
 //! The check that runs after everything else: did we delete the answer.
 //!
-//! OMNI's invariants constrain the **input** to each stage: unsure means
+//! VENG's invariants constrain the **input** to each stage: unsure means
 //! structured, a distiller that parsed nothing returns the input, a failed
 //! command passes through. Nothing looked at the **output** and asked whether a
 //! class of content that entered had survived.
@@ -46,14 +46,14 @@ mod tests {
     #[test]
     fn rejects_an_output_that_lost_the_only_error_line() {
         let folded = "23 | const first = data.rows[0].id;\n\
-                      [OMNI: 3 lines already shown, omni retrieve 0000000000000000]\n";
+                      [VENG: 3 lines already shown, veng retrieve 0000000000000000]\n";
 
         assert!(!preserves_failures(FAILING, folded));
     }
 
     #[test]
     fn accepts_an_output_that_kept_it() {
-        let kept = "[OMNI: 1 lines already shown, omni retrieve 0000000000000000]\n\
+        let kept = "[VENG: 1 lines already shown, veng retrieve 0000000000000000]\n\
                     TypeError: undefined is not an object (evaluating 'data.rows[0]')\n";
 
         assert!(preserves_failures(FAILING, kept));

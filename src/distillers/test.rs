@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn does_not_count_the_ok_inside_a_word_as_a_passing_test() {
         // Arrange
-        let input = "rc=101\n      24 /work/token-efficient/omni/x.log\n";
+        let input = "rc=101\n      24 /work/token-efficient/veng/x.log\n";
         let segments = scorer::score_segments(
             input,
             registry::resolve_profile("cargo test").segmentation,

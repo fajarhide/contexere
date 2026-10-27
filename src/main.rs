@@ -6,6 +6,7 @@ mod graph;
 mod guard;
 mod hooks;
 mod ledger;
+mod legacy;
 mod mcp;
 mod paths;
 pub mod pipeline;
@@ -35,7 +36,7 @@ enum Mode {
 
 /// The seven hidden flags are the only thing a parser ever decided here.
 ///
-/// clap parsed the whole CLI and 15 of 17 arms matched `Some(OmniCommand::X { .. })`,
+/// clap parsed the whole CLI and 15 of 17 arms matched `Some(VengCommand::X { .. })`,
 /// discarding every field it filled in, then handed the raw `env::args()` to a module
 /// that parsed it again; 18 files under `src/cli/` do that second parse (#506). What
 /// is left is this scan. Help is intercepted before it, and version is
@@ -55,7 +56,7 @@ fn detect_mode(args: &[String]) -> Mode {
 }
 
 fn detect_pipe_command() -> Option<String> {
-    env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
+    env::var("VENG_CMD").ok().or_else(|| env::var("CMD").ok())
 }
 
 // ─── Engine / Globals ───────────────────────────────────
@@ -79,23 +80,28 @@ fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
 /// Every subcommand, grouped by what a user is trying to do, with the payoff
 /// rather than the noun.
 ///
-/// This is the **only** command list. `omni help` and `omni --help` used to be
+/// This is the **only** command list. `veng help` and `veng --help` used to be
 /// two hand-maintained copies that had already drifted, six commands including
 /// `exec`, the harness every issue in this tracker asks reporters to run, were
-/// missing from the one a user gets by typing `omni` (#152).
+/// missing from the one a user gets by typing `veng` (#152).
 /// `lists_every_subcommand` keeps this honest.
 const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "SET UP",
         "init",
-        "Install OMNI into your agent (hooks + MCP)",
+        "Install VENG into your agent (hooks + MCP)",
+    ),
+    (
+        "SET UP",
+        "migrate",
+        "Move an omni install across to veng (data, hooks, MCP)",
     ),
     (
         "SET UP",
         "doctor",
         "Check the install is healthy, and fix what isn't",
     ),
-    ("SET UP", "update", "Upgrade OMNI to the latest release"),
+    ("SET UP", "update", "Upgrade VENG to the latest release"),
     (
         "SET UP",
         "reset",
@@ -104,7 +110,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "SEE WHAT IT SAVED",
         "stats",
-        "How many tokens OMNI cut, and from which commands",
+        "How many tokens VENG cut, and from which commands",
     ),
     (
         "SEE WHAT IT SAVED",
@@ -129,9 +135,9 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "TUNE IT",
         "exec",
-        "Run one command through OMNI, to see what it would do",
+        "Run one command through VENG, to see what it would do",
     ),
-    ("TUNE IT", "query", "Search past distillations (OmniQL)"),
+    ("TUNE IT", "query", "Search past distillations (VengQL)"),
     ("TUNE IT", "patterns", "Errors that keep coming back"),
     (
         "TUNE IT",
@@ -157,14 +163,14 @@ fn print_help() {
 
     println!(
         "\n{} {}: Less noise. More signal. Right signal.",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         version.bright_black()
     );
 
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "<COMMAND>".cyan(), "[FLAGS]".bright_black());
+    println!("  veng {} {}", "<COMMAND>".cyan(), "[FLAGS]".bright_black());
     println!(
-        "  {} | omni       {}",
+        "  {} | veng       {}",
         "cmd".bright_black(),
         "# distill any command's output".bright_black()
     );
@@ -179,24 +185,24 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni stats            {}",
-        "# what did OMNI save me?".bright_black()
+        "  veng stats            {}",
+        "# what did VENG save me?".bright_black()
     );
     println!(
-        "  omni stats -d         {}",
+        "  veng stats -d         {}",
         "# ...just today".bright_black()
     );
     println!(
-        "  omni init             {}",
+        "  veng init             {}",
         "# set up your agent (interactive)".bright_black()
     );
     println!(
-        "  ls -R | omni          {}",
+        "  ls -R | veng          {}",
         "# distill a long output by hand".bright_black()
     );
     println!(
         "\n  {}",
-        "omni <command> --help for that command's flags".bright_black()
+        "veng <command> --help for that command's flags".bright_black()
     );
     println!();
 
@@ -212,11 +218,11 @@ fn print_help() {
 /// Rust sets `SIGPIPE` to `SIG_IGN` before `main` runs, so writing to a pipe
 /// whose reader has closed returns `EPIPE` instead of killing the process, and
 /// `println!` panics on that error. Every other Unix tool dies quietly, which is
-/// why `omni --help | head -1` printed a panic and a backtrace note where `ls |
+/// why `veng --help | head -1` printed a panic and a backtrace note where `ls |
 /// head` prints nothing.
 ///
 /// Fixing it here rather than at each `println!` is deliberate: the panic is not
-/// specific to the help text. `omni doctor | head` reproduces it too, and so
+/// specific to the help text. `veng doctor | head` reproduces it too, and so
 /// would any command whose output outlives its reader. One line at the entry
 /// point covers every writer; guarding each call site would not.
 ///
@@ -236,6 +242,9 @@ fn restore_default_sigpipe() {
 fn restore_default_sigpipe() {}
 
 fn main() {
+    // First, before any thread exists: let OMNI_* settings keep working as VENG_*.
+    legacy::adopt_legacy_env();
+
     restore_default_sigpipe();
 
     let args: Vec<String> = env::args().collect();
@@ -249,16 +258,16 @@ fn main() {
         });
         let cmd_name = detect_pipe_command();
         if let Err(e) = hooks::pipe::run(store_arc, session_arc, cmd_name.as_deref()) {
-            eprintln!("[omni] Pipe engine error: {}", e);
+            eprintln!("[veng] Pipe engine error: {}", e);
             std::process::exit(1);
         }
         return;
     }
 
-    // One help text (#152, #166). `omni help` / bare `omni` rendered a
-    // hand-written list while `omni --help` rendered clap's, and the two had
+    // One help text (#152, #166). `veng help` / bare `veng` rendered a
+    // hand-written list while `veng --help` rendered clap's, and the two had
     // already drifted, six commands, `exec` among them, were missing from the
-    // one a user gets by typing `omni`. Intercept before clap so every route
+    // one a user gets by typing `veng`. Intercept before clap so every route
     // reaches the same renderer. A subcommand's own `--help` is untouched:
     // `args.len() == 2` means nothing but the flag was passed.
     if args.len() == 2 && matches!(args[1].as_str(), "--help" | "-h" | "help") {
@@ -268,11 +277,11 @@ fn main() {
 
     // Same shape for `--version` / `-v`. clap used to answer these itself before
     // any dispatch, and routing them into `cli::version` instead handed the flag
-    // to a module whose `check_flags` correctly rejects it: `omni --version`
-    // exited 1 saying "unknown flag `--version` for `omni version`" (#506).
-    // `omni version` as a subcommand still goes the long way, below.
+    // to a module whose `check_flags` correctly rejects it: `veng --version`
+    // exited 1 saying "unknown flag `--version` for `veng version`" (#506).
+    // `veng version` as a subcommand still goes the long way, below.
     if args.len() == 2 && matches!(args[1].as_str(), "--version" | "-v") {
-        println!("omni {}", env!("CARGO_PKG_VERSION"));
+        println!("veng {}", env!("CARGO_PKG_VERSION"));
         return;
     }
 
@@ -293,7 +302,7 @@ fn main() {
             // connection off this hook's path entirely.
             let (_, session) = init_globals();
             if let Err(e) = hooks::pre_tool::run(session) {
-                eprintln!("[omni] Pre-Hook error: {}", e);
+                eprintln!("[veng] Pre-Hook error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -326,10 +335,10 @@ fn main() {
             if let (Some(s), Some(ss)) = (store, session) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 if let Err(e) = rt.block_on(async { mcp::server::run(s, ss).await }) {
-                    eprintln!("[omni] MCP Server error: {}", e);
+                    eprintln!("[veng] MCP Server error: {}", e);
                 }
             } else {
-                eprintln!("[omni] Failed to open SQLite store for MCP.");
+                eprintln!("[veng] Failed to open SQLite store for MCP.");
             }
         }
 
@@ -340,36 +349,42 @@ fn main() {
                 "help" | "-h" | "--help" => print_help(),
                 "diff" => {
                     if let Err(e) = cli::diff::run_diff(&args) {
-                        eprintln!("[omni] Diff error: {}", e);
+                        eprintln!("[veng] Diff error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "init" => {
                     // Not `let _ =`: a rejected flag has to reach the
-                    // user, or `omni init --curser` installs nothing and
+                    // user, or `veng init --curser` installs nothing and
                     // exits 0 (#151). The clap-side arm got this right
                     // and this one did not, which is what a parser whose
                     // result is discarded 15 times out of 17 buys you.
                     if let Err(e) = cli::init::run_init(&args) {
-                        eprintln!("[omni] Init error: {}", e);
+                        eprintln!("[veng] Init error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                "migrate" => {
+                    if let Err(e) = cli::migrate::run(&args) {
+                        eprintln!("[veng] Migrate error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "reset" => {
                     if let Err(e) = cli::reset::handle_reset() {
-                        eprintln!("[omni] Reset error: {}", e);
+                        eprintln!("[veng] Reset error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "stats" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::stats::run(&args, &store) {
-                            eprintln!("[omni] Stats error: {}", e);
+                            eprintln!("[veng] Stats error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for stats: {}", e);
+                        eprintln!("[veng] Cannot open database for stats: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -377,12 +392,12 @@ fn main() {
                     Ok(store) => {
                         let store_arc = Arc::new(store);
                         if let Err(e) = cli::session::run_session(&args, store_arc) {
-                            eprintln!("[omni] Session error: {}", e);
+                            eprintln!("[veng] Session error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for session: {}", e);
+                        eprintln!("[veng] Cannot open database for session: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -390,48 +405,48 @@ fn main() {
                     Ok(store) => {
                         let store_arc = Arc::new(store);
                         if let Err(e) = cli::engram::run_engram(&args, store_arc) {
-                            eprintln!("[omni] Engram error: {}", e);
+                            eprintln!("[veng] Engram error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for engrams: {}", e);
+                        eprintln!("[veng] Cannot open database for engrams: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "query" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::query::run_query(&args, &store) {
-                            eprintln!("[omni] Query error: {}", e);
+                            eprintln!("[veng] Query error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for query: {}", e);
+                        eprintln!("[veng] Cannot open database for query: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "retrieve" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::retrieve::run(&args, &store) {
-                            eprintln!("[omni] {}", e);
+                            eprintln!("[veng] {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] DB error: {}", e);
+                        eprintln!("[veng] DB error: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "dashboard" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::dashboard::run(&args, &store) {
-                            eprintln!("[omni] Dashboard error: {}", e);
+                            eprintln!("[veng] Dashboard error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] DB error: {}", e);
+                        eprintln!("[veng] DB error: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -442,19 +457,19 @@ fn main() {
                     // line, so a store that will not open still gives an answer.
                     let session = Store::open().ok().and_then(|s| s.find_latest_session());
                     if let Err(e) = cli::context::run_context(&args, session.as_ref()) {
-                        eprintln!("[omni] Context error: {}", e);
+                        eprintln!("[veng] Context error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "patterns" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::patterns::run_patterns(&args, &store) {
-                            eprintln!("[omni] Patterns error: {}", e);
+                            eprintln!("[veng] Patterns error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for patterns: {}", e);
+                        eprintln!("[veng] Cannot open database for patterns: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -465,7 +480,7 @@ fn main() {
                         Arc::new(Mutex::new(session))
                     });
                     if let Err(e) = cli::exec::run_exec(&args, store_arc, session_arc) {
-                        eprintln!("[omni] Exec error: {}", e);
+                        eprintln!("[veng] Exec error: {}", e);
                         std::process::exit(1);
                     }
                 }
@@ -478,42 +493,42 @@ fn main() {
                 "remember" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::remember::run(&args[2..], Arc::new(store)) {
-                            eprintln!("[omni] Remember error: {}", e);
+                            eprintln!("[veng] Remember error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for remember: {}", e);
+                        eprintln!("[veng] Cannot open database for remember: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "goal" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::goal::run(&args[2..], &store) {
-                            eprintln!("[omni] Goal error: {}", e);
+                            eprintln!("[veng] Goal error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for goal: {}", e);
+                        eprintln!("[veng] Cannot open database for goal: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "doctor" => {
                     if let Err(e) = cli::doctor::run(&args) {
-                        eprintln!("[omni] Doctor error: {}", e);
+                        eprintln!("[veng] Doctor error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "update" => {
                     if let Err(e) = cli::update::run(&args) {
-                        eprintln!("[omni] Update error: {}", e);
+                        eprintln!("[veng] Update error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 unknown => {
                     eprintln!(
-                        "omni: unknown command '{}'\nRun 'omni help' for usage.",
+                        "veng: unknown command '{}'\nRun 'veng help' for usage.",
                         unknown
                     );
                     std::process::exit(1);

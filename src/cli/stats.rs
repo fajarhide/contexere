@@ -225,7 +225,7 @@ fn shorten_command(cmd: &str, max_len: usize) -> String {
 }
 
 /// `unknown` is **not** folded into `Terminal` (#160). "a human ran this in a
-/// shell" and "OMNI could not tell who ran this" are different facts and only
+/// shell" and "VENG could not tell who ran this" are different facts and only
 /// one is actionable, collapsing them is what hid the missing Claude Code
 /// branch in `agents::multiagent::detect_agent_id` for the life of the feature.
 /// A detection gap now shows up in the table as `Unknown` instead of looking
@@ -272,7 +272,7 @@ fn print_hidden_rows(shown: usize, total: usize) {
 }
 
 /// Read by both `print_help` and `super::check_flags`, so this list is what
-/// `omni stats` documents *and* what it accepts (#151).
+/// `veng stats` documents *and* what it accepts (#151).
 /// One flag per dimension, then every older spelling, which still resolves (#667).
 ///
 /// The window used to be four flags and six names, and passing two of them took
@@ -369,7 +369,7 @@ fn named_scope(args: &[String]) -> Option<(&'static str, i64)> {
 
 /// The value of a flag that takes one, ignoring the next flag.
 ///
-/// `flag_value` returns whatever token follows, so `omni stats --since --view
+/// `flag_value` returns whatever token follows, so `veng stats --since --view
 /// detail` read `--view` as the window, fell back to the default, and then let
 /// `--view` be found again by its own resolver: a malformed command that succeeds
 /// and reports something else. A value starting with `-` is treated as absent,
@@ -381,7 +381,7 @@ fn value_of<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
 /// Refuses a valued flag whose value is missing or unusable.
 ///
 /// Treating it as absent was the first fix and it was half of one: the report
-/// still ran, so `omni stats --since --view detail` printed a 30 day detail
+/// still ran, so `veng stats --since --view detail` printed a 30 day detail
 /// report for a window the caller never named. Confident output over an argument
 /// that was never parsed is the defect #151 is about, and the resolvers' own
 /// fallbacks stay for the flags that have no value at all.
@@ -389,15 +389,15 @@ fn require_values(args: &[String]) -> Result<()> {
     for flag in ["--since", "--view", "--by"] {
         if super::has_flag(args, flag) && value_of(args, flag).is_none() {
             bail!(
-                "`omni stats {flag}` needs a value, run `omni stats --help` for the accepted ones"
+                "`veng stats {flag}` needs a value, run `veng stats --help` for the accepted ones"
             );
         }
     }
     if super::has_flag(args, "--limit") {
         match value_of(args, "--limit") {
             Some(v) if v.parse::<usize>().is_ok() => {}
-            Some(v) => bail!("`omni stats --limit` needs a whole number, got `{v}`"),
-            None => bail!("`omni stats --limit` needs a whole number, run `omni stats --help`"),
+            Some(v) => bail!("`veng stats --limit` needs a whole number, got `{v}`"),
+            None => bail!("`veng stats --limit` needs a whole number, run `veng stats --help`"),
         }
     }
     Ok(())
@@ -427,7 +427,7 @@ fn view(args: &[String]) -> &'static str {
         };
     }
     // A window flag on its own used to select the detail view, through a
-    // `filter_flag` branch at the end of the old chain, so `omni stats --week`
+    // `filter_flag` branch at the end of the old chain, so `veng stats --week`
     // printed commands, routes and agents. `--since week` means the summary for
     // that window, which is the sane reading, but the old spellings keep the old
     // behaviour: a script that says `--week` is asking for what it always got.
@@ -510,37 +510,37 @@ fn renderer(view: &str, json: bool, card: bool) -> &'static str {
 fn print_help() {
     println!(
         "\n{} {}: Savings analytics",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "stats".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "stats".cyan(), "[FLAGS]".bright_black());
+    println!("  veng {} {}", "stats".cyan(), "[FLAGS]".bright_black());
 
     super::print_flags(&FLAGS[..VISIBLE]);
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni stats               {} Gain-focused overview",
+        "  veng stats               {} Gain-focused overview",
         "#".bright_black()
     );
     println!(
-        "  omni stats --since week  {} The last seven days",
+        "  veng stats --since week  {} The last seven days",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view detail {} Commands, routes and agents",
+        "  veng stats --view detail {} Commands, routes and agents",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view folds  {} What a fold claimed, and what came back",
+        "  veng stats --view folds  {} What a fold claimed, and what came back",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view bill   {} What the host billed, from its own transcripts",
+        "  veng stats --view bill   {} What the host billed, from its own transcripts",
         "#".bright_black()
     );
     println!(
-        "  omni stats --json        {} Machine-readable for CI/CD",
+        "  veng stats --json        {} Machine-readable for CI/CD",
         "#".bright_black()
     );
     println!();
@@ -640,7 +640,7 @@ fn run_context_stats(store: &Store) -> Result<()> {
 /// What both share cards are built from.
 ///
 /// One computation, two renderers. The text card and the image card quoting
-/// different numbers for the same installation would be the `omni stats` version
+/// different numbers for the same installation would be the `veng stats` version
 /// of the defect this project files issues about.
 struct ShareFigures {
     saved: u64,
@@ -701,11 +701,11 @@ fn share_figures(
     }))
 }
 
-/// A copy-pasteable summary of what OMNI measured on *this* installation.
+/// A copy-pasteable summary of what VENG measured on *this* installation.
 ///
 /// Deliberately plain text and deliberately not a marketing number. It reuses
 /// `multi_period_stats`, which is the same aggregation the default report reads,
-/// so the figure here is the figure `omni stats` shows and cannot drift from it.
+/// so the figure here is the figure `veng stats` shows and cannot drift from it.
 ///
 /// Two things it prints that a growth card usually would not, because leaving
 /// them out is how a real number becomes a claim:
@@ -734,7 +734,7 @@ fn run_share(args: &[String], store: &Store) -> Result<()> {
     // The command count is written out, not abbreviated: `6K` is a rounder
     // number than `6,253` and this card exists to show the real one.
     println!(
-        "OMNI saved me {} {unit} ({pct:.1}%) across {} commands, {window}.",
+        "VENG saved me {} {unit} ({pct:.1}%) across {} commands, {window}.",
         format_compact(saved),
         format_number(calls)
     );
@@ -750,7 +750,7 @@ fn run_share(args: &[String], store: &Store) -> Result<()> {
     }
     println!();
     println!("Measured, not estimated: net across every command, terminal output excluded.");
-    println!("https://github.com/fajarhide/omni");
+    println!("https://github.com/fajarhide/veng");
     println!();
 
     Ok(())
@@ -820,7 +820,7 @@ fn card_svg(f: &ShareFigures, w: u32, h: u32) -> String {
 <rect width="{w}" height="{h}" fill="#0b0f14"/>
 <rect x="0" y="0" width="{bar}" height="{h}" fill="#22d3a6"/>
 <g font-family="DejaVu Sans Mono, Menlo, Consolas, monospace" font-style="normal" fill="#e6edf3">
-<text x="{x}" y="{ty}" font-size="{wm}" font-weight="700" fill="#22d3a6">OMNI</text>
+<text x="{x}" y="{ty}" font-size="{wm}" font-weight="700" fill="#22d3a6">VENG</text>
 "##,
         bar = px(10.0).round(),
         x = pad.round(),
@@ -876,7 +876,7 @@ fn card_svg(f: &ShareFigures, w: u32, h: u32) -> String {
 
     s.push_str(&format!(
         r##"<text x="{x}" y="{fy}" font-size="{fs}" fill="#5c6b7a">Measured, not estimated. Terminal output excluded.</text>
-<text x="{x}" y="{fy2}" font-size="{fs}" fill="#5c6b7a">github.com/fajarhide/omni</text>
+<text x="{x}" y="{fy2}" font-size="{fs}" fill="#5c6b7a">github.com/fajarhide/veng</text>
 </g>
 </svg>
 "##,
@@ -965,17 +965,17 @@ fn run_card(args: &[String], store: &Store) -> Result<()> {
         return Ok(());
     };
 
-    let dir = crate::paths::omni_home().join("cards");
+    let dir = crate::paths::veng_home().join("cards");
     std::fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
 
     println!();
     let mut converted = None;
     for (name, w, h, used_for) in CARD_SIZES {
-        let svg_path = dir.join(format!("omni-{name}.svg"));
+        let svg_path = dir.join(format!("veng-{name}.svg"));
         std::fs::write(&svg_path, card_svg(&figures, *w, *h))
             .with_context(|| format!("failed to write {}", svg_path.display()))?;
 
-        let png_path = dir.join(format!("omni-{name}.png"));
+        let png_path = dir.join(format!("veng-{name}.png"));
         let tool = svg_to_png(&svg_path, &png_path, *w);
         converted = converted.or(tool);
         let made = if tool.is_some() { "svg + png" } else { "svg" };
@@ -996,7 +996,7 @@ fn run_card(args: &[String], store: &Store) -> Result<()> {
                     .bright_black()
             );
             println!(
-                "    rsvg-convert -w 1080 {}/omni-square.svg > {}/omni-square.png",
+                "    rsvg-convert -w 1080 {}/veng-square.svg > {}/veng-square.png",
                 dir.display(),
                 dir.display()
             );
@@ -1174,11 +1174,11 @@ fn run_default(args: &[String], store: &Store) -> Result<()> {
     if t.distilled_calls == 0 && t.declined_calls == 0 && t.folds == 0 {
         println!(
             "  {}",
-            "No data yet! OMNI tracks savings automatically as you work."
+            "No data yet! VENG tracks savings automatically as you work."
                 .bright_black()
                 .italic()
         );
-        println!("  {}", "Try: ls -la | omni".bright_cyan().italic());
+        println!("  {}", "Try: ls -la | veng".bright_cyan().italic());
         print_separator();
         println!();
         return Ok(());
@@ -1238,7 +1238,7 @@ fn run_default(args: &[String], store: &Store) -> Result<()> {
     print_separator();
     println!(
         "  {} for full breakdown",
-        "omni stats --view detail".bright_cyan()
+        "veng stats --view detail".bright_cyan()
     );
 
     // Update Notification (4h cache)
@@ -1276,7 +1276,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
     // #714. One vocabulary with the default view, and every ratio names its base.
     // This block used to say "Signal Ratio: 9.2% reduction" while the default view
     // said "distilled 49%", from the same database in the same window: the first is
-    // over every call including the ones OMNI declined, the second over what the
+    // over every call including the ones VENG declined, the second over what the
     // distiller was actually given. Neither said which, so the two views read as a
     // contradiction. #665 fixed this inside one view and left the other alone.
     println!(
@@ -1420,7 +1420,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
     }
 
     // #212: say what the number is a number *of*. It counts only calls whose
-    // result reached a model's context; `omni exec` and pipe output read at a
+    // result reached a model's context; `veng exec` and pipe output read at a
     // terminal is compression a human sees, not tokens anyone was billed for,
     // and folding the two together is what made the all-time headline 66.3%
     // when the model-facing figure was 29.3%.
@@ -1461,7 +1461,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
     // #714. Ranked by bytes removed, not by percentage. `group_and_calculate_stats`
     // orders by ratio, and under a heading a reader takes as "what matters", that
     // put nine commands that ran once above the one that ran nine times and carried
-    // fifty times more. The same defect was fixed in `omni context --tokens` for
+    // fifty times more. The same defect was fixed in `veng context --tokens` for
     // #702; this is the other caller.
     //
     // This used to end "`--view commands` keeps the ratio ordering". Nothing
@@ -1619,7 +1619,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
         let total_routes: u64 = routes.iter().map(|(_, c)| c).sum();
         println!(
             "\n {} {}",
-            "what OMNI did with each call".bold().bright_white(),
+            "what VENG did with each call".bold().bright_white(),
             "· and why, where it declined".bright_black()
         );
         for (route, cnt) in &routes {
@@ -1648,7 +1648,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
             );
 
             // #665. Passthrough is most of the table and was one bucket, which
-            // reads as OMNI doing nothing to 94% of calls. `passthrough_events`
+            // reads as VENG doing nothing to 94% of calls. `passthrough_events`
             // has recorded why since #533; nothing printed it.
             if route.eq_ignore_ascii_case("passthrough") {
                 // #714. Marked as a sub-level rather than indented alone. By
@@ -1759,7 +1759,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
                 bar_colored,
             );
             // #163: the excluded rows are named, not silently missing. A count
-            // that shrinks without explanation reads as OMNI having stopped
+            // that shrinks without explanation reads as VENG having stopped
             // working; this says what was set aside and why.
             if let Some(&u) = grouped_unverified.get(&name)
                 && u > 0
@@ -2029,7 +2029,7 @@ fn build_stats_json(store: &Store, since: i64) -> Result<StatsJson> {
     Ok(output)
 }
 
-/// `omni stats --rerun`, the check reduction % cannot make (#109).
+/// `veng stats --rerun`, the check reduction % cannot make (#109).
 ///
 /// Reduction measures bytes removed. A distiller that emitted `""` for every
 /// input would score 100%. This measures whether the agent had to run the
@@ -2113,8 +2113,8 @@ fn run_folds(args: &[String], store: &Store) -> Result<()> {
 
 /// What the host billed and what its context was made of (#859).
 ///
-/// Read from the host's transcripts, which the host writes and OMNI does not, so
-/// nothing above the last paragraph of this view rests on OMNI's own tables.
+/// Read from the host's transcripts, which the host writes and VENG does not, so
+/// nothing above the last paragraph of this view rests on VENG's own tables.
 ///
 /// The dollar figure is priced per request from the model that served it, at the
 /// dated list price in `bill::price` (#887). A model missing from that table is
@@ -2180,7 +2180,7 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
         Some("project") => &[("Spend by project", &bill.by_project)],
         Some("model") => &[("Spend by model", &bill.by_model)],
         Some("session") => &[("Spend by session", &bill.by_session)],
-        Some(other) => bail!("`omni stats --by` takes project, model or session, got `{other}`"),
+        Some(other) => bail!("`veng stats --by` takes project, model or session, got `{other}`"),
         None => &[
             ("Spend by model", &bill.by_model),
             ("Spend by project", &bill.by_project),
@@ -2252,10 +2252,10 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
     {
         println!();
         println!(
-            "  OMNI's own tables say it kept {} out of tool results in this window,",
+            "  VENG's own tables say it kept {} out of tool results in this window,",
             format_bytes(totals.total_saved())
         );
-        println!("  across every host it ran on. That line is OMNI's claim. Everything above");
+        println!("  across every host it ran on. That line is VENG's claim. Everything above");
         println!("  it is the host's record.");
     }
 
@@ -2601,7 +2601,7 @@ mod tests {
         use crate::pipeline::{DistillResult, Route};
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         store.record_distillation(
             "s1",
             &DistillResult {
@@ -3132,7 +3132,7 @@ mod tests {
     }
 
     /// The maintainer's own week, as #665 recorded it: the distiller took 48%
-    /// off the 1,041 calls it was given, and `omni stats` printed 4.5% because
+    /// off the 1,041 calls it was given, and `veng stats` printed 4.5% because
     /// it divided that saving by 15,443 calls it had deliberately declined.
     fn a_real_week() -> EngineTotals {
         EngineTotals {
@@ -3173,7 +3173,7 @@ mod tests {
         let declined = out
             .lines()
             .find(|l| l.contains("left alone"))
-            .expect("a row for the calls OMNI declined");
+            .expect("a row for the calls VENG declined");
         assert!(!declined.contains('%'), "a no-op has no ratio: {declined}");
         assert!(
             !declined.contains("MB") && !declined.contains("KB"),

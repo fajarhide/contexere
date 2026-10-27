@@ -7,9 +7,9 @@
 //! build. #441 gave it a column; these tests moved with it and assert the same
 //! property, that no recorded passthrough is ambiguous between the seven gates.
 
-use omni::hooks::post_tool::process_payload;
-use omni::store::sqlite::Store;
 use std::sync::Arc;
+use veng::hooks::post_tool::process_payload;
+use veng::store::sqlite::Store;
 
 fn bash_payload(command: &str, content: &str) -> String {
     serde_json::json!({
@@ -21,7 +21,7 @@ fn bash_payload(command: &str, content: &str) -> String {
 }
 
 fn store_in(dir: &tempfile::TempDir) -> Arc<Store> {
-    Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("temp store"))
+    Arc::new(Store::open_path(&dir.path().join("veng.db")).expect("temp store"))
 }
 
 /// Prose no distiller has a grammar for, past `MIN_DISTILL_TOKENS` so the

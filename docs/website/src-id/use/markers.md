@@ -1,21 +1,21 @@
 # Membaca penanda
 
-Penanda adalah cara OMNI memberi tahu apa yang ia lakukan. Bentuknya hanya
+Penanda adalah cara VENG memberi tahu apa yang ia lakukan. Bentuknya hanya
 beberapa, dan mengenalinya adalah beda antara memercayai perkakas ini dan
 mencurigainya.
 
 ## Bentuk-bentuknya
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
 ```
 
 Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
-`omni retrieve <handle>` mencetak aslinya kembali, persis byte demi byte,
+`veng retrieve <handle>` mencetak aslinya kembali, persis byte demi byte,
 dari shell mana pun di sesi mana pun.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ```
 
 Ledger. Baris-baris ini sudah dikeluarkan sebelumnya **di sesi ini**, jadi
@@ -23,7 +23,7 @@ klaimnya adalah agent masih memegangnya dan handle-nya tidak berongkos kecuali i
 memang mau membaca ulang.
 
 ```
-[OMNI: 40 lines identical to an earlier run, omni retrieve 0000000000000000]
+[VENG: 40 lines identical to an earlier run, veng retrieve 0000000000000000]
 ```
 
 Ledger lagi, untuk kasus ketika kesamaannya justru jawabannya. Anda menjalankan
@@ -33,7 +33,7 @@ sebuah nilai berubah dijawab oleh nilainya yang tidak berubah, dan pembacaan ula
 dijawab oleh berkasnya yang tidak berubah.
 
 ```
-[OMNI: 40 lines not shown here, omni retrieve 0000000000000000]
+[VENG: 40 lines not shown here, veng retrieve 0000000000000000]
 ```
 
 Ledger juga, klaim berbeda. Baris-baris ini pergi ke **sesi lain** dari proyek
@@ -46,8 +46,8 @@ direktorinya, jadi apa pun yang berjalan di repositori ini ikut menyumbang. Liha
 [apa yang dibagi dua agent](../concepts/the-ledger.md#apa-yang-dibagi-dua-agent-dalam-satu-repo).
 
 ```
-[OMNI: identical to the 40 lines already shown, omni retrieve 0000000000000000]
-[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve 0000000000000000]
+[VENG: identical to the 40 lines already shown, veng retrieve 0000000000000000]
+[VENG: identical to 40 lines from an earlier session, none shown here, veng retrieve 0000000000000000]
 ```
 
 Dua klaim yang sama, untuk jawaban yang terulang **seluruhnya**. Ketika
@@ -57,7 +57,7 @@ baris di tempat run ulang akan mencetak ratusan baris yang sama. Apa pun yang
 kurang dari seluruh jawaban memakai kalimat di atasnya.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[VENG: 40 lines already shown, veng retrieve 0000000000000000]
 ⋮
 ⋮
 ```
@@ -67,10 +67,10 @@ digantikannya. Editor menomori baris yang diterimanya, dihitung dari baris tempa
 pembacaan dimulai, jadi tampilan yang lebih pendek akan menaruh tiap baris yang selamat di
 nomor yang bukan miliknya. Mempertahankan jumlah baris itulah yang membuat sebuah lipatan
 boleh berada di antara dua bagian yang masih Anda butuhkan. Baris pengisi itu bukan konten
-yang bisa diambil: `omni retrieve` pada handle di atas mencetak baris aslinya.
+yang bisa diambil: `veng retrieve` pada handle di atas mencetak baris aslinya.
 
 ```
-[OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
+[VENG: 40 lines already shown from charlie.tf, veng retrieve 0000000000000000]
 ```
 
 Keempatnya bisa membawa `from <sumber>`, yang menyebut perintah yang keluarannya
@@ -93,10 +93,10 @@ memotong penghematan pada kasus yang umum demi menamai kasus yang jarang.
 Collapse. Deretan baris yang nyaris identik, diganti sebuah hitungan.
 
 ```
-[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[VENG Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
-Catatan kaki, pada `omni exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
+Catatan kaki, pada `veng exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
 dan berapa lama pipeline-nya berjalan.
 
 ```
@@ -106,8 +106,8 @@ dan berapa lama pipeline-nya berjalan.
 Pipeline mengenali sebagian keluarannya, tapi tidak semuanya.
 
 ```
-[OMNI: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, omni retrieve 0000000000000000]
-[OMNI: output truncated, 50000 of 180000 bytes kept]
+[VENG: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, veng retrieve 0000000000000000]
+[VENG: output truncated, 50000 of 180000 bytes kept]
 ```
 
 Potongan terakhir sebelum sebuah jawaban dikirim, di 50 KB. Bentuk barisnya mempertahankan
@@ -118,7 +118,7 @@ yang sangat panjang kehilangan ekornya. Handle ada kalau bagian yang dibuang dia
 tanpa handle pun penandanya tetap menyebut apa yang dibuang.
 
 ```
-[OMNI: 2 sensitive value(s) redacted]
+[VENG: 2 sensitive value(s) redacted]
 ```
 
 Redaksi kredensial pada keluaran perintah. Baris yang memberi nilai ke nama yang sensitif
@@ -132,10 +132,10 @@ panjang yang ditulis penerbitnya: `sk-ant-`, `ghp_` dan kerabatnya, `github_pat_
 `xoxb-` dan kerabatnya. String yang lebih pendek dengan prefiks yang sama, seperti
 `sk-ant-abc123` di sebuah dokumen, dibiarkan.
 
-Redaksi berjalan pada keluaran yang ditulis ulang OMNI. Di jalur hook, payload yang terbaca
+Redaksi berjalan pada keluaran yang ditulis ulang VENG. Di jalur hook, payload yang terbaca
 sebagai terstruktur diredaksi di tempatnya, dengan penanda ini di pesan konteks hook dan
-bukan di dalam dokumen; `omni exec` dan mode pipe meneruskan keluaran terstruktur apa
-adanya. Perintah yang dilaporkan gagal oleh host-nya berada di luar jangkauan: OMNI
+bukan di dalam dokumen; `veng exec` dan mode pipe meneruskan keluaran terstruktur apa
+adanya. Perintah yang dilaporkan gagal oleh host-nya berada di luar jangkauan: VENG
 mengembalikannya tanpa disentuh, dan Claude Code mengirim panggilan Bash yang gagal ke
 `PostToolUseFailure`, yang sama sekali tidak bisa mengganti keluarannya. Kredensial di
 keluaran perintah yang gagal terkirim apa adanya. Host yang tidak melaporkan kegagalan,
@@ -157,14 +157,14 @@ pola lainnya nilai tidak pernah ikut menentukan, jadi `hunter2` dan `decrypt("gh
 dipotong. Kalau ragu, nilainya dipotong: menyembunyikan nilai yang aman hanya berongkos satu
 baca ulang, sedangkan mencetak kredensial asli tidak bisa ditarik kembali.
 
-Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace lokal OMNI
+Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace lokal VENG
 menyimpan keluaran mentahnya, termasuk kredensialnya, selama tujuh hari.
 
 ```
-[OMNI: Re-injecting critical files due to Warning pressure]
+[VENG: Re-injecting critical files due to Warning pressure]
 ```
 
-Saat konteks tertekan (`Warning` atau `Critical`), OMNI secara berkala menaruh kembali sampai
+Saat konteks tertekan (`Warning` atau `Critical`), VENG secara berkala menaruh kembali sampai
 tiga berkas `pinned_files` Anda di depan agent, masing-masing dipotong sekitar 400 karakter.
 Tidak ada yang dibuang; isi sesudah baris itu adalah tambahan.
 
@@ -173,11 +173,11 @@ Tidak ada yang dibuang; isi sesudah baris itu adalah tambahan.
 Bug-bug terburuk dalam sejarah proyek ini melaporkan pengurangan **paling
 besar**. Distiller yang menghapus jawabannya terkompresi dengan indah.
 
-Jadi angka besar bukan kabar baik dengan sendirinya. `omni diff` adalah
+Jadi angka besar bukan kabar baik dengan sendirinya. `veng diff` adalah
 pemeriksanya:
 
 ```sh
-omni diff     # perintah terakhir, mentah dibanding hasil sulingan
+veng diff     # perintah terakhir, mentah dibanding hasil sulingan
 ```
 
 Kalau penghematan 99% ternyata membuang jalur berkas yang justru jawabannya, itu
@@ -186,7 +186,7 @@ ini.
 
 ## Ketika sama sekali tidak ada penanda
 
-Sering, dan itu tandanya pipeline bekerja, bukan gagal. OMNI mengembalikan
+Sering, dan itu tandanya pipeline bekerja, bukan gagal. VENG mengembalikan
 keluarannya langsung setiap kali mengambil sesuatu akan tidak aman atau tidak
 sepadan. Itu terjadi ketika:
 
@@ -199,30 +199,30 @@ sepadan. Itu terjadi ketika:
 ## Mengambil isinya kembali
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 Bekerja di semua host, dengan atau tanpa MCP. Agent yang server MCP-nya terpasang
-bisa memanggil `omni_retrieve` sendiri tanpa bertanya ke Anda.
+bisa memanggil `veng_retrieve` sendiri tanpa bertanya ke Anda.
 
 Satu batas yang tidak bisa dijanjikan sebuah handle: arsipnya jendela bergulir 30
-hari, jadi `omni retrieve` atas isi yang lebih tua dari itu tidak akan ketemu.
+hari, jadi `veng retrieve` atas isi yang lebih tua dari itu tidak akan ketemu.
 Jejak apa adanya bahkan lebih pendek, tujuh hari.
 
 ## Membedakan penanda asli dari penanda yang sekadar dicetak
 
 Penanda juga muncul di dalam prosa. Halaman ini penuh dengannya, begitu pula source
-OMNI sendiri, dan begitu pula laporan bug mana pun yang mengutipnya. Itu penting
-ketika Anda mengukur apakah OMNI aktif pada suatu run, karena mencari bentuk penanda
+VENG sendiri, dan begitu pula laporan bug mana pun yang mengutipnya. Itu penting
+ketika Anda mengukur apakah VENG aktif pada suatu run, karena mencari bentuk penanda
 di dalam transkrip akan menemukan contohnya semudah menemukan lipatan aslinya.
 
-Handle-nya yang membedakan. Setiap contoh di manual ini dan di source OMNI memakai
+Handle-nya yang membedakan. Setiap contoh di manual ini dan di source VENG memakai
 satu nilai cadangan, `0000000000000000`, yang tidak akan pernah diberikan kepada
 lipatan sungguhan:
 
 ```sh
-omni retrieve 0000000000000000   # exit 1, "the documentation example"
-omni retrieve <handle-yang-Anda-temukan> # exit 0 jika OMNI benar-benar melipatnya
+veng retrieve 0000000000000000   # exit 1, "the documentation example"
+veng retrieve <handle-yang-Anda-temukan> # exit 0 jika VENG benar-benar melipatnya
 ```
 
 Jadi exit code-nya yang menjawab pertanyaan itu, dan penanda yang disalin dari

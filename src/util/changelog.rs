@@ -13,9 +13,9 @@
 /// Only lines starting with `- ` at column zero count. The section nests
 /// `### Added` / `### Fixed` groups and wraps long entries across lines, and
 /// neither should inflate the number, a wrong count here becomes a wrong claim
-/// in `omni doctor`, which is the thing this project exists to avoid.
-// Dead in the `omni` binary by design: the binary reads the *result* through
-// `OMNI_UNRELEASED_ENTRIES`, which `build.rs` computed by calling this at
+/// in `veng doctor`, which is the thing this project exists to avoid.
+// Dead in the `veng` binary by design: the binary reads the *result* through
+// `VENG_UNRELEASED_ENTRIES`, which `build.rs` computed by calling this at
 // compile time. It is compiled into the crate so the tests below cover the code
 // the build script actually runs, rather than a copy of it.
 #[allow(dead_code)]
@@ -49,15 +49,15 @@ pub fn count_unreleased_entries(changelog: &str) -> usize {
 /// possible and is caught loudly by the cut script, which refuses to run.
 ///
 /// Hidden files are excluded because macOS writes `.DS_Store` into every
-/// directory it opens, and counting it would have `omni doctor` report an
+/// directory it opens, and counting it would have `veng doctor` report an
 /// unreleased entry that does not exist. That is the false-claim class, which
 /// outranks tidiness.
 ///
 /// A missing or unreadable directory counts zero rather than failing the build:
 /// this runs in `build.rs`, and a changelog convention must never be the reason
 /// the binary cannot be compiled.
-// Dead in the `omni` binary for the same reason as the function above: the
-// binary reads the total through `OMNI_UNRELEASED_ENTRIES`.
+// Dead in the `veng` binary for the same reason as the function above: the
+// binary reads the total through `VENG_UNRELEASED_ENTRIES`.
 #[allow(dead_code)]
 pub fn count_fragments(dir: &std::path::Path) -> usize {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -161,7 +161,7 @@ mod tests {
     }
 
     /// macOS writes `.DS_Store` into every directory it opens. Counting it would
-    /// make `omni doctor` report an unreleased entry that does not exist, which
+    /// make `veng doctor` report an unreleased entry that does not exist, which
     /// is the false-claim class this project exists to fight.
     #[test]
     fn hidden_files_are_not_entries() {
@@ -182,8 +182,8 @@ mod tests {
         );
     }
 
-    /// The number `omni doctor` prints is what `build.rs` stamped into
-    /// `OMNI_UNRELEASED_ENTRIES`, so that is the level this has to be checked at.
+    /// The number `veng doctor` prints is what `build.rs` stamped into
+    /// `VENG_UNRELEASED_ENTRIES`, so that is the level this has to be checked at.
     /// A test that adds the two counts itself asserts on its own arithmetic and
     /// stays green when the build script drops a term, which is #158's defect
     /// wearing a different file's name.
@@ -193,7 +193,7 @@ mod tests {
     /// it falls short by the bullets still in the section.
     #[test]
     fn the_compiled_total_matches_a_recount_of_this_repo() {
-        let compiled: usize = env!("OMNI_UNRELEASED_ENTRIES")
+        let compiled: usize = env!("VENG_UNRELEASED_ENTRIES")
             .parse()
             .expect("build.rs must stamp a number");
         // `cargo test` runs with the crate root as the working directory, which
@@ -202,7 +202,7 @@ mod tests {
             + count_fragments(std::path::Path::new("changelog.d"));
         assert_eq!(
             compiled, recount,
-            "omni doctor would report {compiled} unreleased entries against {recount} in the tree"
+            "veng doctor would report {compiled} unreleased entries against {recount} in the tree"
         );
     }
 

@@ -99,5 +99,5 @@
    Compiling ciborium v0.2.2
    Compiling ciborium-ll v0.2.2
    Compiling ciborium-io v0.2.2
-   Compiling omni v0.5.4 (/Users/fajar/project/token-efficient/omni)
+   Compiling veng v0.5.4 (/Users/fajar/project/token-efficient/veng)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.31s

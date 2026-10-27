@@ -1,15 +1,15 @@
-//! `omni context <file>`: which files this one imports, and which import it.
+//! `veng context <file>`: which files this one imports, and which import it.
 //!
 //! Was an MCP tool and nothing else. It sat in the prefix of every request on a
 //! Full-tier host at 189 bytes, and `mcp::policy::FULL` admits a tool on one
 //! stated rule, "called at least once in the corpus": across 253 recorded
-//! sessions `omni_context` is the only advertised tool with **zero** calls ever,
-//! and the three places OMNI recommended it appear zero times in 10,578 traces
+//! sessions `veng_context` is the only advertised tool with **zero** calls ever,
+//! and the three places VENG recommended it appear zero times in 10,578 traces
 //! (#609).
 //!
 //! Moving it here rather than deleting it keeps the capability and stops charging
 //! for it. A CLI subcommand costs nothing per request, and an agent that wants it
-//! runs it in the shell OMNI already hooks. `omni_run` was the door named here
+//! runs it in the shell VENG already hooks. `veng_run` was the door named here
 //! until it was priced off the Full tier too (#609); it still is on a
 //! Handoff-first host, which is the tier that has no shell of its own.
 
@@ -23,12 +23,12 @@ use colored::*;
 /// `--since` is here because `run_tokens` calls `stats::scope`, which reads it.
 /// A flag the command acts on and the flag list does not name is rejected before
 /// it ever reaches the parser, so every window except the default was
-/// unreachable. Only the `--since` spelling is accepted: `omni stats` also takes
+/// unreachable. Only the `--since` spelling is accepted: `veng stats` also takes
 /// `--week` and friends, and one documented way to name a window is enough here.
 const FLAGS: super::Flags = &[
     (
         "--tokens",
-        "where this project's tool output went, and what OMNI declined",
+        "where this project's tool output went, and what VENG declined",
     ),
     (
         "--since <window>",
@@ -60,8 +60,8 @@ pub fn run_context(args: &[String], session: Option<&SessionState>) -> Result<()
 /// The report itself, so the CLI and any future caller cannot render it two ways.
 ///
 /// The session is read here rather than by the caller because the hot-file lookup
-/// has to use the path the graph resolved, not the one that was typed. `omni
-/// context ./src/main.rs` and `omni context src/main.rs` name the same file, and
+/// has to use the path the graph resolved, not the one that was typed. `veng
+/// context ./src/main.rs` and `veng context src/main.rs` name the same file, and
 /// looking up the raw argument answers "Hot in session: no" for one of them.
 pub fn report(
     cwd: &std::path::Path,
@@ -83,7 +83,7 @@ pub fn report(
     };
 
     Ok(format!(
-        "OMNI Context for {}\nImports: {}\nImported by: {}\nHot in session: {}\n",
+        "VENG Context for {}\nImports: {}\nImported by: {}\nHot in session: {}\n",
         ctx.file_path,
         list(&ctx.imports),
         list(&ctx.imported_by),
@@ -95,18 +95,18 @@ pub fn report(
     ))
 }
 
-/// `omni context --tokens`: what OMNI saw, what it removed, and what it declined.
+/// `veng context --tokens`: what VENG saw, what it removed, and what it declined.
 ///
 /// #612 came from someone saying "I thought it was just me, because of polluted
-/// context". That is a guess they cannot check, and OMNI is the one thing in the
+/// context". That is a guess they cannot check, and VENG is the one thing in the
 /// stack already holding the answer for the part it can see.
 ///
 /// **What it deliberately does not report.** #612 asks first for the share of
-/// context that is tool output against everything else. OMNI cannot answer that and
+/// context that is tool output against everything else. VENG cannot answer that and
 /// must not appear to: it records what passed through its hook, and never sees the
 /// prompts, the system block, the tool definitions or the assistant's own text. A
-/// denominator built from what OMNI happens to hold would read as "share of your
-/// context" while meaning "share of the part OMNI touched", which is the kind of
+/// denominator built from what VENG happens to hold would read as "share of your
+/// context" while meaning "share of the part VENG touched", which is the kind of
 /// figure this project exists to refuse. The closing line says so instead.
 ///
 /// Read only, and no new store query: `engine_totals`, `passthrough_reasons` and
@@ -147,7 +147,7 @@ pub(crate) fn tokens_report(
     use std::fmt::Write as _;
 
     let t = store.engine_totals(since)?;
-    // What reached OMNI: what the distiller was given, plus what it declined to
+    // What reached VENG: what the distiller was given, plus what it declined to
     // touch. Not `distilled_output`, which is what survived distillation rather
     // than what was handed back, and reading it as the second is how the first
     // draft of this report mislabelled 3.7 MB.
@@ -164,12 +164,12 @@ pub(crate) fn tokens_report(
     writeln!(
         out,
         "   {:<24}{:>10}   {}",
-        "tool output OMNI saw",
+        "tool output VENG saw",
         format_bytes(seen),
         counted(t.distilled_calls + t.declined_calls, "call")
     )?;
     // One line per engine, each percentage against its own base, exactly as #665
-    // settled it for `omni stats`. A single "removed" figure under the total was
+    // settled it for `veng stats`. A single "removed" figure under the total was
     // the first draft and it subtracts across populations: the ledger folds
     // payloads whose bytes are not inside `distilled_input`, so the two may be
     // summed and may never share a denominator.
@@ -206,7 +206,7 @@ pub(crate) fn tokens_report(
         counted(t.declined_calls, "call")
     )?;
 
-    // Why, not just how much. "OMNI did nothing" is the second thing a reader
+    // Why, not just how much. "VENG did nothing" is the second thing a reader
     // misreads as pollution, and `passthrough_events.reason` has recorded the
     // answer since #533 while nothing outside `--detail` printed it.
     let reasons = store.passthrough_reasons(since);
@@ -222,7 +222,7 @@ pub(crate) fn tokens_report(
     //
     // `get_top_commands` ranks by percentage removed, which is not what heaviest
     // means: a small class that halves is not where the bytes went. Re-ranked
-    // here rather than in the shared function, which `omni stats` orders by
+    // here rather than in the shared function, which `veng stats` orders by
     // percentage on purpose. Every class, not a slice: the store's cap is by call
     // count, so a class that removed 40 MB in three calls sits below 300 chatty
     // ones and never reaches this sort at all.
@@ -251,11 +251,11 @@ pub(crate) fn tokens_report(
     writeln!(out)?;
     writeln!(
         out,
-        "   OMNI sees tool output only. Your prompts, the system block and the"
+        "   VENG sees tool output only. Your prompts, the system block and the"
     )?;
     writeln!(
         out,
-        "   assistant's own text are not counted here and are not OMNI's to see."
+        "   assistant's own text are not counted here and are not VENG's to see."
     )?;
     writeln!(out)?;
     Ok(out)
@@ -264,14 +264,14 @@ pub(crate) fn tokens_report(
 fn print_help() {
     println!(
         "\n{} {}: Dependency context for one file",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "context".bold().yellow()
     );
     println!(
         "Which files it imports, which import it, and whether this session keeps touching it."
     );
     println!();
-    println!("Usage: omni context <file>");
+    println!("Usage: veng context <file>");
     println!();
     super::print_flags(FLAGS);
     println!();
@@ -298,7 +298,7 @@ mod tests {
         let name = resolved
             .lines()
             .next()
-            .and_then(|l| l.strip_prefix("OMNI Context for "))
+            .and_then(|l| l.strip_prefix("VENG Context for "))
             .expect("the first line names the file")
             .to_string();
         session.hot_files.insert(name, 4);
@@ -323,7 +323,7 @@ mod tokens_tests {
     /// deliberately different numbers.
     fn seeded() -> (Store, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+        let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
         let row = |route: Route, input: usize, output: usize| DistillResult {
             output: String::new(),
             route,
@@ -359,7 +359,7 @@ mod tokens_tests {
     }
 
     /// #612. The first draft printed `distilled_output` as "handed back untouched".
-    /// That field is what survived distillation, not what OMNI declined to touch,
+    /// That field is what survived distillation, not what VENG declined to touch,
     /// so the line read 200 bytes where the answer was 9,000 and the totals did not
     /// add up.
     ///
@@ -396,24 +396,24 @@ mod tokens_tests {
         assert!(out.contains("of what it was given"), "{out}");
         assert!(out.contains("of what it folded"), "{out}");
         assert!(
-            !out.contains("of what OMNI saw"),
+            !out.contains("of what VENG saw"),
             "a ratio is being taken against the combined total: {out}"
         );
     }
 
     /// An empty database must say so rather than print a frame of zeroes that reads
-    /// as "OMNI did nothing for you".
+    /// as "VENG did nothing for you".
     #[test]
     fn an_empty_window_says_so() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+        let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
         let out = super::tokens_report(&store, "last 30 days", 0).unwrap();
         assert!(out.contains("nothing recorded yet"), "{out}");
         assert!(!out.contains("0 B"), "printed a frame of zeroes: {out}");
     }
 
     /// #612 asks first for the share of context that is tool output against
-    /// everything else. OMNI cannot see the rest, so the report has to say so
+    /// everything else. VENG cannot see the rest, so the report has to say so
     /// rather than build a denominator out of what it happens to hold.
     ///
     /// Asserted on the rendered output, not on this file. Scanning the source for
@@ -425,7 +425,7 @@ mod tokens_tests {
         let (store, _d) = seeded();
         let out = super::tokens_report(&store, "all time", 0).unwrap();
         assert!(
-            out.contains("not OMNI's to see"),
+            out.contains("not VENG's to see"),
             "the report stopped stating what it cannot see: {out}"
         );
     }
@@ -436,7 +436,7 @@ mod tokens_tests {
     #[test]
     fn heaviest_classes_are_ranked_by_bytes_not_percentage() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+        let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
         let row = |input: usize, output: usize| DistillResult {
             output: String::new(),
             route: Route::Keep,
@@ -485,7 +485,7 @@ mod tokens_tests {
     #[test]
     fn every_heaviest_row_lines_up_and_one_call_is_singular() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+        let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
         let row = |input: usize, output: usize| DistillResult {
             output: String::new(),
             route: Route::Keep,
@@ -539,7 +539,7 @@ mod tokens_tests {
     #[test]
     fn a_heavy_class_survives_a_window_full_of_chatty_ones() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+        let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
         let row = |input: usize, output: usize| DistillResult {
             output: String::new(),
             route: Route::Keep,
@@ -582,7 +582,7 @@ mod tokens_tests {
     /// list does not name. Every window except the default was unreachable.
     #[test]
     fn the_window_flag_reaches_the_parser() {
-        let args: Vec<String> = ["omni", "context", "--tokens", "--since", "all"]
+        let args: Vec<String> = ["veng", "context", "--tokens", "--since", "all"]
             .iter()
             .map(|s| s.to_string())
             .collect();

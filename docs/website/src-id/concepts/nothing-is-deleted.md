@@ -1,20 +1,20 @@
 # Tidak ada yang dihapus
 
-Setiap byte yang dibuang OMNI ditulis dulu ke arsip SQLite lokal, dikunci dengan
+Setiap byte yang dibuang VENG ditulis dulu ke arsip SQLite lokal, dikunci dengan
 SHA-256 miliknya. Agent menerima penanda yang membawa handle 16 karakter, dan
 handle itu mengembalikan aslinya persis byte demi byte.
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
 ```
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 Itu jalan dari shell mana pun, di sesi mana pun, di host mana pun, dan ia tidak
 menjalankan ulang perintah Anda. Kalau MCP terpasang, agent bisa melakukannya
-sendiri lewat perkakas `omni_retrieve` tanpa bertanya ke Anda.
+sendiri lewat perkakas `veng_retrieve` tanpa bertanya ke Anda.
 
 ## Kenapa aturan ini yang menanggung beban
 
@@ -53,19 +53,19 @@ diarsipkan di 64 KB menurunkannya ke 13,3 MB sambil tetap mencakup 3.604 dari
 Jejak yang dipakai untuk benchmark dipangkas terpisah, secara bawaan pada hari
 ketujuh. Pemangkasan itu alasan tidak ada angka yang diterbitkan di sini bisa
 diturunkan ulang setelah seminggu, dan alasan setiap angka di
-[Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks) menyebut jendela
+[Benchmarks](https://veng.weekndlabs.com/docs/develop/benchmarks) menyebut jendela
 waktu pengukurannya.
 
 ## Di mana ia tinggal
 
-`~/.omni/omni.db`, satu berkas SQLite. Ia tidak pernah meninggalkan mesin Anda.
+`~/.veng/veng.db`, satu berkas SQLite. Ia tidak pernah meninggalkan mesin Anda.
 
 ```sh
-omni stats            # apa saja yang sudah ia kerjakan
-omni diff             # perintah terakhir, mentah dibanding hasil sulingan
-omni retrieve <handle>
+veng stats            # apa saja yang sudah ia kerjakan
+veng diff             # perintah terakhir, mentah dibanding hasil sulingan
+veng retrieve <handle>
 ```
 
-`omni diff` cara tercepat menumbuhkan kepercayaan pada hal ini: jalankan satu
+`veng diff` cara tercepat menumbuhkan kepercayaan pada hal ini: jalankan satu
 perintah yang berisik, lalu lihat persis apa yang diserahkan ke agent sebagai
 gantinya.

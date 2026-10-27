@@ -1,19 +1,19 @@
 # Nothing is deleted
 
-Every byte OMNI removes is written to a local SQLite archive first, keyed by its
+Every byte VENG removes is written to a local SQLite archive first, keyed by its
 SHA-256. The agent gets a marker carrying a 16 character handle, and the handle
 brings the original back byte for byte.
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[VENG: 406 lines omitted, veng retrieve 0000000000000000 for full output]
 ```
 
 ```sh
-omni retrieve <handle>
+veng retrieve <handle>
 ```
 
 That works from any shell, in any session, on any host, and it does not re-run your
-command. Where MCP is wired, the agent can do it itself with the `omni_retrieve` tool
+command. Where MCP is wired, the agent can do it itself with the `veng_retrieve` tool
 without asking you.
 
 ## Why this is the load-bearing rule
@@ -56,13 +56,13 @@ number in [Benchmarks](../develop/benchmarks.md) names the window it was measure
 
 ## Where it lives
 
-`~/.omni/omni.db`, a single SQLite file. It never leaves the machine.
+`~/.veng/veng.db`, a single SQLite file. It never leaves the machine.
 
 ```sh
-omni stats            # what it has been doing
-omni diff             # the last command, raw against distilled
-omni retrieve <handle>
+veng stats            # what it has been doing
+veng diff             # the last command, raw against distilled
+veng retrieve <handle>
 ```
 
-`omni diff` is the quickest way to develop trust in this: run a noisy command, then
+`veng diff` is the quickest way to develop trust in this: run a noisy command, then
 look at exactly what the agent was handed instead.

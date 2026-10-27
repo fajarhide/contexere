@@ -1,15 +1,15 @@
 #!/bin/bash
-# OMNI — Universal Install Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/omni/main/scripts/install.sh | sh
+# VENG — Universal Install Script
+# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/veng/main/scripts/install.sh | sh
 #
-# Installs the latest OMNI binary to ~/.local/bin/omni
+# Installs the latest VENG binary to ~/.local/bin/veng
 # Supports: macOS (arm64, x86_64), Linux (arm64, x86_64)
 
 set -euo pipefail
 
-REPO="fajarhide/omni"
-INSTALL_DIR="${OMNI_INSTALL_DIR:-$HOME/.local/bin}"
-VERSION="${OMNI_VERSION:-latest}"
+REPO="fajarhide/veng"
+INSTALL_DIR="${VENG_INSTALL_DIR:-$HOME/.local/bin}"
+VERSION="${VENG_VERSION:-latest}"
 
 # ─── Colors ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -18,10 +18,10 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-info()  { echo -e "${CYAN}[omni]${NC} $*"; }
-ok()    { echo -e "${GREEN}[omni]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[omni]${NC} $*"; }
-error() { echo -e "${RED}[omni]${NC} $*" >&2; exit 1; }
+info()  { echo -e "${CYAN}[veng]${NC} $*"; }
+ok()    { echo -e "${GREEN}[veng]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[veng]${NC} $*"; }
+error() { echo -e "${RED}[veng]${NC} $*" >&2; exit 1; }
 
 # ─── Platform Detection ─────────────────────────────────
 detect_platform() {
@@ -30,13 +30,13 @@ detect_platform() {
     case "$(uname -s)" in
         Darwin) os="apple-darwin" ;;
         Linux)  os="unknown-linux-musl" ;;
-        *)      error "Unsupported OS: $(uname -s). OMNI supports macOS and Linux." ;;
+        *)      error "Unsupported OS: $(uname -s). VENG supports macOS and Linux." ;;
     esac
 
     case "$(uname -m)" in
         arm64|aarch64) arch="aarch64" ;;
         x86_64|amd64)  arch="x86_64" ;;
-        *)             error "Unsupported architecture: $(uname -m). OMNI supports arm64 and x86_64." ;;
+        *)             error "Unsupported architecture: $(uname -m). VENG supports arm64 and x86_64." ;;
     esac
 
     echo "${arch}-${os}"
@@ -58,34 +58,34 @@ resolve_version() {
 download_and_install() {
     local platform="$1"
     local version="$2"
-    local url="https://github.com/$REPO/releases/download/${version}/omni-${version}-${platform}.tar.gz"
+    local url="https://github.com/$REPO/releases/download/${version}/veng-${version}-${platform}.tar.gz"
     local tmpdir
     tmpdir=$(mktemp -d)
 
-    info "Downloading omni ${version} for ${platform}..."
-    if ! curl -fsSL "$url" -o "$tmpdir/omni.tar.gz"; then
+    info "Downloading veng ${version} for ${platform}..."
+    if ! curl -fsSL "$url" -o "$tmpdir/veng.tar.gz"; then
         error "Download failed. Check that version ${version} exists at:\n  $url"
     fi
 
     # Verify SHA-256 if available
     local sha_url="${url}.sha256"
-    if curl -fsSL "$sha_url" -o "$tmpdir/omni.tar.gz.sha256" 2>/dev/null; then
+    if curl -fsSL "$sha_url" -o "$tmpdir/veng.tar.gz.sha256" 2>/dev/null; then
         info "Verifying SHA-256 checksum..."
         local expected actual
-        expected=$(awk '{print $1}' "$tmpdir/omni.tar.gz.sha256")
+        expected=$(awk '{print $1}' "$tmpdir/veng.tar.gz.sha256")
 
         # Cross-platform: sha256sum (Linux) or shasum -a 256 (macOS)
         if command -v sha256sum >/dev/null 2>&1; then
-            actual=$(sha256sum "$tmpdir/omni.tar.gz" | awk '{print $1}')
+            actual=$(sha256sum "$tmpdir/veng.tar.gz" | awk '{print $1}')
         elif command -v shasum >/dev/null 2>&1; then
-            actual=$(shasum -a 256 "$tmpdir/omni.tar.gz" | awk '{print $1}')
+            actual=$(shasum -a 256 "$tmpdir/veng.tar.gz" | awk '{print $1}')
         else
             warn "No SHA-256 tool found — skipping checksum verification"
             actual="$expected"
         fi
 
         if [ "$expected" != "$actual" ]; then
-            error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/omni/issues"
+            error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/veng/issues"
         fi
         ok "Checksum verified ✓"
     else
@@ -93,12 +93,12 @@ download_and_install() {
     fi
 
     # Extract
-    tar xzf "$tmpdir/omni.tar.gz" -C "$tmpdir"
+    tar xzf "$tmpdir/veng.tar.gz" -C "$tmpdir"
 
     # Install
     mkdir -p "$INSTALL_DIR"
-    cp "$tmpdir/omni" "$INSTALL_DIR/omni"
-    chmod +x "$INSTALL_DIR/omni"
+    cp "$tmpdir/veng" "$INSTALL_DIR/veng"
+    chmod +x "$INSTALL_DIR/veng"
 
     # Cleanup
     rm -rf "$tmpdir"
@@ -136,7 +136,7 @@ check_path() {
 main() {
     echo ""
     echo "  ┌─────────────────────────────────────┐"
-    echo "  │  OMNI Installer                     │"
+    echo "  │  VENG Installer                     │"
     echo "  │  Less noise. More signal.           │"
     echo "  └─────────────────────────────────────┘"
     echo ""
@@ -147,27 +147,27 @@ main() {
 
     info "Platform: $platform"
     info "Version:  $version"
-    info "Target:   $INSTALL_DIR/omni"
+    info "Target:   $INSTALL_DIR/veng"
     echo ""
 
     download_and_install "$platform" "$version"
 
     echo ""
-    ok "✓ OMNI installed to $INSTALL_DIR/omni"
+    ok "✓ VENG installed to $INSTALL_DIR/veng"
     echo ""
 
     # Verify
-    if "$INSTALL_DIR/omni" version >/dev/null 2>&1; then
-        ok "Verified: $($INSTALL_DIR/omni version)"
+    if "$INSTALL_DIR/veng" version >/dev/null 2>&1; then
+        ok "Verified: $($INSTALL_DIR/veng version)"
     fi
 
     check_path
 
     echo ""
     echo "  Next steps:"
-    echo "    omni init              # Interactive setup for your preferred AI Agent"
-    echo "    omni doctor            # Verify installation"
-    echo "    omni stats             # View savings after first session"
+    echo "    veng init              # Interactive setup for your preferred AI Agent"
+    echo "    veng doctor            # Verify installation"
+    echo "    veng stats             # View savings after first session"
     echo ""
 }
 

@@ -1,4 +1,4 @@
-# Where OMNI is going
+# Where VENG is going
 
 Direction only. The queue lives on the
 [Now / Next / Later board](https://github.com/users/fajarhide/projects/2) and the
@@ -8,7 +8,7 @@ shipped.
 
 ## The goal
 
-OMNI removes noise from what an agent reads, without removing the answer and without
+VENG removes noise from what an agent reads, without removing the answer and without
 overstating what it removed.
 
 Compression is the easy half. A distiller that deletes a whole `kubectl` table and
@@ -28,7 +28,7 @@ Three properties, in the order they win when they conflict:
 
 **Primary: context-window pressure for the same job.** Conversation growth, turns
 before compaction, and the cost of recovering task state in a new chat. That is the
-meter a user watches and the one OMNI is bought to move.
+meter a user watches and the one VENG is bought to move.
 
 **Secondary: distill %.** Always scoped by `agent_id`, always model-facing only. A
 diagnostic for one host's pipeline, not a product claim.
@@ -51,11 +51,11 @@ Recorded with dates, because the useful part of a rejected option is the reason.
 
 | not building | why | decided |
 |---|---|---|
-| An HTTP proxy in front of the model | It puts OMNI on the request path and routes the user's API key through a local process. The hook is the product, and the absence of that friction is most of the advantage. | 2026-07-23 |
+| An HTTP proxy in front of the model | It puts VENG on the request path and routes the user's API key through a local process. The hook is the product, and the absence of that friction is most of the advantage. | 2026-07-23 |
 | A model or ML compressor inside the pipeline | Hooks have a sub-10 ms budget. Nothing with an inference call meets it. | 2026-07-23 |
 | Chasing a higher reduction % with more aggressive distillers | The failure mode this project keeps shipping is a confident summary that deleted the answer. More aggression buys the number and costs the product, and on a host that cannot rewrite built-in tool output it buys nothing at all. | 2026-08-07 |
 | Claiming shell distillation on a Handoff-first or MCP-only host | The host does not apply the rewrite, so the model reads the same bytes it always did. Saying otherwise is the same defect as a distiller reporting a saving it did not make. | 2026-08-07 |
-| Intercepting a host's shell by denying it and returning output as a hook message | Technically possible on Cursor. It tells the agent its command was blocked, loses the exit code, moves execution semantics into OMNI, and bypasses the host's approval flow. | 2026-08-07 |
+| Intercepting a host's shell by denying it and returning output as a hook message | Technically possible on Cursor. It tells the agent its command was blocked, loses the exit code, moves execution semantics into VENG, and bypasses the host's approval flow. | 2026-08-07 |
 | Filter marketplace, team mode, remote archive, IDE extension | Ecosystem features for a tool whose core claims are not all true yet. Worth reopening once the axes below are done. | 2026-07-29 |
 | A user or project filter tier on disk | It let a checkout decide what an agent is shown, behind a trust gate that hashed one file and admitted another. Deleted rather than repaired, and the whole layer was worth 804 bytes over 6,656 commands. | 2026-08-11 |
 
@@ -74,7 +74,7 @@ What is not closed is the class this axis exists for. Returning `None` proves a
 distiller knew it had failed. It proves nothing about one that parsed something and
 summarised it wrongly.
 
-**Check:** no open bug describes OMNI asserting a result it did not parse, and that
+**Check:** no open bug describes VENG asserting a result it did not parse, and that
 stays true across a full release cycle. This class has been filed against nine
 separate releases, so a quiet month is not evidence.
 
@@ -106,7 +106,7 @@ release mechanics. Real work, regularly done, and deliberately not direction.
 ## Contributing
 
 The most useful contributions are a distiller for a tool not covered, a signal for a
-tool whose noise is line-shaped, and a reproduction of any case where OMNI's output
+tool whose noise is line-shaped, and a reproduction of any case where VENG's output
 claims more than its input supports.
 
 The third is worth more than it sounds. See `CONTRIBUTING.md` in the repository.

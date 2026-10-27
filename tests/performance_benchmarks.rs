@@ -11,8 +11,8 @@
 //! Real performance tracking lives in `benches/pipeline.rs` (criterion,
 //! `cargo bench`), which measures against a baseline instead of a magic number.
 
-use omni::pipeline::scorer;
 use std::time::Instant;
+use veng::pipeline::scorer;
 
 /// Upper bound for every timing assertion here. Anything this slow is broken,
 /// not merely unlucky, these operations are all designed to run in ~milliseconds.
@@ -23,7 +23,7 @@ fn bench_distillation_latency() {
     let input = "a\n".repeat(100);
     let start = Instant::now();
     let segments = scorer::score_with_command(&input, "ls", None);
-    omni::distillers::distill_with_command(&segments, &input, "ls", None);
+    veng::distillers::distill_with_command(&segments, &input, "ls", None);
     let elapsed = start.elapsed();
 
     // Design target: well under a second, even in an unoptimized debug build.
@@ -35,7 +35,7 @@ fn bench_distillation_latency() {
 
 #[test]
 fn bench_pressure_calculation_latency() {
-    let mut state = omni::pipeline::SessionState::new();
+    let mut state = veng::pipeline::SessionState::new();
     state.estimated_current_tokens = 150_000;
 
     let start = Instant::now();
@@ -59,7 +59,7 @@ fn bench_environment_sanitization_latency() {
         malicious_env.push((format!("BAD_VAR_{}", i), "evil".to_string()));
     }
 
-    let _sanitized = omni::guard::env::sanitize_vars(malicious_env);
+    let _sanitized = veng::guard::env::sanitize_vars(malicious_env);
     let elapsed = start.elapsed();
 
     // Design target: 1000 vars sanitized in a few ms.

@@ -1,9 +1,9 @@
 //! What the host says its sessions cost, read from the host's own transcripts (#859).
 //!
-//! Every other `omni stats` view reports what OMNI did, from OMNI's own tables.
+//! Every other `veng stats` view reports what VENG did, from VENG's own tables.
 //! This one reads the other side of the boundary: Claude Code writes per-request
 //! `usage` and every content block to disk, so the bill and the composition of
-//! the context can be stated without taking OMNI's word for anything.
+//! the context can be stated without taking VENG's word for anything.
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;

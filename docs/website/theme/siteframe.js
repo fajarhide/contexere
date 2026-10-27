@@ -2,11 +2,11 @@
  *
  * The palette and the fonts already match, which made the seam invisible until
  * someone tried to leave: nothing on any page linked back to
- * omni.weekndlabs.com, so `Docs` in the site navbar was a one-way door.
+ * veng.weekndlabs.com, so `Docs` in the site navbar was a one-way door.
  *
  * Done here rather than by forking `index.hbs`, because owning mdBook's whole
  * page template in order to add a header is a bad trade on every future upgrade.
- * `.menu-title` and `.right-buttons` are the classes `theme/omni.css` already
+ * `.menu-title` and `.right-buttons` are the classes `theme/veng.css` already
  * styles, so this adds to markup the theme is already committed to.
  *
  * Relative links, not absolute ones. `mdbook serve` on localhost has no site
@@ -31,13 +31,13 @@
 
   // A reader who arrived through a translated README used to land here with no
   // way back to their own language. The four that are still README-only point at
-  // GitHub with absolute URLs: those files live in the omni repository, not in
+  // GitHub with absolute URLs: those files live in the veng repository, not in
   // the site, so no relative path from /docs/ reaches them.
   //
   // English and Indonesian are the exception since #539: both are real books, so
   // their entries stay inside the manual and `manual: true` marks them as the two
   // that do not leave for GitHub.
-  var REPO = 'https://github.com/fajarhide/omni/blob/main/';
+  var REPO = 'https://github.com/fajarhide/veng/blob/main/';
   var LANGS = [
     { code: 'EN', label: 'English', manual: true },
     { code: 'ID', label: 'Bahasa Indonesia', manual: true },
@@ -160,7 +160,7 @@
   /// page's depth.
   ///
   /// `alt=""` because the wordmark next to it is the accessible name. Alt text
-  /// here would make the one link read as "OMNI OMNI".
+  /// here would make the one link read as "VENG VENG".
   function markImage() {
     var icon = document.querySelector('link[rel~="icon"][href$=".svg"]');
     if (!icon) return null;

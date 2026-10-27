@@ -5,20 +5,20 @@ use std::process::Command;
 
 pub fn print_help() {
     println!(
-        "\n{} {}: Upgrade OMNI to latest version",
-        "omni".bold().cyan(),
+        "\n{} {}: Upgrade VENG to latest version",
+        "veng".bold().cyan(),
         "update".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {}", "update".cyan());
+    println!("  veng {}", "update".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
-    println!("  Fetches the latest version from GitHub and upgrades OMNI.");
+    println!("  Fetches the latest version from GitHub and upgrades VENG.");
     println!("  Currently supports Homebrew-based installations.");
     println!();
 }
 
-/// `omni update` takes no flags of its own; the guard is what stops a typo from
+/// `veng update` takes no flags of its own; the guard is what stops a typo from
 /// running the real update anyway and reporting success (#151).
 const FLAGS: super::Flags = &[];
 
@@ -64,23 +64,23 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     "ℹ️".blue()
                 );
                 println!(
-                    "   Please download the latest release from: https://github.com/fajarhide/omni/releases"
+                    "   Please download the latest release from: https://github.com/fajarhide/veng/releases"
                 );
                 return Ok(());
             }
 
             #[cfg(not(target_family = "windows"))]
             {
-                println!("{} Updating OMNI via Homebrew...", "🚀".cyan());
+                println!("{} Updating VENG via Homebrew...", "🚀".cyan());
 
                 // Run brew upgrade
                 let status = Command::new("brew")
-                    .args(["upgrade", "fajarhide/tap/omni"])
+                    .args(["upgrade", "fajarhide/tap/veng"])
                     .status();
 
                 match status {
                     Ok(s) if s.success() => {
-                        println!("\n{} OMNI updated successfully!", "✓".green());
+                        println!("\n{} VENG updated successfully!", "✓".green());
                     }
                     Ok(s) => {
                         return Err(format!(
@@ -90,7 +90,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     }
                     Err(e) => {
                         return Err(format!(
-                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/omni' manually.",
+                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/veng' manually.",
                             e
                         ));
                     }
@@ -99,7 +99,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         }
         crate::guard::update::Status::Ahead => {
             println!(
-                "\n{} OMNI is ahead of the latest stable release (v{}).",
+                "\n{} VENG is ahead of the latest stable release (v{}).",
                 "🚀".blue(),
                 env!("CARGO_PKG_VERSION")
             );
@@ -107,7 +107,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         }
         crate::guard::update::Status::Latest => {
             println!(
-                "\n{} OMNI is already up to date (v{}).",
+                "\n{} VENG is already up to date (v{}).",
                 "✓".green(),
                 env!("CARGO_PKG_VERSION")
             );

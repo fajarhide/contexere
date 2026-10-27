@@ -1,9 +1,9 @@
-//! Which of OMNI's MCP tools a host is told about.
+//! Which of VENG's MCP tools a host is told about.
 //!
 //! An advertised tool sits at position 0 of every request, so it is re-read once
 //! per request for the whole session, while a distilled tool result is re-read a
 //! median of 64 times and then stops. That is why this list is priced rather than
-//! curated: measured 2026-08-15, the 25 tools OMNI used to advertise cost 4,940
+//! curated: measured 2026-08-15, the 25 tools VENG used to advertise cost 4,940
 //! bytes for the 16 nobody ever called, about twice what the distillers earned in
 //! the median session that pushed more than 50 KB through the hook.
 //!
@@ -23,14 +23,14 @@ use crate::agents::Tier;
 /// `transcript-probes/mcp_surface.py`, the calls are not spread across the set:
 ///
 /// ```text
-/// omni_retrieve          207 B   109 calls   24 sessions
-/// omni_explain_savings   260 B    29 calls   27 sessions
-/// omni_run               417 B     3 calls    2 sessions
-/// omni_find_noise        253 B     2 calls    1 session
-/// omni_recall            236 B     2 calls    2 sessions
-/// omni_context_breakdown 157 B     2 calls    2 sessions
-/// omni_remember          332 B     1 call     1 session
-/// omni_history           236 B     1 call     1 session
+/// veng_retrieve          207 B   109 calls   24 sessions
+/// veng_explain_savings   260 B    29 calls   27 sessions
+/// veng_run               417 B     3 calls    2 sessions
+/// veng_find_noise        253 B     2 calls    1 session
+/// veng_recall            236 B     2 calls    2 sessions
+/// veng_context_breakdown 157 B     2 calls    2 sessions
+/// veng_remember          332 B     1 call     1 session
+/// veng_history           236 B     1 call     1 session
 /// ```
 ///
 /// The two kept here carry 138 of the 149 calls in 467 B. The six below cost
@@ -40,57 +40,57 @@ use crate::agents::Tier;
 ///
 /// What a cut costs is a door, and only on this tier. `router_from` removes an
 /// unadvertised route rather than hiding it, so the tools are gone here until
-/// `OMNI_MCP_TOOLS=all`; what stands in for them is the shell this tier already
-/// hooks. `omni exec` runs what `omni_run` ran, `omni remember` writes what
-/// `omni_remember` wrote, `omni stats --view context` prints what
-/// `omni_context_breakdown` printed, and `omni stats --view detail` carries
-/// `omni_history`'s rows with repeats folded into one line and a count rather
-/// than listed per call. `omni_recall` and `omni_find_noise` have no CLI
+/// `VENG_MCP_TOOLS=all`; what stands in for them is the shell this tier already
+/// hooks. `veng exec` runs what `veng_run` ran, `veng remember` writes what
+/// `veng_remember` wrote, `veng stats --view context` prints what
+/// `veng_context_breakdown` printed, and `veng stats --view detail` carries
+/// `veng_history`'s rows with repeats folded into one line and a count rather
+/// than listed per call. `veng_recall` and `veng_find_noise` have no CLI
 /// equivalent and sit behind the override alone; they are 4 calls in the whole
 /// corpus, and `find_noise` writes TOML filters for a layer #449 retired (#609).
-pub const FULL: &[&str] = &["omni_retrieve", "omni_explain_savings"];
-// `omni_context` left before the rule was tightened: it was the only advertised
-// tool with zero calls ever across 253 sessions, and the three places OMNI
+pub const FULL: &[&str] = &["veng_retrieve", "veng_explain_savings"];
+// `veng_context` left before the rule was tightened: it was the only advertised
+// tool with zero calls ever across 253 sessions, and the three places VENG
 // recommended it appear zero times in 10,578 traces. The capability moved to
-// `omni context <file>` (#609).
+// `veng context <file>` (#609).
 
 /// A Handoff-first host does not rewrite built-in tool output, so MCP is the
-/// only door OMNI has there and `FULL`'s pricing does not transfer: an
+/// only door VENG has there and `FULL`'s pricing does not transfer: an
 /// unadvertised tool is not one shell command away, it is unreachable. This is
 /// the widest advertised set, and an unregistered host gets it for that reason.
 pub const HANDOFF: &[&str] = &[
-    "omni_retrieve",
-    "omni_explain_savings",
-    "omni_remember",
-    "omni_recall",
-    "omni_run",
-    "omni_find_noise",
-    "omni_context_breakdown",
-    "omni_history",
+    "veng_retrieve",
+    "veng_explain_savings",
+    "veng_remember",
+    "veng_recall",
+    "veng_run",
+    "veng_find_noise",
+    "veng_context_breakdown",
+    "veng_history",
 ];
 
-/// An MCP-only host gives OMNI no hook, so the tools that *report* on shell
-/// distillation would describe something that never happens. `omni_run` is not one
+/// An MCP-only host gives VENG no hook, so the tools that *report* on shell
+/// distillation would describe something that never happens. `veng_run` is not one
 /// of them: it is the tool that performs it, and withholding it was circular. The
 /// tier had no distillation partly because the one tool that could produce any was
 /// held back on the grounds that the tier had no distillation (#686).
 ///
 /// `HANDOFF` above already makes the argument, and every word of it applies here:
-/// MCP is the only door OMNI has, `FULL`'s pricing does not transfer because an
+/// MCP is the only door VENG has, `FULL`'s pricing does not transfer because an
 /// unadvertised tool is not one shell command away, it is unreachable. The
 /// difference between the two tiers is that a Handoff-first host has an installed
-/// rule nudging the agent toward `omni_run`. That is a nudge, not a capability.
+/// rule nudging the agent toward `veng_run`. That is a nudge, not a capability.
 ///
-/// Only `omni_run`, not the rest of `HANDOFF`. It costs 417 B in the prefix of
+/// Only `veng_run`, not the rest of `HANDOFF`. It costs 417 B in the prefix of
 /// every request, and the four reporting tools are 803 B more that this file's own
 /// rule says nobody may add without measuring first. They become arguable once
 /// there are recorded runs on this tier to report on, which today there are none of.
 pub const MEMORY: &[&str] = &[
-    "omni_remember",
-    "omni_recall",
-    "omni_retrieve",
-    "omni_knowledge",
-    "omni_run",
+    "veng_remember",
+    "veng_recall",
+    "veng_retrieve",
+    "veng_knowledge",
+    "veng_run",
 ];
 
 /// Every tool the binary can serve. Kept here so `doctor` does not have to
@@ -116,7 +116,7 @@ fn integration_id(detected: &str) -> &str {
 /// `detect_agent_id` can return `windsurf`, `vscode_continue`, `aider` and
 /// `terminal`, none of which is registered anywhere; the `McpOnly` default
 /// dropped Codex to four tools whenever `CODEX_SESSION` failed to reach the
-/// subprocess, since its generated config carries no `OMNI_AGENT_ID`. A host that
+/// subprocess, since its generated config carries no `VENG_AGENT_ID`. A host that
 /// wants the memory set declares it by registering an integration.
 ///
 /// That default was `Full` until `FULL` was priced down to two tools (#609).
@@ -130,7 +130,7 @@ pub fn tier_for(agent_id: &str) -> Tier {
         .map_or(Tier::HandoffFirst, |a| a.tier())
 }
 
-/// Does `OMNI_MCP_TOOLS` ask for the whole surface?
+/// Does `VENG_MCP_TOOLS` ask for the whole surface?
 ///
 /// Split from the environment read so a test can decide this without mutating
 /// process environment. Cargo runs tests in parallel, this crate already has
@@ -145,7 +145,7 @@ pub fn value_means_all(value: Option<&str>) -> bool {
 /// variable, so `doctor` and the served router cannot disagree about whether the
 /// cut is in force.
 pub fn override_is_on() -> bool {
-    value_means_all(std::env::var("OMNI_MCP_TOOLS").ok().as_deref())
+    value_means_all(std::env::var("VENG_MCP_TOOLS").ok().as_deref())
 }
 
 /// The tools this host is told about.
@@ -177,7 +177,7 @@ mod tests {
 
     /// Being wrong about a host must cost a flag, not a capability. Since #609
     /// that means the *widest* list rather than `Full`'s: `FULL` is priced for a
-    /// host whose shell OMNI hooks, and an unregistered id is exactly the case
+    /// host whose shell VENG hooks, and an unregistered id is exactly the case
     /// where nobody knows whether it has one.
     #[test]
     fn an_unregistered_host_keeps_the_widest_set() {
@@ -205,8 +205,8 @@ mod tests {
         );
     }
 
-    /// #686. The tier with no hook is the one tier where `omni_run` is the only
-    /// way OMNI can shorten anything, and it was the one tier that did not
+    /// #686. The tier with no hook is the one tier where `veng_run` is the only
+    /// way VENG can shorten anything, and it was the one tier that did not
     /// advertise it. The reason recorded in the source was circular: no
     /// distillation exists here, so the tool that would create it is withheld.
     ///
@@ -221,9 +221,9 @@ mod tests {
         ] {
             assert_eq!(tier_for(id), tier, "{id} changed tier");
             assert!(
-                active_tools(id).contains(&"omni_run"),
+                active_tools(id).contains(&"veng_run"),
                 "{id} is {tier:?} and cannot rewrite its host's tool output, so \
-                 `omni_run` is the only path by which the model reads less. \
+                 `veng_run` is the only path by which the model reads less. \
                  Advertised: {:?}",
                 active_tools(id)
             );
@@ -236,15 +236,15 @@ mod tests {
     /// the same release contradicted each other.
     ///
     /// So the label is checked against the tool set rather than being read once
-    /// and trusted: any tier offering `omni_run` may not claim it does not distil.
+    /// and trusted: any tier offering `veng_run` may not claim it does not distil.
     #[test]
-    fn no_tier_offering_omni_run_claims_it_does_not_distil() {
+    fn no_tier_offering_veng_run_claims_it_does_not_distil() {
         for id in ["antigravity", "cursor", "claude_code"] {
             let tier = tier_for(id);
-            if active_tools(id).contains(&"omni_run") {
+            if active_tools(id).contains(&"veng_run") {
                 assert!(
                     !tier.label().contains("no shell distill"),
-                    "{id} advertises omni_run and its label denies distilling: {:?}",
+                    "{id} advertises veng_run and its label denies distilling: {:?}",
                     tier.label()
                 );
             }
@@ -259,10 +259,10 @@ mod tests {
     fn the_mcp_only_tier_gains_the_performer_and_not_the_reporters() {
         let tools = active_tools("antigravity");
         for reporter in [
-            "omni_explain_savings",
-            "omni_find_noise",
-            "omni_context_breakdown",
-            "omni_history",
+            "veng_explain_savings",
+            "veng_find_noise",
+            "veng_context_breakdown",
+            "veng_history",
         ] {
             assert!(
                 !tools.contains(&reporter),
@@ -272,15 +272,15 @@ mod tests {
     }
 
     /// `strategy.md` section 5 makes this product law: on a Handoff-first host
-    /// the built-in tool output is never rewritten, so `omni_run` is the only
+    /// the built-in tool output is never rewritten, so `veng_run` is the only
     /// path by which the model reads less. Cutting it there would remove the
-    /// host's entire reason to have OMNI installed.
+    /// host's entire reason to have VENG installed.
     #[test]
-    fn a_handoff_first_host_keeps_omni_run() {
-        assert!(active_tools("cursor").contains(&"omni_run"));
+    fn a_handoff_first_host_keeps_veng_run() {
+        assert!(active_tools("cursor").contains(&"veng_run"));
         // And the Full tier is where it stops being worth its 417 bytes, because
-        // there the built-in shell is hooked and `omni exec` is one command away.
-        assert!(!active_tools("claude_code").contains(&"omni_run"));
+        // there the built-in shell is hooked and `veng exec` is one command away.
+        assert!(!active_tools("claude_code").contains(&"veng_run"));
     }
 
     /// An MCP-only host has no shell distillation to report on, so the read
@@ -290,9 +290,9 @@ mod tests {
     #[test]
     fn an_mcp_only_host_gets_the_memory_set_and_nothing_else() {
         let tools = active_tools("cline");
-        assert!(tools.contains(&"omni_remember"));
-        assert!(tools.contains(&"omni_retrieve"));
-        assert!(!tools.contains(&"omni_explain_savings"));
+        assert!(tools.contains(&"veng_remember"));
+        assert!(tools.contains(&"veng_retrieve"));
+        assert!(!tools.contains(&"veng_explain_savings"));
     }
 
     /// Measured 2026-08-23 over 256 sessions: these two carry 138 of the 149
@@ -303,7 +303,7 @@ mod tests {
     fn the_full_set_is_the_ones_that_pay_for_the_prefix() {
         let mut got = active_tools("claude_code").to_vec();
         got.sort_unstable();
-        assert_eq!(got, vec!["omni_explain_savings", "omni_retrieve"]);
+        assert_eq!(got, vec!["veng_explain_savings", "veng_retrieve"]);
     }
 
     /// The escape hatch, driven through the predicate instead of the process

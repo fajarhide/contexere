@@ -1,7 +1,7 @@
 # Seeing what it saved
 
 ```sh
-omni stats
+veng stats
 ```
 
 Everything on this page reads the same aggregation, so a figure in the share card
@@ -10,12 +10,12 @@ cannot drift from the one in the report.
 ## The report
 
 ```sh
-omni stats                 # last 30 days, the default
-omni stats --today         # or --hour, --week, --month
-omni stats --view detail   # commands, routes, sessions, agents
-omni stats --limit 0       # every command, not just the top ones
-omni stats --view projects # broken down per project path
-omni stats --json          # machine readable
+veng stats                 # last 30 days, the default
+veng stats --today         # or --hour, --week, --month
+veng stats --view detail   # commands, routes, sessions, agents
+veng stats --limit 0       # every command, not just the top ones
+veng stats --view projects # broken down per project path
+veng stats --json          # machine readable
 ```
 
 It leads with the bytes that never reached your model, then one line per engine:
@@ -72,15 +72,15 @@ follow.
 ## Reading it without fooling yourself
 
 **Split by `agent_id` before quoting anything.** Rows recorded under `terminal` are
-TTY bytes no model ever read. On one installation those were 73% of every byte OMNI
-claimed to have saved. `omni stats` excludes them now, but the same trap waits for
+TTY bytes no model ever read. On one installation those were 73% of every byte VENG
+claimed to have saved. `veng stats` excludes them now, but the same trap waits for
 anyone querying the database directly.
 
 **A high percentage is not automatically good.** The worst defects in this project's
 history reported the highest reductions, because deleting the answer compresses very
-well. Pair any number with `omni diff` on a real command.
+well. Pair any number with `veng diff` on a real command.
 
-**A low aggregate is usually correct, and it is not the number to judge OMNI by.** Most
+**A low aggregate is usually correct, and it is not the number to judge VENG by.** Most
 calls are handed back untouched because taking anything would be unsafe or would not
 pay: structured payloads, failed commands and enumerations all pass through by design.
 The per-command rows are where the work shows, so sort by what a class actually saved
@@ -89,7 +89,7 @@ rather than reading the average.
 ## The check a percentage cannot make
 
 ```sh
-omni stats --rerun
+veng stats --rerun
 ```
 
 Which distillers cost a re-run. If a distiller removes something the agent then has
@@ -99,8 +99,8 @@ a byte count can see that.
 ## Sharing it
 
 ```sh
-omni stats --share     # copy-pasteable summary of your own measured savings
-omni stats --card      # the same summary written as an image
+veng stats --share     # copy-pasteable summary of your own measured savings
+veng stats --card      # the same summary written as an image
 ```
 
 Both come from your own database, which is the point. A ratio claim in someone else's
@@ -109,8 +109,8 @@ README cannot be verified before installing.
 ## In a browser
 
 ```sh
-omni dashboard             # http://127.0.0.1:7717
-omni dashboard --port 8080
+veng dashboard             # http://127.0.0.1:7717
+veng dashboard --port 8080
 ```
 
 Read-only, same database, binds loopback and nothing else.
@@ -118,27 +118,27 @@ Read-only, same database, binds loopback and nothing else.
 ## Digging further
 
 ```sh
-omni stats --view detail         # per-command and per-route breakdown
-omni query errors in last 5 commands
-omni query warnings from cargo
-omni query timeline today
-omni patterns                    # errors that keep coming back
-omni patterns --tool cargo
+veng stats --view detail         # per-command and per-route breakdown
+veng query errors in last 5 commands
+veng query warnings from cargo
+veng query timeline today
+veng patterns                    # errors that keep coming back
+veng patterns --tool cargo
 ```
 
-`omni_history` gives the same per-call rows to an MCP client, on the tiers that advertise
+`veng_history` gives the same per-call rows to an MCP client, on the tiers that advertise
 it. On a Full-tier host it costs more in the prefix than it earns, so the route there is
-`omni stats --view detail`, which folds repeated commands into one row with a count. There
-is no `omni history` subcommand; this page listed one until 0.7.4.
+`veng stats --view detail`, which folds repeated commands into one row with a count. There
+is no `veng history` subcommand; this page listed one until 0.7.4.
 
-`omni query` speaks a small fixed query language rather than free text. The supported
+`veng query` speaks a small fixed query language rather than free text. The supported
 forms are listed in its own help.
 
 ## Querying the database directly
 
-`~/.omni/omni.db` is plain SQLite and there is nothing stopping you.
+`~/.veng/veng.db` is plain SQLite and there is nothing stopping you.
 
-> Never read `sqlite3` output through the Bash hook while investigating OMNI. The
+> Never read `sqlite3` output through the Bash hook while investigating VENG. The
 > pipeline can fold the rows you are trying to count, and a `LIKE` filter that catches
 > the wrong rows has already put a wrong figure into a published issue. List the rows
-> before quoting any aggregate over them, and set `OMNI_PASSTHROUGH=1`.
+> before quoting any aggregate over them, and set `VENG_PASSTHROUGH=1`.

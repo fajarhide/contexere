@@ -9,20 +9,20 @@ pub enum AgentFormat {
     VSCodeContinue, // role:tool + content + name
     CodexCLI,       // action:run + command + result
     CursorWindsurf, // seperti ClaudeCode tapi content bisa array
-    Aider,          // piped stdin, OMNI_CMD env
+    Aider,          // piped stdin, VENG_CMD env
     GenericMCP,     // JSON-RPC 2.0 tool result
     Pi,             // camelCase toolName + toolResponse from Pi extension
     /// `agent: "<host>"` + `exit_code`, sent by a plugin this repo writes.
     ///
-    /// Hermes and OpenClaw both reach OMNI through our own plugin rather than a
-    /// host format OMNI has to reverse-engineer, so they send one shape and the
+    /// Hermes and OpenClaw both reach VENG through our own plugin rather than a
+    /// host format VENG has to reverse-engineer, so they send one shape and the
     /// variant carries the name. It carries it because that name is the only
     /// thing that differs and it decides `agent_id`, which is the bucket every
     /// per-host figure is computed from.
     ///
     /// Its own arm rather than a reshaped Codex or Claude Code payload, for two
     /// reasons that both bit this project before. `resolve_agent_id` only lets
-    /// `OMNI_AGENT_ID` override a `ClaudeCode` or `Unknown` format, so borrowing
+    /// `VENG_AGENT_ID` override a `ClaudeCode` or `Unknown` format, so borrowing
     /// Codex's shape would file every row under `codex_cli`, which is the
     /// mislabelling #212 traced a wrong headline to. And Claude Code's shape has
     /// nowhere to put an exit code, so #120's refusal to distill a failed command
@@ -45,7 +45,7 @@ pub struct NormalizedInput {
     ///
     /// `content` above is a flattened, lossy view of it, stdout and stderr are
     /// concatenated, and every other key is dropped. That was fine while the
-    /// replacement was emitted in OMNI's own `{status, result}` shape, and became
+    /// replacement was emitted in VENG's own `{status, result}` shape, and became
     /// the bug in #187: Claude Code validates `updatedToolOutput` against the
     /// *host tool's* output schema, so the reply has to be the same object shape
     /// that arrived, with only the output text swapped. Reconstructing it from
@@ -60,9 +60,9 @@ pub struct NormalizedInput {
     ///
     /// `SessionState::session_id` is minted from the wall clock in
     /// `SessionState::new`, and the persisted state is global rather than
-    /// per-host-session, so one OMNI "session" collected 16 project paths and
+    /// per-host-session, so one VENG "session" collected 16 project paths and
     /// 3,739 commands (#118). Every per-session number is computed off that
-    /// grouping: the PostToolUse banner, the `omni stats` slices, and the
+    /// grouping: the PostToolUse banner, the `veng stats` slices, and the
     /// turns-since-insertion a cumulative saving would multiply by (#173).
     ///
     /// The host has always sent this, `hooks::session_start` parses the same
@@ -243,7 +243,7 @@ pub fn detect_agent_id(agent: &AgentFormat) -> String {
     resolve_agent_id(agent, "")
 }
 
-/// Which host to file this row under in `omni stats`.
+/// Which host to file this row under in `veng stats`.
 ///
 /// Separate from `detect_agent_id` because they answer different questions.
 /// That one describes the payload contract and drives behaviour; this one names
@@ -496,7 +496,7 @@ fn normalize_pi(input: &str, agent_id: String) -> Option<NormalizedInput> {
         return None;
     }
 
-    // Normalize tool name using OMNI's internal standard
+    // Normalize tool name using VENG's internal standard
     let normalized_name = normalize_tool_name(&tool_name);
     let command = parsed
         .command
@@ -783,7 +783,7 @@ fn normalize_plugin(input: &str, host: String, agent_id: String) -> Option<Norma
         content,
         agent_id,
         // The reason this format exists. Hermes hands the plugin a `returncode`
-        // and OpenClaw an `isError`, and no shape OMNI already parsed had
+        // and OpenClaw an `isError`, and no shape VENG already parsed had
         // anywhere to put either, so #120's refusal to distill a failed command
         // could not have fired on these hosts.
         failed: parsed.exit_code.is_some_and(|c| c != 0),
@@ -800,8 +800,8 @@ fn normalize_plugin(input: &str, host: String, agent_id: String) -> Option<Norma
 
 // ── AIDER ─────────────────────────────────────────────────────────────
 fn normalize_aider(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Aider pakai piped stdin, content adalah raw string, command dari OMNI_CMD
-    let command = std::env::var("OMNI_CMD").unwrap_or_default();
+    // Aider pakai piped stdin, content adalah raw string, command dari VENG_CMD
+    let command = std::env::var("VENG_CMD").unwrap_or_default();
     if input.trim().is_empty() {
         return None;
     }
@@ -847,8 +847,8 @@ fn normalize_generic_mcp(input: &str, agent_id: String) -> Option<NormalizedInpu
         return None;
     }
 
-    // Command tidak bisa di-detect dari JSON-RPC result, gunakan OMNI_CMD env
-    let command = std::env::var("OMNI_CMD").unwrap_or_default();
+    // Command tidak bisa di-detect dari JSON-RPC result, gunakan VENG_CMD env
+    let command = std::env::var("VENG_CMD").unwrap_or_default();
 
     Some(NormalizedInput {
         agent: AgentFormat::GenericMCP,
@@ -893,7 +893,7 @@ fn extract_value_content(val: &Value) -> Option<String> {
     None
 }
 
-/// Normalize berbagai nama tool ke standard OMNI internal
+/// Normalize berbagai nama tool ke standard VENG internal
 fn normalize_tool_name(name: &str) -> String {
     match name.to_lowercase().as_str() {
         "bash" | "shell" | "exec" | "run_command" | "execute" => "Bash",
@@ -1012,7 +1012,7 @@ mod tests {
 
     /// #351: Codex CLI sends Claude Code's exact payload document, so shape alone
     /// labelled every Codex distillation `claude_code` and Codex could never
-    /// appear in `omni stats` Agent Distribution however well its hooks worked.
+    /// appear in `veng stats` Agent Distribution however well its hooks worked.
     /// Where the format is ambiguous the environment decides.
     #[test]
     fn the_environment_decides_when_two_hosts_share_a_payload_shape() {
@@ -1063,7 +1063,7 @@ mod tests {
         assert_eq!(detect_agent(input), AgentFormat::ClaudeCode);
     }
 
-    /// #118: the host sends its own session id and OMNI dropped it, grouping
+    /// #118: the host sends its own session id and VENG dropped it, grouping
     /// every project under one wall-clock stamp instead.
     #[test]
     fn carries_the_host_session_id_through_normalisation() {
@@ -1218,7 +1218,7 @@ mod tests {
     }
 
     /// #628. Neither host had a format of its own, and neither shape they could
-    /// have borrowed works: `resolve_agent_id` only lets `OMNI_AGENT_ID`
+    /// have borrowed works: `resolve_agent_id` only lets `VENG_AGENT_ID`
     /// override a `ClaudeCode` or `Unknown` payload, so a Codex-shaped one would
     /// file every row under `codex_cli`, and a Claude-shaped one has nowhere to
     /// put the exit code the plugin is handed.

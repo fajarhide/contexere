@@ -1,11 +1,11 @@
 //! Multi-Agent Session Coordinator
 //!
 //! Enables different AI agents (Claude Code, Cursor, Cline, etc.) working on
-//! the same project to share OMNI session state via the shared SQLite store.
+//! the same project to share VENG session state via the shared SQLite store.
 //!
 //! Architecture:
 //!   - Each agent writes its session state on SessionEnd / periodic sync
-//!   - Peers are visible via `omni_agents` MCP tool
+//!   - Peers are visible via `veng_agents` MCP tool
 //!   - Project knowledge is shared across ALL agents via project_knowledge table
 //!   - Hot files and active errors are merged from peer states on SessionStart
 
@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 /// There were four (#437). Three hashed the path as given and this one trimmed
 /// the trailing slash first, so a project reached as `/foo/bar/` on one path and
 /// `/foo/bar` on another split its knowledge, engrams and patterns across two
-/// addresses and `omni_recall` found half of them. The trimming version is the
+/// addresses and `veng_recall` found half of them. The trimming version is the
 /// survivor because a trailing slash names the same directory and a key that
 /// disagrees with that is wrong, not merely different.
 ///
@@ -30,14 +30,14 @@ pub fn project_hash(path: &str) -> String {
 
 /// Detect the current agent from environment.
 ///
-/// This runs on the `omni exec` and pipe paths, where there is no JSON payload
+/// This runs on the `veng exec` and pipe paths, where there is no JSON payload
 /// to inspect. The ids it returns **must match**
 /// `hooks::normalize::detect_agent_id`, which names the same agents from the
 /// payload shape on the hook path, otherwise one agent's work splits across two
-/// rows in `omni stats` and neither row is the true total (#160).
+/// rows in `veng stats` and neither row is the true total (#160).
 pub fn detect_agent_id() -> String {
     // Explicit override (set by agent-specific wrapper scripts)
-    if let Ok(id) = std::env::var("OMNI_AGENT_ID") {
+    if let Ok(id) = std::env::var("VENG_AGENT_ID") {
         return id;
     }
     // Claude Code first: it sets `TERM_PROGRAM`/`VSCODE_PID` too when run from
@@ -249,7 +249,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db).expect("store")), dir)
     }
 
@@ -271,9 +271,9 @@ mod tests {
     #[test]
     fn test_detect_agent_id_default_and_override() {
         // Combined into one test to avoid env var race conditions in parallel execution.
-        // Test default: Without OMNI_AGENT_ID, should default to terminal
+        // Test default: Without VENG_AGENT_ID, should default to terminal
         unsafe {
-            std::env::remove_var("OMNI_AGENT_ID");
+            std::env::remove_var("VENG_AGENT_ID");
             std::env::remove_var("CURSOR_TRACE_ID");
             std::env::remove_var("CURSOR_SESSION_ID");
             std::env::remove_var("CLINE_TASK_ID");
@@ -287,7 +287,7 @@ mod tests {
             std::env::remove_var("CONTINUE_SESSION_ID");
             std::env::remove_var("AIDER_SESSION");
             // #160: without these the "default is terminal" assertion fails on
-            // any machine where OMNI's own tests run under Claude Code, which
+            // any machine where VENG's own tests run under Claude Code, which
             // is most of them.
             std::env::remove_var("CLAUDECODE");
             std::env::remove_var("CLAUDE_CODE_ENTRYPOINT");
@@ -295,19 +295,19 @@ mod tests {
         let id = detect_agent_id();
         assert_eq!(id, "terminal");
 
-        // Test override: OMNI_AGENT_ID takes priority
+        // Test override: VENG_AGENT_ID takes priority
         unsafe {
-            std::env::set_var("OMNI_AGENT_ID", "windsurf");
+            std::env::set_var("VENG_AGENT_ID", "windsurf");
         }
         let id = detect_agent_id();
         assert_eq!(id, "windsurf");
         unsafe {
-            std::env::remove_var("OMNI_AGENT_ID");
+            std::env::remove_var("VENG_AGENT_ID");
         }
 
         // #160: Claude Code had no branch at all and fell through to
         // `terminal`, splitting one agent's work across two rows in
-        // `omni stats`. It must also win over the VSCode branch, because
+        // `veng stats`. It must also win over the VSCode branch, because
         // Claude Code in VS Code's integrated terminal sets `VSCODE_PID` too -
         // ordering it after would turn a vague answer into a wrong one.
         unsafe {
@@ -327,7 +327,7 @@ mod tests {
         }
 
         // The env detector and the payload detector must name the same agents.
-        // If they disagree, one agent's work lands in two rows of `omni stats`
+        // If they disagree, one agent's work lands in two rows of `veng stats`
         // and neither is the true total (#160).
         //
         // Folded into this test rather than given its own, for the reason at the

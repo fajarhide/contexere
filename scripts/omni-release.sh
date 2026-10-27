@@ -1,10 +1,10 @@
 #!/bin/bash
-# omni-release.sh — Pre-release validation and tag creation (Rust Edition)
-# Usage: ./scripts/omni-release.sh 0.5.0
+# veng-release.sh — Pre-release validation and tag creation (Rust Edition)
+# Usage: ./scripts/veng-release.sh 0.5.0
 
 set -euo pipefail
 
-VERSION="${1:?Usage: omni-release.sh <version>}"
+VERSION="${1:?Usage: veng-release.sh <version>}"
 TAG="v${VERSION}"
 
 RED='\033[0;31m'
@@ -19,7 +19,7 @@ fail() { echo -e "${RED}✗${NC} $*"; exit 1; }
 info() { echo -e "${CYAN}▸${NC} $*"; }
 
 echo "═══════════════════════════════════════"
-echo " OMNI Release: ${TAG}"
+echo " VENG Release: ${TAG}"
 echo "═══════════════════════════════════════"
 
 # ─── Pre-flight checks ──────────────────
@@ -78,7 +78,7 @@ ok "cargo fmt: clean"
 
 # 7. cargo clippy
 echo "   Running clippy..."
-cargo clippy --all-targets -- -D warnings > /tmp/omni-clippy 2>&1 || { cat /tmp/omni-clippy && fail "clippy warnings found"; }
+cargo clippy --all-targets -- -D warnings > /tmp/veng-clippy 2>&1 || { cat /tmp/veng-clippy && fail "clippy warnings found"; }
 ok "cargo clippy: no warnings"
 
 # 8. Smoke test
@@ -86,22 +86,22 @@ if [ -x tests/smoke_test.sh ]; then
     # Build what we are about to validate. Without this the gate tests whichever
     # binary happens to sit in target/release, which on 0.7.6 was two days old and
     # failed 2 of 46 checks that `make binary-check` had just passed against a
-    # freshly built target/ci/omni. A gate that can go green on a stale build is
-    # not a gate, and smoke_test.sh silently falls back to target/debug/omni when
+    # freshly built target/ci/veng. A gate that can go green on a stale build is
+    # not a gate, and smoke_test.sh silently falls back to target/debug/veng when
     # the release path is missing (#597).
     echo "   Building release binary..."
-    cargo build --release > /tmp/omni-build 2>&1 || { cat /tmp/omni-build && fail "release build failed"; }
+    cargo build --release > /tmp/veng-build 2>&1 || { cat /tmp/veng-build && fail "release build failed"; }
     # Ask cargo where it put the binary rather than assuming ./target. With
     # CARGO_TARGET_DIR or a build.target-dir in .cargo/config.toml, the build
     # lands elsewhere and a hard-coded path re-opens exactly the divergence this
-    # step closes: the smoke test would read a stale ./target/release/omni, or
-    # fall through to ./target/debug/omni and say nothing about it.
+    # step closes: the smoke test would read a stale ./target/release/veng, or
+    # fall through to ./target/debug/veng and say nothing about it.
     TARGET_DIR=$(cargo metadata --format-version 1 --no-deps --offline 2>/dev/null \
         | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
     [ -n "$TARGET_DIR" ] || TARGET_DIR="${CARGO_TARGET_DIR:-target}"
-    [ -x "$TARGET_DIR/release/omni" ] || fail "release binary not at $TARGET_DIR/release/omni after build"
+    [ -x "$TARGET_DIR/release/veng" ] || fail "release binary not at $TARGET_DIR/release/veng after build"
     echo "   Running smoke tests..."
-    bash tests/smoke_test.sh "$TARGET_DIR/release/omni" > /tmp/omni-smoke 2>&1 || { cat /tmp/omni-smoke && fail "smoke test failed"; }
+    bash tests/smoke_test.sh "$TARGET_DIR/release/veng" > /tmp/veng-smoke 2>&1 || { cat /tmp/veng-smoke && fail "smoke test failed"; }
     ok "Smoke test: all pass"
 fi
 
@@ -120,7 +120,7 @@ echo "  4. GitHub Release will be created automatically"
 echo ""
 echo " After release completes (~10 min):"
 echo "  5. Run: ./scripts/update_homebrew_sha.sh ${VERSION}"
-echo "  6. Update Homebrew tap with newest omni.rb"
+echo "  6. Update Homebrew tap with newest veng.rb"
 echo ""
 read -r -p "Proceed with release? [y/N] " confirm
 [ "$confirm" = "y" ] || { echo "Aborted."; exit 0; }
@@ -129,5 +129,5 @@ git tag -a "${TAG}" -m "Release ${TAG}"
 git push origin "${BRANCH}" "${TAG}"
 
 echo ""
-ok "Tag ${TAG} pushed! Monitor: https://github.com/fajarhide/omni/actions"
+ok "Tag ${TAG} pushed! Monitor: https://github.com/fajarhide/veng/actions"
 echo "   GitHub Actions will create the release in ~10 minutes."

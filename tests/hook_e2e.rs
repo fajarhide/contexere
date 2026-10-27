@@ -1,16 +1,16 @@
 use std::io::Write;
-/// Hook E2E tests, spawn the omni binary as a child process.
+/// Hook E2E tests, spawn the veng binary as a child process.
 use std::process::{Command, Stdio};
 
-fn omni_binary() -> String {
+fn veng_binary() -> String {
     // Cargo sets this during `cargo test`
-    env!("CARGO_BIN_EXE_omni").to_string()
+    env!("CARGO_BIN_EXE_veng").to_string()
 }
 
-fn omni_cmd() -> (Command, tempfile::NamedTempFile) {
+fn veng_cmd() -> (Command, tempfile::NamedTempFile) {
     let temp_db = tempfile::NamedTempFile::new().expect("Failed to create temp DB");
-    let mut cmd = Command::new(omni_binary());
-    cmd.env("OMNI_DB_PATH", temp_db.path());
+    let mut cmd = Command::new(veng_binary());
+    cmd.env("VENG_DB_PATH", temp_db.path());
     (cmd, temp_db)
 }
 
@@ -28,14 +28,14 @@ fn test_hook_e2e_git_diff() {
         }
     });
 
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .arg("--hook")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -72,14 +72,14 @@ fn test_hook_non_bash_exit_clean() {
         }
     });
 
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .arg("--hook")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -99,14 +99,14 @@ fn test_hook_non_bash_exit_clean() {
 
 #[test]
 fn test_hook_invalid_json_exit_clean() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .arg("--hook")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -135,14 +135,14 @@ fn test_hook_short_content_exit_clean() {
         }
     });
 
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .arg("--hook")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -170,13 +170,13 @@ fn test_hook_short_content_exit_clean() {
 fn test_pipe_mode_via_binary() {
     let input = "diff --git a/foo.rs b/foo.rs\n@@ -1,2 +1,2 @@\n-old line\n+new line\n";
 
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -195,7 +195,7 @@ fn test_pipe_mode_via_binary() {
 #[test]
 fn before_agent_start_returns_valid_hook_json() {
     // Use a single shared temp DB across the two child invocations
-    // by sharing OMNI_DB_PATH explicitly.
+    // by sharing VENG_DB_PATH explicitly.
     let temp_db = tempfile::NamedTempFile::new().expect("Failed to create temp DB");
     let db_path = temp_db.path().to_path_buf();
 
@@ -206,14 +206,14 @@ fn before_agent_start_returns_valid_hook_json() {
         "workingDirectory": "/tmp"
     });
 
-    let mut seed_child = Command::new(omni_binary())
+    let mut seed_child = Command::new(veng_binary())
         .arg("--session-start")
-        .env("OMNI_DB_PATH", &db_path)
+        .env("VENG_DB_PATH", &db_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni for seed");
+        .expect("Failed to spawn veng for seed");
 
     seed_child
         .stdin
@@ -239,15 +239,15 @@ fn before_agent_start_returns_valid_hook_json() {
         "workingDirectory": "/tmp"
     });
 
-    let mut child = Command::new(omni_binary())
+    let mut child = Command::new(veng_binary())
         .arg("--before-agent-start")
-        .env("OMNI_DB_PATH", &db_path)
-        .env("OMNI_CONTINUE", "1")
+        .env("VENG_DB_PATH", &db_path)
+        .env("VENG_CONTINUE", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -296,14 +296,14 @@ fn before_agent_start_returns_valid_hook_json() {
 
 #[test]
 fn before_agent_start_fail_open_on_invalid_json() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let mut child = cmd
         .arg("--before-agent-start")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn omni");
+        .expect("Failed to spawn veng");
 
     child
         .stdin
@@ -322,24 +322,24 @@ fn before_agent_start_fail_open_on_invalid_json() {
 
 #[test]
 fn test_cli_version() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let output = cmd.arg("version").output().expect("Failed to run");
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("OMNI"),
-        "Version output should contain 'OMNI'"
+        stdout.contains("VENG"),
+        "Version output should contain 'VENG'"
     );
 }
 
 /// #151 in the other direction, and the one guarantee #506's parser rewrite had
-/// to keep. `omni init --curser` exited 0 and installed nothing; a top-level flag
+/// to keep. `veng init --curser` exited 0 and installed nothing; a top-level flag
 /// nobody parsed is the same defect one level up. Written before clap was removed,
 /// so it is a guard rather than a description of what replaced it.
 #[test]
 fn an_unknown_top_level_flag_is_rejected() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let output = cmd
         .arg("--zzz-not-a-real-flag")
         .output()
@@ -359,7 +359,7 @@ fn an_unknown_top_level_flag_is_rejected() {
 /// better one to check against.
 #[test]
 fn every_advertised_command_routes() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let help = String::from_utf8_lossy(&cmd.arg("help").output().expect("run").stdout).to_string();
 
     for name in [
@@ -382,7 +382,7 @@ fn every_advertised_command_routes() {
     ] {
         assert!(help.contains(name), "help does not list `{name}`");
 
-        let (mut c, _d) = omni_cmd();
+        let (mut c, _d) = veng_cmd();
         let out = c
             .args([name, "--zzz-not-a-real-flag"])
             .output()
@@ -397,7 +397,7 @@ fn every_advertised_command_routes() {
 
 #[test]
 fn test_cli_help() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let output = cmd.arg("help").output().expect("Failed to run");
 
     assert!(output.status.success());
@@ -412,7 +412,7 @@ fn test_cli_help() {
 
 #[test]
 fn test_cli_unknown_command() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let output = cmd
         .arg("nonexistent-cmd-xyz")
         .output()
@@ -432,24 +432,24 @@ fn test_cli_unknown_command() {
 
 #[test]
 fn test_cli_doctor_runs() {
-    let (mut cmd, _db) = omni_cmd();
+    let (mut cmd, _db) = veng_cmd();
     let output = cmd.arg("doctor").output().expect("Failed to run");
 
     assert!(output.status.success(), "Doctor should exit 0");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("OMNI Doctor"), "Doctor should show header");
+    assert!(stdout.contains("VENG Doctor"), "Doctor should show header");
 }
 
 #[test]
 fn test_cli_stats_no_crash() {
-    let temp_db = std::env::temp_dir().join("omni_test_stats.db");
+    let temp_db = std::env::temp_dir().join("veng_test_stats.db");
     if temp_db.exists() {
         let _ = std::fs::remove_file(&temp_db);
     }
 
-    let output = Command::new(omni_binary())
+    let output = Command::new(veng_binary())
         .arg("stats")
-        .env("OMNI_DB_PATH", &temp_db)
+        .env("VENG_DB_PATH", &temp_db)
         .output()
         .expect("Failed to run");
 
@@ -462,7 +462,7 @@ fn test_cli_stats_no_crash() {
         stderr
     );
     assert!(
-        stdout.contains("Signal Report") || stdout.contains("OMNI"),
+        stdout.contains("Signal Report") || stdout.contains("VENG"),
         "Stats should show report header. Stdout: {}\nStderr: {}",
         stdout,
         stderr

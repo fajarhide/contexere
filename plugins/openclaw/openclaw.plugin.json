@@ -1,18 +1,18 @@
 {
-  "id": "omni-signal-engine",
-  "name": "OMNI Semantic Signal Engine",
+  "id": "veng-signal-engine",
+  "name": "VENG Semantic Signal Engine",
   "version": "0.7.12",
-  "description": "Local-only semantic context filtering for OpenClaw using OMNI. Saves tokens by distilling shell output.",
-  "requiredBinaries": ["omni"],
+  "description": "Local-only semantic context filtering for OpenClaw using VENG. Saves tokens by distilling shell output.",
+  "requiredBinaries": ["veng"],
   "author": "Fajar Hidayat",
-  "homepage": "https://github.com/fajarhide/omni",
+  "homepage": "https://github.com/fajarhide/veng",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "omniPath": {
+      "vengPath": {
         "type": "string",
-        "description": "Path to the omni binary (defaults to 'omni' in PATH)"
+        "description": "Path to the veng binary (defaults to 'veng' in PATH)"
       }
     }
   }

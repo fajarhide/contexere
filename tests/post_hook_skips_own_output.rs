@@ -1,6 +1,6 @@
 //! #379: a rewritten command was recorded twice.
 //!
-//! `omni exec` distills the output, then the host's PostToolUse fires with that
+//! `veng exec` distills the output, then the host's PostToolUse fires with that
 //! summary and the post-hook distilled it again, inserting a second row. Agent
 //! Distribution counted double and the extra zero-saving row pulled the
 //! percentage down.
@@ -12,9 +12,9 @@
 use std::process::Command;
 
 fn post_hook(payload: &str, db: &str) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let out = Command::new(env!("CARGO_BIN_EXE_veng"))
         .arg("--post-hook")
-        .env("OMNI_DB_PATH", db)
+        .env("VENG_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
@@ -51,7 +51,7 @@ fn noisy_output() -> String {
 
 #[test]
 fn rewrites_a_tools_own_output() {
-    let dir = std::env::temp_dir().join("omni_post_hook_fresh.db");
+    let dir = std::env::temp_dir().join("veng_post_hook_fresh.db");
     let _ = std::fs::remove_file(&dir);
 
     let reply = post_hook(&payload(&noisy_output()), &dir.to_string_lossy());
@@ -62,17 +62,17 @@ fn rewrites_a_tools_own_output() {
     );
 }
 
-/// The summary `omni exec` already produced must not be distilled again. Without
+/// The summary `veng exec` already produced must not be distilled again. Without
 /// the guard the hook answers with a second rewrite and records a second row for
 /// one command.
 #[test]
 fn leaves_a_summary_it_already_wrote() {
-    let dir = std::env::temp_dir().join("omni_post_hook_own.db");
+    let dir = std::env::temp_dir().join("veng_post_hook_own.db");
     let _ = std::fs::remove_file(&dir);
 
     let already_distilled = format!(
         "test result: ok. 600 passed; 0 failed;\n\
-         [OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]\n\
+         [VENG: 600 lines omitted, veng_retrieve(\"abc123\") for full output]\n\
          {}",
         // padding so the payload clears the minimum-size gate on its own
         "x".repeat(4000)

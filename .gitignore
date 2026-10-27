@@ -29,8 +29,8 @@ tmp/
 # --- Rust Build Outputs ---
 target/
 **/*.rs.bk
-# --- OMNI specific ---
-/.omni/
+# --- VENG specific ---
+/.veng/
 /filters_compiled/
 *.html
 # The diagram sources are the editable original for everything under
@@ -40,9 +40,9 @@ target/
 # insta writes these when a snapshot fails; only the accepted .snap is reviewed
 *.snap.new
 
-# Written by `omni init --cursor` / `omni doctor --fix` when they run inside this
-# repo during testing. It is a per-project file for OMNI's users, not part of
-# OMNI's own source, and it was committed by accident once (#363).
+# Written by `veng init --cursor` / `veng doctor --fix` when they run inside this
+# repo during testing. It is a per-project file for VENG's users, not part of
+# VENG's own source, and it was committed by accident once (#363).
 .cursor/
 
 # mdBook build output for docs/website. The source is tracked, the render is not.
@@ -53,7 +53,7 @@ docs/website/book-id/
 # Shared diagrams, copied into the Indonesian book at build time by
 # docs/website/build.sh so both books read one set of SVGs.
 docs/website/src-id/media/
-# The design-system overlay. omni-pages writes src/wl into its own clone during
+# The design-system overlay. veng-pages writes src/wl into its own clone during
 # the site build and docs/website/build.sh mirrors it into src-id/wl, so neither
 # is ever source. Untracked and unignored, they are one `git add -A` away from
 # being committed by anyone who renders the book locally.

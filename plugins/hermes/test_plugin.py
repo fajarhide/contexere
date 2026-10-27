@@ -2,7 +2,7 @@
 
 Plain asserts and no framework, because the thing being guarded is that this
 file is importable Python at all. The previous plugin was generated from a Rust
-raw string with five leading quote characters, so every copy OMNI installed was
+raw string with five leading quote characters, so every copy VENG installed was
 a syntax error, and no Rust test could see it (#628).
 
 Run: python3 plugins/hermes/test_plugin.py
@@ -16,7 +16,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 
 
 def load():
-    spec = importlib.util.spec_from_file_location("omni_hermes", HERE / "__init__.py")
+    spec = importlib.util.spec_from_file_location("veng_hermes", HERE / "__init__.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -47,7 +47,7 @@ def test_every_handler_survives_kwargs_it_does_not_know():
     log, so all three ran zero times even before the syntax error.
     """
     module = load()
-    module._OMNI_BIN = "/nonexistent/omni"  # fail-open path, no subprocess worth running
+    module._VENG_BIN = "/nonexistent/veng"  # fail-open path, no subprocess worth running
     hooks = registered_hooks(module)
 
     everything = dict(
@@ -77,7 +77,7 @@ def test_every_handler_survives_kwargs_it_does_not_know():
 
 def test_an_unreachable_binary_leaves_the_output_alone():
     module = load()
-    module._OMNI_BIN = "/nonexistent/omni"
+    module._VENG_BIN = "/nonexistent/veng"
     assert module._distill("terminal", "ls", "some output", 0, "s") is None
 
 

@@ -37,7 +37,7 @@ pub fn distill_grep(content: &str) -> Option<String> {
     });
 
     let mut out = format!(
-        "[OMNI Grep: {} matches in {} files]\n",
+        "[VENG Grep: {} matches in {} files]\n",
         line_count, file_count
     );
 
@@ -109,7 +109,7 @@ pub fn distill_grep(content: &str) -> Option<String> {
         }
         // Phase 6: factual guard. Match lines for these files are not shown.
         out.push_str(
-            "[OMNI Guard: match lines shown for the 10 densest files only; run omni retrieve on the handle for the rest]\n",
+            "[VENG Guard: match lines shown for the 10 densest files only; run veng retrieve on the handle for the rest]\n",
         );
     }
 

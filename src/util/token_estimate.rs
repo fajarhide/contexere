@@ -11,7 +11,7 @@ pub enum ContentHint {
 ///
 /// This is the only estimator now. It used to sit beside an exact
 /// `cl100k_base` count, and every caller had to pick one, so the same column in
-/// `omni stats` was computed two different ways depending on which path filled
+/// `veng stats` was computed two different ways depending on which path filled
 /// the row (#174). The exact one is gone, for two reasons.
 ///
 /// It counted against the wrong vocabulary. `cl100k_base` is GPT-3.5/4's

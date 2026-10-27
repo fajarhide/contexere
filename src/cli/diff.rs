@@ -6,8 +6,8 @@ use std::fs;
 const FLAGS: super::Flags = &[];
 
 fn print_help() {
-    println!("\nomni diff: Show the last distillation side by side\n");
-    println!("USAGE:\n  omni diff\n");
+    println!("\nveng diff: Show the last distillation side by side\n");
+    println!("USAGE:\n  veng diff\n");
     super::print_flags(FLAGS);
 }
 
@@ -43,7 +43,7 @@ pub fn run_diff(args: &[String]) -> Result<()> {
     super::print_rule();
     println!(
         " {} {}",
-        "OMNI SIGNAL INTELLIGENCE:".bold().bright_cyan(),
+        "VENG SIGNAL INTELLIGENCE:".bold().bright_cyan(),
         "Comparison Mode".bright_white()
     );
     super::print_rule();
@@ -55,7 +55,7 @@ pub fn run_diff(args: &[String]) -> Result<()> {
     }
 
     // After Block
-    println!("\n [ {} ]", "OMNI DISTILLED (SIGNAL)".bold().green());
+    println!("\n [ {} ]", "VENG DISTILLED (SIGNAL)".bold().green());
     for line in truncate_lines(&output, 12) {
         println!("  {}", line.bright_white());
     }

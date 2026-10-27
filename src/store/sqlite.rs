@@ -12,7 +12,7 @@ use crate::pipeline::SessionState;
 /// Customizes each pooled connection with required PRAGMA settings.
 /// WAL mode is database-level and persists, but synchronous and foreign_keys are per-connection.
 ///
-/// The last three are the in-process cache tier (#393). Asked whether omni should
+/// The last three are the in-process cache tier (#393). Asked whether veng should
 /// gain Redis-class caching, and the answer is that SQLite already has one and it
 /// was left at defaults: `cache_size` was `-2000`, two megabytes, against a 54 MB
 /// working set, so roughly 500 pages of 50,226 were cached. `mmap_size` and
@@ -81,9 +81,9 @@ impl Store {
 }
 
 impl SqliteBackend {
-    /// Creates dir ~/.omni/ if none exists, Open/create DB, Run schema migrations
+    /// Creates dir ~/.veng/ if none exists, Open/create DB, Run schema migrations
     pub fn open() -> Result<Self> {
-        let db_path = if let Ok(custom_path) = std::env::var("OMNI_DB_PATH") {
+        let db_path = if let Ok(custom_path) = std::env::var("VENG_DB_PATH") {
             std::path::PathBuf::from(custom_path)
         } else {
             paths::database_path()
@@ -96,8 +96,8 @@ impl SqliteBackend {
     pub fn open_path(path: &std::path::Path) -> Result<Self> {
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
         if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).context("Failed to create .omni directory")?;
-            // Only a directory OMNI resolved for itself. `OMNI_DB_PATH` can name
+            std::fs::create_dir_all(parent).context("Failed to create .veng directory")?;
+            // Only a directory VENG resolved for itself. `VENG_DB_PATH` can name
             // any directory on the machine, and tightening one the user chose
             // would take access away from whoever else is in it (#631).
             if parent == paths::data_home() || parent == paths::config_home() {
@@ -130,7 +130,7 @@ impl SqliteBackend {
 
         // After the schema, because WAL mode is what creates the sidecars and
         // they hold committed rows that have not been checkpointed yet. Tighten
-        // the database whatever directory it was asked for: the file is OMNI's
+        // the database whatever directory it was asked for: the file is VENG's
         // own, unlike the directory above (#631).
         // The sidecar names append to the whole filename rather than replacing an
         // extension, which `cli::reset` learned when 4.2 MB of `-wal` survived a
@@ -276,7 +276,7 @@ impl SqliteBackend {
     /// Claude Code rows from before `POST_HOOK_FIX_TS` are excluded: on that
     /// path nothing was applied, so their `Keep` rows are controls wearing a
     /// treatment label. Keeping them does not just add noise, it can zero out a
-    /// true finding, see the constant. This is not a call on what `omni stats`
+    /// true finding, see the constant. This is not a call on what `veng stats`
     /// does with those rows for *savings* (#163); it is this comparison
     /// refusing rows that were never the experiment it is running.
     ///
@@ -350,10 +350,10 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Both engines, each against its own base (#665). `omni stats` computed
+    /// Both engines, each against its own base (#665). `veng stats` computed
     /// everything from `distillations` and never read `ledger_folds`, so the
     /// engine that removed the most bytes was absent from the report, and the
-    /// one percentage printed was the distiller averaged over every call OMNI
+    /// one percentage printed was the distiller averaged over every call VENG
     /// deliberately declined.
     pub fn engine_totals(&self, since: i64) -> Result<EngineTotals> {
         let conn = self.pool.get().context("DB pool exhausted")?;
@@ -679,7 +679,7 @@ impl SqliteBackend {
                 -- project when there is one, deliberately, so that the cross-agent
                 -- question #533 exists to answer stays askable. That leaves the
                 -- table with no way to say "this session", which is the question
-                -- `omni_explain_savings` asks (#602).
+                -- `veng_explain_savings` asks (#602).
                 session   TEXT NOT NULL DEFAULT ''
             );
             CREATE INDEX IF NOT EXISTS idx_ledger_folds_ts ON ledger_folds(ts);
@@ -937,7 +937,7 @@ impl SqliteBackend {
             [],
         );
         // #773. The table could not say which door a decline came through, so it
-        // could not say what share of what OMNI declines was declined on behalf
+        // could not say what share of what VENG declines was declined on behalf
         // of a model. `session` is not that test: `host output cap` fires only
         // for `claude_code`, and 20 of its 39 rows carry no session id.
         //
@@ -1118,7 +1118,7 @@ impl SqliteBackend {
         );
         // #212: `output_bytes` is what the distiller returned, which is not the
         // same as what a model read. Rows written before this column exists keep
-        // the default of -1, which `omni stats` reads as "unknown" rather than as
+        // the default of -1, which `veng stats` reads as "unknown" rather than as
         // "nothing was delivered", backfilling them from `output_bytes` would
         // restate the old assumption as if it had been measured.
         let _ = conn.execute(
@@ -1128,7 +1128,7 @@ impl SqliteBackend {
 
         // One-time data migration:
         // Older builds could attribute Cursor sessions as "vscode" because TERM_PROGRAM
-        // detection happened before explicit OMNI_AGENT_ID routing.
+        // detection happened before explicit VENG_AGENT_ID routing.
         // Keep this migration idempotent and run only once.
         let migration_id = "2026_05_cursor_agent_id_backfill_vscode_to_cursor";
         let already_applied: Option<i64> = conn
@@ -1161,7 +1161,7 @@ impl SqliteBackend {
 
         // Every pattern in an existing database carries a `was_resolved` that was
         // set by any success in its tool family and never taken back, so
-        // `omni patterns` reported 20 of 20 RESOLVED while five of them were
+        // `veng patterns` reported 20 of 20 RESOLVED while five of them were
         // still firing (#427). The flag now clears on recurrence, but history
         // cannot be re-derived: nothing recorded when a resolution happened. So
         // the label is cleared once and re-earned by the new rule, which is the
@@ -1194,7 +1194,7 @@ impl SqliteBackend {
         // saving nobody received. Reconciled against the host's own transcripts
         // that was 16.4% of the bytes booked as saved over the sessions a
         // transcript exists for; across the whole table these rows are 93.0% of
-        // them, and they are the difference between the 37.1% `omni stats`
+        // them, and they are the difference between the 37.1% `veng stats`
         // published and the 8.3% that is true.
         //
         // Corrected in the column rather than in the queries. Six call sites sum
@@ -1233,7 +1233,7 @@ impl SqliteBackend {
         }
 
         // #605. #603 fixed `filter_name` going forward and left every row already
-        // written, so `omni stats` and every workload query still group 16% of
+        // written, so `veng stats` and every workload query still group 16% of
         // this corpus under an assignment or a binary's full path. 2,892 of
         // 17,402 rows across 398 names on the machine that measured it, and they
         // kept accumulating until 0.7.7 was installed, because merging a fix does
@@ -1290,7 +1290,7 @@ impl SqliteBackend {
         // and had no `SELECT` anywhere in the tree: 5,532 rows paying write
         // latency and disk for a reader that never existed (#270). The in-memory
         // `SessionState::current_turn` it was built from is still read, by
-        // `omni_context_breakdown` and `omni stats`; only the table is gone.
+        // `veng_context_breakdown` and `veng stats`; only the table is gone.
         // `verification_results` had no writer and no reader anywhere in the
         // tree, which is as dead as a table gets (#165).
         let migration_drop_ver = "2026_08_drop_unused_verification_results";
@@ -1347,7 +1347,7 @@ impl SqliteBackend {
         //
         // On the reporting installation 1,231 of 8,272 rows are second copies -
         // 15% of the table, inflating every count and every top-command tally
-        // `omni stats` publishes. They stop at 2026-07-17 and 1,229 of them are
+        // `veng stats` publishes. They stop at 2026-07-17 and 1,229 of them are
         // `aider`, so whatever produced them is long closed; feeding one payload
         // through the post-hook on this build yields exactly one row. This
         // migration is therefore about the history, not about the write path.
@@ -1467,10 +1467,10 @@ impl SqliteBackend {
 
         if let Err(e) = res {
             // Log to stderr for visibility during development/debugging
-            eprintln!("[omni:error] failed to record distillation: {}", e);
+            eprintln!("[veng:error] failed to record distillation: {}", e);
             if e.to_string().contains("NOT NULL constraint failed") {
                 eprintln!(
-                    "[omni:error] hint: legacy 'content_type' column may be blocking inserts. OMNI will attempt auto-migration on next startup."
+                    "[veng:error] hint: legacy 'content_type' column may be blocking inserts. VENG will attempt auto-migration on next startup."
                 );
             }
         }
@@ -1507,7 +1507,7 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            eprintln!("[omni:error] failed to record trace: {}", e);
+            eprintln!("[veng:error] failed to record trace: {}", e);
         }
     }
 
@@ -1557,7 +1557,7 @@ impl SqliteBackend {
     /// What each door declined, in bytes, over the last `days`.
     ///
     /// The question `passthrough_events` could not answer until #773: what share
-    /// of what OMNI declines was declined on behalf of a model. `session` is not
+    /// of what VENG declines was declined on behalf of a model. `session` is not
     /// that test, since a hook payload can arrive without one, so this groups by
     /// the agent the row was recorded for.
     ///
@@ -1662,13 +1662,13 @@ impl SqliteBackend {
     ///
     /// The return used to be a bare `String` handed back on every path,
     /// including a pool-get failure and a swallowed `execute`. The caller then
-    /// printed `omni_retrieve("<key>")` for content that is not in the table,
+    /// printed `veng_retrieve("<key>")` for content that is not in the table,
     /// which is the one promise this store exists to keep (#388). Rare while the
     /// archive fired on 139 of 14,962 calls; routine once the ledger records
     /// every emitted block.
     /// `whole_len` is the length of the payload `content` was cut out of, which
     /// is `content.len()` when the handle holds an entire output. It is the only
-    /// thing that lets `omni retrieve` tell a reader whether it is holding the
+    /// thing that lets `veng retrieve` tell a reader whether it is holding the
     /// whole answer or one block of it (#627). Before this it was written as
     /// `content.len()` unconditionally, so the column duplicated the content
     /// length and could never answer that.
@@ -1708,7 +1708,7 @@ impl SqliteBackend {
     /// `get_retrieve_rate` reads what this writes and raises the route
     /// thresholds when a command family keeps needing its full output. The CLI
     /// was not writing it, and the CLI is the door the mechanism advertises:
-    /// the marker prints `omni retrieve <handle>`, a shell command. Measured on
+    /// the marker prints `veng retrieve <handle>`, a shell command. Measured on
     /// the maintainer's install before the fix, 49 pulls counted on
     /// `rewind_store.retrieved` against 19 rows here (#512).
     ///
@@ -1737,7 +1737,7 @@ impl SqliteBackend {
         let cmd = self
             .find_command_for_hash(hash)
             .unwrap_or_else(|| "unknown".to_string());
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("VENG_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
         let family = crate::util::command_family::command_family(&cmd);
         self.record_retrieve_event(&family, hash, &agent_id);
@@ -1745,7 +1745,7 @@ impl SqliteBackend {
 
     /// Consumes the debt a pull left behind, and says whether there was one.
     ///
-    /// #581. A marker tells the reader to run `omni retrieve <handle>`. Whichever
+    /// #581. A marker tells the reader to run `veng retrieve <handle>`. Whichever
     /// way those bytes come back, through a file it then reads or through the
     /// command's own output, they pass the hook again and hash the same, so the
     /// ledger replaced them with the very marker that sent the reader there. An
@@ -1811,7 +1811,7 @@ impl SqliteBackend {
         })
     }
 
-    /// Get recent distillation rows for omni_history MCP tool
+    /// Get recent distillation rows for veng_history MCP tool
     /// Recent distillations, optionally narrowed to one session.
     ///
     /// `None` is the honest answer from the MCP server. `SessionState::new` mints
@@ -1819,7 +1819,7 @@ impl SqliteBackend {
     /// path keys its rows on the **host** session id: 11,281 rows on this machine
     /// carry a host UUID against 892 minted ones. The server filtering on its own
     /// id therefore matched nothing in a Claude Code session, which is most of
-    /// what `omni_explain_savings` was reporting when it said "No recent
+    /// what `veng_explain_savings` was reporting when it said "No recent
     /// distillations" (#602). The server cannot see the host id, so it asks by
     /// recency and says so, rather than filtering on a value known to be wrong.
     pub fn get_recent_distillations(
@@ -1855,7 +1855,7 @@ impl SqliteBackend {
 
     /// Recent cross-turn folds for a session, which `distillations` never holds.
     ///
-    /// The ledger writes its own table, and `omni_explain_savings` read only
+    /// The ledger writes its own table, and `veng_explain_savings` read only
     /// `distillations`, so a route that fired and handed back a live retrieve
     /// handle was reported as "No recent distillations found in current session"
     /// (#602). Counted on the machine that confirmed it: 936 rows in
@@ -2050,7 +2050,7 @@ impl SqliteBackend {
     /// `limit` of 0 means every class. The cap is by call count, so any caller
     /// ranking on something else is reading a sample chosen by a different
     /// measure: a class that removed 40 MB in three calls sits below 300 chatty
-    /// ones and never reaches the sort. `omni context --tokens` ranks by bytes
+    /// ones and never reaches the sort. `veng context --tokens` ranks by bytes
     /// and so asks for all of them.
     #[allow(clippy::type_complexity)]
     pub fn get_per_command_stats(
@@ -2103,7 +2103,7 @@ impl SqliteBackend {
     /// agent. `unverified` counts the ones excluded, pre-#158 Claude Code rows
     /// whose savings the host discarded, and rows whose result no model read
     /// (#212). They are reported rather than dropped so a shrinking call count
-    /// reads as the correction it is, instead of looking like OMNI stopped
+    /// reads as the correction it is, instead of looking like VENG stopped
     /// working. It is `SUM(NOT (applied))` against the same predicate, so a new
     /// exclusion is surfaced by construction rather than by remembering to.
     pub fn get_agent_breakdown(&self, since: i64) -> Result<Vec<AgentRow>> {
@@ -2728,7 +2728,7 @@ impl SqliteBackend {
         // which asks for the newest N, so a trace older than a week answers no
         // question anyone is posing. Measured on the maintainer's database: 160.1
         // MB in total, 6.0 MB within seven days.
-        // Held open by `OMNI_TRACE_RETENTION_DAYS` while a measurement is in
+        // Held open by `VENG_TRACE_RETENTION_DAYS` while a measurement is in
         // flight (#440). Roadmap axis 3 asks that a published figure be
         // reproducible by a stranger with the repo, and it cannot be if the
         // corpus behind it is deleted seven days later. Seven days stays the
@@ -2737,7 +2737,7 @@ impl SqliteBackend {
         // override is new. A value that does not parse is ignored rather than
         // failing the cleanup, because a typo in an env var must not stop the
         // database from being maintained.
-        let retention_days = std::env::var("OMNI_TRACE_RETENTION_DAYS")
+        let retention_days = std::env::var("VENG_TRACE_RETENTION_DAYS")
             .ok()
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(TRACE_RETENTION_DAYS);
@@ -2914,7 +2914,7 @@ impl SqliteBackend {
     ///
     /// Same table as the rewind counter, told apart by the tool name sitting in
     /// `command_prefix`. Until now `retrieve_events` counted one path out of
-    /// five: `omni_retrieve` and nothing else, so "was memory read" was an
+    /// five: `veng_retrieve` and nothing else, so "was memory read" was an
     /// inference rather than a query. `session_start` injects project knowledge
     /// into every continued session and recorded nothing, which means an
     /// injection that fires every time and one that never fires produced
@@ -2922,11 +2922,11 @@ impl SqliteBackend {
     ///
     /// Every call is recorded, including the ones that come back empty. The
     /// question this answers is whether anyone asks, and a query that found
-    /// nothing is still someone asking. `omni_retrieve` keeps its own rule of
+    /// nothing is still someone asking. `veng_retrieve` keeps its own rule of
     /// recording only what it found, because its counter feeds the adaptive
     /// compression rate rather than this one.
     pub fn record_memory_read(&self, tool: &str, subject: &str) {
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("VENG_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
         self.record_retrieve_event(tool, crate::util::text::safe_slice(subject, 60), &agent_id);
     }
@@ -2983,7 +2983,7 @@ impl SqliteBackend {
     }
 
     /// Returns retrieve_rate for a command prefix (0.0, 1.0)
-    /// High rate = OMNI too aggressive for this command type
+    /// High rate = VENG too aggressive for this command type
     pub fn get_retrieve_rate(&self, command_prefix: &str, window_days: i64) -> f64 {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3301,12 +3301,12 @@ pub struct EngineTotals {
     pub distilled_calls: u64,
     pub distilled_input: u64,
     pub distilled_output: u64,
-    /// Calls OMNI declined. They save nothing and cost nothing, and they are the
+    /// Calls VENG declined. They save nothing and cost nothing, and they are the
     /// 15,395 that dragged a 48% distiller down to a reported 9%.
     pub declined_calls: u64,
     /// Bytes those declined calls carried. Never a saving and never a loss, so it
     /// stays out of every ratio; it exists so a composition report can say what
-    /// OMNI saw without inferring it from the distiller's output, which is what
+    /// VENG saw without inferring it from the distiller's output, which is what
     /// survived distillation rather than what was handed back (#612).
     pub declined_bytes: u64,
     /// Fold operations, not `ledger_folds` rows. One fold writes a row per
@@ -3419,7 +3419,7 @@ pub struct DistillationRow {
     pub filter_name: String,
 }
 
-/// One cross-turn fold, as `omni_explain_savings` needs to report it (#602).
+/// One cross-turn fold, as `veng_explain_savings` needs to report it (#602).
 ///
 /// No command column, because a fold is not attributed to one: the ledger keys
 /// lines by scope and hash, so the bytes it replaced may have been shown by a
@@ -3447,7 +3447,7 @@ pub struct LedgerFoldRow {
 /// One filter's re-run comparison: distilled output against raw output (#109).
 ///
 /// `Passthrough` rows are the control arm, the agent read the original bytes -
-/// so the two arms differ only in whether OMNI changed what was read. A filter
+/// so the two arms differ only in whether VENG changed what was read. A filter
 /// whose distilled arm is re-run more often than its raw arm removed something
 /// the agent needed, whatever its reduction percentage claims.
 #[derive(Debug, Clone)]
@@ -3516,7 +3516,7 @@ pub struct AgentRow {
 /// that was computed, scored, routed and stored, and then dropped by the host,
 /// because the hook emitted `updatedResponse`, a key Claude Code ignores (#158).
 /// The agent read the raw bytes. Those rows are indistinguishable from the
-/// `omni exec` and pipe rows where the same numbers are true.
+/// `veng exec` and pipe rows where the same numbers are true.
 ///
 /// The rest of such a row is still good evidence, latency, command, project and
 /// file access all really happened. Only the byte and token columns are fiction,
@@ -3524,11 +3524,11 @@ pub struct AgentRow {
 /// would destroy true history to remove a false column, which is what the
 /// never-drop invariant argues against.
 ///
-/// The second clause is #212, and it is the larger of the two. `omni exec` and
+/// The second clause is #212, and it is the larger of the two. `veng exec` and
 /// the shell pipe write to a TTY: a human reads the result, no context holds it,
 /// nothing is billed. Compressing it may still help readability, but counting it
 /// as *tokens saved* and folding it into one headline makes the headline
-/// meaningless, those rows were **73.4% of every byte OMNI claimed to have
+/// meaningless, those rows were **73.4% of every byte VENG claimed to have
 /// saved all-time**, and stripping them took the figure from 66.3% to the 29.3%
 /// that Claude Code actually saw. Rows written since `delivered_bytes` exists say
 /// so themselves; older `terminal` rows are excluded by name, because the column
@@ -3754,7 +3754,7 @@ impl SqliteBackend {
 // ── Adaptive Scoring & Knowledge Helpers (Sprint 3) ──────
 impl SqliteBackend {
     /// Log every recall invocation for adaptive scoring feedback loop.
-    /// Called by omni_recall MCP tool after returning results.
+    /// Called by veng_recall MCP tool after returning results.
     pub fn log_retrieval(
         &self,
         query: &str,
@@ -3782,7 +3782,7 @@ impl SqliteBackend {
     }
 
     /// Retrieve a single knowledge value by exact key.
-    /// Used for `__omni_goal__` pinning and similar reserved keys (BIZ-03).
+    /// Used for `__veng_goal__` pinning and similar reserved keys (BIZ-03).
     pub fn get_knowledge(&self, project_hash: &str, key: &str) -> Option<String> {
         let conn = self.pool.get().ok()?;
         conn.query_row(
@@ -3793,6 +3793,46 @@ impl SqliteBackend {
         .optional()
         .ok()
         .flatten()
+    }
+
+    /// How much of what veng remembers is ever used, across every project.
+    ///
+    /// `stale_before` is a unix time: an engram that has never been recalled and
+    /// was last touched before it is counted as stale. Returns `None` when the
+    /// database cannot be read, so a caller can say so instead of showing zeros
+    /// that read as a measurement.
+    pub fn memory_health(&self, stale_before: i64) -> Option<MemoryHealth> {
+        let conn = self.pool.get().ok()?;
+        let (engrams, engrams_never_recalled, engrams_stale): (i64, i64, i64) = conn
+            .query_row(
+                "SELECT COUNT(*),
+                        COALESCE(SUM(hit_count = 0), 0),
+                        COALESCE(SUM(hit_count = 0 AND last_accessed < ?1), 0)
+                 FROM engrams",
+                rusqlite::params![stale_before],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok()?;
+        let (knowledge, knowledge_never_recalled): (i64, i64) = conn
+            .query_row(
+                "SELECT COUNT(*),
+                        COALESCE(SUM(NOT EXISTS (
+                            SELECT 1 FROM retrieval_feedback rf
+                            WHERE rf.hit_key = pk.key AND rf.project_hash = pk.project_hash
+                        )), 0)
+                 FROM project_knowledge pk
+                 WHERE pk.key NOT LIKE '__veng_%'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok()?;
+        Some(MemoryHealth {
+            engrams: engrams.max(0) as u64,
+            engrams_never_recalled: engrams_never_recalled.max(0) as u64,
+            engrams_stale: engrams_stale.max(0) as u64,
+            knowledge: knowledge.max(0) as u64,
+            knowledge_never_recalled: knowledge_never_recalled.max(0) as u64,
+        })
     }
 
     /// Count engrams for a project (for stats display, BIZ-02).
@@ -3840,7 +3880,7 @@ impl SqliteBackend {
 
     /// Analyze retrieval patterns to surface adaptive insights (INT-01).
     /// Returns a Vec of (command_ctx, recall_count) for commands recalled >= threshold times
-    /// within the last 7 days. This is the raw signal for `omni_adaptive_insights`.
+    /// within the last 7 days. This is the raw signal for `veng_adaptive_insights`.
     pub fn get_frequent_recall_commands(
         &self,
         project_hash: &str,
@@ -3881,7 +3921,7 @@ impl SqliteBackend {
         let mut stmt = match conn.prepare(
             "SELECT pk.key FROM project_knowledge pk
              LEFT JOIN retrieval_feedback rf ON rf.hit_key = pk.key AND rf.project_hash = pk.project_hash
-             WHERE pk.project_hash = ?1 AND pk.key NOT LIKE '__omni_%' AND rf.id IS NULL
+             WHERE pk.project_hash = ?1 AND pk.key NOT LIKE '__veng_%' AND rf.id IS NULL
              LIMIT 10",
         ) {
             Ok(s) => s,
@@ -3894,6 +3934,18 @@ impl SqliteBackend {
 }
 
 // ── Public Data Types ────────────────────────────────────
+
+/// What the dashboard shows about the memory store: how much there is, and how
+/// much of it has ever been read back.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct MemoryHealth {
+    pub engrams: u64,
+    pub engrams_never_recalled: u64,
+    /// Never recalled, and untouched since the cutoff the caller chose.
+    pub engrams_stale: u64,
+    pub knowledge: u64,
+    pub knowledge_never_recalled: u64,
+}
 
 #[derive(Debug, Clone)]
 pub struct KnowledgeHit {
@@ -3928,7 +3980,7 @@ mod tests {
 
     fn get_temp_store() -> (Store, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (Store::open_path(&db_path).unwrap(), dir)
     }
 
@@ -4008,7 +4060,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         drop(Store::open_path(&db_path).unwrap());
 
         std::fs::set_permissions(&db_path, std::fs::Permissions::from_mode(0o666))
@@ -4024,7 +4076,7 @@ mod tests {
         assert_eq!(mode, 0o600, "recorded output must not stay world readable");
     }
 
-    /// #602. `omni_explain_savings` reported "No recent distillations" for a
+    /// #602. `veng_explain_savings` reported "No recent distillations" for a
     /// session whose only compression was cross-turn folding, because folds go to
     /// `ledger_folds` and the tool read `distillations`.
     ///
@@ -4194,7 +4246,7 @@ mod tests {
         );
     }
 
-    /// The headline `omni stats` leads with, so a wrong median is a wrong
+    /// The headline `veng stats` leads with, so a wrong median is a wrong
     /// product claim rather than a wrong debug line.
     #[test]
     fn reports_the_median_session_and_how_many_hit_a_compaction() {
@@ -4224,7 +4276,7 @@ mod tests {
     #[test]
     fn open_creates_database_and_schema() {
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
 
         let store = Store::open_path(&db_path).unwrap();
 
@@ -4246,7 +4298,7 @@ mod tests {
         assert!(tables.contains(&"execution_traces".to_string()));
     }
 
-    /// #212: `terminal` rows were 73.4% of every byte OMNI claimed to have
+    /// #212: `terminal` rows were 73.4% of every byte VENG claimed to have
     /// saved. That path writes to a TTY, a human reads it, no context holds it,
     /// nothing is billed, so folding it into a *token* headline made the
     /// headline describe nothing. Stripping it took the all-time figure from
@@ -4311,7 +4363,7 @@ mod tests {
     #[test]
     fn a_marker_records_the_tool_that_produced_the_reply() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         let fold = || FoldRecord {
             source_agent: "claude_code".to_string(),
             origin: "project",
@@ -4343,7 +4395,7 @@ mod tests {
             &[fold()],
             &[marker("bbbb")],
         );
-        store.record_retrieve_event("omni retrieve", "aaaa", "claude_code");
+        store.record_retrieve_event("veng retrieve", "aaaa", "claude_code");
 
         let rates = store.marker_retrieve_rates(0);
         let read = rates
@@ -4359,8 +4411,8 @@ mod tests {
         assert_eq!(read.kind, "project_run");
     }
 
-    /// #665. The one percentage `omni stats` printed was the distiller averaged
-    /// over every call OMNI deliberately declined, and `ledger_folds` was not
+    /// #665. The one percentage `veng stats` printed was the distiller averaged
+    /// over every call VENG deliberately declined, and `ledger_folds` was not
     /// read at all. On the maintainer's machine that reported 4.5% for a week in
     /// which the distiller took 48% off what it was given and the ledger removed
     /// 1.6 times as many bytes again.
@@ -4556,7 +4608,7 @@ mod tests {
     /// hook sends no reply on that route, so the host keeps its own bytes, while
     /// every byte and token column was computed from the distiller's output.
     /// Across the reporting installation these rows carried 93.0% of every byte
-    /// booked as saved, and correcting them moves `omni stats` all-time from a
+    /// booked as saved, and correcting them moves `veng stats` all-time from a
     /// published 37.1% to 8.3%.
     ///
     /// A `Keep` row in the same table is the control: it really was delivered, so
@@ -4565,7 +4617,7 @@ mod tests {
     #[test]
     fn passthrough_rows_stop_booking_a_saving() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open builds the schema"));
 
         {
@@ -4644,7 +4696,7 @@ mod tests {
     }
 
     /// #118: 1,231 of 8,272 rows on the reporting installation are a second
-    /// copy of one command, inflating every count `omni stats` publishes by 15%.
+    /// copy of one command, inflating every count `veng stats` publishes by 15%.
     /// Inside a duplicate group `latency_ms` is the only column that ever
     /// differs, which is what distinguishes one input distilled twice from two
     /// separate commands.
@@ -4652,7 +4704,7 @@ mod tests {
     fn collapses_a_distillation_recorded_twice() {
         // Arrange
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open builds the schema"));
         seed_rows_and_rearm_migration(
             &db,
@@ -4674,7 +4726,7 @@ mod tests {
     #[test]
     fn keeps_rows_that_differ_in_more_than_latency() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open"));
         seed_rows_and_rearm_migration(
             &db,
@@ -4696,7 +4748,7 @@ mod tests {
     #[test]
     fn does_not_run_the_dedupe_a_second_time() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open"));
         seed_rows_and_rearm_migration(
             &db,
@@ -4921,7 +4973,7 @@ mod tests {
     #[test]
     fn drops_the_table_with_neither_a_writer_nor_a_reader() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         {
             let conn = rusqlite::Connection::open(&db).expect("open");
             conn.execute_batch("CREATE TABLE verification_results (id INTEGER PRIMARY KEY);")
@@ -4949,7 +5001,7 @@ mod tests {
     #[test]
     fn drops_the_write_only_context_turns_table() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
 
         // A database from before the drop.
         {
@@ -4991,7 +5043,7 @@ mod tests {
     #[test]
     fn drops_context_turns_even_when_its_migration_is_already_recorded() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
 
         {
             let conn = rusqlite::Connection::open(&db).expect("open");
@@ -5094,7 +5146,7 @@ mod tests {
     #[test]
     fn a_report_read_does_not_owe_a_delivery() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         let handle = store
             .store_rewind_whole("archived body\n")
             .expect("archived");
@@ -5113,7 +5165,7 @@ mod tests {
     #[test]
     fn two_pulls_earn_two_verbatim_deliveries() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         let handle = store
             .store_rewind_whole("archived body\n")
             .expect("archived");
@@ -5130,7 +5182,7 @@ mod tests {
     }
 
     /// #388. The key used to come back on every path, including a swallowed
-    /// insert, so the caller printed `omni_retrieve("<key>")` for a row that was
+    /// insert, so the caller printed `veng_retrieve("<key>")` for a row that was
     /// never written. The archive's whole promise is that the handle resolves.
     #[test]
     fn reports_an_archive_write_that_did_not_land() {
@@ -5565,7 +5617,7 @@ mod tests {
     const AFTER_FIX: i64 = crate::pipeline::POST_HOOK_FIX_TS + 1;
 
     /// A `claude_code` row written before #158 landed recorded a saving the host
-    /// threw away. Summing it overstates what OMNI actually did.
+    /// threw away. Summing it overstates what VENG actually did.
     #[test]
     fn excludes_unapplied_claude_code_savings_from_the_totals() {
         let (store, _dir) = get_temp_store();
@@ -5614,11 +5666,11 @@ mod tests {
         assert_eq!(count, 1);
     }
 
-    /// `terminal` used to be counted here on the grounds that `omni exec` and the
+    /// `terminal` used to be counted here on the grounds that `veng exec` and the
     /// pipe "wrote stdout directly and were always genuine". The compression is
     /// genuine and it is still not a *token* saving: that output goes to a TTY,
     /// no context holds it and nothing is billed. Those rows were 73.4% of every
-    /// byte OMNI claimed all-time, which is what made the headline describe
+    /// byte VENG claimed all-time, which is what made the headline describe
     /// nothing (#212). Split from the timestamp case above because the two
     /// exclusions have nothing to do with each other.
     #[test]
@@ -5634,7 +5686,7 @@ mod tests {
     }
 
     /// Excluded rows are reported, not silently missing: a call count that
-    /// shrinks without explanation reads as OMNI having stopped working.
+    /// shrinks without explanation reads as VENG having stopped working.
     #[test]
     fn reports_unapplied_rows_beside_the_totals_rather_than_dropping_them() {
         let (store, _dir) = get_temp_store();
@@ -5700,7 +5752,7 @@ mod tests {
         assert!(store.get_agent_breakdown(0).unwrap().is_empty());
     }
 
-    /// #773. The table could say what OMNI declined and not who it declined for,
+    /// #773. The table could say what VENG declined and not who it declined for,
     /// and `session` is not that test: a hook payload can arrive without a
     /// session id, so `host output cap`, a branch that only fires for
     /// `claude_code`, had 20 of its 39 rows carrying none.
@@ -5837,7 +5889,7 @@ mod tests {
     #[test]
     fn the_recompute_fixes_a_stale_label_and_does_not_run_twice() {
         let dir = tempdir().unwrap();
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open builds the schema"));
 
         let seed = [
@@ -5902,7 +5954,7 @@ mod tests {
     #[test]
     fn a_row_with_no_command_keeps_its_stale_label() {
         let dir = tempdir().unwrap();
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         drop(Store::open_path(&db).expect("first open builds the schema"));
         {
             let conn = rusqlite::Connection::open(&db).expect("open seed db");
@@ -5928,5 +5980,66 @@ mod tests {
             .query_row("SELECT filter_name FROM distillations", [], |r| r.get(0))
             .unwrap();
         assert_eq!(name, "A=$(kubectl");
+    }
+}
+
+#[cfg(test)]
+mod memory_health_tests {
+    use super::*;
+
+    #[test]
+    fn counts_what_was_never_recalled_and_what_has_gone_stale() {
+        let dir = tempfile::tempdir().expect("dir");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
+        let conn = store.pool.get().expect("conn");
+        // The engram rows point at a session this test does not need to create.
+        conn.execute_batch("PRAGMA foreign_keys = OFF;")
+            .expect("pragma");
+        let engram = |id: &str, hits: i64, last: i64| {
+            conn.execute(
+                "INSERT INTO engrams (id, session_id, trigger, label, project_hash, ts, last_accessed, hit_count)
+                 VALUES (?1, 's', 't', 'l', 'p', 0, ?2, ?3)",
+                rusqlite::params![id, last, hits],
+            )
+            .expect("engram");
+        };
+        engram("old-unused", 0, 100);
+        engram("fresh-unused", 0, 9_000);
+        engram("old-used", 5, 100);
+        for key in ["recalled", "never", "__veng_internal"] {
+            conn.execute(
+                "INSERT INTO project_knowledge (project_hash, key, value, last_updated) VALUES ('p', ?1, 'v', 0)",
+                rusqlite::params![key],
+            )
+            .expect("knowledge");
+        }
+        conn.execute(
+            "INSERT INTO retrieval_feedback (query, hit_source, hit_key, project_hash, ts) VALUES ('q', 'knowledge', 'recalled', 'p', 0)",
+            [],
+        )
+        .expect("feedback");
+        drop(conn);
+
+        let health = store.memory_health(5_000).expect("readable");
+
+        assert_eq!(
+            health,
+            MemoryHealth {
+                engrams: 3,
+                engrams_never_recalled: 2,
+                engrams_stale: 1,
+                knowledge: 2,
+                knowledge_never_recalled: 1,
+            },
+            "internal keys must not count, and only an old, never-recalled engram is stale"
+        );
+    }
+
+    #[test]
+    fn an_empty_store_is_all_zeros_not_a_failure() {
+        let dir = tempfile::tempdir().expect("dir");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
+
+        assert_eq!(store.memory_health(0), Some(MemoryHealth::default()));
     }
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Render both manuals: English into book/, Indonesian into book-id/ (#539).
 #
-# This lives here rather than in omni-pages so there is one description of how
-# the books are built. omni-pages clones this repository during its Vercel build
+# This lives here rather than in veng-pages so there is one description of how
+# the books are built. veng-pages clones this repository during its Vercel build
 # and calls this script, so a change to the Indonesian book's wiring does not
 # need a matching change in the site's repository to take effect.
 #
@@ -23,7 +23,7 @@ MDBOOK="${1:-mdbook}"
 rm -rf "$here/src-id/media"
 cp -R "$here/src/media" "$here/src-id/media"
 
-# The design-system overlay omni-pages drops into src/wl, when there is one. The
+# The design-system overlay veng-pages drops into src/wl, when there is one. The
 # head.hbs it writes references it from every page of both books.
 # The removal is outside the guard on purpose: a tree that had an overlay once
 # and does not now must not keep rendering the old one.
@@ -43,7 +43,7 @@ env MDBOOK_book__src=src-id \
     "$MDBOOK" build "$here"
 
 # The Indonesian book is served from inside the English one, at /docs/id/, so it
-# is copied in rather than deployed separately. Doing it here means omni-pages
+# is copied in rather than deployed separately. Doing it here means veng-pages
 # copies one tree and does not have to know a second book exists.
 rm -rf "$here/book/id"
 cp -R "$here/book-id" "$here/book/id"

@@ -1,4 +1,4 @@
-use omni::guard::env::{ValidationError, validate_loop_context};
+use veng::guard::env::{ValidationError, validate_loop_context};
 
 // ─── Unit Tests (15+) ────────────────────────────────────────────────────────
 macro_rules! generate_security_validation_unit_tests {
@@ -35,9 +35,9 @@ generate_security_validation_unit_tests!(
 );
 
 // ─── Integration Tests (3+) ──────────────────────────────────────────────────
-use omni::pipeline::SessionState;
-use omni::store::sqlite::Store;
 use tempfile::tempdir;
+use veng::pipeline::SessionState;
+use veng::store::sqlite::Store;
 
 macro_rules! generate_security_validation_integration_tests {
     ($($name:ident),*) => {
@@ -45,7 +45,7 @@ macro_rules! generate_security_validation_integration_tests {
             #[test]
             fn $name() {
                 let dir = tempdir().unwrap();
-                let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+                let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
                 let mut state = SessionState::new();
                 state.loop_context.loop_id = Some("secure-loop".to_string());
                 store.upsert_session(&state);

@@ -1,5 +1,5 @@
-//! #353: `omni doctor --json` wrote 58 lines of human-readable report before
-//! the document, so `omni doctor --json | jq .` died on the first character.
+//! #353: `veng doctor --json` wrote 58 lines of human-readable report before
+//! the document, so `veng doctor --json | jq .` died on the first character.
 //!
 //! Asserted against the real binary rather than the function, because the defect
 //! was in what reached stdout, which an in-process test cannot see.
@@ -7,12 +7,12 @@
 use std::process::Command;
 
 fn doctor_stdout(args: &[&str]) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let out = Command::new(env!("CARGO_BIN_EXE_veng"))
         .args(args)
         // Keep the suite off the developer's real database.
         .env(
-            "OMNI_DB_PATH",
-            std::env::temp_dir().join("omni_doctor_json.db"),
+            "VENG_DB_PATH",
+            std::env::temp_dir().join("veng_doctor_json.db"),
         )
         .output()
         .expect("doctor should run");
@@ -49,7 +49,7 @@ fn still_prints_the_report_without_json() {
 
     // The heading carried a colon until #685 gave the list fixed columns and took
     // the name from `AgentIntegration::name()`, so the row is asserted by what it
-    // is for: this host, and what OMNI is allowed to do on it.
+    // is for: this host, and what VENG is allowed to do on it.
     let row = stdout
         .lines()
         .find(|l| l.contains("Claude Code"))

@@ -1,6 +1,6 @@
 [book]
-title = "OMNI"
-description = "Stop paying to re-read the same output. OMNI turns repeated bytes into retrievable handles, deletes nothing, and every number in this manual replays on your own corpus."
+title = "VENG"
+description = "Stop paying to re-read the same output. VENG turns repeated bytes into retrievable handles, deletes nothing, and every number in this manual replays on your own corpus."
 authors = ["fajarhide"]
 language = "en"
 src = "src"
@@ -10,19 +10,19 @@ build-dir = "book"
 create-missing = false
 
 [output.html]
-# Published under /docs on omni.weekndlabs.com. Page links are relative and work
+# Published under /docs on veng.weekndlabs.com. Page links are relative and work
 # at any prefix; this is what the 404 page and the search index need in order to
 # build absolute URLs that do not drop the prefix.
 site-url = "/docs/"
-# Built-in theme names, restyled wholesale in theme/omni.css. Registering a
+# Built-in theme names, restyled wholesale in theme/veng.css. Registering a
 # genuinely new name would mean forking index.hbs, which is a lot of template to
 # own for a rename.
 default-theme = "light"
 preferred-dark-theme = "navy"
 no-section-label = true
-git-repository-url = "https://github.com/fajarhide/omni"
-edit-url-template = "https://github.com/fajarhide/omni/edit/main/docs/website/{path}"
-additional-css = ["theme/omni.css"]
+git-repository-url = "https://github.com/fajarhide/veng"
+edit-url-template = "https://github.com/fajarhide/veng/edit/main/docs/website/{path}"
+additional-css = ["theme/veng.css"]
 additional-js = ["theme/pagetoc.js", "theme/siteframe.js"]
 
 [output.html.playground]

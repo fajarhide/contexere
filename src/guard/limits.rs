@@ -16,7 +16,7 @@ pub const MAX_OUTPUT_BYTES: usize = 50_000;
 /// against it is measured against a number the host already chose, not against
 /// what the command produced. Above roughly the same threshold the host also
 /// writes the **raw** output to a file, previews the **raw** first 2 KB, and
-/// discards whatever the hook returns, so on that path OMNI's work is thrown
+/// discards whatever the hook returns, so on that path VENG's work is thrown
 /// away and the saving it booked never happened. 43 rows in the maintainer's DB
 /// sit at exactly this size, from 2026-07-08 onward, one of them booked as
 /// 93% compression and 6,194 tokens for a distillation the model never saw

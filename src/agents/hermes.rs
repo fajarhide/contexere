@@ -6,22 +6,22 @@ use std::path::{Path, PathBuf};
 pub struct HermesIntegration;
 
 fn plugin_dir() -> PathBuf {
-    hermes_home_dir().join("plugins").join("omni-signal-engine")
+    hermes_home_dir().join("plugins").join("veng-signal-engine")
 }
 
-fn omni_home_dir() -> PathBuf {
-    // Hermes' own tree stays where hermes puts it; OMNI's does not.
+fn veng_home_dir() -> PathBuf {
+    // Hermes' own tree stays where hermes puts it; VENG's does not.
     crate::paths::config_home()
 }
 
-fn omni_config_path() -> PathBuf {
+fn veng_config_path() -> PathBuf {
     crate::paths::config_file()
 }
 
 /// Comprehensive startup validation for Hermes integration.
 ///
-/// Checks: config.yaml (MCP + compression), plugin files, OMNI binary
-/// availability, and OMNI config presence. Returns `None` when all
+/// Checks: config.yaml (MCP + compression), plugin files, VENG binary
+/// availability, and VENG config presence. Returns `None` when all
 /// checks pass, or a formatted diagnostics string that gets injected
 /// into the Hermes session-start context so the agent can self-heal.
 pub fn validate_startup() -> Option<String> {
@@ -31,19 +31,19 @@ pub fn validate_startup() -> Option<String> {
     let config_path = hermes_home_dir().join("config.yaml");
     if let Ok(config_str) = fs::read_to_string(&config_path) {
         // MCP server registration
-        if !config_str.contains("mcp_servers:") || !config_str.contains("omni:") {
+        if !config_str.contains("mcp_servers:") || !config_str.contains("veng:") {
             warnings.push(
-                "OMNI MCP server is NOT registered in ~/.hermes/config.yaml. \
-                 27 MCP tools (omni_retrieve, omni_loop_memory, omni_knowledge, …) \
-                 will be unavailable. Run `omni init --hermes` to fix.",
+                "VENG MCP server is NOT registered in ~/.hermes/config.yaml. \
+                 27 MCP tools (veng_retrieve, veng_loop_memory, veng_knowledge, …) \
+                 will be unavailable. Run `veng init --hermes` to fix.",
             );
         }
         // Compression bridge
         if !config_str.contains("compression:") || !config_str.contains("enabled: true") {
             warnings.push(
                 "Hermes compression is NOT enabled. Context Pressure warnings \
-                 from OMNI will be surfaced but Hermes will not act on them. \
-                 Run `omni init --hermes` to fix.",
+                 from VENG will be surfaced but Hermes will not act on them. \
+                 Run `veng init --hermes` to fix.",
             );
         }
     } else {
@@ -54,36 +54,36 @@ pub fn validate_startup() -> Option<String> {
     let plugin_init = plugin_dir().join("__init__.py");
     if !plugin_init.exists() {
         warnings.push(
-            "OMNI Hermes plugin (`__init__.py`) is missing. \
-             Pre/Post hooks will not execute. Run `omni init --hermes` to install.",
+            "VENG Hermes plugin (`__init__.py`) is missing. \
+             Pre/Post hooks will not execute. Run `veng init --hermes` to install.",
         );
     }
 
-    // ── 3. OMNI binary reachable ──
+    // ── 3. VENG binary reachable ──
     #[allow(clippy::collapsible_if)]
     if let Ok(exe) = std::env::current_exe() {
         if !exe.exists() {
-            warnings.push("OMNI binary path does not exist on disk. Hooks will fail at runtime.");
+            warnings.push("VENG binary path does not exist on disk. Hooks will fail at runtime.");
         }
     }
 
-    // ── 4. OMNI config for Hermes ──
-    let omni_cfg = omni_config_path();
-    if omni_cfg.exists() {
+    // ── 4. VENG config for Hermes ──
+    let veng_cfg = veng_config_path();
+    if veng_cfg.exists() {
         #[allow(clippy::collapsible_if)]
-        if let Ok(content) = fs::read_to_string(&omni_cfg) {
+        if let Ok(content) = fs::read_to_string(&veng_cfg) {
             if !content.contains("[agents.hermes]") {
                 warnings.push(
-                    "~/.omni/config.toml exists but has no [agents.hermes] section. \
+                    "~/.veng/config.toml exists but has no [agents.hermes] section. \
                      Hermes-optimized defaults (Efficient mode, pinned files) are inactive. \
-                     Run `omni init --hermes` to add them.",
+                     Run `veng init --hermes` to add them.",
                 );
             }
         }
     } else {
         warnings.push(
-            "~/.omni/config.toml does not exist. OMNI is using built-in defaults \
-             instead of Hermes-optimized settings. Run `omni init --hermes`.",
+            "~/.veng/config.toml does not exist. VENG is using built-in defaults \
+             instead of Hermes-optimized settings. Run `veng init --hermes`.",
         );
     }
 
@@ -91,8 +91,8 @@ pub fn validate_startup() -> Option<String> {
         None
     } else {
         Some(format!(
-            "\n  [OMNI × Hermes Startup Validation, {} issue(s)]\n{}\n\
-             → Fix all: `omni init --hermes && hermes gateway restart`\n",
+            "\n  [VENG × Hermes Startup Validation, {} issue(s)]\n{}\n\
+             → Fix all: `veng init --hermes && hermes gateway restart`\n",
             warnings.len(),
             warnings
                 .iter()
@@ -114,27 +114,27 @@ fn hermes_config_path() -> PathBuf {
     hermes_home_dir().join("config.yaml")
 }
 
-fn config_mentions_omni_plugin(config: &str) -> Option<&'static str> {
-    if config.contains("hermes-omni-plugin") {
-        Some("hermes-omni-plugin")
-    } else if config.contains("omni-signal-engine") {
-        Some("omni-signal-engine")
+fn config_mentions_veng_plugin(config: &str) -> Option<&'static str> {
+    if config.contains("hermes-veng-plugin") {
+        Some("hermes-veng-plugin")
+    } else if config.contains("veng-signal-engine") {
+        Some("veng-signal-engine")
     } else {
         None
     }
 }
 
-fn config_mentions_omni_mcp(config: &str) -> bool {
+fn config_mentions_veng_mcp(config: &str) -> bool {
     let has_mcp_section = config.contains("mcp_servers:") || config.contains("mcp:");
-    let has_omni_server = config.contains("omni:");
-    let has_omni_command = config.contains("--mcp") || config.contains("OMNI_AGENT_ID");
-    has_mcp_section && has_omni_server && has_omni_command
+    let has_veng_server = config.contains("veng:");
+    let has_veng_command = config.contains("--mcp") || config.contains("VENG_AGENT_ID");
+    has_mcp_section && has_veng_server && has_veng_command
 }
 
-fn configured_omni_plugin(config_path: &Path) -> Option<&'static str> {
+fn configured_veng_plugin(config_path: &Path) -> Option<&'static str> {
     fs::read_to_string(config_path)
         .ok()
-        .and_then(|config| config_mentions_omni_plugin(&config))
+        .and_then(|config| config_mentions_veng_plugin(&config))
 }
 
 /// Adds a top-level YAML block without disturbing what is already there.
@@ -143,7 +143,7 @@ fn configured_omni_plugin(config_path: &Path) -> Option<&'static str> {
 /// `mcp_servers:` is itself a top-level key, so that ended the `plugins` mapping
 /// and every plugin entry underneath became a child of `mcp_servers`. Loaded
 /// with a real YAML parser, a config with two enabled plugins came back as
-/// `plugins: None` and `mcp_servers: [omni, my-linter, my-formatter]`: the
+/// `plugins: None` and `mcp_servers: [veng, my-linter, my-formatter]`: the
 /// installer silently disabled every plugin the user had (#377).
 ///
 /// Top-level keys are order-independent, so appending is both correct and the
@@ -158,9 +158,9 @@ fn append_top_level_block(config: &str, block: &str) -> String {
     out
 }
 
-fn configured_omni_mcp(config_path: &Path) -> bool {
+fn configured_veng_mcp(config_path: &Path) -> bool {
     fs::read_to_string(config_path)
-        .map(|config| config_mentions_omni_mcp(&config))
+        .map(|config| config_mentions_veng_mcp(&config))
         .unwrap_or(false)
 }
 
@@ -172,7 +172,7 @@ fn configured_compression(config: &str) -> bool {
 
 /// Drops one `[section]` and its keys from a TOML document.
 ///
-/// Line based on purpose: `omni_config.toml` is hand-edited and round-tripping
+/// Line based on purpose: `veng_config.toml` is hand-edited and round-tripping
 /// it through a parser would reformat everything a user wrote around our
 /// section. The block ends at the next `[` in column zero.
 fn strip_toml_section(config: &str, header: &str) -> String {
@@ -198,7 +198,7 @@ fn strip_toml_section(config: &str, header: &str) -> String {
     out
 }
 
-/// Removes only OMNI's own entry under `mcp_servers:`, and the key itself when
+/// Removes only VENG's own entry under `mcp_servers:`, and the key itself when
 /// nothing else is left under it.
 ///
 /// Deliberately not a block delete. `mcp_servers:` is a mapping the user shares
@@ -209,7 +209,7 @@ fn strip_toml_section(config: &str, header: &str) -> String {
 ///
 /// Returns `None` when there was nothing of ours to remove, so the caller can
 /// tell "cleaned" from "was never there" and report the truth either way.
-fn remove_omni_mcp_server(config: &str) -> Option<String> {
+fn remove_veng_mcp_server(config: &str) -> Option<String> {
     let lines: Vec<&str> = config.lines().collect();
     let start = lines
         .iter()
@@ -231,28 +231,28 @@ fn remove_omni_mcp_server(config: &str) -> Option<String> {
         .find(|l| !l.trim().is_empty())
         .map(|l| indent(l))?;
 
-    let omni_at = lines[start + 1..end]
+    let veng_at = lines[start + 1..end]
         .iter()
-        .position(|l| indent(l) == child_indent && l.trim() == "omni:")
+        .position(|l| indent(l) == child_indent && l.trim() == "veng:")
         .map(|i| start + 1 + i)?;
 
-    let mut omni_end = end;
+    let mut veng_end = end;
     for (i, line) in lines
         .iter()
         .enumerate()
-        .skip(omni_at + 1)
-        .take(end - omni_at - 1)
+        .skip(veng_at + 1)
+        .take(end - veng_at - 1)
     {
         if !line.trim().is_empty() && indent(line) <= child_indent {
-            omni_end = i;
+            veng_end = i;
             break;
         }
     }
 
     let mut kept: Vec<&str> = Vec::with_capacity(lines.len());
     kept.extend_from_slice(&lines[..start + 1]);
-    kept.extend_from_slice(&lines[start + 1..omni_at]);
-    kept.extend_from_slice(&lines[omni_end..]);
+    kept.extend_from_slice(&lines[start + 1..veng_at]);
+    kept.extend_from_slice(&lines[veng_end..]);
 
     // If the mapping is now empty, the key is noise, so it goes too.
     let still_has_children = kept
@@ -284,8 +284,8 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
 /// produce a file Python cannot read: a quote closes the literal, and a Windows
 /// path's `\U` is a unicode escape (`C:\Users\…` is a syntax error, not a path).
 fn render_plugin(exe_path: &str) -> String {
-    let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
-    include_str!("../../plugins/hermes/__init__.py").replace("\"{{OMNI_BIN}}\"", &literal)
+    let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"veng\"".to_string());
+    include_str!("../../plugins/hermes/__init__.py").replace("\"{{VENG_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {
@@ -313,21 +313,21 @@ impl AgentIntegration for HermesIntegration {
         let dest = plugin_dir();
         fs::create_dir_all(&dest)?;
 
-        let plugin_yaml_content = r#"name: omni-signal-engine
+        let plugin_yaml_content = r#"name: veng-signal-engine
 version: "1.0"
-description: OMNI Signal Engine integration for Hermes Agent hooks
+description: VENG Signal Engine integration for Hermes Agent hooks
 "#;
 
         // The plugin is a real Python file in `plugins/hermes/`, compiled by
         // CI, rather than a Rust string literal. The literal that used to live
-        // here opened with five quote characters, so every `__init__.py` OMNI
+        // here opened with five quote characters, so every `__init__.py` VENG
         // wrote was a syntax error and the plugin never loaded once (#628).
         let init_py_content = render_plugin(exe_path);
 
         fs::write(dest.join("plugin.yaml"), plugin_yaml_content)?;
         fs::write(dest.join("__init__.py"), init_py_content)?;
         actions.push(format!(
-            "{} Installed Hermes plugin to ~/.hermes/plugins/omni-signal-engine/",
+            "{} Installed Hermes plugin to ~/.hermes/plugins/veng-signal-engine/",
             "✓".green()
         ));
 
@@ -339,33 +339,33 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
 
         if requires_manual_plugin_step {
             actions.push(format!(
-                "{} Run {} to enable the OMNI plugin",
+                "{} Run {} to enable the VENG plugin",
                 "→".cyan(),
-                "hermes plugins enable omni-signal-engine".bright_black()
+                "hermes plugins enable veng-signal-engine".bright_black()
             ));
             warnings.push(
-                "Hermes config not found; enable the OMNI plugin once Hermes is initialized."
+                "Hermes config not found; enable the VENG plugin once Hermes is initialized."
                     .to_string(),
             );
         }
 
         if let Ok(config) = fs::read_to_string(&config_path) {
-            if configured_omni_mcp(&config_path) {
+            if configured_veng_mcp(&config_path) {
                 actions.push(
                     format!(
-                        "{} OMNI MCP server is already registered in ~/.hermes/config.yaml",
+                        "{} VENG MCP server is already registered in ~/.hermes/config.yaml",
                         "✓".green()
                     )
                     .to_string(),
                 );
             } else {
-                let mcp_block = "\nmcp_servers:\n  omni:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n\n";
+                let mcp_block = "\nmcp_servers:\n  veng:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      VENG_AGENT_ID: \"hermes\"\n\n";
                 let mcp_block = mcp_block.replace("{}", exe_path);
 
                 let updated = append_top_level_block(&config, &mcp_block);
                 actions.push(
                     format!(
-                        "{} Registered OMNI MCP server in ~/.hermes/config.yaml",
+                        "{} Registered VENG MCP server in ~/.hermes/config.yaml",
                         "✓".green()
                     )
                     .to_string(),
@@ -403,12 +403,12 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             }
         } else {
             warnings.push(
-                "Could not read ~/.hermes/config.yaml to register the OMNI MCP server.".to_string(),
+                "Could not read ~/.hermes/config.yaml to register the VENG MCP server.".to_string(),
             );
         }
 
-        let omni_config_path = omni_config_path();
-        fs::create_dir_all(omni_home_dir())?;
+        let veng_config_path = veng_config_path();
+        fs::create_dir_all(veng_home_dir())?;
         let default_config = crate::agents::hermes::hermes_default_config();
 
         let mut config_lines = Vec::new();
@@ -438,28 +438,28 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             config_lines.push("]".to_string());
         }
 
-        let existing = fs::read_to_string(&omni_config_path).unwrap_or_default();
+        let existing = fs::read_to_string(&veng_config_path).unwrap_or_default();
         if !existing.contains("[agents.hermes]") {
             let mut updated = existing;
             if !updated.is_empty() && !updated.ends_with('\n') {
                 updated.push('\n');
             }
             updated.push_str(&format!("{}\n", config_lines.join("\n")));
-            fs::write(&omni_config_path, updated)?;
+            fs::write(&veng_config_path, updated)?;
             actions.push(
                 format!(
-                    "{} Wrote Hermes OMNI defaults to {}",
+                    "{} Wrote Hermes VENG defaults to {}",
                     "✓".green(),
-                    omni_config_path.display().to_string().bright_black()
+                    veng_config_path.display().to_string().bright_black()
                 )
                 .to_string(),
             );
         } else {
             actions.push(
                 format!(
-                    "{} Hermes OMNI config already exists at {}",
+                    "{} Hermes VENG config already exists at {}",
                     "✓".green(),
-                    omni_config_path.display().to_string().bright_black()
+                    veng_config_path.display().to_string().bright_black()
                 )
                 .to_string(),
             );
@@ -499,25 +499,25 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
 
         let config_path = hermes_config_path();
         if let Ok(config) = fs::read_to_string(&config_path)
-            && let Some(updated) = remove_omni_mcp_server(&config)
+            && let Some(updated) = remove_veng_mcp_server(&config)
         {
             fs::write(&config_path, updated)?;
             did_something = true;
             crate::agent_report!(
-                "  {} Removed the OMNI MCP server from ~/.hermes/config.yaml",
+                "  {} Removed the VENG MCP server from ~/.hermes/config.yaml",
                 "✓".yellow()
             );
         }
 
-        let omni_cfg = omni_config_path();
-        if let Ok(cfg) = fs::read_to_string(&omni_cfg)
+        let veng_cfg = veng_config_path();
+        if let Ok(cfg) = fs::read_to_string(&veng_cfg)
             && cfg.contains("[agents.hermes]")
         {
             let stripped = strip_toml_section(&cfg, "[agents.hermes]");
-            fs::write(&omni_cfg, stripped)?;
+            fs::write(&veng_cfg, stripped)?;
             did_something = true;
             crate::agent_report!(
-                "  {} Removed [agents.hermes] from omni's config",
+                "  {} Removed [agents.hermes] from veng's config",
                 "✓".yellow()
             );
         }
@@ -543,11 +543,11 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         let dest = plugin_dir();
         let config_path = hermes_config_path();
         let directory_plugin_installed = dest.join("plugin.yaml").exists();
-        let configured_plugin = configured_omni_plugin(&config_path);
-        let mcp_configured = configured_omni_mcp(&config_path);
+        let configured_plugin = configured_veng_plugin(&config_path);
+        let mcp_configured = configured_veng_mcp(&config_path);
         let compression_on = configured_compression_in_config(&config_path);
-        let omni_cfg = omni_config_path();
-        let has_hermes_section = fs::read_to_string(&omni_cfg)
+        let veng_cfg = veng_config_path();
+        let has_hermes_section = fs::read_to_string(&veng_cfg)
             .map(|c| c.contains("[agents.hermes]"))
             .unwrap_or(false);
         let installed = directory_plugin_installed || configured_plugin.is_some();
@@ -559,7 +559,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             crate::agent_report!(
                 "   {:>15} {} {}",
                 "Plugin:".bright_black(),
-                "~/.hermes/plugins/omni-signal-engine/".bright_black(),
+                "~/.hermes/plugins/veng-signal-engine/".bright_black(),
                 "[OK]".green().bold()
             );
         } else if let Some(plugin_name) = configured_plugin {
@@ -575,7 +575,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                 "Plugin:".bright_black(),
                 "not installed [MISSING]".red().bold()
             );
-            warnings.push("Hermes OMNI plugin is not installed.".to_string());
+            warnings.push("Hermes VENG plugin is not installed.".to_string());
         }
 
         // MCP status
@@ -589,7 +589,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             }
         );
         if !mcp_configured {
-            warnings.push("OMNI MCP server is not registered in Hermes config.".to_string());
+            warnings.push("VENG MCP server is not registered in Hermes config.".to_string());
         }
 
         // Compression status
@@ -609,10 +609,10 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             );
         }
 
-        // OMNI config section
+        // VENG config section
         crate::agent_report!(
             "   {:>15} {}",
-            "OMNI Config:".bright_black(),
+            "VENG Config:".bright_black(),
             if has_hermes_section {
                 "[agents.hermes] present [OK]".green().bold()
             } else {
@@ -621,7 +621,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         );
         if !has_hermes_section {
             warnings.push(
-                "~/.omni/config.toml has no [agents.hermes] section; using built-in defaults."
+                "~/.veng/config.toml has no [agents.hermes] section; using built-in defaults."
                     .to_string(),
             );
         }
@@ -634,7 +634,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                 crate::agent_report!(
                     "   {:>15} {}",
                     "Auto-fix:".bright_black(),
-                    "Re-running omni init --hermes...".yellow()
+                    "Re-running veng init --hermes...".yellow()
                 );
                 match self.install(&exe_str) {
                     Ok(()) => {
@@ -671,7 +671,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
 
 /// Hermes-optimized agent config defaults.
 ///
-/// Hermes agent uses pipe mode with `OMNI_CMD` env var, no PreToolUse hook.
+/// Hermes agent uses pipe mode with `VENG_CMD` env var, no PreToolUse hook.
 /// Sessions tend to be longer and Hermes benefits from more aggressive
 /// compression since it manages its own context summarization.
 pub fn hermes_default_config() -> crate::guard::config::AgentConfig {
@@ -682,7 +682,7 @@ pub fn hermes_default_config() -> crate::guard::config::AgentConfig {
         enable_webfetch_distillation: Some(true),
         pinned_files: Some(vec![
             "AGENTS.md".to_string(),
-            ".omni/CONTEXT.md".to_string(),
+            ".veng/CONTEXT.md".to_string(),
         ]),
     }
 }
@@ -705,13 +705,13 @@ mod tests {
     /// The defect #445 filed: an install that lives only in config.yaml was
     /// reported as uninstalled while staying fully configured.
     #[test]
-    fn removes_the_omni_server_and_leaves_the_users_own() {
-        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
+    fn removes_the_veng_server_and_leaves_the_users_own() {
+        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  veng:\n    command: \"/usr/local/bin/veng\"\n    args: [\"--mcp\"]\n    env:\n      VENG_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
 
-        let out = super::remove_omni_mcp_server(config).expect("ours was there");
+        let out = super::remove_veng_mcp_server(config).expect("ours was there");
 
-        assert!(!out.contains("omni:"), "our entry must go: {out}");
-        assert!(!out.contains("OMNI_AGENT_ID"), "and its children: {out}");
+        assert!(!out.contains("veng:"), "our entry must go: {out}");
+        assert!(!out.contains("VENG_AGENT_ID"), "and its children: {out}");
         assert!(out.contains("their-server:"), "theirs must stay: {out}");
         assert!(
             out.contains("mcp_servers:"),
@@ -724,10 +724,10 @@ mod tests {
     }
 
     #[test]
-    fn drops_the_key_when_omni_was_its_only_entry() {
-        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n";
+    fn drops_the_key_when_veng_was_its_only_entry() {
+        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  veng:\n    command: \"/usr/local/bin/veng\"\n    args: [\"--mcp\"]\n";
 
-        let out = super::remove_omni_mcp_server(config).expect("ours was there");
+        let out = super::remove_veng_mcp_server(config).expect("ours was there");
 
         assert!(
             !out.contains("mcp_servers:"),
@@ -740,7 +740,7 @@ mod tests {
     fn reports_nothing_to_remove_rather_than_rewriting_the_file() {
         let config = "plugins:\n  - name: my-linter\n";
 
-        assert!(super::remove_omni_mcp_server(config).is_none());
+        assert!(super::remove_veng_mcp_server(config).is_none());
     }
 
     #[test]
@@ -759,13 +759,13 @@ mod tests {
 
     /// #377: the block was spliced in directly after the `plugins:` line, which
     /// ended that mapping and adopted every plugin entry underneath. A real YAML
-    /// load of the result gave `plugins: None`, so `omni init --hermes`
+    /// load of the result gave `plugins: None`, so `veng init --hermes`
     /// disabled every plugin the user had.
     #[test]
     fn appending_leaves_an_existing_plugins_block_intact() {
         let config =
             "plugins:\n  my-linter:\n    enabled: true\n  my-formatter:\n    enabled: true\n";
-        let block = "\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n";
+        let block = "\nmcp_servers:\n  veng:\n    command: \"/usr/local/bin/veng\"\n";
 
         let out = append_top_level_block(config, block);
 
@@ -788,53 +788,53 @@ mod tests {
     /// new key, which would produce YAML that does not parse.
     #[test]
     fn separates_the_block_from_an_unterminated_last_line() {
-        let out = append_top_level_block("model: gpt-5", "\nmcp_servers:\n  omni: {}\n");
+        let out = append_top_level_block("model: gpt-5", "\nmcp_servers:\n  veng: {}\n");
 
         assert!(out.contains("model: gpt-5\n"), "{out}");
     }
-    use super::{config_mentions_omni_mcp, config_mentions_omni_plugin, configured_compression};
+    use super::{config_mentions_veng_mcp, config_mentions_veng_plugin, configured_compression};
 
     #[test]
-    fn detects_packaged_hermes_omni_plugin_in_config() {
+    fn detects_packaged_hermes_veng_plugin_in_config() {
         let config = r#""
 plugins:
   enabled:
     - disk-cleanup
-    - hermes-omni-plugin
+    - hermes-veng-plugin
 "#;
 
         assert_eq!(
-            config_mentions_omni_plugin(config),
-            Some("hermes-omni-plugin")
+            config_mentions_veng_plugin(config),
+            Some("hermes-veng-plugin")
         );
     }
 
     #[test]
-    fn detects_legacy_omni_signal_engine_plugin_in_config() {
+    fn detects_legacy_veng_signal_engine_plugin_in_config() {
         let config = r#"
 plugins:
   enabled:
-    - omni-signal-engine
+    - veng-signal-engine
 "#;
 
         assert_eq!(
-            config_mentions_omni_plugin(config),
-            Some("omni-signal-engine")
+            config_mentions_veng_plugin(config),
+            Some("veng-signal-engine")
         );
     }
 
     #[test]
-    fn detects_hermes_omni_mcp_config() {
+    fn detects_hermes_veng_mcp_config() {
         let config = r#"
 mcp_servers:
-  omni:
-    command: "omni"
+  veng:
+    command: "veng"
     args: ["--mcp"]
     env:
-      OMNI_AGENT_ID: "hermes"
+      VENG_AGENT_ID: "hermes"
 "#;
 
-        assert!(config_mentions_omni_mcp(config));
+        assert!(config_mentions_veng_mcp(config));
     }
 
     #[test]
@@ -845,8 +845,8 @@ plugins:
     - unrelated-plugin
 "#;
 
-        assert_eq!(config_mentions_omni_plugin(config), None);
-        assert!(!config_mentions_omni_mcp(config));
+        assert_eq!(config_mentions_veng_plugin(config), None);
+        assert!(!config_mentions_veng_mcp(config));
     }
 
     #[test]
@@ -871,7 +871,7 @@ plugins:
         assert_eq!(config.enable_webfetch_distillation, Some(true));
         let pinned = config.pinned_files.unwrap_or_default();
         assert!(pinned.contains(&"AGENTS.md".to_string()));
-        assert!(pinned.contains(&".omni/CONTEXT.md".to_string()));
+        assert!(pinned.contains(&".veng/CONTEXT.md".to_string()));
     }
 
     #[test]
@@ -902,19 +902,19 @@ plugins:
         // We can't assert None because it depends on the host environment,
         // but we CAN assert the function doesn't panic and returns a coherent type.
         if let Some(msg) = &result {
-            assert!(msg.contains("OMNI × Hermes") || msg.contains("Startup Validation"));
+            assert!(msg.contains("VENG × Hermes") || msg.contains("Startup Validation"));
         }
     }
 
     /// #628. The plugin lived in a Rust raw string that opened with five quote
-    /// characters, so every `__init__.py` OMNI wrote was a Python syntax error
-    /// and the plugin never loaded once, while `omni init --hermes` reported
+    /// characters, so every `__init__.py` VENG wrote was a Python syntax error
+    /// and the plugin never loaded once, while `veng init --hermes` reported
     /// success. It is a real file under `plugins/hermes/` now, compiled by the
     /// `plugin-hermes` CI job, and these three properties are what the Rust side
     /// can still get wrong.
     #[test]
     fn the_rendered_plugin_registers_the_hooks_that_replace_a_result() {
-        let src = super::render_plugin("/usr/local/bin/omni");
+        let src = super::render_plugin("/usr/local/bin/veng");
 
         for hook in ["transform_terminal_output", "transform_tool_result"] {
             assert!(
@@ -923,11 +923,11 @@ plugins:
             );
         }
         assert!(
-            !src.contains("{{OMNI_BIN}}"),
+            !src.contains("{{VENG_BIN}}"),
             "the placeholder must not survive into the installed file"
         );
         assert!(
-            src.contains("_OMNI_BIN = \"/usr/local/bin/omni\""),
+            src.contains("_VENG_BIN = \"/usr/local/bin/veng\""),
             "the binary path is what the hooks shell out to: {src:.400}"
         );
     }
@@ -937,7 +937,7 @@ plugins:
     /// so the plugin would fail to import on exactly one platform.
     #[test]
     fn a_windows_path_is_escaped_rather_than_pasted() {
-        let src = super::render_plugin(r"C:\Users\dev\.cargo\bin\omni.exe");
+        let src = super::render_plugin(r"C:\Users\dev\.cargo\bin\veng.exe");
 
         assert!(
             src.contains(r"C:\\Users\\dev"),

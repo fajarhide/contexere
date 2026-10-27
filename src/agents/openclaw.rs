@@ -10,7 +10,7 @@ pub struct OpenClawIntegration;
 fn plugin_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".openclaw/plugins/omni-signal-engine")
+        .join(".openclaw/plugins/veng-signal-engine")
 }
 
 /// `openclaw config file` reports this path.
@@ -64,7 +64,7 @@ impl AgentIntegration for OpenClawIntegration {
     /// `tool_result_persist` replaces the result of every built-in tool, which
     /// is the whole point of the plugin #628 shipped. It rewrites the message
     /// OpenClaw persists rather than the one already in flight, so the model
-    /// reads OMNI's bytes on every turn that re-reads the transcript and the
+    /// reads VENG's bytes on every turn that re-reads the transcript and the
     /// current turn still sees the raw output. Narrower than Claude Code's
     /// `Full`, and nowhere near the default `McpOnly` this inherited for two
     /// releases while `doctor` told the user there was no shell distill (#687).
@@ -98,7 +98,7 @@ impl AgentIntegration for OpenClawIntegration {
             "tsconfig.json",
         ] {
             let url = format!(
-                "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/{}",
+                "https://raw.githubusercontent.com/fajarhide/veng/main/plugins/openclaw/{}",
                 file
             );
             let to = dest.join(file);
@@ -111,7 +111,7 @@ impl AgentIntegration for OpenClawIntegration {
         }
 
         // Try downloading package-lock.json, ignore error if missing (e.g., HTTP 404)
-        let lock_url = "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/package-lock.json";
+        let lock_url = "https://raw.githubusercontent.com/fajarhide/veng/main/plugins/openclaw/package-lock.json";
         if let Ok(response) = ureq::get(lock_url).call() {
             let to = dest.join("package-lock.json");
             if let Ok(mut dest_file) = fs::File::create(&to) {
@@ -120,7 +120,7 @@ impl AgentIntegration for OpenClawIntegration {
         }
 
         crate::agent_report!(
-            "  {} Installed OpenClaw plugin to ~/.openclaw/plugins/omni-signal-engine/",
+            "  {} Installed OpenClaw plugin to ~/.openclaw/plugins/veng-signal-engine/",
             "✓".green()
         );
 
@@ -144,7 +144,7 @@ impl AgentIntegration for OpenClawIntegration {
         crate::agent_report!(
             "  {} Run {} to install dependencies, then restart the Gateway",
             "→".cyan(),
-            "cd ~/.openclaw/plugins/omni-signal-engine && npm install --omit=dev".bright_black()
+            "cd ~/.openclaw/plugins/veng-signal-engine && npm install --omit=dev".bright_black()
         );
         Ok(())
     }
@@ -193,7 +193,7 @@ impl AgentIntegration for OpenClawIntegration {
             crate::agent_report!(
                 "   {:<15} {} {}",
                 "Plugin:".bright_black(),
-                "~/.openclaw/plugins/omni-signal-engine/".bright_black(),
+                "~/.openclaw/plugins/veng-signal-engine/".bright_black(),
                 "[OK]".green().bold()
             );
 
@@ -221,7 +221,7 @@ impl AgentIntegration for OpenClawIntegration {
                 crate::agent_report!(
                     "   {:<15} {}",
                     "Registered:".bright_black(),
-                    "not in plugins.load.paths, OpenClaw will not load it: re-run 'omni init --openclaw'"
+                    "not in plugins.load.paths, OpenClaw will not load it: re-run 'veng init --openclaw'"
                         .yellow()
                 );
                 warnings.push(
@@ -261,7 +261,7 @@ impl AgentIntegration for OpenClawIntegration {
 mod tests {
     use super::*;
 
-    const DIR: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
+    const DIR: &str = "/home/u/.openclaw/plugins/veng-signal-engine";
 
     /// The key that decides whether any of this integration runs. OpenClaw does
     /// not scan `~/.openclaw/plugins/`, so a plugin the config does not name is
@@ -279,7 +279,7 @@ mod tests {
         );
     }
 
-    /// `omni init --openclaw` is re-run on every upgrade, and a list that grows
+    /// `veng init --openclaw` is re-run on every upgrade, and a list that grows
     /// by one each time is a config the user has to clean up by hand.
     #[test]
     fn re_running_the_install_does_not_duplicate_the_path() {

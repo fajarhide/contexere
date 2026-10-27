@@ -1,14 +1,14 @@
-# Anything cargo launches from this workspace gets its own OMNI home.
+# Anything cargo launches from this workspace gets its own VENG home.
 #
-# Without it the test suite wrote into the developer's live `~/.omni`:
+# Without it the test suite wrote into the developer's live `~/.veng`:
 # `cargo test --all` left 11 auto-learned filters behind, one `make ci` added
 # 31,458 bytes, and the file had reached 1.8 MB. `load_all_filters` reads that
 # directory on every hook, so running the tests was making the installed tool
 # slower for the person running them, and the filters then competed with the
 # shipped signals for which one claims a command (#307).
 #
-# `force` is left at its default, so exporting `OMNI_HOME` yourself still wins.
+# `force` is left at its default, so exporting `VENG_HOME` yourself still wins.
 # `relative = true` resolves against this file's parent, so it is the workspace
 # root on every machine and every platform.
 [env]
-OMNI_HOME = { value = "target/omni-home", relative = true }
+VENG_HOME = { value = "target/veng-home", relative = true }

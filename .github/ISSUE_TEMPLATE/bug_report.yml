@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help us improve OMNI.
+description: Create a report to help us improve VENG.
 labels: [bug]
 body:
   - type: markdown
@@ -20,7 +20,7 @@ body:
       label: Steps to Reproduce
       description: How did you encounter this bug?
       placeholder: |
-        1. Run 'omni ...'
+        1. Run 'veng ...'
         2. See error...
     validations:
       required: true

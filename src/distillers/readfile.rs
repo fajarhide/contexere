@@ -13,7 +13,7 @@ fn distill_readfile(content: &str, filepath: &str) -> Option<String> {
 const MIN_DISTILL_TOKENS: usize = 2000;
 
 /// `imported_by_count`: number of files that import this file (from graph).
-/// When > 3, append a factual warning suggesting `omni context` (#609).
+/// When > 3, append a factual warning suggesting `veng context` (#609).
 /// `imported_by` is a closure, not a number, because computing it walks the
 /// repository. It is consulted at one place, the dependents guard below, and
 /// only after two earlier gates have already decided there is something to
@@ -67,7 +67,7 @@ pub fn distill_readfile_with_context(
         // It also inverts on the surface it fires on. `Read` is what an agent
         // calls before editing one named file, so the base rate of "those lines
         // were never wanted" is close to zero, and the recovery is
-        // `omni retrieve`, which re-emits all of it: the turn then pays for the
+        // `veng retrieve`, which re-emits all of it: the turn then pays for the
         // cut copy, the marker, and the whole file.
         _ => return None,
     };
@@ -75,7 +75,7 @@ pub fn distill_readfile_with_context(
     // Only return if meaningful compression achieved
     if distilled.len() < content.len() * 8 / 10 {
         let mut out = format!(
-            "[OMNI ReadFile: {} → distilled ({} lines)]\n{}",
+            "[VENG ReadFile: {} → distilled ({} lines)]\n{}",
             filepath, line_count, distilled
         );
         // Phase 6: factual guard, file has many dependents. The walk happens
@@ -83,7 +83,7 @@ pub fn distill_readfile_with_context(
         let imported_by_count = imported_by();
         if imported_by_count > 3 {
             out.push_str(&format!(
-                "\n[OMNI Guard: {} is imported by {} files, changes here may have wide impact. Run `omni context '{}'` for the full dependency map.]",
+                "\n[VENG Guard: {} is imported by {} files, changes here may have wide impact. Run `veng context '{}'` for the full dependency map.]",
                 filepath, imported_by_count, filepath
             ));
         }
@@ -144,7 +144,7 @@ fn distill_unknown_file(content: &str) -> String {
 /// no content at all.
 ///
 /// The reply already carries the route that does work, one line below this one:
-/// the `omni retrieve <handle>` marker, whose handle every probe resolved. The
+/// the `veng retrieve <handle>` marker, whose handle every probe resolved. The
 /// note counts what was dropped and stops there, because the handle is minted
 /// after this function runs and this string cannot name it.
 ///
@@ -488,7 +488,7 @@ mod tests {
             .expect("a file this size distils");
 
         assert!(
-            out.contains("omni context 'src/my file.rs'"),
+            out.contains("veng context 'src/my file.rs'"),
             "a path with a space was pasted into a command unquoted, so the \
              reader is told to run something that means two arguments:\n{out}"
         );
@@ -638,7 +638,7 @@ mod tests {
         assert_eq!(
             distill_readfile(&content, "notes.txt"),
             None,
-            "prose OMNI cannot parse has to reach the agent whole"
+            "prose VENG cannot parse has to reach the agent whole"
         );
     }
 

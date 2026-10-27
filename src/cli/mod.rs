@@ -7,6 +7,7 @@ pub mod engram;
 pub mod exec;
 pub mod goal;
 pub mod init;
+pub mod migrate;
 
 pub mod patterns;
 pub mod query;
@@ -38,21 +39,21 @@ pub fn print_rule() {
     println!("{}", "─".repeat(WIDTH).bright_black().bold());
 }
 
-/// The opening frame every report view draws: a rule, `OMNI · view · scope`,
+/// The opening frame every report view draws: a rule, `VENG · view · scope`,
 /// a rule.
 ///
 /// One printer rather than one per view, because three of them drifted. The
 /// default and detail views drew the rule above and below; `context` still said
-/// "OMNI Signal Report: Context"; `projects` and `rerun` drew no rule above at
-/// all and folded the period label into a sentence, "OMNI Project Analytics,
+/// "VENG Signal Report: Context"; `projects` and `rerun` drew no rule above at
+/// all and folded the period label into a sentence, "VENG Project Analytics,
 /// last 30 days Breakdown" (#717). `view` is `None` for the default report,
 /// `scope` is `None` where the view is not windowed.
 pub fn print_header(view: Option<&str>, scope: Option<&str>) {
     println!();
     print_rule();
     let title = match view {
-        Some(v) => format!("OMNI · {v}"),
-        None => "OMNI".to_string(),
+        Some(v) => format!("VENG · {v}"),
+        None => "VENG".to_string(),
     };
     match scope {
         Some(s) => println!(
@@ -68,7 +69,7 @@ pub fn print_header(view: Option<&str>, scope: Option<&str>) {
 /// A column separator built from the widths it sits under, so a header and its
 /// rule cannot disagree.
 ///
-/// `omni stats --detail` carried a five-group separator under a four-column
+/// `veng stats --detail` carried a five-group separator under a four-column
 /// header because the `#` group was copied from the table above it, leaving a
 /// 56-column rule under a 43-column header (#463).
 pub fn column_rule(widths: &[usize]) -> String {
@@ -84,7 +85,7 @@ pub fn column_rule(widths: &[usize]) -> String {
 ///
 /// Both the help printer and the argument check read this one list, so a flag
 /// cannot be accepted without being documented or documented without being
-/// accepted, the drift that made `omni stats`'s own footer advertise a
+/// accepted, the drift that made `veng stats`'s own footer advertise a
 /// `--detail` its `--help` never mentioned (#151).
 pub type Flags = &'static [(&'static str, &'static str)];
 
@@ -106,7 +107,7 @@ pub fn print_flags(flags: Flags) {
 }
 
 /// One titled group, for a command whose flags read better split up
-/// (`omni init` separates its agents from its Claude-specific flags).
+/// (`veng init` separates its agents from its Claude-specific flags).
 pub fn print_flag_group(title: &str, flags: &[&(&str, &str)]) {
     // Sized to the longest entry rather than a fixed width, which
     // `--all-commands` and `--validate <file.toml>` both overflow.
@@ -123,18 +124,18 @@ pub fn print_flag_group(title: &str, flags: &[&(&str, &str)]) {
 /// clap cannot do this for us. Every subcommand is declared `trailing_var_arg`
 /// with a `Vec<String>` catch-all and each module then re-parses raw argv by
 /// hand, so clap is never told the valid set and nothing can detect a value
-/// outside it. Untouched, `omni stats --detial` silently ran the default
+/// outside it. Untouched, `veng stats --detial` silently ran the default
 /// overview and exited 0, the user asked for one mode, got another, and the
 /// output said nothing about the flag being ignored (#151).
 ///
 /// Long `--flags` are always checked. A single-letter `-x` is checked only when
 /// the subcommand declares at least one short flag, so free-form text keeps
-/// passing through (`omni remember "build with -O2"`, `omni engram list`).
+/// passing through (`veng remember "build with -O2"`, `veng engram list`).
 /// The flag an argument names, ignoring any `=value` attached to it.
 ///
 /// `check_flags` accepts `--flag=value` and validates the name alone, so every
 /// consumer that then compares the whole argument silently stops routing it:
-/// `omni reset --openclaw=1` passed validation, matched nothing, and dropped into
+/// `veng reset --openclaw=1` passed validation, matched nothing, and dropped into
 /// the interactive menu with the integration still installed. One function so the
 /// accepted form and the routed form cannot disagree.
 pub fn flag_name(arg: &str) -> &str {
@@ -145,9 +146,9 @@ pub fn flag_name(arg: &str) -> &str {
 ///
 /// `check_flags` validates `--flag=value` on the name alone, so a caller
 /// comparing the whole argument accepts the input and then behaves as if the
-/// flag were absent. Every command in this CLI had that shape: `omni reset
+/// flag were absent. Every command in this CLI had that shape: `veng reset
 /// --openclaw=1` dropped into the interactive menu with the plugin installed,
-/// and `omni init --openclaw=1` exited 0 having installed nothing (#646).
+/// and `veng init --openclaw=1` exited 0 having installed nothing (#646).
 ///
 /// Use this rather than `args.iter().any(|a| a == "--flag")`. There is a test in
 /// this module that fails on the raw form, because sixty of them is what it took
@@ -169,7 +170,7 @@ pub fn has_any(args: &[String], flags: &[&str]) -> bool {
 /// Did the caller ask for help?
 ///
 /// `--help`, `-h`, or `help` as the **first argument to the subcommand**. Every
-/// command used to test `help` anywhere in argv, so `omni query how do i get
+/// command used to test `help` anywhere in argv, so `veng query how do i get
 /// help` printed the help page instead of answering, and routing that word
 /// through `has_flag` made `help=notes.txt` do it too. Position is what separates
 /// the subcommand from its payload.
@@ -180,8 +181,8 @@ pub fn wants_help(args: &[String]) -> bool {
 /// The value given to a flag, as `--flag value` or `--flag=value`.
 ///
 /// The `=` form used to be accepted by `check_flags` and then never found, so
-/// `omni dashboard --port=8080` bound the default port and said nothing, and
-/// `omni patterns --tool=bash` filtered on nothing. Silently doing something
+/// `veng dashboard --port=8080` bound the default port and said nothing, and
+/// `veng patterns --tool=bash` filtered on nothing. Silently doing something
 /// other than what the argument said is worse here than for a boolean flag: the
 /// command succeeds and the answer is about something else.
 pub fn flag_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
@@ -219,9 +220,9 @@ pub fn check_flags(command: &str, args: &[String], flags: Flags) -> Result<()> {
 
         let hint = match nearest(name, flags) {
             Some(candidate) => format!("did you mean `{candidate}`?"),
-            None => format!("run `omni {command} --help` for the accepted flags"),
+            None => format!("run `veng {command} --help` for the accepted flags"),
         };
-        bail!("unknown flag `{name}` for `omni {command}`, {hint}");
+        bail!("unknown flag `{name}` for `veng {command}`, {hint}");
     }
     Ok(())
 }
@@ -254,7 +255,7 @@ mod rule_tests {
     use super::*;
 
     /// The rule is built from the widths it sits under, so a group cannot be
-    /// added or copied in without the arithmetic saying so. `omni stats
+    /// added or copied in without the arithmetic saying so. `veng stats
     /// --detail` shipped a five-group rule under a four-column header (#463).
     #[test]
     fn a_rule_is_exactly_as_wide_as_the_columns_it_frames() {
@@ -288,19 +289,19 @@ mod tests {
 
     #[test]
     fn accepts_a_documented_flag() {
-        assert!(check_flags("stats", &args(&["omni", "stats", "--detail"]), FLAGS).is_ok());
+        assert!(check_flags("stats", &args(&["veng", "stats", "--detail"]), FLAGS).is_ok());
     }
 
     #[test]
     fn rejects_a_flag_the_command_does_not_accept() {
-        let err = check_flags("stats", &args(&["omni", "stats", "--nonsense"]), FLAGS)
+        let err = check_flags("stats", &args(&["veng", "stats", "--nonsense"]), FLAGS)
             .expect_err("an undeclared flag must not be accepted silently");
         assert!(err.to_string().contains("--nonsense"), "{err}");
     }
 
     #[test]
     fn suggests_the_flag_a_typo_meant() {
-        let err = check_flags("stats", &args(&["omni", "stats", "--detial"]), FLAGS)
+        let err = check_flags("stats", &args(&["veng", "stats", "--detial"]), FLAGS)
             .expect_err("a typo must not be accepted silently");
         assert!(
             err.to_string().contains("did you mean `--detail`?"),
@@ -310,24 +311,24 @@ mod tests {
 
     #[test]
     fn offers_no_suggestion_when_nothing_is_close() {
-        let err = check_flags("stats", &args(&["omni", "stats", "--verbose"]), FLAGS)
+        let err = check_flags("stats", &args(&["veng", "stats", "--verbose"]), FLAGS)
             .expect_err("an undeclared flag must not be accepted silently");
-        assert!(err.to_string().contains("omni stats --help"), "{err}");
+        assert!(err.to_string().contains("veng stats --help"), "{err}");
     }
 
     #[test]
     fn checks_the_name_of_a_valued_flag() {
-        assert!(check_flags("stats", &args(&["omni", "stats", "--json=1"]), FLAGS).is_ok());
-        assert!(check_flags("stats", &args(&["omni", "stats", "--jsonn=1"]), FLAGS).is_err());
+        assert!(check_flags("stats", &args(&["veng", "stats", "--json=1"]), FLAGS).is_ok());
+        assert!(check_flags("stats", &args(&["veng", "stats", "--jsonn=1"]), FLAGS).is_err());
     }
 
     #[test]
     fn passes_free_text_and_subwords_through() {
-        assert!(check_flags("engram", &args(&["omni", "engram", "list"]), FLAGS).is_ok());
+        assert!(check_flags("engram", &args(&["veng", "engram", "list"]), FLAGS).is_ok());
         assert!(
             check_flags(
                 "remember",
-                &args(&["omni", "remember", "the build is --slow"]),
+                &args(&["veng", "remember", "the build is --slow"]),
                 FLAGS
             )
             .is_ok()
@@ -336,7 +337,7 @@ mod tests {
 
     #[test]
     fn never_rejects_help() {
-        assert!(check_flags("stats", &args(&["omni", "stats", "--help"]), FLAGS).is_ok());
+        assert!(check_flags("stats", &args(&["veng", "stats", "--help"]), FLAGS).is_ok());
     }
 }
 
@@ -520,21 +521,21 @@ mod flag_tests {
     /// `help` is a positional word, not a flag, so it is matched exactly and only
     /// where a subcommand's first argument sits. Routing it through `has_flag`
     /// made `help=notes.txt` trigger it, and testing it anywhere in argv made
-    /// `omni query how do i get help` print the help page instead of answering.
+    /// `veng query how do i get help` print the help page instead of answering.
     #[test]
     fn help_is_positional_and_query_text_does_not_trigger_it() {
         use super::wants_help;
-        assert!(wants_help(&argv(&["omni", "query", "help"])));
-        assert!(wants_help(&argv(&["omni", "query", "--help"])));
-        assert!(wants_help(&argv(&["omni", "query", "-h"])));
-        assert!(wants_help(&argv(&["omni", "query", "--help=1"])));
+        assert!(wants_help(&argv(&["veng", "query", "help"])));
+        assert!(wants_help(&argv(&["veng", "query", "--help"])));
+        assert!(wants_help(&argv(&["veng", "query", "-h"])));
+        assert!(wants_help(&argv(&["veng", "query", "--help=1"])));
 
         assert!(
-            !wants_help(&argv(&["omni", "query", "how", "do", "i", "get", "help"])),
+            !wants_help(&argv(&["veng", "query", "how", "do", "i", "get", "help"])),
             "a query that mentions help is not a request for the help page"
         );
-        assert!(!wants_help(&argv(&["omni", "query", "help=notes.txt"])));
-        assert!(!wants_help(&argv(&["omni", "query"])));
+        assert!(!wants_help(&argv(&["veng", "query", "help=notes.txt"])));
+        assert!(!wants_help(&argv(&["veng", "query"])));
     }
 
     /// The guard, and the reason it is a source scan rather than a lint: sixty

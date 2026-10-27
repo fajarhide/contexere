@@ -6,8 +6,8 @@
 
 use std::path::Path;
 
-use omni::hooks::{pipe, post_tool};
 use serde_json::Value;
+use veng::hooks::{pipe, post_tool};
 
 fn fixture(name: &str) -> String {
     let path = Path::new("tests").join("fixtures").join(name);
@@ -199,7 +199,7 @@ fn space_aligned_table_is_not_mistaken_for_a_delimited_format() {
     let raw = fixture("kubectl_pods_mixed.txt");
 
     assert!(
-        omni::pipeline::format::sniff(&raw).is_none(),
+        veng::pipeline::format::sniff(&raw).is_none(),
         "a space-aligned table is not a delimited format"
     );
 }
@@ -219,7 +219,7 @@ fn a_text_build_log_is_not_claimed_by_the_format_gate() {
     let raw = fixture("cargo_build_errors.txt");
 
     assert!(
-        omni::pipeline::format::sniff(&raw).is_none(),
+        veng::pipeline::format::sniff(&raw).is_none(),
         "a build log is free text; gating it as structured would take every \
          build log off the lossy path"
     );

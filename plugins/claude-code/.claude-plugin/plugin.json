@@ -1,14 +1,14 @@
 {
-  "name": "omni",
-  "displayName": "OMNI",
+  "name": "veng",
+  "displayName": "VENG",
   "version": "0.7.12",
-  "description": "Install OMNI, verify it, and read the markers it leaves when it shortens command output.",
+  "description": "Install VENG, verify it, and read the markers it leaves when it shortens command output.",
   "author": {
     "name": "fajarhide",
     "url": "https://github.com/fajarhide"
   },
-  "homepage": "https://omni.weekndlabs.com",
-  "repository": "https://github.com/fajarhide/omni",
+  "homepage": "https://veng.weekndlabs.com",
+  "repository": "https://github.com/fajarhide/veng",
   "license": "Apache-2.0",
   "keywords": ["tokens", "context", "hooks", "cli", "distillation"]
 }

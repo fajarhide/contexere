@@ -1,13 +1,13 @@
 /// [INT-01] Adaptive Scoring Feedback Loop
 ///
 /// Analyzes the `retrieval_feedback` table to surface actionable insights
-/// about OMNI's distillation effectiveness, without any LLM calls.
+/// about VENG's distillation effectiveness, without any LLM calls.
 /// All analysis is rule-based and runs on-demand (not in background).
 use crate::store::sqlite::Store;
 
 use serde::Serialize;
 
-/// The type of insight OMNI has detected.
+/// The type of insight VENG has detected.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum InsightType {
     /// A command is recalled frequently → distillation may be too aggressive.
@@ -44,13 +44,13 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
                 cmd, count
             ),
             affected_item: Some(cmd.clone()),
-            // `omni learn --loosen` went with the filter layer (#505), and
+            // `veng learn --loosen` went with the filter layer (#505), and
             // there is no user-facing knob to suggest in its place. Naming the
             // command and the count is the whole of what a reader can act on:
             // the next step is an issue, not a config change.
             suggested_action: format!(
                 "`{binary}` may be over-distilled. Open an issue at \
-                 github.com/fajarhide/omni with the raw output."
+                 github.com/fajarhide/veng with the raw output."
             ),
         });
     }
@@ -66,7 +66,7 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
             ),
             affected_item: Some(key),
             suggested_action:
-                "Review with `omni recall <topic>` and delete stale entries with `omni knowledge forget <key>`."
+                "Review with `veng recall <topic>` and delete stale entries with `veng knowledge forget <key>`."
                     .to_string(),
         });
     }
@@ -82,7 +82,7 @@ mod tests {
 
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let db_path = dir.path().join("omni.db");
+        let db_path = dir.path().join("veng.db");
         (Arc::new(Store::open_path(&db_path).unwrap()), dir)
     }
 

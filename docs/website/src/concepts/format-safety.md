@@ -8,7 +8,7 @@ Four kinds are recognised: **JSON**, **YAML**, **CSV** and **TSV**. Recognising 
 of them ends the matter.
 
 This is the stage people mistake for a failure. `kubectl get pods -o json` coming back
-at full length is not OMNI missing an opportunity, it is OMNI declining one.
+at full length is not VENG missing an opportunity, it is VENG declining one.
 
 ## Why declining is the right answer
 
@@ -40,23 +40,23 @@ row proves nothing.
 ## Turning it off, and when to
 
 ```sh
-OMNI_PASSTHROUGH=1 <your command>
+VENG_PASSTHROUGH=1 <your command>
 ```
 
-Skips the pipeline entirely. Use it when you are debugging OMNI itself and need to
+Skips the pipeline entirely. Use it when you are debugging VENG itself and need to
 see what a command really printed, or when reading a file whose exact bytes matter.
 
 The prefix works on every path, including inside an agent, but not for the reason it
 looks like. A hook is a separate process the host spawned, so it inherits the host's
 environment and never sees a variable you assign in front of a command. What it does
-see is the command string, so OMNI reads the assignment there. Two consequences worth
+see is the command string, so VENG reads the assignment there. Two consequences worth
 knowing: only a **leading** assignment counts, the same position a shell would apply
-it in, and `echo OMNI_PASSTHROUGH=1` mentions the name without setting anything and is
+it in, and `echo VENG_PASSTHROUGH=1` mentions the name without setting anything and is
 still distilled. Exporting it for the whole session works the ordinary way.
 
 This is the single most useful environment variable here, and it is the first thing
-to reach for when you suspect OMNI has changed something it should not have. If the
-output is identical with and without it, OMNI was not involved.
+to reach for when you suspect VENG has changed something it should not have. If the
+output is identical with and without it, VENG was not involved.
 
 ## Things that look like this gate and are not
 
@@ -68,6 +68,6 @@ defect.
 because taking anything would be unsafe or would not pay for its own marker. That is the
 pipeline working.
 
-**`kubectl` binary streams.** SPDY corrupts those with or without OMNI in the picture.
+**`kubectl` binary streams.** SPDY corrupts those with or without VENG in the picture.
 
 **Shell quoting.** Word splitting is your shell, not this program.

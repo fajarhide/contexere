@@ -73,7 +73,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     // Phase 0.4: the escape hatch is never distilled, on this path either.
     //
     // `post_tool` declines a recovery command and this did not, so
-    // `omni exec omni retrieve <handle>` re-entered the pipeline and handed back
+    // `veng exec veng retrieve <handle>` re-entered the pipeline and handed back
     // another marker: the same loop #456 reported, reached through a different
     // door. Found by probing the sibling path after fixing the reported one.
     if command_to_use.is_some_and(crate::hooks::post_tool::returns_archived_bytes) {
@@ -116,7 +116,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     ) {
         writeln!(
             error,
-            "[omni: Warning] Large input detected; processing may take longer..."
+            "[veng: Warning] Large input detected; processing may take longer..."
         )?;
     }
 
@@ -139,7 +139,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 input_text.len(),
                 &crate::pipeline::format::passthrough_reason(kind),
                 // Pipe mode has no host session id. Empty says that, where the
-                // `SessionState` fallback would say "whenever OMNI last started"
+                // `SessionState` fallback would say "whenever VENG last started"
                 // and group 16 project paths under one id (#118, #672).
                 //
                 // The agent id is what tells this row from a hook row, since an
@@ -230,7 +230,7 @@ fn transcript_begin<E: Write>(
         if let Err(e) = transcript.append_entry(entry)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript append error: {}", e);
+            let _ = writeln!(error, "[veng:debug] transcript append error: {}", e);
         }
     }
 }
@@ -264,7 +264,7 @@ fn distill(
 
         // Score and distill the tool's REAL output. #116: a distiller parses
         // its input, so feeding it `collapse`'s `[N similar lines collapsed]`
-        // markers makes it read OMNI's own scaffolding as data (a pod table
+        // markers makes it read VENG's own scaffolding as data (a pod table
         // became `k8s: 2 pods | [5 (lines)`). Collapse is the fallback only for
         // commands no distiller handles (below).
         let segments = scorer::score_segments(
@@ -334,7 +334,7 @@ fn distill(
         }
 
         // Safety truncation. The marker carries the line count: `ps aux` lost
-        // 416 of 556 rows here behind a bare `[OMNI: output truncated]` while
+        // 416 of 556 rows here behind a bare `[VENG: output truncated]` while
         // the footer reported it as a 62.2% saving (#219).
         crate::util::text::truncate_with_marker(&mut out, MAX_OUTPUT_BYTES, |dropped, whole| {
             store.and_then(|s| s.store_rewind(dropped, whole))
@@ -358,7 +358,7 @@ fn distill(
 
     // The ledger stage, which this path did not have until #416. `post_tool`
     // has run it since #397 and `pipe` never did, so a command the pre-hook
-    // rewrote into `omni exec` got the filters and nothing else. Same two
+    // rewrote into `veng exec` got the filters and nothing else. Same two
     // gates as the other hook: structured payloads are never projected, and
     // the scope is the host's session id and never `SessionState::session_id`,
     // which is a wall-clock stamp that covered 16 projects in one value (#118).
@@ -408,7 +408,7 @@ fn distill(
 
         let marker = if input_text.len() > crate::guard::limits::MAX_REWIND_BYTES {
             format!(
-                "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+                "\n[VENG: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
                 input_text.len(),
                 crate::guard::limits::MAX_REWIND_BYTES
             )
@@ -418,20 +418,20 @@ fn distill(
                 format!(
                     "\n{} {} {} {}. The hash {} stores the full output in RewindStore for retrieval.\n",
                     "⏺".cyan(),
-                    "OMNI".bold().bright_white(),
+                    "VENG".bold().bright_white(),
                     "distilled".bright_green(),
                     lost,
                     hash.cyan().bold()
                 )
             } else {
-                format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
+                format!("\n[VENG: {lost} omitted, veng retrieve {hash} for full output]\n")
             };
             r_hash = Some(hash);
             marker
         } else {
             // No store, or the insert did not land. Both leave the content
             // unretrievable, so neither may print a handle for it (#388).
-            format!("\n[OMNI: {lost} omitted, full output not archived]\n")
+            format!("\n[VENG: {lost} omitted, full output not archived]\n")
         };
 
         // A marker that pushes the reply back over the guardrail costs
@@ -462,7 +462,7 @@ fn distill(
     }
 
     // Safety truncation. The marker carries the line count: `ps aux` lost 416 of
-    // 556 rows here behind a bare `[OMNI: output truncated]` while the footer
+    // 556 rows here behind a bare `[VENG: output truncated]` while the footer
     // reported it as a 62.2% saving (#219).
     crate::util::text::truncate_with_marker(&mut output, MAX_OUTPUT_BYTES, |dropped, whole| {
         store.and_then(|s| s.store_rewind(dropped, whole))
@@ -547,17 +547,17 @@ fn persist<E: Write>(
         if let Err(e) = std::fs::create_dir_all(&cache_dir)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache dir creation error: {}", e);
+            let _ = writeln!(error, "[veng:debug] cache dir creation error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_input.txt"), &result.input_text)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache input write error: {}", e);
+            let _ = writeln!(error, "[veng:debug] cache input write error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_output.txt"), result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache output write error: {}", e);
+            let _ = writeln!(error, "[veng:debug] cache output write error: {}", e);
         }
     }
 
@@ -566,33 +566,33 @@ fn persist<E: Write>(
         if let Err(e) = transcript.mark_last_completed(result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript complete error: {}", e);
+            let _ = writeln!(error, "[veng:debug] transcript complete error: {}", e);
         }
         if let Some(guard) = session.as_ref().and_then(|m| m.lock().ok())
             && let Err(e) = transcript.snapshot_state(&guard)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript snapshot error: {}", e);
+            let _ = writeln!(error, "[veng:debug] transcript snapshot error: {}", e);
         }
     }
 }
 
-/// Who ran this, on the `omni exec` / pipe path.
+/// Who ran this, on the `veng exec` / pipe path.
 ///
 /// This used to be a third, private set of rules (#160). It knew only
-/// `OMNI_AGENT_ID`, then guessed **`aider`** for anything with `OMNI_CMD` set -
-/// a variable OMNI documents for its own pipe mode and that any caller may set,
+/// `VENG_AGENT_ID`, then guessed **`aider`** for anything with `VENG_CMD` set -
+/// a variable VENG documents for its own pipe mode and that any caller may set,
 /// so 3,296 rows on one machine were filed under an agent that had not run.
 /// Everything else became `terminal`, which is why work done inside Claude Code
-/// appeared in `omni stats` as shell usage.
+/// appeared in `veng stats` as shell usage.
 ///
-/// It now defers to the one env-based detector, so `omni exec`, the pipe, and
+/// It now defers to the one env-based detector, so `veng exec`, the pipe, and
 /// the peer-session tracker all name an agent the same way, and that name
 /// matches what `hooks::normalize` derives from a payload on the hook path.
 fn resolve_pipe_agent_id() -> String {
     pipe_agent_id_from(
         HOST_THAT_REWROTE.get().map(String::as_str),
-        std::env::var("OMNI_AGENT_ID").ok().as_deref(),
+        std::env::var("VENG_AGENT_ID").ok().as_deref(),
     )
 }
 
@@ -614,7 +614,7 @@ fn pipe_agent_id_from(from_flag: Option<&str>, from_env: Option<&str>) -> String
     crate::agents::multiagent::detect_agent_id()
 }
 
-/// The host whose pre-hook rewrote this command into `omni exec`, passed down as
+/// The host whose pre-hook rewrote this command into `veng exec`, passed down as
 /// `--agent` because the child inherits no evidence of who spawned it.
 ///
 /// Without it the run guesses from ambient environment and is wrong in both
@@ -637,7 +637,7 @@ pub fn set_host_that_rewrote(agent: &str) {
 /// stamp on globally persisted state and one such id covered 16 project paths and
 /// 3,739 commands (#118). Scoping by it would let the ledger tell one session it
 /// had been shown output that went to another, which is a false claim rather than
-/// a missed saving. So `omni exec` had no ledger at all until the pre-hook started
+/// a missed saving. So `veng exec` had no ledger at all until the pre-hook started
 /// forwarding this, which is what #416's check turned up: the two hooks were
 /// running different chains and only one of them had the stage.
 static HOST_SESSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -656,12 +656,12 @@ fn host_session() -> Option<&'static str> {
 
 /// Bytes from this run that reach a model's context.
 ///
-/// On the exec and pipe paths OMNI writes to its own stdout, so whether anything
+/// On the exec and pipe paths VENG writes to its own stdout, so whether anything
 /// that bills tokens is on the other end is decided by what stdout is attached
 /// to: a TTY means a human is reading and no context holds the result, while a
 /// pipe or a captured tool result means something downstream does. That
 /// distinction is the whole of #212's first finding, `agent_id='terminal'` rows
-/// were 73.4% of every byte OMNI claimed to have saved, folded into one headline
+/// were 73.4% of every byte VENG claimed to have saved, folded into one headline
 /// with the rows that really are tokens.
 ///
 /// `is_terminal()` is a property of the process, not a guess about the caller,
@@ -686,7 +686,7 @@ fn emit_output<W: Write, E: Write>(
         return Ok(());
     }
 
-    if std::env::var("OMNI_OUTPUT_JSON").is_ok() {
+    if std::env::var("VENG_OUTPUT_JSON").is_ok() {
         let tokens_saved = if result.input_text.len() > result.best_output().len() {
             (result.input_text.len() - result.best_output().len()) / 4
         } else {
@@ -721,13 +721,13 @@ fn emit_output<W: Write, E: Write>(
             crate::cli::stats::format_bytes(result.best_output().len() as u64).green(),
             elapsed.to_string().bright_black()
         );
-        writeln!(error, "{} {}", "[OMNI Active]".bold().cyan(), msg)?;
+        writeln!(error, "{} {}", "[VENG Active]".bold().cyan(), msg)?;
     }
 
     Ok(())
 }
 
-/// The command feeding `omni` in a `cmd | omni` pipeline, read out of `ps` output.
+/// The command feeding `veng` in a `cmd | veng` pipeline, read out of `ps` output.
 ///
 /// Pure so it can be tested: everything above it is `ps` plumbing that a unit test
 /// cannot drive, and everything that decides *which* command gets the credit is here.
@@ -743,7 +743,7 @@ fn emit_output<W: Write, E: Write>(
 /// so **282 of 289 pipe-path rows in the maintainer's database recorded `/bin/zsh` as
 /// the producing command**, carrying the whole shell-snapshot wrapper with them.
 ///
-/// What is left needs an actual pipe and an actual `omni` on the right of it, which is
+/// What is left needs an actual pipe and an actual `veng` on the right of it, which is
 /// evidence rather than proximity. No match means no command, which is a state the
 /// pipeline already supports: `filter_name` becomes `[pipe]` and the payload takes the
 /// generic path.
@@ -754,7 +754,7 @@ fn pipeline_in(siblings: &str) -> Option<String> {
         .filter(|line| {
             (line.contains("sh ") || line.contains("zsh ") || line.contains("bash "))
                 && line.contains('|')
-                && line.contains("omni")
+                && line.contains("veng")
         })
         .find_map(extract_command_from_pipeline)
 }
@@ -793,7 +793,7 @@ fn detect_sibling_command() -> Option<String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_default();
 
-    // 5. Parse a real `cmd | omni` pipeline out of the group's command lines.
+    // 5. Parse a real `cmd | veng` pipeline out of the group's command lines.
     if let Some(cmd) = pipeline_in(&siblings) {
         return Some(cmd);
     }
@@ -809,7 +809,7 @@ fn detect_sibling_command() -> Option<String> {
             .trim()
             .to_string();
 
-        if parent_line.contains('|') && parent_line.contains("omni") {
+        if parent_line.contains('|') && parent_line.contains("veng") {
             #[allow(clippy::collapsible_if)]
             if let Some(cmd) = extract_command_from_pipeline(&parent_line) {
                 return Some(cmd);
@@ -828,11 +828,11 @@ fn detect_sibling_command() -> Option<String> {
 /// one, both ASCII.
 #[allow(clippy::string_slice)]
 fn extract_command_from_pipeline(line: &str) -> Option<String> {
-    // Split by pipe and find the segment immediately before "omni"
+    // Split by pipe and find the segment immediately before "veng"
     let pipe_parts: Vec<&str> = line.split('|').collect();
-    let omni_idx = pipe_parts.iter().position(|p| p.contains("omni"));
+    let veng_idx = pipe_parts.iter().position(|p| p.contains("veng"));
 
-    if let Some(idx) = omni_idx {
+    if let Some(idx) = veng_idx {
         #[allow(clippy::collapsible_if)]
         if idx > 0 {
             let cmd_segment = pipe_parts[idx - 1];
@@ -844,7 +844,7 @@ fn extract_command_from_pipeline(line: &str) -> Option<String> {
                 cmd_segment
             };
 
-            // Handle command chains like: source ~/.zshrc && ls -la | omni
+            // Handle command chains like: source ~/.zshrc && ls -la | veng
             if let Some(last_chain_idx) = clean.rfind(['&', ';']) {
                 clean = &clean[last_chain_idx + 1..];
                 clean = clean.trim_start_matches('&');
@@ -876,7 +876,7 @@ mod tests {
     }
 
     /// A flag that arrived empty is not an identity, and neither is an empty
-    /// `OMNI_AGENT_ID`; both must fall through rather than record a blank agent.
+    /// `VENG_AGENT_ID`; both must fall through rather than record a blank agent.
     #[test]
     fn falls_through_when_a_source_is_present_but_empty() {
         assert_eq!(
@@ -909,7 +909,7 @@ mod tests {
 
     /// #271, on the other hook path. The pipe carried the same noise-ratio gate
     /// and the same empty archive, so fixing only `hooks::post_tool` would leave
-    /// "everything cut is archived" false for every `omni exec` call.
+    /// "everything cut is archived" false for every `veng exec` call.
     #[test]
     fn archives_the_raw_output_it_shortens() {
         // Arrange
@@ -919,7 +919,7 @@ mod tests {
         }
         input.push_str("test result: ok. 200 passed; 0 failed\n");
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Arc::new(Store::open_path(&db).expect("store"));
         let mut out = Vec::new();
         let mut err = Vec::new();
@@ -948,7 +948,7 @@ mod tests {
             "a lossy reply must be smaller than the bytes it replaces"
         );
         assert!(
-            delivered.contains("omni retrieve "),
+            delivered.contains("veng retrieve "),
             "the caller cannot call what it was not told: {delivered}"
         );
     }
@@ -984,9 +984,9 @@ mod tests {
     #[test]
     fn an_unrelated_daemon_in_the_group_is_not_the_command() {
         let siblings = "\
-node /path/to/tokenbench/node_modules/.bin/tsx core/src/cli.ts --tools omni
+node /path/to/tokenbench/node_modules/.bin/tsx core/src/cli.ts --tools veng
 /path/to/node_modules/@esbuild/darwin-arm64/bin/esbuild --service=0.28.2 --ping
-omni";
+veng";
 
         assert_eq!(
             pipeline_in(siblings),
@@ -1012,10 +1012,10 @@ omni";
     }
 
     /// What survives, and why the pass is not simply deleted: a real pipeline names
-    /// the command feeding omni, and that is evidence rather than proximity.
+    /// the command feeding veng, and that is evidence rather than proximity.
     #[test]
     fn a_real_pipeline_still_names_its_command() {
-        let siblings = "/bin/zsh -c cat /var/log/app.log | omni\nomni";
+        let siblings = "/bin/zsh -c cat /var/log/app.log | veng\nveng";
 
         assert_eq!(
             pipeline_in(siblings),
@@ -1024,7 +1024,7 @@ omni";
     }
 
     /// #456 reached through the sibling door. `post_tool` declined a recovery
-    /// command and this path did not, so `omni exec omni retrieve <handle>` came
+    /// command and this path did not, so `veng exec veng retrieve <handle>` came
     /// back as another marker with another handle. Found by probing this path
     /// after fixing the one that was reported, which is the only reason it is not
     /// a second issue.
@@ -1042,7 +1042,7 @@ omni";
             &mut err,
             None,
             None,
-            Some("omni retrieve 0000000000000000"),
+            Some("veng retrieve 0000000000000000"),
         )
         .expect("must succeed");
 

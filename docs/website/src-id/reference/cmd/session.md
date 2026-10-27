@@ -1,10 +1,10 @@
-# `omni session`
+# `veng session`
 
 Keadaan sesi: apa yang sudah dihabiskan sesi ini, untuk apa, dan cara membawanya
 melewati sebuah restart.
 
 ```sh
-omni session --status
+veng session --status
 ```
 
 ## Flag
@@ -22,7 +22,7 @@ omni session --status
 | `--json` | Bisa dibaca mesin |
 | `--help`, `-h` | Bantuan |
 
-`omni sessions` diterima sebagai alias.
+`veng sessions` diterima sebagai alias.
 
 ## Apa itu sesi di sini
 
@@ -32,7 +32,7 @@ internal pernah mencakup 16 proyek dalam satu nilai, yang akan membuat ledger
 memberi tahu satu sesi bahwa ia sudah ditunjukkan keluaran yang sebenarnya pergi
 ke sesi lain.
 
-Itu juga alasan `omni exec` menerima `--session`: tanpa id host yang diteruskan
+Itu juga alasan `veng exec` menerima `--session`: tanpa id host yang diteruskan
 tidak ada cakupan ledger, dan karena itu untuk beberapa waktu jalur exec sama
 sekali tidak menjalankan ledger.
 
@@ -46,9 +46,9 @@ berganti host tidak menghilangkan konteks proyeknya.
 mengonsumsinya.
 
 Untuk menyeberang ke mesin yang tidak berbagi basis data, pakai perkakas MCP
-`omni_handoff`, yang mengekspor keadaannya sebagai markdown yang bisa dibawa.
+`veng_handoff`, yang mengekspor keadaannya sebagai markdown yang bisa dibawa.
 Subperintah CLI dengan nama itu sudah dihapus; perkakas MCP-nya tidak berubah. Ia
-berada di luar set bawaan yang diiklankan, jadi ia butuh `OMNI_MCP_TOOLS=all`.
+berada di luar set bawaan yang diiklankan, jadi ia butuh `VENG_MCP_TOOLS=all`.
 
 ## Retensi
 

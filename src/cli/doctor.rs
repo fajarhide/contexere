@@ -19,14 +19,14 @@ const FLAGS: super::Flags = &[
 fn print_help() {
     println!(
         "\n{} {}: Installation diagnostics",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "doctor".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni doctor {}", "[--fix]".cyan());
+    println!("  veng doctor {}", "[--fix]".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
-    println!("  Checks the health of your OMNI installation, including:");
+    println!("  Checks the health of your VENG installation, including:");
     println!("  • Binary version and accessibility");
     println!("  • Configuration directory and database");
     println!("  • Claude Code hook installation");
@@ -90,7 +90,7 @@ pub struct DoctorCheck {
 /// nothing. Parsing cannot fail into a false alarm: an unreadable or malformed
 /// value means "nothing to report", never "something is wrong".
 fn unreleased_entries() -> usize {
-    option_env!("OMNI_UNRELEASED_ENTRIES")
+    option_env!("VENG_UNRELEASED_ENTRIES")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0)
 }
@@ -106,11 +106,11 @@ fn unreleased_entries() -> usize {
 pub(crate) fn mcp_tool_line(agent_id: &str, keep_everything: bool) -> String {
     let total = crate::mcp::policy::ALL_TOOL_COUNT;
     let (active, note) = if keep_everything {
-        (total, "OMNI_MCP_TOOLS=all is set")
+        (total, "VENG_MCP_TOOLS=all is set")
     } else {
         (
             crate::mcp::policy::active_tools(agent_id).len(),
-            "OMNI_MCP_TOOLS=all restores the rest",
+            "VENG_MCP_TOOLS=all restores the rest",
         )
     };
     format!("  MCP tools:      {active} of {total} advertised to {agent_id} ({note})")
@@ -126,7 +126,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     checks.push(DoctorCheck {
         name: "binary".to_string(),
         ok: true,
-        message: format!("omni v{}", env!("CARGO_PKG_VERSION")),
+        message: format!("veng v{}", env!("CARGO_PKG_VERSION")),
     });
 
     // 2. Config Dir
@@ -144,7 +144,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
             checks.push(DoctorCheck {
                 name: "config".to_string(),
                 ok: false,
-                message: "Cannot write to ~/.omni/. Sandbox issue?".to_string(),
+                message: "Cannot write to ~/.veng/. Sandbox issue?".to_string(),
             });
             all_ok = false;
         }
@@ -159,7 +159,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
             checks.push(DoctorCheck {
                 name: "config".to_string(),
                 ok: false,
-                message: "missing ~/.omni/".to_string(),
+                message: "missing ~/.veng/".to_string(),
             });
             all_ok = false;
             fix_available = true;
@@ -334,23 +334,23 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let mut warnings: Vec<String> = Vec::new();
     println!();
     super::print_rule();
-    println!(" {}: Installation Diagnostics", "OMNI Doctor".bold().cyan());
+    println!(" {}: Installation Diagnostics", "VENG Doctor".bold().cyan());
     super::print_rule();
 
     // 1. Binary Version
     let status = crate::guard::update::get_status();
     let version_info = match status {
         crate::guard::update::Status::Latest => {
-            format!("omni v{} {}", env!("CARGO_PKG_VERSION"), "[LATEST]".green())
+            format!("veng v{} {}", env!("CARGO_PKG_VERSION"), "[LATEST]".green())
         }
         crate::guard::update::Status::UpdateAvailable(v) => format!(
-            "omni v{} {} (Latest: {})",
+            "veng v{} {} (Latest: {})",
             env!("CARGO_PKG_VERSION"),
             "[UPDATE]".yellow().bold(),
             v.green()
         ),
         crate::guard::update::Status::Ahead => format!(
-            "omni v{} {}",
+            "veng v{} {}",
             env!("CARGO_PKG_VERSION"),
             "[AHEAD/RC]".blue().bold()
         ),
@@ -377,7 +377,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // 2. Config Dir (with actual write test for sandbox detection)
     let conf_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".omni");
+        .join(".veng");
     if conf_dir.exists() {
         // Actual write test catches sandbox restrictions
         let test_file = conf_dir.join(".write_test");
@@ -385,37 +385,37 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             Ok(_) => {
                 let _ = fs::remove_file(&test_file);
                 println!(
-                    "  {:<15} ~/.omni/ {}",
+                    "  {:<15} ~/.veng/ {}",
                     "Config dir:".bright_black(),
                     "[OK]".green().bold()
                 );
             }
             Err(_) => {
                 println!(
-                    "  {:<15} ~/.omni/ {}",
+                    "  {:<15} ~/.veng/ {}",
                     "Config dir:".bright_black(),
                     "[ERROR]".red().bold()
                 );
                 warnings.push(
-                    "Cannot write to ~/.omni/. If using Claude Code, add ~/.omni to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
+                    "Cannot write to ~/.veng/. If using Claude Code, add ~/.veng to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
                 );
                 all_ok = false;
             }
         }
     } else if fix_mode && fs::create_dir_all(&conf_dir).is_ok() {
         println!(
-            "  {:<15} ~/.omni/ {}",
+            "  {:<15} ~/.veng/ {}",
             "Config dir:".bright_black(),
             "[FIXED]".green().bold()
         );
     } else {
         println!(
-            "  {:<15} ~/.omni/ {}",
+            "  {:<15} ~/.veng/ {}",
             "Config dir:".bright_black(),
             "[ERROR]".red().bold()
         );
         warnings.push(
-            "Config directory ~/.omni/ is missing or not writable. Run `omni init`.".to_string(),
+            "Config directory ~/.veng/ is missing or not writable. Run `veng init`.".to_string(),
         );
         all_ok = false;
     }
@@ -427,7 +427,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             // Name both numbers. "{sessions} records" read as a row count, so a
             // 112 MB database holding 5,730 distillations reported 17 (#118).
             println!(
-                "  {:<15} ~/.omni/omni.db ({} distillations, {} sessions) {}",
+                "  {:<15} ~/.veng/veng.db ({} distillations, {} sessions) {}",
                 "Database:".bright_black(),
                 store.distillation_count().to_string().yellow(),
                 sessions.to_string().yellow(),
@@ -448,7 +448,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "[ERROR]".red().bold()
                 );
                 warnings.push(
-                    "Database is read-only. Claude Code sandbox may be blocking writes to ~/.omni/omni.db. Add ~/.omni to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
+                    "Database is read-only. Claude Code sandbox may be blocking writes to ~/.veng/veng.db. Add ~/.veng to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
                 );
                 all_ok = false;
             }
@@ -492,7 +492,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(
-                        "Most of the database file is dead space. Run `omni doctor --fix` to reclaim it."
+                        "Most of the database file is dead space. Run `veng doctor --fix` to reclaim it."
                             .to_string(),
                     );
                 }
@@ -558,7 +558,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         Err(_) => {
             println!(
-                "  {:<15} ~/.omni/omni.db (missing) {}",
+                "  {:<15} ~/.veng/veng.db (missing) {}",
                 "Database:".bright_black(),
                 "[ERROR]".red().bold()
             );
@@ -603,7 +603,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     if hidden_total > 0 && !detail {
         println!(
             "   {}",
-            format!("omni doctor --detail also prints the {hidden_total} checks that passed")
+            format!("veng doctor --detail also prints the {hidden_total} checks that passed")
                 .bright_black()
         );
     }
@@ -639,7 +639,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     if !any_agent_ok {
         warnings.push(
-            "No agent integrations are configured. Run `omni init` to set up hooks + MCP for your agent."
+            "No agent integrations are configured. Run `veng init` to set up hooks + MCP for your agent."
                 .to_string(),
         );
         all_ok = false;
@@ -741,7 +741,7 @@ mod tests {
     /// for every kept row turns the sources into siblings of the count.
     #[test]
     fn a_nested_row_stays_under_the_row_it_belongs_to() {
-        let report = "  Pi Agent:\n   Duplicates:     2 OMNI sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
+        let report = "  Pi Agent:\n   Duplicates:     2 VENG sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
 
         let (out, _) = condense_agent_report("Pi Agent", "MCP-only", report, false);
 
@@ -810,7 +810,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      2 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all restores the rest)"
+             (VENG_MCP_TOOLS=all restores the rest)"
         );
     }
 
@@ -822,7 +822,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      25 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all is set)"
+             (VENG_MCP_TOOLS=all is set)"
         );
     }
 }

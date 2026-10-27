@@ -1,7 +1,7 @@
-use omni::pipeline::SessionState;
-use omni::session::engram::{Engram, EngramTrigger};
-use omni::store::sqlite::Store;
 use tempfile::tempdir;
+use veng::pipeline::SessionState;
+use veng::session::engram::{Engram, EngramTrigger};
+use veng::store::sqlite::Store;
 
 // ─── Unit Tests (25+) ────────────────────────────────────────────────────────
 macro_rules! generate_session_state_unit_tests {
@@ -64,7 +64,7 @@ fn test_session_state_engram_push() {
 #[test]
 fn test_integration_store_session() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
     let mut state = SessionState::new();
     state.session_id = "l1-int-1".to_string();
     store.upsert_session(&state);
@@ -75,7 +75,7 @@ fn test_integration_store_session() {
 #[test]
 fn test_integration_hot_files() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
     let mut state = SessionState::new();
     state.session_id = "l1-int-2".to_string();
     state.add_hot_file("src/main.rs");
@@ -88,7 +88,7 @@ fn test_integration_hot_files() {
 #[test]
 fn test_integration_commands() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
     let mut state = SessionState::new();
     state.session_id = "l1-int-3".to_string();
     state.add_command("echo hello");
@@ -100,7 +100,7 @@ fn test_integration_commands() {
 #[test]
 fn test_integration_errors() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
     let mut state = SessionState::new();
     state.session_id = "l1-int-4".to_string();
     state.add_error("boom");
@@ -112,7 +112,7 @@ fn test_integration_errors() {
 #[test]
 fn test_integration_loop_context() {
     let dir = tempdir().unwrap();
-    let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
+    let store = Store::open_path(&dir.path().join("veng.db")).unwrap();
     let mut state = SessionState::new();
     state.session_id = "l1-int-5".to_string();
     state.loop_context.loop_id = Some("loop-1".to_string());

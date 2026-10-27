@@ -1,29 +1,29 @@
 #!/bin/bash
-# OMNI Final Integration & Smoke Test
+# VENG Final Integration & Smoke Test
 # Covers 9 end-to-end scenarios for release validation.
-# Usage: tests/smoke_test.sh [path-to-omni-binary]
+# Usage: tests/smoke_test.sh [path-to-veng-binary]
 
 set -euo pipefail
 
-OMNI="${1:-./target/release/omni}"
-if [ ! -f "$OMNI" ]; then
-    OMNI="./target/debug/omni"
+VENG="${1:-./target/release/veng}"
+if [ ! -f "$VENG" ]; then
+    VENG="./target/debug/veng"
 fi
-if [ ! -f "$OMNI" ]; then
-    echo "Error: omni binary not found. Build first: cargo build --release"
+if [ ! -f "$VENG" ]; then
+    echo "Error: veng binary not found. Build first: cargo build --release"
     exit 1
 fi
 
 # A clean store unless the caller brought one. Checks such as "folds view says
-# why it is empty" assume nothing was recorded, and `omni-release.sh` ran this
-# against the maintainer's own ~/.omni, where 0.7.10 and later record fold
+# why it is empty" assume nothing was recorded, and `veng-release.sh` ran this
+# against the maintainer's own ~/.veng, where 0.7.10 and later record fold
 # markers, so the release gate failed on history rather than on the build (#877).
-if [ -z "${OMNI_HOME:-}" ]; then
-    OMNI_HOME="$(mktemp -d)"
-    export OMNI_HOME
-    trap 'rm -rf "$OMNI_HOME"' EXIT
+if [ -z "${VENG_HOME:-}" ]; then
+    VENG_HOME="$(mktemp -d)"
+    export VENG_HOME
+    trap 'rm -rf "$VENG_HOME"' EXIT
 fi
-unset OMNI_DB_PATH
+unset VENG_DB_PATH
 
 PASS=0
 FAIL=0
@@ -77,19 +77,19 @@ check_shorter() {
 }
 
 echo "═══════════════════════════════════════════"
-echo " OMNI Final Integration Tests"
-echo " Binary: $OMNI"
+echo " VENG Final Integration Tests"
+echo " Binary: $VENG"
 echo "═══════════════════════════════════════════"
 echo ""
 
 # ─── 1. Version ──────────────────────────────────────────
 echo "▸ Scenario 1: Version"
-VERSION_OUT=$("$OMNI" version 2>&1)
-check "version output" "$VERSION_OUT" "omni"
+VERSION_OUT=$("$VENG" version 2>&1)
+check "version output" "$VERSION_OUT" "veng"
 
 # ─── 2. Help ─────────────────────────────────────────────
 echo "▸ Scenario 2: Help"
-HELP_OUT=$("$OMNI" help 2>&1)
+HELP_OUT=$("$VENG" help 2>&1)
 check "help shows init" "$HELP_OUT" "init"
 check "help shows stats" "$HELP_OUT" "stats"
 check "help shows session" "$HELP_OUT" "session"
@@ -98,22 +98,22 @@ check "help shows reset" "$HELP_OUT" "reset"
 check "help shows diff" "$HELP_OUT" "diff"
 check "help shows update" "$HELP_OUT" "update"
 check "help shows version" "$HELP_OUT" "version"
-check "help shows pipe mode" "$HELP_OUT" "| omni"
+check "help shows pipe mode" "$HELP_OUT" "| veng"
 
 # ─── 3. Doctor ───────────────────────────────────────────
 echo "▸ Scenario 3: Doctor"
-DOCTOR_OUT=$("$OMNI" doctor 2>&1 || true)
-check "doctor shows header" "$DOCTOR_OUT" "OMNI Doctor"
+DOCTOR_OUT=$("$VENG" doctor 2>&1 || true)
+check "doctor shows header" "$DOCTOR_OUT" "VENG Doctor"
 check "doctor shows binary" "$DOCTOR_OUT" "Binary"
 
-# The env read behind OMNI_MCP_TOOLS cannot be covered by a cargo test: this crate
+# The env read behind VENG_MCP_TOOLS cannot be covered by a cargo test: this crate
 # already mutates process environment in tests, cargo runs them in parallel, and that
 # combination has reddened CI here before. A subprocess has its own environment, so the
 # escape hatch is verified across the boundary that can actually be wrong.
-LEAN_OUT=$(OMNI_AGENT_ID=claude_code "$OMNI" doctor 2>&1 || true)
+LEAN_OUT=$(VENG_AGENT_ID=claude_code "$VENG" doctor 2>&1 || true)
 check "doctor reports the lean MCP surface" "$LEAN_OUT" "2 of 25"
-ALL_OUT=$(OMNI_AGENT_ID=claude_code OMNI_MCP_TOOLS=all "$OMNI" doctor 2>&1 || true)
-check "OMNI_MCP_TOOLS=all restores every tool" "$ALL_OUT" "25 of 25"
+ALL_OUT=$(VENG_AGENT_ID=claude_code VENG_MCP_TOOLS=all "$VENG" doctor 2>&1 || true)
+check "VENG_MCP_TOOLS=all restores every tool" "$ALL_OUT" "25 of 25"
 
 # ─── 4. PostToolUse Hook E2E ─────────────────────────────
 echo "▸ Scenario 4: PostToolUse Hook E2E"
@@ -132,7 +132,7 @@ HOOK_JSON=$(cat <<EOF
 }
 EOF
 )
-HOOK_OUT=$(echo "$HOOK_JSON" | "$OMNI" --hook 2>/dev/null || true)
+HOOK_OUT=$(echo "$HOOK_JSON" | "$VENG" --hook 2>/dev/null || true)
 HOOK_EXIT=$?
 check_exit "hook exits cleanly" "$HOOK_EXIT" "0"
 
@@ -156,7 +156,7 @@ fi
 # ─── 5. Pipe Mode ────────────────────────────────────────
 echo "▸ Scenario 5: Pipe Mode"
 PIPE_INPUT=$(cat tests/fixtures/heavy_noise.txt)
-PIPE_OUT=$(echo "$PIPE_INPUT" | "$OMNI" 2>/dev/null)
+PIPE_OUT=$(echo "$PIPE_INPUT" | "$VENG" 2>/dev/null)
 PIPE_EXIT=$?
 # Bytes on both sides, explicitly. `${#var}` counts characters under a UTF-8
 # locale and bytes under C, so the same output measured 396 on macOS and 399 on
@@ -171,8 +171,8 @@ if [ "$PIPE_OUT_LEN" -gt "$PIPE_INPUT_LEN" ]; then
     # home I can build locally, so print what the binary actually returned
     # rather than guess at it a fourth time.
     echo "  ── pipe diagnostic ──"
-    echo "  OMNI_HOME=${OMNI_HOME:-<unset>}"
-    ls -la "${OMNI_HOME:-$HOME/.omni}" 2>&1 | sed 's/^/  ls| /' | head -8
+    echo "  VENG_HOME=${VENG_HOME:-<unset>}"
+    ls -la "${VENG_HOME:-$HOME/.veng}" 2>&1 | sed 's/^/  ls| /' | head -8
     printf '%s' "$PIPE_OUT" | sed 's/^/  out| /' | tail -12
 fi
 
@@ -184,7 +184,7 @@ fi
 # became a bare `b/sample.py`, the context lines were folded away and the `@@`
 # counts were left claiming the original hunk.
 DIFF_IN=$(cat tests/fixtures/git_diff_multi_file.txt)
-DIFF_OUT=$(printf '%s' "$DIFF_IN" | "$OMNI" 2>/dev/null)
+DIFF_OUT=$(printf '%s' "$DIFF_IN" | "$VENG" 2>/dev/null)
 if [ "$DIFF_OUT" = "$DIFF_IN" ]; then
     echo "  ✓ a unified diff comes back unchanged"
     PASS=$((PASS + 1))
@@ -198,13 +198,13 @@ TOTAL=$((TOTAL + 1))
 # ─── 6. SessionStart Mock ────────────────────────────────
 echo "▸ Scenario 6: SessionStart Hook"
 SESSION_JSON='{"hook_event_name":"SessionStart","session_id":"test-smoke-session"}'
-SESSION_OUT=$(echo "$SESSION_JSON" | "$OMNI" --hook 2>/dev/null || true)
+SESSION_OUT=$(echo "$SESSION_JSON" | "$VENG" --hook 2>/dev/null || true)
 SESSION_EXIT=$?
 check_exit "session start exits cleanly" "$SESSION_EXIT" "0"
 
 # ─── 7. Stats ────────────────────────────────────────────
 echo "▸ Scenario 7: Stats"
-STATS_OUT=$("$OMNI" stats 2>&1 || true)
+STATS_OUT=$("$VENG" stats 2>&1 || true)
 check "stats names its window" "$STATS_OUT" "last 30 days"
 # #665: the default view leads with what never reached the model and names both
 # engines. A fresh store here takes the no-data path, same as the share card.
@@ -219,10 +219,10 @@ fi
 # The share card runs against a fresh store here, so it takes the no-data path.
 # Both branches have to exit 0: a growth surface that panics on a new install is
 # worse than not having one.
-SHARE_OUT=$("$OMNI" stats --share 2>&1)
+SHARE_OUT=$("$VENG" stats --share 2>&1)
 SHARE_EXIT=$?
 check_exit "stats --share exits 0" "$SHARE_EXIT" "0"
-if echo "$SHARE_OUT" | grep -q "OMNI saved me"; then
+if echo "$SHARE_OUT" | grep -q "VENG saved me"; then
     check "share card names the source" "$SHARE_OUT" "terminal output excluded"
 else
     check "share card says so when there is no data" "$SHARE_OUT" "No data yet"
@@ -234,9 +234,9 @@ echo "▸ Scenario 9: MCP Server"
 # macOS doesn't have `timeout`, use perl-based alternative
 MCP_EXIT=0
 if command -v timeout &>/dev/null; then
-    timeout 2 "$OMNI" --mcp </dev/null 2>/dev/null || MCP_EXIT=$?
+    timeout 2 "$VENG" --mcp </dev/null 2>/dev/null || MCP_EXIT=$?
 else
-    perl -e 'alarm 2; exec @ARGV' "$OMNI" --mcp </dev/null 2>/dev/null || MCP_EXIT=$?
+    perl -e 'alarm 2; exec @ARGV' "$VENG" --mcp </dev/null 2>/dev/null || MCP_EXIT=$?
 fi
 # Exit 124/142 = timeout (expected), 0 = clean exit, both are OK
 if [ "$MCP_EXIT" -eq 124 ] || [ "$MCP_EXIT" -eq 142 ] || [ "$MCP_EXIT" -eq 0 ]; then
@@ -250,11 +250,11 @@ TOTAL=$((TOTAL + 1))
 
 # ─── 10. Unknown Command ─────────────────────────────────
 echo "▸ Scenario 10: Error Handling"
-UNKNOWN_OUT=$("$OMNI" nonexistent-cmd 2>&1 || true)
+UNKNOWN_OUT=$("$VENG" nonexistent-cmd 2>&1 || true)
 check "unknown command error" "$UNKNOWN_OUT" "unknown command"
 
 EMPTY_PIPE_EXIT=0
-printf '' | "$OMNI" 2>/dev/null || EMPTY_PIPE_EXIT=$?
+printf '' | "$VENG" 2>/dev/null || EMPTY_PIPE_EXIT=$?
 # Empty pipe should exit 0 (silent passthrough)
 if [ "$EMPTY_PIPE_EXIT" -eq 0 ]; then
     echo "  ✓ empty pipe exits cleanly ($EMPTY_PIPE_EXIT)"
@@ -267,10 +267,10 @@ TOTAL=$((TOTAL + 1))
 
 # ─── 11. Multibyte Output ───────────────────────
 echo "▸ Scenario 11: Multibyte Output"
-output=$("$OMNI" exec bash -c 'printf "│━┌└⠋⠙✗⚠▶ %0.s─" {1..120}' 2>&1)
+output=$("$VENG" exec bash -c 'printf "│━┌└⠋⠙✗⚠▶ %0.s─" {1..120}' 2>&1)
 exit_code=$?
 if [ $exit_code -eq 134 ]; then
-    echo "  ✗ omni panicked with SIGABRT on multibyte output"
+    echo "  ✗ veng panicked with SIGABRT on multibyte output"
     FAIL=$((FAIL + 1))
 else
     echo "  ✓ multibyte stdout handled safely (exit $exit_code)"
@@ -282,7 +282,7 @@ TOTAL=$((TOTAL + 1))
 echo "▸ Scenario 12: JSON Contracts"
 
 # Test version --json
-VERSION_JSON=$("$OMNI" version --json 2>&1 || true)
+VERSION_JSON=$("$VENG" version --json 2>&1 || true)
 if echo "$VERSION_JSON" | python3 -c 'import sys,json; json.load(sys.stdin)' 2>/dev/null; then
     echo "  ✓ version --json is valid JSON"
     PASS=$((PASS + 1))
@@ -294,7 +294,7 @@ TOTAL=$((TOTAL + 1))
 check "version json has git_hash" "$VERSION_JSON" "git_hash"
 
 # Test stats --json
-STATS_JSON=$("$OMNI" stats --json 2>&1 || true)
+STATS_JSON=$("$VENG" stats --json 2>&1 || true)
 if echo "$STATS_JSON" | python3 -c 'import sys,json; json.load(sys.stdin)' 2>/dev/null; then
     echo "  ✓ stats --json is valid JSON"
     PASS=$((PASS + 1))
@@ -306,7 +306,7 @@ TOTAL=$((TOTAL + 1))
 check "stats json has avg_latency_ms" "$STATS_JSON" "avg_latency_ms"
 
 # Test session --json
-SESSION_JSON=$("$OMNI" session --json 2>&1 || true)
+SESSION_JSON=$("$VENG" session --json 2>&1 || true)
 if echo "$SESSION_JSON" | python3 -c 'import sys,json; json.load(sys.stdin)' 2>/dev/null; then
     echo "  ✓ session --json is valid JSON"
     PASS=$((PASS + 1))
@@ -326,9 +326,9 @@ check "session json has context_pressure" "$SESSION_JSON" "context_pressure"
 # terminal weeks later. It lives in the smoke test for the same reason as the
 # block below: it is a property of the shipped binary's output, and `cargo test`
 # never runs this file.
-DETAIL_OUT="$($OMNI stats --view detail 2>&1 || true)"
+DETAIL_OUT="$($VENG stats --view detail 2>&1 || true)"
 for SECTION in "commands" "bytes in, out" "of what it saw" "latency" "sessions" \
-               "by period" "where the bytes were" "what OMNI did with each call" \
+               "by period" "where the bytes were" "what VENG did with each call" \
                "by agent"; do
     check "detail keeps '$SECTION'" "$DETAIL_OUT" "$SECTION"
 done
@@ -343,21 +343,21 @@ done
 # #816. The calibration view has to reach a person: `marker_retrieve_rates` was
 # computed and read by nothing outside tests for two releases. An empty store
 # prints the empty state, which is what a fresh smoke run has.
-FOLDS_OUT="$($OMNI stats --view folds 2>&1 || true)"
+FOLDS_OUT="$($VENG stats --view folds 2>&1 || true)"
 # The header, not the word: `folds` appears in the summary view's prose too, so
 # the loose check passed with the dispatch arm deleted.
-check "folds view renders" "$FOLDS_OUT" "OMNI . folds"
+check "folds view renders" "$FOLDS_OUT" "VENG . folds"
 check "folds view says why it is empty" "$FOLDS_OUT" "No marker recorded"
-check "calibration is accepted too" "$($OMNI stats --view calibration 2>&1 || true)" "OMNI . folds"
+check "calibration is accepted too" "$($VENG stats --view calibration 2>&1 || true)" "VENG . folds"
 # #859. Pointed at an empty config dir so the run reads no real transcript: the
 # check is that the arm dispatches and says why it is empty, in under a second.
 BILL_HOME="$(mktemp -d)"
-BILL_OUT="$(CLAUDE_CONFIG_DIR="$BILL_HOME" $OMNI stats --view bill 2>&1 || true)"
+BILL_OUT="$(CLAUDE_CONFIG_DIR="$BILL_HOME" $VENG stats --view bill 2>&1 || true)"
 rm -rf "$BILL_HOME"
-check "bill view renders" "$BILL_OUT" "OMNI . bill"
+check "bill view renders" "$BILL_OUT" "VENG . bill"
 check "bill view says why it is empty" "$BILL_OUT" "No host transcript"
 
-DEFAULT_OUT="$($OMNI stats 2>&1 || true)"
+DEFAULT_OUT="$($VENG stats 2>&1 || true)"
 for WORD in "folded" "distilled" "left alone" "where the bytes were"; do
     check "default has '$WORD'" "$DEFAULT_OUT" "$WORD"
     check "detail has '$WORD'" "$DETAIL_OUT" "$WORD"
@@ -370,9 +370,9 @@ check "default says where the bytes were" "$DEFAULT_OUT" "where the bytes were"
 #
 # Every subcommand is declared `trailing_var_arg` with a `Vec<String>` catch-all
 # and re-parses argv by hand, so clap is never told the valid set and cannot
-# reject a value outside it. Untouched, `omni stats --detial` ran the default
+# reject a value outside it. Untouched, `veng stats --detial` ran the default
 # overview and exited 0: the user asked for one mode and got another, with
-# nothing in the output saying the flag was ignored. Worse on `omni goal`, whose
+# nothing in the output saying the flag was ignored. Worse on `veng goal`, whose
 # catch-all stored `--nonsense` as the goal text.
 #
 # This lives in the smoke test because it is a property of the shipped binary's
@@ -381,7 +381,7 @@ for SUB in diff doctor engram goal init patterns query remember reset session st
     # `&& RC=0 || RC=$?` rather than `$?` on the next line: this script runs
     # under `set -e`, and a bare non-zero command would end the run here, which
     # is the outcome the check is looking for.
-    OUT=$("$OMNI" "$SUB" --zzz-not-a-real-flag 2>&1) && RC=0 || RC=$?
+    OUT=$("$VENG" "$SUB" --zzz-not-a-real-flag 2>&1) && RC=0 || RC=$?
     TOTAL=$((TOTAL + 1))
     if [ "$RC" -ne 0 ]; then
         echo "  ✓ $SUB rejects an unknown flag"
@@ -398,7 +398,7 @@ done
 # validator directly, so they stay green when nothing calls it: this is the check
 # that fails when the call site goes missing, which it did once during review.
 for BAD in "--since" "--view" "--limit"; do
-    OUT=$("$OMNI" stats $BAD --json 2>&1) && RC=0 || RC=$?
+    OUT=$("$VENG" stats $BAD --json 2>&1) && RC=0 || RC=$?
     TOTAL=$((TOTAL + 1))
     if [ "$RC" -ne 0 ]; then
         echo "  ✓ stats refuses $BAD with no value"

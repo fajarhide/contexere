@@ -1,6 +1,6 @@
-//! `omni retrieve <handle>`, the recovery path every marker names.
+//! `veng retrieve <handle>`, the recovery path every marker names.
 //!
-//! Filed as #452 from a real session: the markers promised `omni_retrieve("…")`,
+//! Filed as #452 from a real session: the markers promised `veng_retrieve("…")`,
 //! which is an MCP tool, and on a host where that tool is not surfaced the agent
 //! was left with a hole in the file it had just read and no way to fill it. The
 //! MCP tool works where MCP works; this exists so the promise does not depend on
@@ -20,15 +20,15 @@ const FLAGS: super::Flags = &[];
 fn print_help() {
     println!(
         "\n{} {}: Print the content a marker archived",
-        "omni".bold().cyan(),
+        "veng".bold().cyan(),
         "retrieve".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "retrieve".cyan(), "<handle>".bright_black());
+    println!("  veng {} {}", "retrieve".cyan(), "<handle>".bright_black());
     println!(
         "\nA handle is the 16 characters inside a marker, for example\n  {}\n",
         format!(
-            "[OMNI: 50 lines already shown, omni retrieve {}]",
+            "[VENG: 50 lines already shown, veng retrieve {}]",
             crate::util::text::EXAMPLE_HANDLE
         )
         .bright_black()
@@ -53,7 +53,7 @@ fn frame(handle: &str, content: &str, whole_len: usize) -> String {
     };
     format!(
         "{} {} · {} lines · {}{}",
-        "omni retrieve".bold().cyan(),
+        "veng retrieve".bold().cyan(),
         handle.bright_black(),
         content.lines().count(),
         super::stats::format_bytes(content.len() as u64).bright_black(),
@@ -84,7 +84,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
     // Accept what a marker prints and what a model might paste back: bare, in
     // quotes, or still wrapped in the MCP call it used to name.
     let handle = handle
-        .trim_start_matches("omni_retrieve(")
+        .trim_start_matches("veng_retrieve(")
         .trim_end_matches(')')
         .trim_matches('"');
 
@@ -131,7 +131,7 @@ mod tests {
         v.iter().map(|s| s.to_string()).collect()
     }
 
-    /// #627. `omni retrieve` returned ten of the fourteen lines a command
+    /// #627. `veng retrieve` returned ten of the fourteen lines a command
     /// produced, under `10 lines · 227 B`. Nothing was lost, the other four were
     /// on screen and the handle holds what the fold replaced, but the frame
     /// reads as a measurement of the whole and the reader took the short listing
@@ -156,12 +156,12 @@ mod tests {
     #[test]
     fn prints_what_the_marker_archived() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         let handle = store
             .store_rewind_whole("the original forty lines\n")
             .expect("archived");
 
-        assert!(run(&args(&["omni", "retrieve", &handle]), &store).is_ok());
+        assert!(run(&args(&["veng", "retrieve", &handle]), &store).is_ok());
     }
 
     /// #583. Four of the seven example handles in our own source and manual
@@ -173,10 +173,10 @@ mod tests {
     #[test]
     fn the_documentation_example_is_refused_and_not_blamed_on_pruning() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
 
         let err = run(
-            &args(&["omni", "retrieve", crate::util::text::EXAMPLE_HANDLE]),
+            &args(&["veng", "retrieve", crate::util::text::EXAMPLE_HANDLE]),
             &store,
         )
         .expect_err("the documentation example must not resolve");
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn counts_a_pull_the_adaptive_rate_can_read() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let db = dir.path().join("omni.db");
+        let db = dir.path().join("veng.db");
         let store = Store::open_path(&db).expect("store");
         let handle = store
             .store_rewind_whole("archived output\n")
@@ -213,7 +213,7 @@ mod tests {
         let events = |store: &Store| store.count_memory_reads("unknown");
         assert_eq!(events(&store), 0, "nothing has been pulled yet");
 
-        run(&args(&["omni", "retrieve", &handle]), &store).expect("retrieved");
+        run(&args(&["veng", "retrieve", &handle]), &store).expect("retrieved");
 
         assert_eq!(
             events(&store),
@@ -227,16 +227,16 @@ mod tests {
     #[test]
     fn accepts_the_handle_in_every_shape_a_marker_has_printed() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
         let handle = store.store_rewind_whole("content\n").expect("archived");
 
         for form in [
             handle.clone(),
             format!("\"{handle}\""),
-            format!("omni_retrieve(\"{handle}\")"),
+            format!("veng_retrieve(\"{handle}\")"),
         ] {
             assert!(
-                run(&args(&["omni", "retrieve", &form]), &store).is_ok(),
+                run(&args(&["veng", "retrieve", &form]), &store).is_ok(),
                 "form {form} was not understood"
             );
         }
@@ -248,9 +248,9 @@ mod tests {
     #[test]
     fn says_why_a_missing_handle_is_missing() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let store = Store::open_path(&dir.path().join("omni.db")).expect("store");
+        let store = Store::open_path(&dir.path().join("veng.db")).expect("store");
 
-        let err = run(&args(&["omni", "retrieve", "ffffffffffffffff"]), &store)
+        let err = run(&args(&["veng", "retrieve", "ffffffffffffffff"]), &store)
             .expect_err("an unknown handle is an error");
 
         assert!(err.to_string().contains("30 days"), "{err}");

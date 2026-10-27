@@ -1,4 +1,4 @@
-Compiling omni v0.5.0
+Compiling veng v0.5.0
 error[E0432]: unresolved import `std::collections`
  --> src/main.rs:1:5
   |
@@ -8,4 +8,4 @@ error[E0432]: unresolved import `std::collections`
 warning: unused import: `std::time::Instant`
  --> src/pipeline/mod.rs:5:5
 
-error: could not compile `omni` due to 1 previous error
+error: could not compile `veng` due to 1 previous error

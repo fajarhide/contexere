@@ -428,10 +428,10 @@ mod tests {
 
     #[test]
     fn treats_build_log_as_plain_text() {
-        let payload = "   Compiling serde v1.0.203\n   Compiling omni v0.6.1\n\
+        let payload = "   Compiling serde v1.0.203\n   Compiling veng v0.6.1\n\
                        error[E0308]: mismatched types\n  --> src/main.rs:3:5\n   |\n\
                        3  |     let x: i32 = \"s\";\n   |            ---   ^^^ expected i32\n\
-                       error: could not compile `omni` due to 1 previous error\n";
+                       error: could not compile `veng` due to 1 previous error\n";
         assert_eq!(sniff(payload), None);
     }
 

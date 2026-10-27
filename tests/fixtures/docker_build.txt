@@ -9,4 +9,4 @@ Step 3/5 : COPY . /app
 Step 4/5 : WORKDIR /app
  ---> Running in b4c9e2c71c4c
 Successfully built b4c9e2c71c4c
-Successfully tagged omni-core:latest
+Successfully tagged veng-core:latest

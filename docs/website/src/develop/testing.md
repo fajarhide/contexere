@@ -1,17 +1,17 @@
 # Testing
 
 ```sh
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+VENG_DB_PATH=/tmp/veng-test.db cargo test
 ```
 
 Start with that line. It is not a suggestion.
 
 ## The two guardrails that waste the most time
 
-**Isolate the database.** Parallel integration tests competing for `~/.omni/omni.db`
+**Isolate the database.** Parallel integration tests competing for `~/.veng/veng.db`
 cause SQLite locks and hangs. Measured: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one. `tests/hook_e2e.rs` has an
-`omni_cmd()` helper that spawns the binary with a unique `OMNI_DB_PATH` from a
+`veng_cmd()` helper that spawns the binary with a unique `VENG_DB_PATH` from a
 `NamedTempFile`. Use it.
 
 **Lock early, release fast.** Rust mutexes are not reentrant, so nested or redundant
@@ -30,7 +30,7 @@ cargo test --test savings_assertions    # per-filter savings thresholds
 cargo test --test security_tests
 cargo test distillers::tests            # snapshots
 cargo insta review                      # approve snapshot changes
-tests/smoke_test.sh ./target/debug/omni
+tests/smoke_test.sh ./target/debug/veng
 ```
 
 `tests/fixtures/` holds 45 realistic tool outputs. Add real output from the real tool,

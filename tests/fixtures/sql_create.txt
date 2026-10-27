@@ -11,5 +11,5 @@ CREATE TABLE projects (
     created_at TIMESTAMP DEFAULT NOW()
 );
 -- Insert initial data
-INSERT INTO projects (name, version) VALUES ('OMNI', '0.4.4');
+INSERT INTO projects (name, version) VALUES ('VENG', '0.4.4');
 INSERT INTO projects (name, version) VALUES ('ForgePod', '1.2.0');

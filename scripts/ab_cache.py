@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Paired A/B: does OMNI cost prompt-cache hits, and what does a session bill with it on?
+"""Paired A/B: does VENG cost prompt-cache hits, and what does a session bill with it on?
 
 Each pair is the same prompt run twice through `claude -p`, seconds apart, once
-with the hook live and once with `OMNI_PASSTHROUGH=1`. The order alternates so a
+with the hook live and once with `VENG_PASSTHROUGH=1`. The order alternates so a
 warm cache cannot land on one arm every time. Every arm is recorded by the
 session id the host returns, so the report reads the host's own transcript and
-never OMNI's tables.
+never VENG's tables.
 
 It spends real tokens: about half a dollar a pair on a mid-size model.
 
     python3 scripts/ab_cache.py run --pairs 20 --model sonnet --out arms.json
     python3 scripts/ab_cache.py report arms.json
 
-Run it from a clone of this repository, with OMNI installed for Claude Code. The
+Run it from a clone of this repository, with VENG installed for Claude Code. The
 workload reads two files twice each, because a workload with no repetition gives
 the ledger nothing to do and measures nothing about it.
 
 Both arms start the way a session starts for a user, so each resumes whatever
-session state OMNI kept. That is the same for both arms of a pair. `--fresh`
+session state VENG kept. That is the same for both arms of a pair. `--fresh`
 switches it off for both, which isolates the tool-result rewrite from it.
 """
 
@@ -46,13 +46,13 @@ TOKENS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_token
 
 def run_arm(pair, arm, model, timeout, fresh):
     # Set for the control and removed for the other arm, whatever the caller's
-    # shell holds: an inherited OMNI_PASSTHROUGH would switch both arms off and
+    # shell holds: an inherited VENG_PASSTHROUGH would switch both arms off and
     # the run would still spend its tokens.
-    env = {k: v for k, v in os.environ.items() if k.upper() != "OMNI_PASSTHROUGH"}
+    env = {k: v for k, v in os.environ.items() if k.upper() != "VENG_PASSTHROUGH"}
     if arm == "off":
-        env["OMNI_PASSTHROUGH"] = "1"
+        env["VENG_PASSTHROUGH"] = "1"
     if fresh:
-        env["OMNI_FRESH"] = "1"
+        env["VENG_FRESH"] = "1"
     cmd = ["claude", "-p", "--output-format", "json"] + (["--model", model] if model else []) + [PROMPT]
     started = time.time()
     try:
@@ -124,7 +124,7 @@ def read_arm(path):
                     if not isinstance(text, str):
                         text = "".join(p.get("text", "") for p in text or [] if isinstance(p, dict))
                     row["result_bytes"] += len(text.encode("utf-8"))
-                    row["markers"] += text.count("[OMNI:")
+                    row["markers"] += text.count("[VENG:")
     return row
 
 
@@ -155,7 +155,7 @@ def report(args):
     if min(a["markers"] for a in on) == 0 or max(a["markers"] for a in off) > 2:
         print("an arm ran without its condition; do not read the table below")
 
-    print(f"\n{'':24}{'on':>14}{'off':>14}{'delta':>9}   lower with OMNI")
+    print(f"\n{'':24}{'on':>14}{'off':>14}{'delta':>9}   lower with VENG")
     rows = [("tool_result bytes", "result_bytes"), ("cache_creation tokens", "cache_creation_input_tokens"),
             ("cache_read tokens", "cache_read_input_tokens"), ("output tokens", "output_tokens"),
             ("billed cost, USD", "cost_usd")]
@@ -177,7 +177,7 @@ def main():
     runner.add_argument("--out", default="arms.json")
     runner.add_argument("--timeout", type=int, default=600)
     runner.add_argument("--fresh", action="store_true",
-                        help="set OMNI_FRESH=1 on both arms, so no arm resumes state an earlier one left")
+                        help="set VENG_FRESH=1 on both arms, so no arm resumes state an earlier one left")
     runner.set_defaults(func=run)
     reporter = sub.add_parser("report", help="read each arm's transcript and print the paired table")
     reporter.add_argument("arms")

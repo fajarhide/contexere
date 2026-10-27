@@ -1,5 +1,5 @@
-use omni::pipeline::CollapseMode;
-use omni::pipeline::collapse::collapse;
+use veng::pipeline::CollapseMode;
+use veng::pipeline::collapse::collapse;
 
 #[test]
 fn collapse_does_not_panic_on_box_drawing() {
@@ -36,7 +36,7 @@ fn collapse_does_not_panic_on_cjk() {
 
 #[test]
 fn safe_truncate_never_panics_on_multibyte() {
-    use omni::util::text::safe_truncate;
+    use veng::util::text::safe_truncate;
     let s = "│━┌└⠋⠙✗⚠▶─".repeat(10);
     for n in 0..=s.len() {
         let mut string_buffer = s.clone();
@@ -46,7 +46,7 @@ fn safe_truncate_never_panics_on_multibyte() {
 
 #[test]
 fn safe_truncate_with_ellipsis_never_panics_on_multibyte() {
-    use omni::util::text::safe_truncate_with_ellipsis;
+    use veng::util::text::safe_truncate_with_ellipsis;
     let original = "✗ error: cannot find type `Foo`\n".repeat(5);
     for n in 0..=original.len() {
         let res = safe_truncate_with_ellipsis(&original, n); // must not panic

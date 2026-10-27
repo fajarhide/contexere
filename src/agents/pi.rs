@@ -9,10 +9,10 @@ use std::process::Command;
 // ---------------------------------------------------------------------------
 
 /// Default git package source for `pi install`.
-const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
+const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/veng";
 
 /// Environment variable override for the package source.
-const PACKAGE_SOURCE_ENV: &str = "OMNI_PI_PACKAGE_SOURCE";
+const PACKAGE_SOURCE_ENV: &str = "VENG_PI_PACKAGE_SOURCE";
 
 /// Read the package source, checking the environment variable first.
 fn package_source() -> String {
@@ -64,7 +64,7 @@ struct PiSettingsSnapshot {
 }
 
 impl PiSettingsSnapshot {
-    /// Load settings, preferring whichever path contains an OMNI package reference.
+    /// Load settings, preferring whichever path contains an VENG package reference.
     /// Falls back to whichever file exists.
     fn load() -> Self {
         let global_path = pi_settings_path();
@@ -79,11 +79,11 @@ impl PiSettingsSnapshot {
             .and_then(|s| serde_json::from_str::<Value>(&s).ok());
 
         let (path, json) = if let Some(ref g) = global_json
-            && find_omni_references(g)
+            && find_veng_references(g)
         {
             (global_path, global_json)
         } else if let Some(ref l) = local_json
-            && find_omni_references(l)
+            && find_veng_references(l)
         {
             (local_path, local_json)
         } else {
@@ -93,53 +93,53 @@ impl PiSettingsSnapshot {
         Self { _path: path, json }
     }
 
-    /// True if settings contain a package entry referencing OMNI or pi-omni.
-    fn has_omni_package(&self) -> bool {
+    /// True if settings contain a package entry referencing VENG or pi-veng.
+    fn has_veng_package(&self) -> bool {
         let Some(val) = &self.json else {
             return false;
         };
-        find_omni_references(val)
+        find_veng_references(val)
     }
 
-    /// Return package/extension sources that appear to be OMNI-related duplicates.
+    /// Return package/extension sources that appear to be VENG-related duplicates.
     fn duplicate_sources(&self) -> Vec<String> {
         let Some(val) = &self.json else {
             return vec![];
         };
-        collect_omni_sources(val)
+        collect_veng_sources(val)
     }
 }
 
-/// Search a JSON value recursively for strings containing "omni" (case-insensitive).
-fn find_omni_references(val: &Value) -> bool {
+/// Search a JSON value recursively for strings containing "veng" (case-insensitive).
+fn find_veng_references(val: &Value) -> bool {
     match val {
-        Value::String(s) => s.to_lowercase().contains("omni"),
-        Value::Array(arr) => arr.iter().any(find_omni_references),
-        Value::Object(map) => map.values().any(find_omni_references),
+        Value::String(s) => s.to_lowercase().contains("veng"),
+        Value::Array(arr) => arr.iter().any(find_veng_references),
+        Value::Object(map) => map.values().any(find_veng_references),
         _ => false,
     }
 }
 
-/// Collect OMNI-related source strings from Pi settings.
-fn collect_omni_sources(val: &Value) -> Vec<String> {
+/// Collect VENG-related source strings from Pi settings.
+fn collect_veng_sources(val: &Value) -> Vec<String> {
     let mut sources = Vec::new();
-    collect_omni_sources_recursive(val, &mut sources);
+    collect_veng_sources_recursive(val, &mut sources);
     sources
 }
 
-fn collect_omni_sources_recursive(val: &Value, out: &mut Vec<String>) {
+fn collect_veng_sources_recursive(val: &Value, out: &mut Vec<String>) {
     match val {
-        Value::String(s) if s.to_lowercase().contains("omni") => {
+        Value::String(s) if s.to_lowercase().contains("veng") => {
             out.push(s.clone());
         }
         Value::Array(arr) => {
             for v in arr {
-                collect_omni_sources_recursive(v, out);
+                collect_veng_sources_recursive(v, out);
             }
         }
         Value::Object(map) => {
             for v in map.values() {
-                collect_omni_sources_recursive(v, out);
+                collect_veng_sources_recursive(v, out);
             }
         }
         _ => {}
@@ -182,9 +182,9 @@ impl AgentIntegration for PiIntegration {
             "  {} Pi does not expose a package-removal command.",
             "ℹ".blue()
         );
-        crate::agent_report!("  {} To remove the OMNI Pi package manually:", "→".cyan());
+        crate::agent_report!("  {} To remove the VENG Pi package manually:", "→".cyan());
         crate::agent_report!(
-            "    1. Edit {} and remove the OMNI package entry.",
+            "    1. Edit {} and remove the VENG package entry.",
             pi_settings_path().display()
         );
         crate::agent_report!("    2. Restart Pi to apply the changes.\n");
@@ -206,7 +206,7 @@ impl AgentIntegration for PiIntegration {
 
         // 2. Package registration
         let snapshot = PiSettingsSnapshot::load();
-        if snapshot.has_omni_package() {
+        if snapshot.has_veng_package() {
             crate::agent_report!(
                 "   {:<15} {} installed",
                 "Extension:".bright_black(),
@@ -221,14 +221,14 @@ impl AgentIntegration for PiIntegration {
             if fix_mode {
                 let source = package_source();
                 crate::agent_report!(
-                    "   {:<15} installing OMNI Pi package...",
+                    "   {:<15} installing VENG Pi package...",
                     "Fix:".bright_black()
                 );
                 if let Err(e) = run_install(&source) {
                     warnings.push(format!("Failed to install Pi package: {e}"));
                 }
             } else {
-                warnings.push("Pi Extension is not registered. Run: omni init --pi".to_string());
+                warnings.push("Pi Extension is not registered. Run: veng init --pi".to_string());
             }
             return false;
         }
@@ -237,7 +237,7 @@ impl AgentIntegration for PiIntegration {
         let duplicates = snapshot.duplicate_sources();
         if duplicates.len() > 1 {
             crate::agent_report!(
-                "   {:<15} {} OMNI sources detected {}",
+                "   {:<15} {} VENG sources detected {}",
                 "Duplicates:".bright_black(),
                 duplicates.len().to_string().red(),
                 "[WARNING]".yellow().bold()
@@ -246,7 +246,7 @@ impl AgentIntegration for PiIntegration {
                 crate::agent_report!("     {} {}", "•".yellow(), src.bright_black());
             }
             warnings.push(
-                "Multiple OMNI Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
+                "Multiple VENG Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
             );
         }
 
@@ -312,7 +312,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     let duplicates = snapshot.duplicate_sources();
     if duplicates.len() > 1 {
         crate::agent_report!(
-            "  {} {} OMNI-related sources detected in Pi settings:",
+            "  {} {} VENG-related sources detected in Pi settings:",
             "⚠".yellow(),
             duplicates.len()
         );
@@ -326,7 +326,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     }
 
     crate::agent_report!(
-        "  {} Restart Pi to activate the OMNI extension.\n",
+        "  {} Restart Pi to activate the VENG extension.\n",
         "✓".green().bold()
     );
 
@@ -342,38 +342,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn detects_omni_package_in_settings() {
+    fn detects_veng_package_in_settings() {
         let json: Value =
-            serde_json::from_str(r#"{"packages": [{"source": "git:github.com/fajarhide/omni"}]}"#)
+            serde_json::from_str(r#"{"packages": [{"source": "git:github.com/fajarhide/veng"}]}"#)
                 .unwrap();
-        assert!(find_omni_references(&json));
+        assert!(find_veng_references(&json));
     }
 
     #[test]
-    fn detects_pi_omni_reference() {
+    fn detects_pi_veng_reference() {
         let json: Value = serde_json::from_str(
-            r#"{"packages": [{"source": "git:github.com/wayanjimmy/pi-omni"}]}"#,
+            r#"{"packages": [{"source": "git:github.com/wayanjimmy/pi-veng"}]}"#,
         )
         .unwrap();
-        assert!(find_omni_references(&json));
+        assert!(find_veng_references(&json));
     }
 
     #[test]
     fn no_false_positive_on_clean_settings() {
         let json: Value = serde_json::from_str(r#"{"theme": "dark", "packages": []}"#).unwrap();
-        assert!(!find_omni_references(&json));
+        assert!(!find_veng_references(&json));
     }
 
     #[test]
     fn collects_duplicate_sources() {
         let json: Value = serde_json::from_str(
-            r#"{"packages": [{"source": "git:github.com/fajarhide/omni"}, {"source": "git:github.com/wayanjimmy/pi-omni"}]}"#,
+            r#"{"packages": [{"source": "git:github.com/fajarhide/veng"}, {"source": "git:github.com/wayanjimmy/pi-veng"}]}"#,
         )
         .unwrap();
-        let sources = collect_omni_sources(&json);
+        let sources = collect_veng_sources(&json);
         assert_eq!(sources.len(), 2);
-        assert!(sources[0].contains("omni"));
-        assert!(sources[1].contains("omni"));
+        assert!(sources[0].contains("veng"));
+        assert!(sources[1].contains("veng"));
     }
 
     #[test]
@@ -394,7 +394,7 @@ mod tests {
     fn package_source_env_override() {
         // Default source
         let default = package_source();
-        assert!(default.contains("omni"));
+        assert!(default.contains("veng"));
 
         // With env override (set and restore)
         // Safety: test is single-threaded.
@@ -414,10 +414,10 @@ mod tests {
     fn pi_settings_snapshot_handles_missing_file() {
         // Use a temp dir with no settings, should not panic.
         let snapshot = PiSettingsSnapshot {
-            _path: PathBuf::from("/tmp/omni-test-nonexistent/settings.json"),
+            _path: PathBuf::from("/tmp/veng-test-nonexistent/settings.json"),
             json: None,
         };
-        assert!(!snapshot.has_omni_package());
+        assert!(!snapshot.has_veng_package());
         assert!(snapshot.duplicate_sources().is_empty());
     }
 
@@ -428,17 +428,17 @@ mod tests {
             _path: PathBuf::from("/tmp/test"),
             json: Some(bad_json),
         };
-        // Null value should not contain OMNI references
-        assert!(!snapshot.has_omni_package());
+        // Null value should not contain VENG references
+        assert!(!snapshot.has_veng_package());
     }
 
     #[test]
     fn finds_references_nested_in_objects() {
         let json: Value = serde_json::from_str(
-            r#"{"level1": {"level2": {"source": "git:github.com/fajarhide/omni"}}}"#,
+            r#"{"level1": {"level2": {"source": "git:github.com/fajarhide/veng"}}}"#,
         )
         .unwrap();
-        assert!(find_omni_references(&json));
+        assert!(find_veng_references(&json));
     }
 
     #[test]

@@ -51,7 +51,7 @@ struct PreHookInput {
     /// Claude shell inherits `CLAUDECODE=1` and would answer `claude_code`.
     #[serde(default)]
     turn_id: Option<String>,
-    /// The host's own session id. Forwarded to the rewritten child so `omni exec`
+    /// The host's own session id. Forwarded to the rewritten child so `veng exec`
     /// has a trustworthy ledger scope; without it that path ran no ledger stage
     /// at all (#416). Claude Code sends it on every hook event, which is the same
     /// field `hooks::normalize` reads for the post-hook.
@@ -61,7 +61,7 @@ struct PreHookInput {
     ///
     /// Forwarded for the same reason the session id is, and it has to be, since
     /// the session id alone is not one reader: Claude Code hands a subagent the
-    /// parent's session id. Without this the rewritten `omni exec` child runs
+    /// parent's session id. Without this the rewritten `veng exec` child runs
     /// the pipe ledger under the parent's scope and tells a subagent its bytes
     /// were already shown, which is the defect this branch fixes on the
     /// post-hook path and would have left standing on this one (#581).
@@ -96,7 +96,7 @@ struct HookSpecificOutput {
 
 /// The store parameter is gone with `context_turns` (#270). It was opened here
 /// only to persist a turn nothing ever read; the in-memory turn this hook builds
-/// is what `omni stats` and `omni_context_breakdown` consume.
+/// is what `veng stats` and `veng_context_breakdown` consume.
 pub fn run(session: Option<Arc<Mutex<crate::pipeline::SessionState>>>) -> Result<()> {
     let mut buffer = String::new();
     std::io::stdin().read_to_string(&mut buffer)?;
@@ -116,7 +116,7 @@ pub fn run(session: Option<Arc<Mutex<crate::pipeline::SessionState>>>) -> Result
 /// hook, so a Codex session started from a Claude Code shell inherits
 /// `CLAUDECODE=1`, and the rewritten command would file its work under
 /// `claude_code` (#360, #364). `None` means "say nothing", which leaves
-/// `omni exec` to fall back rather than record a guess.
+/// `veng exec` to fall back rather than record a guess.
 fn host_from_payload(hook_event_name: Option<&str>, has_turn_id: bool) -> Option<&'static str> {
     match hook_event_name {
         Some("BeforeTool") => Some("gemini"),
@@ -147,7 +147,7 @@ fn process_payload(
     let parsed: PreHookInput = serde_json::from_str(input_str).ok()?;
     let cmd_str = parsed.tool_input.command.as_ref()?;
 
-    // Claude Code refuses an `omni exec` with git among its operands inside a
+    // Claude Code refuses an `veng exec` with git among its operands inside a
     // worktree-isolated agent, so the agent could not run git at all (#905).
     // The post-hook still distills the output.
     if names_git(cmd_str) && parsed.cwd.as_deref().is_some_and(in_linked_worktree) {
@@ -191,7 +191,7 @@ fn process_payload(
             hook_specific_output: HookSpecificOutput {
                 hook_event_name: "PreToolUse",
                 permission_decision: "allow",
-                permission_decision_reason: "OMNI auto-rewrite to reduce token noise".to_string(),
+                permission_decision_reason: "VENG auto-rewrite to reduce token noise".to_string(),
                 updated_input,
             },
         };
@@ -229,8 +229,8 @@ fn process_payload(
 
                 // The store was opened here only to persist `current_turn` into
                 // `context_turns`, which had no reader and is gone (#270). The
-                // in-memory turn built above is what `omni stats` and
-                // `omni_context_breakdown` actually read.
+                // in-memory turn built above is what `veng stats` and
+                // `veng_context_breakdown` actually read.
 
                 count
             } else {
@@ -245,7 +245,7 @@ fn process_payload(
             if hot_count > 2 {
                 let updated_input = parsed.tool_input.clone();
                 let reason = format!(
-                    "OMNI Guard: {} is a hot file (accessed {}x this session). Mutating it may have wide impact. Consider reviewing dependents with `omni context <file>`.",
+                    "VENG Guard: {} is a hot file (accessed {}x this session). Mutating it may have wide impact. Consider reviewing dependents with `veng context <file>`.",
                     target_file, hot_count
                 );
                 let output = PreHookOutput {
@@ -263,7 +263,7 @@ fn process_payload(
             // If the agent reads the same file repeatedly, we warn them to use context.
             let updated_input = parsed.tool_input.clone();
             let reason = format!(
-                "OMNI Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
+                "VENG Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
                 target_file, hot_count
             );
             let output = PreHookOutput {
@@ -280,7 +280,7 @@ fn process_payload(
         // We only provide a hint, we don't modify the command
         let updated_input = parsed.tool_input.clone();
         let reason = format!(
-            "OMNI context available for {}; call omni_context if needed",
+            "VENG context available for {}; call veng_context if needed",
             target_file
         );
 
@@ -310,7 +310,7 @@ fn process_payload(
         if !top_hot.is_empty() {
             let updated_input = parsed.tool_input.clone();
             let reason = format!(
-                "OMNI Guard: mutating command detected. Current hot files: {}. Review impact before proceeding.",
+                "VENG Guard: mutating command detected. Current hot files: {}. Review impact before proceeding.",
                 top_hot.join(", ")
             );
             let output = PreHookOutput {
@@ -400,7 +400,7 @@ mod subagent_scope_581 {
 
     /// #581, review on #588's sibling PR. The post-hook fix left the pipe path
     /// keying on the bare session id, so a subagent running an allow-listed
-    /// command through the rewritten `omni exec` would still have been told the
+    /// command through the rewritten `veng exec` would still have been told the
     /// parent's bytes were already shown. The two paths are one pipeline behind
     /// two doors and this repo has shipped a one-door fix three times.
     #[test]
@@ -541,7 +541,7 @@ mod tests {
             .as_str()
             .expect("updatedInput.command is the field Codex reads");
         // Asserted on shape, not on the binary's name: under `cargo test`
-        // `current_exe()` is the test harness, so matching a literal "omni exec"
+        // `current_exe()` is the test harness, so matching a literal "veng exec"
         // would only ever pass by accident of the file name.
         assert!(
             rewritten.contains(" exec ") && rewritten.ends_with("cargo test --all"),
@@ -574,7 +574,7 @@ mod tests {
         .to_string();
 
         let output = process_payload(&input, None).expect("Should inject context");
-        assert!(output.contains("OMNI context available for src/main.rs"));
+        assert!(output.contains("VENG context available for src/main.rs"));
         assert!(output.contains("PreToolUse"));
         assert!(output.contains("allow"));
     }
@@ -593,7 +593,7 @@ mod tests {
     }
 
     /// #157: wrapping the whole string put distillation upstream of the pipe the
-    /// caller wrote, so `grep`/`tail` read OMNI's markers instead of the command's
+    /// caller wrote, so `grep`/`tail` read VENG's markers instead of the command's
     /// output. The pipeline is left alone; the post-hook still distills the result.
     #[test]
     fn pre_hook_leaves_a_command_with_its_own_pipe() {

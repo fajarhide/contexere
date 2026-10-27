@@ -207,7 +207,7 @@ mod tests {
     /// summarised, which is where this distiller earns its keep.
     #[test]
     fn still_summarises_a_clean_build() {
-        let output = "   Compiling libc v0.2.176\n   Compiling serde v1.0.228\n   Compiling omni v0.6.9 (/repo)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.40s\n";
+        let output = "   Compiling libc v0.2.176\n   Compiling serde v1.0.228\n   Compiling veng v0.6.9 (/repo)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.40s\n";
         let segments = scorer::score_with_command(output, "cargo build", None);
 
         assert_eq!(

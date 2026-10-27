@@ -1,31 +1,31 @@
 # Hook
 
 Titik masuk yang dipanggil host agent. Anda tidak pernah mengetik ini;
-`omni init` menuliskannya ke konfigurasi host.
+`veng init` menuliskannya ke konfigurasi host.
 
 | titik masuk | kapan host memanggilnya |
 |---|---|
-| `omni --pre-hook` | Sebelum sebuah tool berjalan |
-| `omni --post-hook` | Setelah sebuah tool menghasilkan keluaran |
-| `omni --hook` | Dispatcher universal, untuk host dengan satu slot hook |
-| `omni --session-start` | Sesi dimulai |
-| `omni --session-end` | Sesi berakhir |
-| `omni --pre-compact` | Sebelum host memadatkan percakapan |
-| `omni --mcp` | Jalan sebagai server MCP lewat stdio |
-| `cmd \| omni` | Mode pipa, tanpa host sama sekali |
+| `veng --pre-hook` | Sebelum sebuah tool berjalan |
+| `veng --post-hook` | Setelah sebuah tool menghasilkan keluaran |
+| `veng --hook` | Dispatcher universal, untuk host dengan satu slot hook |
+| `veng --session-start` | Sesi dimulai |
+| `veng --session-end` | Sesi berakhir |
+| `veng --pre-compact` | Sebelum host memadatkan percakapan |
+| `veng --mcp` | Jalan sebagai server MCP lewat stdio |
+| `cmd \| veng` | Mode pipa, tanpa host sama sekali |
 
 ## Satu panggilan, dua hook
 
-![Satu panggilan tool Bash melewati OMNI dua kali: pre-hook boleh menulis ulang perintahnya sebelum shell menjalankannya, dan post-hook menyuling keluarannya sesudahnya, membaca basis data lokal untuk baris yang sudah ditampilkan dan mengarsipkan apa yang ia buang.](../media/hook-lifecycle.svg)
+![Satu panggilan tool Bash melewati VENG dua kali: pre-hook boleh menulis ulang perintahnya sebelum shell menjalankannya, dan post-hook menyuling keluarannya sesudahnya, membaca basis data lokal untuk baris yang sudah ditampilkan dan mengarsipkan apa yang ia buang.](../media/hook-lifecycle.svg)
 
-Shell menjalankan apa pun yang diserahkan pre-hook dan tidak pernah tahu OMNI
+Shell menjalankan apa pun yang diserahkan pre-hook dan tidak pernah tahu VENG
 ada. Hanya jawabannya yang ditulis ulang, dan itu sebabnya tidak ada apa pun di
 sini yang bisa mengubah apa yang dilakukan perintah Anda.
 
 ## Apa yang dilakukan masing-masing
 
-**Pre-tool** memutuskan apakah sebuah perintah perlu dilewatkan OMNI sama sekali,
-dan bisa menulis ulangnya menjadi `omni exec`. Tulis ulang itu membungkus
+**Pre-tool** memutuskan apakah sebuah perintah perlu dilewatkan VENG sama sekali,
+dan bisa menulis ulangnya menjadi `veng exec`. Tulis ulang itu membungkus
 **seluruh** string perintahnya, termasuk pengalihan keluaran, dan itu sebabnya
 berkas log di disk dari sebuah perintah yang cocok bisa ternyata versi
 sulingannya. Patahkan awalannya (`env cargo test`) ketika Anda butuh log
@@ -55,7 +55,7 @@ sama, dan menjaga keduanya seiring sudah berulang kali jadi sumber bug. Tiga
 perbaikan terpisah masing-masing membetulkan satu salinan dan meninggalkan yang
 lain. Tahap ledger sempat ada di `post_tool` selama satu rilis sebelum `pipe`
 memilikinya sama sekali, jadi perintah yang ditulis ulang pre-hook menjadi
-`omni exec` mendapat penyaringnya dan tidak lebih.
+`veng exec` mendapat penyaringnya dan tidak lebih.
 
 Kalau Anda mengubah perilaku pipeline, ubah keduanya, atau periksa kenapa tidak.
 
@@ -75,9 +75,9 @@ diri.
 
 Mendaftarkan hook-nya, lalu menghormati apa yang ia kembalikan.
 
-Paruh kedua tidak dijamin. OMNI pernah mengeluarkan hasil sulingannya di bawah
+Paruh kedua tidak dijamin. VENG pernah mengeluarkan hasil sulingannya di bawah
 kunci yang diabaikan Claude Code, jadi tidak ada yang diterapkan di jalur itu
-selama dua rilis sementara OMNI mencatat sebuah penghematan dan mencetak catatan
+selama dua rilis sementara VENG mencatat sebuah penghematan dan mencetak catatan
 kaki untuk masing-masingnya. Perbaikannya membetulkan kuncinya dan meninggalkan
 bentuk nilainya tetap salah, dan gejalanya bertahan tanpa disadari.
 
@@ -89,7 +89,7 @@ Dua hal yang diajarkannya, keduanya tidak kentara:
   konteksnya, jadi catatan kaki penghematan tercetak untuk penyulingan yang
   dibatalkan.
 
-Jadi bukti sebuah hook bekerja bukan catatan kakinya dan bukan `omni stats`.
+Jadi bukti sebuah hook bekerja bukan catatan kakinya dan bukan `veng stats`.
 Buktinya adalah transkrip sesi milik host sendiri:
 
 ```sh
@@ -105,10 +105,10 @@ hook-nya baik-baik saja sementara terminal Anda penuh penolakan.
 Beri ia muatan secara langsung ketimbang menebak jalur mana yang berjalan:
 
 ```sh
-echo '<json muatan host>' | omni --post-hook
+echo '<json muatan host>' | veng --post-hook
 ```
 
-`omni exec` dan post-hook memilih rute yang berbeda, jadi hasil dari yang satu
+`veng exec` dan post-hook memilih rute yang berbeda, jadi hasil dari yang satu
 bukan bukti tentang yang lain.
 
 ### Bentuk muatannya, dan ia berbeda per tool
@@ -141,7 +141,7 @@ memvalidasinya terhadap **skema keluaran milik tool itu sendiri**. `Read` yang t
 mendapat balasan `file`, dan itulah bentuk yang diterima host.
 
 `tool_response.content` yang polos **tidak** mendapat balasan polos. Diverifikasi, bukan
-diasumsikan: ia kembali sebagai `{status, result}`, yaitu bentuk milik OMNI sendiri dan
+diasumsikan: ia kembali sebagai `{status, result}`, yaitu bentuk milik VENG sendiri dan
 itulah pokok #187. Jadi bentuk polos berguna untuk menanyakan apa yang dilakukan ledger,
 dan balasannya bukan yang akan diterima `Read` sungguhan.
 

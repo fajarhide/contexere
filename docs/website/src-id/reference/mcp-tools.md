@@ -1,6 +1,6 @@
 # Perkakas MCP
 
-`omni init` mendaftarkan OMNI sebagai server MCP, yang memberi agent perkakas yang bisa
+`veng init` mendaftarkan VENG sebagai server MCP, yang memberi agent perkakas yang bisa
 ia panggil sendiri tanpa lewat Anda. Halaman ini menjelaskan seluruh **25** perkakas.
 Host Anda hanya diberi tahu sebagiannya.
 
@@ -8,19 +8,19 @@ Host Anda hanya diberi tahu sebagiannya.
 
 Definisi perkakas berada di awal setiap request, jadi perkakas yang tidak pernah dipanggil
 akan dibaca ulang pada setiap request di setiap sesi, bukan dibayar sekali saja. Karena
-itu OMNI hanya mengiklankan set yang bisa dipakai oleh tier host Anda:
+itu VENG hanya mengiklankan set yang bisa dipakai oleh tier host Anda:
 
 | tier | yang diiklankan |
 |---|---|
-| Full | `omni_retrieve`, `omni_explain_savings` |
-| Handoff-first, dan host apa pun yang tidak dikenali OMNI | dua itu, ditambah `omni_remember`, `omni_recall`, `omni_run`, `omni_find_noise`, `omni_context_breakdown`, `omni_history` |
-| MCP-only | keempatnya, ditambah `omni_run`: tanpa hook, output tool milik host tidak pernah ditulis ulang, jadi `omni_run` satu-satunya jalan agar model membaca lebih sedikit |
+| Full | `veng_retrieve`, `veng_explain_savings` |
+| Handoff-first, dan host apa pun yang tidak dikenali VENG | dua itu, ditambah `veng_remember`, `veng_recall`, `veng_run`, `veng_find_noise`, `veng_context_breakdown`, `veng_history` |
+| MCP-only | keempatnya, ditambah `veng_run`: tanpa hook, output tool milik host tidak pernah ditulis ulang, jadi `veng_run` satu-satunya jalan agar model membaca lebih sedikit |
 
 Host tier Full mendapat daftar terpendek justru karena shell-nya sudah dipasangi hook oleh
-OMNI. Diukur pada 256 sesi yang terekam, dua perkakas itu membawa 138 dari 149 panggilan
+VENG. Diukur pada 256 sesi yang terekam, dua perkakas itu membawa 138 dari 149 panggilan
 dengan 467 byte, sedangkan enam sisanya memakan 1.631 byte untuk 11 panggilan sepanjang
 korpus. Host Handoff-first tidak pernah mendapat penulisan ulang pada output perkakas
-bawaannya, jadi MCP adalah satu-satunya pintu OMNI di sana dan tidak ada yang dipangkas.
+bawaannya, jadi MCP adalah satu-satunya pintu VENG di sana dan tidak ada yang dipangkas.
 
 Di Claude Code, daftar terpendek pun tetap ada ongkosnya, dan byte-nya justru bagian yang
 lebih kecil: host membuang seluruh cache prompt ketika sebuah server MCP tersambung atau
@@ -32,17 +32,17 @@ adalah CLI atau override:
 
 | perkakas | di host tier Full |
 |---|---|
-| `omni_run` | `omni exec <perintah>` |
-| `omni_remember` | `omni remember '<fakta>'` |
-| `omni_context_breakdown` | `omni stats --view context` |
-| `omni_history` | `omni stats --view detail`, yang menggabung perintah berulang jadi satu baris berhitung, bukan satu baris per panggilan |
-| `omni_recall`, `omni_find_noise` | tidak ada padanan CLI; `OMNI_MCP_TOOLS=all` |
+| `veng_run` | `veng exec <perintah>` |
+| `veng_remember` | `veng remember '<fakta>'` |
+| `veng_context_breakdown` | `veng stats --view context` |
+| `veng_history` | `veng stats --view detail`, yang menggabung perintah berulang jadi satu baris berhitung, bukan satu baris per panggilan |
+| `veng_recall`, `veng_find_noise` | tidak ada padanan CLI; `VENG_MCP_TOOLS=all` |
 
-`OMNI_MCP_TOOLS=all` mengiklankan seluruh 25 perkakas, dan `omni doctor` menyebutkan set
+`VENG_MCP_TOOLS=all` mengiklankan seluruh 25 perkakas, dan `veng doctor` menyebutkan set
 mana yang sedang berlaku serta host mana yang terdeteksi:
 
 ```
-  MCP tools:      2 of 25 advertised to claude_code (OMNI_MCP_TOOLS=all restores the rest)
+  MCP tools:      2 of 25 advertised to claude_code (VENG_MCP_TOOLS=all restores the rest)
 ```
 
 Pastikan daftarnya terhadap binary Anda sendiri, bukan terhadap halaman ini:
@@ -51,62 +51,62 @@ Pastikan daftarnya terhadap binary Anda sendiri, bukan terhadap halaman ini:
 { echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"p","version":"1"}}}'
   echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
   echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'; } \
-| omni --mcp | tail -1 | jq -r '.result.tools[].name'
+| veng --mcp | tail -1 | jq -r '.result.tools[].name'
 ```
 
 ## Mengambil isi kembali
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_retrieve` | Ambil isi lengkap yang dihilangkan sebuah penanda, lewat handle-nya |
-| `omni_run` | Jalankan perintah shell lalu kembalikan keluaran sulingannya |
-| `omni_signal_extract` | Tarik sinyal dari teks mentah, tanpa pipeline hook |
+| `veng_retrieve` | Ambil isi lengkap yang dihilangkan sebuah penanda, lewat handle-nya |
+| `veng_run` | Jalankan perintah shell lalu kembalikan keluaran sulingannya |
+| `veng_signal_extract` | Tarik sinyal dari teks mentah, tanpa pipeline hook |
 
-`omni_run` paling penting di host yang tidak bisa menulis ulang tool shell
+`veng_run` paling penting di host yang tidak bisa menulis ulang tool shell
 bawaannya. Di sana, ia satu-satunya jalan menuju keluaran sulingan, dan itu
-sebabnya `omni init --cursor` memasang sebuah aturan yang menyuruh agent
+sebabnya `veng init --cursor` memasang sebuah aturan yang menyuruh agent
 mengutamakannya.
 
-## Memahami apa yang dikerjakan OMNI
+## Memahami apa yang dikerjakan VENG
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_explain_savings` | Rute, penyaring, byte masuk dan keluar, persentase hemat per perintah terkini |
-| `omni_history` | Penyulingan terkini beserta penghematan dan rasio per panggilan |
-| `omni_context_breakdown` | Rincian token menurut sumbernya untuk giliran saat ini |
-| `omni_density` | Seberapa banyak sinyal dibanding kebisingan dalam sepotong teks |
-| `omni_budget` | Pemakaian anggaran token dan efisiensi kompresi untuk sesi ini |
+| `veng_explain_savings` | Rute, penyaring, byte masuk dan keluar, persentase hemat per perintah terkini |
+| `veng_history` | Penyulingan terkini beserta penghematan dan rasio per panggilan |
+| `veng_context_breakdown` | Rincian token menurut sumbernya untuk giliran saat ini |
+| `veng_density` | Seberapa banyak sinyal dibanding kebisingan dalam sepotong teks |
+| `veng_budget` | Pemakaian anggaran token dan efisiensi kompresi untuk sesi ini |
 
-Keempat ini jawaban yang tepat untuk "apakah OMNI membantu di sini". Tarik
+Keempat ini jawaban yang tepat untuk "apakah VENG membantu di sini". Tarik
 angkanya, jangan membentuk kesan.
 
 ## Ingatan
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_remember` | Simpan sebuah keputusan, jebakan atau batasan |
-| `omni_recall` | Pencarian semantik lintas engram, pengetahuan dan riwayat penyulingan |
-| `omni_knowledge` | Kueri atau simpan pengetahuan proyek lintas sesi |
-| `omni_insight` | Persoalan dan pola galat berulang teratas di seluruh proyek |
-| `omni_adaptive_insights` | Pola pengambilan kembali, sebagai penilaian atas keefektifan penyulingan |
-| `omni_handoff` | Ekspor keadaan sesi sebagai markdown yang bisa dibawa, tanpa perlu jaringan |
+| `veng_remember` | Simpan sebuah keputusan, jebakan atau batasan |
+| `veng_recall` | Pencarian semantik lintas engram, pengetahuan dan riwayat penyulingan |
+| `veng_knowledge` | Kueri atau simpan pengetahuan proyek lintas sesi |
+| `veng_insight` | Persoalan dan pola galat berulang teratas di seluruh proyek |
+| `veng_adaptive_insights` | Pola pengambilan kembali, sebagai penilaian atas keefektifan penyulingan |
+| `veng_handoff` | Ekspor keadaan sesi sebagai markdown yang bisa dibawa, tanpa perlu jaringan |
 
-`omni_handoff` hanya ada di MCP. Subperintah CLI dengan nama itu sudah dihapus.
+`veng_handoff` hanya ada di MCP. Subperintah CLI dengan nama itu sudah dihapus.
 
 ## Sesi dan pencarian
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_session` | Keadaan sesi: status, konteks, bersihkan |
-| `omni_search` | Cari di riwayat sesi ini |
-| `omni_query` | Kueri riwayat penyulingan dengan bentuk kueri yang tetap |
-| `omni_agents` | Agent lain yang sedang aktif di proyek ini |
+| `veng_session` | Keadaan sesi: status, konteks, bersihkan |
+| `veng_search` | Cari di riwayat sesi ini |
+| `veng_query` | Kueri riwayat penyulingan dengan bentuk kueri yang tetap |
+| `veng_agents` | Agent lain yang sedang aktif di proyek ini |
 
 ## Penyetelan
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_find_noise` | Analisis jejak mentah terkini untuk mencari kebisingan yang berulang |
+| `veng_find_noise` | Analisis jejak mentah terkini untuk mencari kebisingan yang berulang |
 
 > Sifatnya saran saja, dan pembelajarnya memperlakukan "berulang" sebagai
 > "kebisingan". Ia pernah menyarankan membuang `^metadata:`, `^spec:`, pagar blok
@@ -117,33 +117,33 @@ angkanya, jangan membentuk kesan.
 
 | perkakas | apa yang ia lakukan |
 |---|---|
-| `omni_loop_status` | Cek status sekali panggil untuk orkestrator sebelum tiap iterasi |
-| `omni_loop_memory` | Baca dan tulis ingatan loop yang selamat dari restart sesi |
-| `omni_set_loop_context` | Perbarui konteks loop secara dinamis |
-| `omni_budget_status` | Status anggaran untuk iterasi ini. Panggil sebelum pekerjaan mahal. |
-| `omni_verify` | Sebagai subagent pemeriksa, nilai pekerjaan terkini agent pembuat |
+| `veng_loop_status` | Cek status sekali panggil untuk orkestrator sebelum tiap iterasi |
+| `veng_loop_memory` | Baca dan tulis ingatan loop yang selamat dari restart sesi |
+| `veng_set_loop_context` | Perbarui konteks loop secara dinamis |
+| `veng_budget_status` | Status anggaran untuk iterasi ini. Panggil sebelum pekerjaan mahal. |
+| `veng_verify` | Sebagai subagent pemeriksa, nilai pekerjaan terkini agent pembuat |
 
 Lihat [Loop engineering](../integrations/loops.md).
 
 ## Satu perkakas yang bukan perkakas
 
-`omni_auto_noise` muncul sebagai sebuah string di kode sumber server dan
+`veng_auto_noise` muncul sebagai sebuah string di kode sumber server dan
 **bukan** sebuah perkakas. Ia nama penyaring yang diteruskan ke pembangkit TOML.
 Memanggilnya mengembalikan `-32602 tool not found`.
 
-Ia pernah salah hitung: `grep` atas kode sumber untuk `"omni_*"` mengembalikan
+Ia pernah salah hitung: `grep` atas kode sumber untuk `"veng_*"` mengembalikan
 27, jadi 27 salah di mana pun ia muncul. Jalankan panggilan `tools/list` di atas
 untuk hitungannya.
 
 ## Yang keluar dari permukaan
 
-`omni_context` diiklankan sampai 0.7.7 dan tidak pernah sekali pun dipanggil di 253
+`veng_context` diiklankan sampai 0.7.7 dan tidak pernah sekali pun dipanggil di 253
 sesi yang terekam, jadi ia memakan 189 byte di prefix setiap request untuk
-kapabilitas yang tidak pernah dijangkau siapa pun. Sekarang ia `omni context
+kapabilitas yang tidak pernah dijangkau siapa pun. Sekarang ia `veng context
 <file>`, yang tidak memakan biaya per request:
 
 ```bash
-omni context src/ledger/mod.rs
+veng context src/ledger/mod.rs
 ```
 
-Agen tetap bisa menjangkaunya lewat `omni_run`.
+Agen tetap bisa menjangkaunya lewat `veng_run`.

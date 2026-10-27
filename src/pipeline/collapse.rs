@@ -567,7 +567,7 @@ mod tests {
         for i in 0..30 {
             lines.push(format!("   Compiling dep-{} v0.{}.0", i, i));
         }
-        lines.push("   Compiling omni v0.5.4".to_string());
+        lines.push("   Compiling veng v0.5.4".to_string());
         lines.push("error[E0432]: unresolved import".to_string());
         let input = lines.join("\n");
 

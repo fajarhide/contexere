@@ -1,7 +1,7 @@
 {
-  "name": "@fajarhide/omni-signal-engine",
+  "name": "@fajarhide/veng-signal-engine",
   "version": "0.5.9",
-  "description": "Local-only semantic context filtering for OpenClaw using OMNI. Saves tokens by distilling shell output.",
+  "description": "Local-only semantic context filtering for OpenClaw using VENG. Saves tokens by distilling shell output.",
   "type": "module",
   "exports": {
     ".": "./index.ts"

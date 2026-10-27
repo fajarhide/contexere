@@ -1,4 +1,4 @@
-use omni::pipeline::{ContextPressure, SessionState, TokenConsumptionRate};
+use veng::pipeline::{ContextPressure, SessionState, TokenConsumptionRate};
 
 // ─── Unit Tests (20+) ────────────────────────────────────────────────────────
 macro_rules! generate_context_pressure_unit_tests {

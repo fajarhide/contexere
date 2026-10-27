@@ -1,9 +1,9 @@
-# `omni stats`
+# `veng stats`
 
 Analitik penghematan token, dibaca dari basis data Anda sendiri.
 
 ```sh
-omni stats
+veng stats
 ```
 
 Satu layar, dan menjawab satu pertanyaan: berapa byte yang tidak pernah sampai ke
@@ -40,8 +40,8 @@ penanda itu adalah pembaca yang membantahnya. Tampilan ini menaruh keduanya bers
 per bentuk penanda, sehingga penjaga dengan angka tertinggi adalah yang pertama dilihat.
 
 ```sh
-omni stats --view folds              # 30 hari terakhir
-omni stats --view calibration --since week
+veng stats --view folds              # 30 hari terakhir
+veng stats --view calibration --since week
 ```
 
 `calibration` adalah tampilan yang sama, dengan kata yang lebih dulu terpikir oleh
@@ -54,15 +54,15 @@ mengatakannya, bukan mencetak nol yang terkesan sempurna.
 
 ## `--view bill` adalah pembukuan dari sisi host
 
-Tampilan lain melaporkan apa yang OMNI kerjakan, dari tabel OMNI sendiri. Yang ini
-membaca transkrip Claude Code, yang ditulis host dan bukan OMNI: token tertagih per
+Tampilan lain melaporkan apa yang VENG kerjakan, dari tabel VENG sendiri. Yang ini
+membaca transkrip Claude Code, yang ditulis host dan bukan VENG: token tertagih per
 kelas, byte konteks per sumber, byte hasil tool per tool, dan biayanya per model dan per
 project.
 
 ```sh
-omni stats --view bill               # 30 hari terakhir
-omni stats --view bill --since week --limit 0
-omni stats --view bill --by session  # sesi mana yang paling mahal
+veng stats --view bill               # 30 hari terakhir
+veng stats --view bill --since week --limit 0
+veng stats --view bill --by session  # sesi mana yang paling mahal
 ```
 
 Satu request dihitung sekali berdasarkan id-nya, karena host mengulang `usage` di setiap
@@ -79,7 +79,7 @@ pekerjaan yang sama bila lewat API.
 Tabel biaya menghitung request subagent, karena request itu ditagih. Tabel token dan
 konteks tidak menghitungnya, karena konteks subagent bukan konteks sesi.
 
-Paragraf terakhir keluarannya adalah angka OMNI sendiri untuk jendela yang sama, diberi
+Paragraf terakhir keluarannya adalah angka VENG sendiri untuk jendela yang sama, diberi
 label sebagai klaimnya, supaya kedua sisi ada di satu layar tanpa tercampur. `--json`
 tidak membawa tampilan ini. Ia membaca setiap transkrip di jendelanya, yang makan waktu
 beberapa detik, sedangkan laporan untuk mesin dimaksudkan tetap murah.
@@ -95,18 +95,18 @@ persentase.
 
 **Baris terminal bukan token.** Keluaran yang ditulis ke TTY dibaca manusia,
 bukan model. Pada satu pemasangan, baris seperti itu 73% dari seluruh byte yang
-diklaim OMNI sudah dihemat. `stats` sekarang mengecualikannya, begitu juga
-harness benchmark-nya, tapi siapa pun yang mengueri `~/.omni/omni.db` langsung
+diklaim VENG sudah dihemat. `stats` sekarang mengecualikannya, begitu juga
+harness benchmark-nya, tapi siapa pun yang mengueri `~/.veng/veng.db` langsung
 harus menyaring `agent_id` sendiri.
 
 **Angka tinggi pantas dicurigai.** Cacat terburuk di proyek ini melaporkan
 pengurangan paling besar, karena menghapus jawabannya terkompresi dengan sangat
-baik. Sandingkan angka mana pun dengan `omni diff` pada perintah sungguhan.
+baik. Sandingkan angka mana pun dengan `veng diff` pada perintah sungguhan.
 
-**Angka gabungan yang rendah biasanya benar, dan bukan itu ukuran menilai OMNI.**
+**Angka gabungan yang rendah biasanya benar, dan bukan itu ukuran menilai VENG.**
 Sebagian besar panggilan memang dikembalikan utuh, jadi baca baris per kelasnya untuk
 melihat di mana kerjanya benar-benar terjadi.
 
 **`--share` dan `--card` tidak mungkin berbeda dari laporannya.** Keduanya
-membaca agregasi yang sama dengan `omni stats` sendiri, sebuah pilihan yang
+membaca agregasi yang sama dengan `veng stats` sendiri, sebuah pilihan yang
 disengaja setelah versi sebelumnya menghitungnya terpisah.

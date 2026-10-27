@@ -1,6 +1,6 @@
 //! Where `doctor_check` writes its human-readable report.
 //!
-//! `omni doctor --json` promises a document to a program, but each integration
+//! `veng doctor --json` promises a document to a program, but each integration
 //! wrote its report straight to stdout, so the JSON began at line 59 and `jq`
 //! died on the first character (#353).
 //!
@@ -69,7 +69,7 @@ macro_rules! agent_report {
 mod tests {
     use super::*;
 
-    /// #353: `omni doctor --json | jq .` failed on line 1 because the agent
+    /// #353: `veng doctor --json | jq .` failed on line 1 because the agent
     /// reports were already on stdout by the time the document was written.
     #[test]
     fn keeps_the_report_out_of_stdout_while_capturing() {
