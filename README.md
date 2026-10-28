@@ -3,7 +3,7 @@
 
 <h1>OMNI</h1>
 <p align="center">
-    <em><b>Your agent pays twice for output it has already seen.</b> OMNI hands back a retrievable handle instead: <b>97.2%</b> off a file it reads twice. Across a whole session it takes about a tenth of the repetition your work actually contains, which was <b>1.5%</b> of file-read bytes on the corpus below. How repetitive your work is decides where you land between those two. Nothing deleted, nothing invented, and every number here replays on your own history.</em>
+    <em><b>OMNI makes your coding agent read less.</b> It cuts the noise out of command output and stops re-sending files the agent has already seen. Fewer tokens, and nothing lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
@@ -28,22 +28,34 @@ brew install fajarhide/tap/omni && omni init
 
 ---
 
-## What it does
+## What it is
 
-**Drops the noise.** Build logs, Docker layer hashes, progress bars, ANSI colour. The
-part of the output nobody reads is removed before it reaches the model.
+A small program that runs on your own machine, beside your coding agent (Claude Code,
+Codex, Gemini CLI and others). Each time the agent runs a command, OMNI looks at the output
+before the model does and takes out what the model does not need. Whatever it takes
+out stays on your machine, and one command brings it back.
 
-**Stops re-sending what the agent has already seen.** A run of lines it was shown
-earlier in the session comes back as one marker with a handle, not as the bytes again.
-This is the half a filter cannot do: it removes bytes because they are already in the
-context, not because a pattern calls them noise.
+## What it handles
 
-**Remembers across sessions.** Restart your editor or switch agents, and the project
-context is still there.
+| When your agent... | OMNI... |
+|---|---|
+| reads a file it already read | sends one line with a handle instead of the file again |
+| runs a noisy build or test | keeps the result and the failures, drops the progress noise |
+| runs `git log` or `git status` | keeps every commit, and sums up the status |
+| prints a token or password | replaces it with `[REDACTED]` before the model sees it |
+| hits a failing command | leaves it exactly as it was, so the real error reaches the agent, a secret in it included |
+| reads JSON, YAML or CSV | leaves the structure alone, so a later step can still parse it |
 
-**Gets out of the way.** A failing command passes through verbatim. JSON, YAML and CSV
-are never touched. Most commands are handed back unchanged, and that is the intended
-behaviour rather than a gap.
+## What you get
+
+- **A smaller bill.** The agent stops paying twice for the same file. How much you save
+  depends on how often it re-reads: 97.2% on a file read twice, far less across a whole
+  session (see [Numbers](#numbers)). `omni stats` shows it on your own history.
+- **Room in the context.** Long sessions fill up more slowly.
+- **Nothing lost.** `omni retrieve <handle>` brings the original back in full.
+- **Secrets kept out.** Tokens and passwords in command output are replaced before the
+  model reads them. A failed command's output is the exception and arrives as printed.
+- **Local only.** No proxy, no account, and the database never leaves your machine.
 
 <img src="docs/website/src/media/where-omni-sits.svg" alt="OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back." width="820" />
 
