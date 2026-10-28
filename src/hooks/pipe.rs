@@ -1,13 +1,10 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
 use anyhow::Result;
 use colored::Colorize;
 use std::io::{IsTerminal, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// Guardrail: only emit distilled output if it's at least this much smaller than
-/// input. Shared with `hooks::post_tool` via `guard::limits` (`CONTRIBUTING.md` SSOT).
+/// Emit distilled output only when it beats this ratio; shared with `post_tool`.
 use crate::guard::limits::{MAX_OUTPUT_BYTES, MIN_REDUCTION_PCT};
 
 use crate::pipeline::{Route, SessionState, collapse, scorer};
@@ -23,7 +20,7 @@ pub fn run(
     let stdout = std::io::stdout().lock();
     let stderr = std::io::stderr().lock();
 
-    // Testable generic route separating IO
+    // Split from IO so it is testable.
     run_inner(stdin, stdout, stderr, store, session, command_name)
 }
 
@@ -60,7 +57,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     session: Option<Arc<Mutex<SessionState>>>,
     command_name: Option<&str>,
 ) -> Result<()> {
-    // Phase 0: Sibling detection (CRITICAL: Do this BEFORE any IO or heavy logic)
+    // Find the producing command before any IO.
     let detected_cmd = if command_name.is_none() {
         detect_sibling_command()
     } else {
@@ -70,12 +67,8 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         .or(detected_cmd.as_deref())
         .map(crate::cli::rewrite::strip_exec_wrapper);
 
-    // Phase 0.4: the escape hatch is never distilled, on this path either.
-    //
-    // `post_tool` declines a recovery command and this did not, so
-    // `omni exec omni retrieve <handle>` re-entered the pipeline and handed back
-    // another marker: the same loop #456 reported, reached through a different
-    // door. Found by probing the sibling path after fixing the reported one.
+    // A recovery command is never distilled here either, or `omni retrieve` returns another marker
+    // (#456).
     if command_to_use.is_some_and(crate::hooks::post_tool::returns_archived_bytes) {
         let mut passthrough = String::new();
         let mut reader = std::io::BufReader::new(input);
@@ -97,18 +90,15 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
 
     let start_time = Instant::now();
 
-    // Phase 1: Read
     let input_text = match read_input(input, &mut output)? {
         Some(text) => text,
         None => return Ok(()), // Binary data was passed through directly
     };
 
-    // Phase 2: Guard
     let input_check = crate::guard::limits::check_input(&input_text);
 
     if let crate::guard::limits::InputCheck::Empty = input_check {
-        // Silent passthrough: command produced no output (e.g. failed upstream).
-        // Don't error, just exit cleanly so we don't pollute Claude Code's stderr.
+        // No output: exit cleanly without writing to stderr.
         return Ok(());
     } else if matches!(
         input_check,
@@ -125,9 +115,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         return Ok(());
     }
 
-    // Phase 2.5: Format-safe gate. Structured payloads are machine-read downstream
-    // (`jq`, `json.load`, `kubectl apply`); collapse and the distillers would leave
-    // them unparseable. Emit the input verbatim, byte for byte.
+    // Structured payloads go out byte for byte.
     if crate::pipeline::format::refuses_lossy_stages(&input_text)
         && let Some(kind) = crate::pipeline::format::sniff(&input_text)
     {
@@ -138,13 +126,8 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 command_to_use.unwrap_or(""),
                 input_text.len(),
                 &crate::pipeline::format::passthrough_reason(kind),
-                // Pipe mode has no host session id. Empty says that, where the
-                // `SessionState` fallback would say "whenever OMNI last started"
-                // and group 16 project paths under one id (#118, #672).
-                //
-                // The agent id is what tells this row from a hook row, since an
-                // empty session does not: a hook payload can arrive without one
-                // too (#773).
+                // No host session in pipe mode: empty, not a minted id (#118, #672). The
+                // agent id tells this row from a hook row (#773).
                 "",
                 &resolve_pipe_agent_id(),
             );
@@ -152,14 +135,12 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         return Ok(());
     }
 
-    // Phase 3: Transcript Begin
     let project_path = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
     transcript_begin(&session, &input_text, command_to_use, &mut error);
 
-    // Phase 4: Distill
     let result = distill(
         input_text,
         &session,
@@ -169,10 +150,8 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         project_path,
     );
 
-    // Phase 5: Persist
     persist(&result, &store, &session, command_to_use, &mut error);
 
-    // Phase 6: Output
     emit_output(&result, &mut output, &mut error)?;
 
     Ok(())
@@ -191,7 +170,7 @@ fn read_input<R: Read, W: Write>(mut input: R, mut output: W) -> Result<Option<S
 
         total_read += n;
         if total_read > crate::guard::limits::MAX_INPUT {
-            // Cap buffer up to 16MB for safety LLM limits
+            // Capped at 16 MB.
             buffer.extend_from_slice(&chunk[..n]);
             break;
         }
@@ -201,7 +180,7 @@ fn read_input<R: Read, W: Write>(mut input: R, mut output: W) -> Result<Option<S
     match std::str::from_utf8(&buffer) {
         Ok(s) => Ok(Some(s.to_string())),
         Err(_) => {
-            // Buffer invalid UTF-8 format (binary), dump as is directly safely.
+            // Not UTF-8: write it through unchanged.
             output.write_all(&buffer)?;
             Ok(None)
         }
@@ -246,27 +225,18 @@ fn distill(
     let session_id = with_session(session, |g| g.session_id.clone())
         .unwrap_or_else(|| "pipe_session".to_string());
 
-    // The single command this stdout came from, or `None` for a chain that
-    // several programs wrote to. Routing anything by the first name in a chain
-    // hands one distiller output it never produced (#264), and a TOML filter
-    // keyed on that name does it just as readily as a Rust distiller.
+    // The sole producer, or `None` for a chain several programs wrote to (#264).
     let output_command = command_name.and_then(crate::pipeline::registry::sole_output_command);
 
     let (mut output, filter_name, kept_count, dropped_count, collapse_savings, mut route) = {
         let cmd = command_name.unwrap_or("");
 
-        // Pure Command Architecture: Resolve profile
-        // The chain resolver, the one `post_tool` has used since #339. Reading
-        // the first token made `cd repo && git diff` a `cd`, which is generic
-        // line segmentation, and the diff distiller then kept only its headers
-        // (#805).
+        // The chain resolver, as `post_tool` uses: the first token reads `cd repo && git diff` as
+        // `cd` (#805).
         let profile = crate::pipeline::registry::resolve_profile_for_chain(cmd);
 
-        // Score and distill the tool's REAL output. #116: a distiller parses
-        // its input, so feeding it `collapse`'s `[N similar lines collapsed]`
-        // markers makes it read OMNI's own scaffolding as data (a pod table
-        // became `k8s: 2 pods | [5 (lines)`). Collapse is the fallback only for
-        // commands no distiller handles (below).
+        // Distill the real output, never collapse markers: a distiller would parse them as data
+        // (#116).
         let segments = scorer::score_segments(
             &input_text,
             profile.segmentation,
@@ -281,19 +251,9 @@ fn distill(
             session.as_ref().and_then(|m| m.lock().ok()).as_deref(),
         );
 
-        // When no distiller meaningfully reduced the raw output, it punted
-        // (returned the input) or produced a near-copy that misses the
-        // guardrail, fall back to the collapsed form for its line savings.
-        // `best_output` still drops back to raw if even the collapse is too
-        // weak, so this only ever helps. A distiller that earned its summary
-        // keeps it; the markers never reached the distiller in the first place.
-        // Enumeration commands (`ls`/`find`/`ps`/…) return the input verbatim
-        // by design; collapsing them would drop rows that are the answer, so
-        // never fall back to collapse for them (#200).
-        // The verbatim check asks the resolved command, not the string the
-        // user typed: the whole of `kubectl get pods -o json | jq -r '...'`
-        // reads as `kubectl` and lets collapse rewrite a payload the next
-        // step parses (#269).
+        // When the distiller punted, fall back to collapse, which `best_output` can
+        // still reject. Never for verbatim commands (#200), judged on the resolved
+        // command, not the typed string (#269).
         let collapse_savings_data =
             if crate::guard::limits::beats_guardrail(out.len(), input_text.len())
                 || !output_command
@@ -313,7 +273,6 @@ fn distill(
         let d_count = segments.iter().filter(|s| s.final_score() < 0.3).count();
         let k_count = segments.len() - d_count;
 
-        // Determine Route
         let ratio = 1.0 - (out.len() as f32 / input_text.len().max(1) as f32);
         let route = if ratio >= 0.7 {
             Route::Keep
@@ -323,28 +282,19 @@ fn distill(
             Route::Passthrough
         };
 
-        // A distiller that emitted more lines than it consumed restructured
-        // rather than cut, so calling the result partial is a false claim
-        // about a complete answer. `distill_grep_output` folds a repeated
-        // `path:` prefix into a header: 11 matches become 15 lines holding all
-        // 11, the byte ratio lands in `Soft`, and the banner said the output
-        // was incomplete (#335). Same guard as `hooks::post_tool`.
+        // More lines out than in is a restructure, not a partial result (#335).
         if route == Route::Soft && out.lines().count() <= input_text.lines().count() {
             out.push_str("\n[Partial signal]\n");
         }
 
-        // Safety truncation. The marker carries the line count: `ps aux` lost
-        // 416 of 556 rows here behind a bare `[OMNI: output truncated]` while
-        // the footer reported it as a 62.2% saving (#219).
+        // The final cut names its line count (#219).
         crate::util::text::truncate_with_marker(&mut out, MAX_OUTPUT_BYTES, |dropped, whole| {
             store.and_then(|s| s.store_rewind(dropped, whole))
         });
 
         (
             out,
-            // `[pipe]` only for pipe mode, where there is no command at all. A
-            // command that is present is named after its program, through the
-            // same helper the hook path uses (#603).
+            // `[pipe]` only when there is no command; otherwise named like the hook path (#603).
             match crate::pipeline::producer::producer_label(cmd) {
                 "" => "[pipe]".to_string(),
                 label => label.to_string(),
@@ -356,25 +306,18 @@ fn distill(
         )
     };
 
-    // The ledger stage, which this path did not have until #416. `post_tool`
-    // has run it since #397 and `pipe` never did, so a command the pre-hook
-    // rewrote into `omni exec` got the filters and nothing else. Same two
-    // gates as the other hook: structured payloads are never projected, and
-    // the scope is the host's session id and never `SessionState::session_id`,
-    // which is a wall-clock stamp that covered 16 projects in one value (#118).
-    // No forwarded id, no ledger, which is why the pre-hook now passes one.
+    // The ledger stage (#416), with the same gates as `post_tool`: no structured
+    // payloads, and the host's session id only, never a minted one (#118). No
+    // forwarded id, no ledger.
     if let (Some(s), Some(scope)) = (store, host_session())
         && !crate::pipeline::format::refuses_the_ledger(&output)
         && let Some(view) = crate::ledger::Ledger::new(s, scope)
             .with_project(crate::paths::project_key(std::path::Path::new(
                 &project_path,
             )))
-            // #736, the third door. `post_tool` named its command and this did
-            // not, which is the drift #452, #454 and #456 each paid for once:
-            // one pipeline, two entrances, a fix applied to whichever one the
-            // report happened to come through.
+            // Name the command, as `post_tool` does (#736).
             .from(command_name.unwrap_or(""))
-            // This door only ever carries shell output (#822).
+            // Shell output only (#822).
             .tool("Bash")
             .by(resolve_pipe_agent_id())
             .project(&output)
@@ -382,18 +325,8 @@ fn distill(
         output = view;
     }
 
-    // Rewind decision, the same question `hooks::post_tool` asks and for
-    // the same reason: is the reply about to be emitted missing bytes the
-    // command produced? The old gate wanted more than 40% noise across
-    // more than 20 segments, a shape 0 of 8,968 recorded distillations
-    // ever had, so the archive behind "everything cut is archived" stayed
-    // empty (#271).
-    //
-    // The gate is `beats_guardrail` rather than the route, because a pipe
-    // always writes something: `best_output` hands back the raw input
-    // once the reply stops beating the guardrail, and only below it does
-    // the caller actually lose lines. Archiving anything else stores
-    // content nobody lost.
+    // Archive when the reply loses lines, as `post_tool` does (#271). Gated on
+    // `beats_guardrail`, since below it `best_output` emits the raw input.
     let mut r_hash = None;
     if crate::guard::limits::beats_guardrail(output.len(), input_text.len()) {
         let omitted_lines = input_text
@@ -429,15 +362,11 @@ fn distill(
             r_hash = Some(hash);
             marker
         } else {
-            // No store, or the insert did not land. Both leave the content
-            // unretrievable, so neither may print a handle for it (#388).
+            // Not archived, so no handle (#388).
             format!("\n[OMNI: {lost} omitted, full output not archived]\n")
         };
 
-        // A marker that pushes the reply back over the guardrail costs
-        // more than the cut saved (#268, #269 are 102 and 90 byte
-        // payloads of that shape), and `best_output` would then emit the
-        // raw input while the recorded row claimed a rewind.
+        // A marker that loses the guardrail costs more than the cut saved (#268, #269).
         if crate::guard::limits::beats_guardrail(output.len() + marker.len(), input_text.len()) {
             output.push_str(&marker);
             if r_hash.is_some() {
@@ -450,20 +379,14 @@ fn distill(
         }
     }
 
-    // The post-condition (#458), same rule the hook path applies and the same
-    // function, because two copies of one predicate drift and only one of them
-    // gets reported. If the command stated a failure and this reply no longer
-    // does, hand the bytes back: a reply an agent reads as success is worse than
-    // a long one.
+    // If the input stated a failure and the reply does not, hand the bytes back (#458).
     if !crate::pipeline::fidelity::preserves_failures(&input_text, &output) {
         output = input_text.clone();
         route = Route::Passthrough;
         r_hash = None;
     }
 
-    // Safety truncation. The marker carries the line count: `ps aux` lost 416 of
-    // 556 rows here behind a bare `[OMNI: output truncated]` while the footer
-    // reported it as a 62.2% saving (#219).
+    // The final cut names its line count (#219).
     crate::util::text::truncate_with_marker(&mut output, MAX_OUTPUT_BYTES, |dropped, whole| {
         store.and_then(|s| s.store_rewind(dropped, whole))
     });
@@ -537,8 +460,7 @@ fn persist<E: Write>(
                 command_to_use.unwrap_or(""),
                 &result.input_text,
                 &distill_result,
-                // Same test `delivered_bytes` uses: a TTY on the other end means
-                // a human is reading and no context is billed for it.
+                // A TTY means a human reads it and nothing is billed.
                 !std::io::stdout().is_terminal(),
             );
         }
@@ -577,18 +499,8 @@ fn persist<E: Write>(
     }
 }
 
-/// Who ran this, on the `omni exec` / pipe path.
-///
-/// This used to be a third, private set of rules (#160). It knew only
-/// `OMNI_AGENT_ID`, then guessed **`aider`** for anything with `OMNI_CMD` set -
-/// a variable OMNI documents for its own pipe mode and that any caller may set,
-/// so 3,296 rows on one machine were filed under an agent that had not run.
-/// Everything else became `terminal`, which is why work done inside Claude Code
-/// appeared in `omni stats` as shell usage.
-///
-/// It now defers to the one env-based detector, so `omni exec`, the pipe, and
-/// the peer-session tracker all name an agent the same way, and that name
-/// matches what `hooks::normalize` derives from a payload on the hook path.
+/// Who ran this on the `omni exec` and pipe path, through the one env-based
+/// detector, so it matches the hook path (#160).
 fn resolve_pipe_agent_id() -> String {
     pipe_agent_id_from(
         HOST_THAT_REWROTE.get().map(String::as_str),
@@ -596,13 +508,9 @@ fn resolve_pipe_agent_id() -> String {
     )
 }
 
-/// The precedence, kept pure so tests never write the process-global or the
-/// environment. Writing either from a test leaks into every other test sharing
-/// the binary, which is the hazard this codebase has already paid for twice.
+/// The precedence, pure so tests never write process state.
 fn pipe_agent_id_from(from_flag: Option<&str>, from_env: Option<&str>) -> String {
-    // The flag outranks the environment: it is evidence about *this* command,
-    // while the environment only describes whichever shell happens to be
-    // outermost.
+    // The flag describes this command; the environment only the outer shell.
     if let Some(agent) = from_flag.filter(|a| !a.trim().is_empty()) {
         return agent.to_string();
     }
@@ -614,36 +522,21 @@ fn pipe_agent_id_from(from_flag: Option<&str>, from_env: Option<&str>) -> String
     crate::agents::multiagent::detect_agent_id()
 }
 
-/// The host whose pre-hook rewrote this command into `omni exec`, passed down as
-/// `--agent` because the child inherits no evidence of who spawned it.
-///
-/// Without it the run guesses from ambient environment and is wrong in both
-/// directions: under Gemini it filed as `claude_code` when a Claude session was
-/// the outer shell, and as `terminal` once that was stripped, so Gemini rows
-/// could never reach Agent Distribution (#360).
+/// The host whose pre-hook rewrote this command, passed as `--agent` (#360).
 static HOST_THAT_REWROTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
-/// Records which host asked for this run. Later calls are ignored, so a command
-/// that somehow carries the flag twice cannot change identity mid-run.
+/// Records which host asked; first call wins.
 pub fn set_host_that_rewrote(agent: &str) {
     if !agent.trim().is_empty() {
         let _ = HOST_THAT_REWROTE.set(agent.to_string());
     }
 }
 
-/// The host's session id for this run, when the pre-hook passed one through.
-///
-/// The ledger cannot key on `SessionState::session_id`: that is a wall-clock
-/// stamp on globally persisted state and one such id covered 16 project paths and
-/// 3,739 commands (#118). Scoping by it would let the ledger tell one session it
-/// had been shown output that went to another, which is a false claim rather than
-/// a missed saving. So `omni exec` had no ledger at all until the pre-hook started
-/// forwarding this, which is what #416's check turned up: the two hooks were
-/// running different chains and only one of them had the stage.
+/// The host's session id, when the pre-hook passed one. Never a minted id,
+/// which once covered 16 projects (#118); without it there is no ledger (#416).
 static HOST_SESSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
-/// Records the host session id this run belongs to. First call wins, for the same
-/// reason `set_host_that_rewrote` works that way.
+/// Records the host session id; first call wins.
 pub fn set_host_session(id: &str) {
     if !id.trim().is_empty() {
         let _ = HOST_SESSION.set(id.to_string());
@@ -654,18 +547,8 @@ fn host_session() -> Option<&'static str> {
     HOST_SESSION.get().map(String::as_str)
 }
 
-/// Bytes from this run that reach a model's context.
-///
-/// On the exec and pipe paths OMNI writes to its own stdout, so whether anything
-/// that bills tokens is on the other end is decided by what stdout is attached
-/// to: a TTY means a human is reading and no context holds the result, while a
-/// pipe or a captured tool result means something downstream does. That
-/// distinction is the whole of #212's first finding, `agent_id='terminal'` rows
-/// were 73.4% of every byte OMNI claimed to have saved, folded into one headline
-/// with the rows that really are tokens.
-///
-/// `is_terminal()` is a property of the process, not a guess about the caller,
-/// which is what makes this measurable rather than aspirational.
+/// Bytes from this run that reach a model's context: none when stdout is a TTY,
+/// where a human reads it (#212).
 fn delivered_bytes(output_len: usize) -> usize {
     if std::io::stdout().is_terminal() {
         0
@@ -727,26 +610,10 @@ fn emit_output<W: Write, E: Write>(
     Ok(())
 }
 
-/// The command feeding `omni` in a `cmd | omni` pipeline, read out of `ps` output.
-///
-/// Pure so it can be tested: everything above it is `ps` plumbing that a unit test
-/// cannot drive, and everything that decides *which* command gets the credit is here.
-///
-/// **There used to be a pass above this one that returned the first non-shell process
-/// in the group, whatever it was (#516).** A process sharing a process group is not
-/// evidence about what is on stdin, and it produced two failures. It attributed a
-/// payload to an unrelated daemon, so a Node harness whose group held an
-/// `esbuild --service=... --ping` had a 4,421 byte application log routed as esbuild
-/// output, folded to 129 bytes on one run and passed through on the next: identical
-/// stdin, identical binary, two answers. And its own shell exclusion never fired,
-/// because it tested `starts_with("zsh ")` while Claude Code invokes `/bin/zsh -c`,
-/// so **282 of 289 pipe-path rows in the maintainer's database recorded `/bin/zsh` as
-/// the producing command**, carrying the whole shell-snapshot wrapper with them.
-///
-/// What is left needs an actual pipe and an actual `omni` on the right of it, which is
-/// evidence rather than proximity. No match means no command, which is a state the
-/// pipeline already supports: `filter_name` becomes `[pipe]` and the payload takes the
-/// generic path.
+/// The command feeding `omni` in a `cmd | omni` pipeline, from `ps` output.
+/// Requires a real pipe into `omni`; sharing a process group is not evidence,
+/// and that rule once credited a daemon and recorded `/bin/zsh` for 282 of 289
+/// rows (#516). No match means `[pipe]`.
 fn pipeline_in(siblings: &str) -> Option<String> {
     siblings
         .lines()
@@ -762,24 +629,20 @@ fn pipeline_in(siblings: &str) -> Option<String> {
 fn detect_sibling_command() -> Option<String> {
     use std::process::Command;
 
-    // 1. Get current IDs
     let pid = std::process::id();
 
-    // 2. Get PGID (Process Group ID)
     let pgid_out = Command::new("ps")
         .args(["-o", "pgid=", "-p", &pid.to_string()])
         .output()
         .ok()?;
     let pgid = String::from_utf8_lossy(&pgid_out.stdout).trim().to_string();
 
-    // 3. Get PPID (Parent Process ID)
     let ppid_out = Command::new("ps")
         .args(["-o", "ppid=", "-p", &pid.to_string()])
         .output()
         .ok()?;
     let ppid = String::from_utf8_lossy(&ppid_out.stdout).trim().to_string();
 
-    // 4. Find all commands in that PGID
     let siblings_out = if !pgid.is_empty() {
         Command::new("ps")
             .args(["-o", "command=", "-g", &pgid])
@@ -793,13 +656,12 @@ fn detect_sibling_command() -> Option<String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_default();
 
-    // 5. Parse a real `cmd | omni` pipeline out of the group's command lines.
+    // A real `cmd | omni` pipeline in the group's command lines.
     if let Some(cmd) = pipeline_in(&siblings) {
         return Some(cmd);
     }
 
-    // 7. Pass 3: Fallback to Parent Command if no sibling found
-    // Useful if we are running in a script or cargo run
+    // Else the parent command, as in a script or `cargo run`.
     if !ppid.is_empty() && ppid != "0" && ppid != "1" {
         let parent_cmd_out = Command::new("ps")
             .args(["-o", "command=", "-p", &ppid])
@@ -820,15 +682,9 @@ fn detect_sibling_command() -> Option<String> {
     None
 }
 
-/// Slices here are proven to sit on a char boundary rather than assumed to.
-/// A file-level allow used to cover them and hid a real panic elsewhere (#619),
-/// so the exemption is per function and says why.
-///
-/// `find("-c ")` plus that needle's three bytes, and `rfind(['&', ';'])` plus
-/// one, both ASCII.
+/// Slices are on ASCII positions (`-c `, `&`, `;`), so on char boundaries (#619).
 #[allow(clippy::string_slice)]
 fn extract_command_from_pipeline(line: &str) -> Option<String> {
-    // Split by pipe and find the segment immediately before "omni"
     let pipe_parts: Vec<&str> = line.split('|').collect();
     let omni_idx = pipe_parts.iter().position(|p| p.contains("omni"));
 
@@ -837,14 +693,13 @@ fn extract_command_from_pipeline(line: &str) -> Option<String> {
         if idx > 0 {
             let cmd_segment = pipe_parts[idx - 1];
 
-            // Strip shell prefix if present (-c "...")
             let mut clean = if let Some(c_idx) = cmd_segment.find("-c ") {
                 &cmd_segment[c_idx + 3..]
             } else {
                 cmd_segment
             };
 
-            // Handle command chains like: source ~/.zshrc && ls -la | omni
+            // Chains such as `source ~/.zshrc && ls -la | omni`.
             if let Some(last_chain_idx) = clean.rfind(['&', ';']) {
                 clean = &clean[last_chain_idx + 1..];
                 clean = clean.trim_start_matches('&');
@@ -863,10 +718,7 @@ fn extract_command_from_pipeline(line: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// #360: Gemini's hook rewrote the command and the resulting run filed
-    /// itself under the outer shell. The flag describes this command; the
-    /// environment only describes whoever launched the terminal, so the flag
-    /// has to win.
+    /// The flag beats the environment (#360).
     #[test]
     fn the_rewriting_host_outranks_the_surrounding_environment() {
         assert_eq!(
@@ -875,8 +727,7 @@ mod tests {
         );
     }
 
-    /// A flag that arrived empty is not an identity, and neither is an empty
-    /// `OMNI_AGENT_ID`; both must fall through rather than record a blank agent.
+    /// An empty flag or `OMNI_AGENT_ID` is not an identity.
     #[test]
     fn falls_through_when_a_source_is_present_but_empty() {
         assert_eq!(
@@ -907,12 +758,9 @@ mod tests {
         assert_eq!(res.best_output(), input_text.as_str());
     }
 
-    /// #271, on the other hook path. The pipe carried the same noise-ratio gate
-    /// and the same empty archive, so fixing only `hooks::post_tool` would leave
-    /// "everything cut is archived" false for every `omni exec` call.
+    /// The pipe archives what it cuts (#271).
     #[test]
     fn archives_the_raw_output_it_shortens() {
-        // Arrange
         let mut input = String::new();
         for i in 0..200 {
             input.push_str(&format!("test module_{i} ... ok\n"));
@@ -924,7 +772,6 @@ mod tests {
         let mut out = Vec::new();
         let mut err = Vec::new();
 
-        // Act
         run_inner(
             input.as_bytes(),
             &mut out,
@@ -935,7 +782,6 @@ mod tests {
         )
         .expect("must succeed");
 
-        // Assert
         let archived: i64 = rusqlite::Connection::open(&db)
             .expect("open recorded db")
             .query_row("SELECT COUNT(*) FROM rewind_store", [], |r| r.get(0))
@@ -977,10 +823,7 @@ mod tests {
         assert_eq!(out_str, input);
     }
 
-    /// #516. A process that merely shares a process group is not evidence about what
-    /// is on stdin, and the pass that treated it as evidence made output depend on
-    /// which unrelated daemon happened to be alive. This is the exact `ps -o command=`
-    /// block from the run that produced the report.
+    /// A process-group neighbour is not the producer (#516).
     #[test]
     fn an_unrelated_daemon_in_the_group_is_not_the_command() {
         let siblings = "\
@@ -995,10 +838,7 @@ omni";
         );
     }
 
-    /// The other half of #516, and the bigger one by row count: the old pass excluded
-    /// shells with `starts_with("zsh ")`, and Claude Code runs `/bin/zsh -c`, so the
-    /// exclusion never fired and 282 of 289 pipe-path rows recorded `/bin/zsh` as the
-    /// producing command, wrapper and all.
+    /// A `/bin/zsh -c` wrapper is not the producer (#516).
     #[test]
     fn an_absolute_path_shell_is_not_the_command() {
         let siblings = "/bin/zsh -c source ~/.claude/shell-snapshots/snap.sh 2>/dev/null || true && eval 'npx tsx cli.ts'";
@@ -1011,8 +851,7 @@ omni";
         );
     }
 
-    /// What survives, and why the pass is not simply deleted: a real pipeline names
-    /// the command feeding omni, and that is evidence rather than proximity.
+    /// A real pipeline still names its producer.
     #[test]
     fn a_real_pipeline_still_names_its_command() {
         let siblings = "/bin/zsh -c cat /var/log/app.log | omni\nomni";
@@ -1023,11 +862,7 @@ omni";
         );
     }
 
-    /// #456 reached through the sibling door. `post_tool` declined a recovery
-    /// command and this path did not, so `omni exec omni retrieve <handle>` came
-    /// back as another marker with another handle. Found by probing this path
-    /// after fixing the one that was reported, which is the only reason it is not
-    /// a second issue.
+    /// `omni exec omni retrieve` is not distilled (#456).
     #[test]
     fn hands_a_retrieval_back_untouched() {
         let input: String = (0..200)
@@ -1053,9 +888,7 @@ omni";
         );
     }
 
-    /// The pipe path shares batch TOML filtering with PostToolUse. When every
-    /// row is stripped and there is no explicit fallback, it must emit the
-    /// original bytes rather than falling through to another distiller.
+    /// When every row is filtered and no fallback exists, the original bytes go out.
     #[test]
     fn passes_through_a_batch_filter_that_removes_every_line() {
         let input = "would reformat src/main.py\n\

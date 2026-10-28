@@ -19,24 +19,12 @@ struct HookInput {
         default
     )]
     working_directory: String,
-    /// Claude Code sends `prompt_id` with its hook payloads; Codex does not.
-    ///
-    /// It decides whether the reply may carry `watchPaths`. Codex's `SessionStart`
-    /// reply schema is `additionalProperties: false`, so one extra field makes it
-    /// discard the whole reply, taking the session summary with it, and print
-    /// `SessionStart Failed` (#364). Claude Code documents `watchPaths` and
-    /// accepts it. `turn_id` cannot be used here: Codex omits it on `SessionStart`
-    /// even though it sends one on `PreToolUse`.
-    ///
-    /// The failure direction is deliberate. If Claude Code ever omits `prompt_id`
-    /// the cost is one unregistered watch list; guessing the other way costs the
-    /// entire reply on Codex.
+    /// Claude Code sends `prompt_id`; Codex does not. It decides whether the reply
+    /// may carry `watchPaths`: Codex's schema rejects any extra field and drops the
+    /// whole reply (#364). Erring toward Codex costs only a watch list.
     #[serde(rename = "promptId", alias = "prompt_id", default)]
     prompt_id: Option<String>,
-    /// The other Claude Code marker, accepted because the documentation lists
-    /// `prompt_id` as common to all hooks but its `SessionStart` example does not
-    /// show it, and no recorded `SessionStart` payload was available to settle it.
-    /// Taking either keeps the gate working if one turns out to be absent.
+    /// The other Claude Code-only field, in case `prompt_id` is missing.
     #[serde(rename = "effort", default)]
     effort: Option<String>,
 }
@@ -51,12 +39,8 @@ pub struct HookOutput {
 pub struct HookSpecificOutput {
     #[serde(rename = "hookEventName")]
     pub hook_event_name: String,
-    /// The field both hosts actually read. It was `systemPromptAddition`, which
-    /// neither accepts: Claude Code documents `additionalContext`, and Codex's
-    /// reply schema is `additionalProperties: false` with `additionalContext` as
-    /// the only content field, so it rejected the whole reply and printed
-    /// `SessionStart Failed`. The session summary had never reached a model on
-    /// either host (#364), the same defect as #158 one layer up.
+    /// `additionalContext`, the field both hosts read; `systemPromptAddition` was dropped by both
+    /// (#364).
     #[serde(rename = "additionalContext")]
     pub system_prompt_addition: String,
     #[serde(rename = "watchPaths", default)]
@@ -100,8 +84,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         return None;
     }
 
-    // The project decides which session may be continued, so it is resolved
-    // before the decision rather than after it (#482).
+    // Resolve the project first: continuation is per project (#482).
     let cwd_for_ctx = if parsed.working_directory.is_empty() {
         std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -116,15 +99,9 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     let mut should_continue = false;
     let mut prev_state: Option<SessionState> = None;
 
-    // Scoped to this project. The old lookup was
-    // `SELECT ... FROM sessions ORDER BY last_active DESC LIMIT 1`, which has no
-    // project in it, so opening a second repository inside the TTL continued the
-    // first one's session and inherited its task hint, hot files, active errors
-    // and command history. One session id was measured spanning six projects.
-    //
-    // Asking per project also handles going back: A, then B, then A again inside
-    // the window resumes A's own session rather than refusing because the newest
-    // session belongs to B.
+    // Scoped to this project: the old global lookup continued another repo's
+    // session (one id spanned six projects). Per project, returning to A resumes
+    // A's own session.
     if !cfg.force_fresh
         && let Some(state) = store.find_latest_session_for_project(&agent_id, &proj_hash)
     {
@@ -159,10 +136,8 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         return serde_json::to_string(&out).ok();
     }
 
-    // Fresh session logic
     let mut new_state = SessionState::new();
 
-    // Initialize transcript for new session
     let cwd = if parsed.working_directory.is_empty() {
         std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -182,8 +157,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         new_state.toolchain_hints.insert("python".to_string(), pm);
     }
 
-    // Detect watch paths for file monitoring, but only for a host that will
-    // accept the field (#364).
+    // Watch paths only for a host that accepts them (#364).
     let watch_paths = if parsed.prompt_id.is_some() || parsed.effort.is_some() {
         detect_watch_paths(cwd_path, &new_state.toolchain_hints)
     } else {
@@ -191,16 +165,8 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     };
 
     store.upsert_session(&new_state);
-    // A fresh session records which project it belongs to, which only the
-    // continued branch used to do. Without this the scoping above can never fire:
-    // the first session in a repository would leave no `agent_sessions` row, so
-    // the next one would find nothing to continue and start fresh again, forever
-    // (#482).
-    //
-    // It also closes a gap that predates that. `get_active_agents_for_project`
-    // reads the same table, so multi-agent awareness could not see an agent whose
-    // session had just started, which is exactly when a second agent most wants
-    // to know about it.
+    // A fresh session records its project too, or the next one never finds it to
+    // continue (#482), and peers cannot see a just-started agent.
     store.sync_agent_session(
         &multiagent::detect_agent_id(),
         &new_state.session_id,
@@ -213,10 +179,9 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     let t = transcript::Transcript::new(&new_state.session_id, &cwd);
     let _ = t.save();
 
-    // Cleanup old transcripts (7 days)
+    // Transcripts older than 7 days.
     transcript::cleanup_old(7);
 
-    // Only check for interrupted sessions when not forcing fresh
     if !cfg.force_fresh
         && let Some(pending) = transcript::find_pending()
         && pending.session_id != new_state.session_id
@@ -244,7 +209,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         }
     }
 
-    // Fresh session: return output if we have watchPaths or a system prompt to register
+    // Reply only with watch paths or a system prompt.
     if !watch_paths.is_empty() || !system_prompt_addition.is_empty() {
         let out = HookOutput {
             hook_specific_output: HookSpecificOutput {
@@ -259,13 +224,8 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     None
 }
 
-/// Handle a `BeforeAgentStart` hook payload.
-///
-/// This is similar to [`process_payload`] but is intended for the per-agent-turn
-/// pre-prompt hook (currently only the Pi extension emits this). It does NOT
-/// bootstrap a fresh session, write transcripts, or register watch paths.
-/// It only emits an `additionalContext` summary when there is a recent
-/// session to continue from. Otherwise it returns `None` (fail-open).
+/// `BeforeAgentStart`, Pi's per-turn hook: a summary of a recent session to
+/// continue, or `None`. No bootstrap, transcript or watch paths.
 pub fn process_before_agent_start_payload(
     input_str: &str,
     store: Arc<Store>,
@@ -287,9 +247,7 @@ pub fn process_before_agent_start_payload(
         return None;
     }
 
-    // `BeforeAgentStart` is the second door into continuation, and it carried the
-    // same unscoped lookup as `SessionStart`. Fixing one and leaving the other is
-    // the failure this repository keeps repeating, so both ask per project (#482).
+    // Scoped per project, like `SessionStart` (#482).
     let cwd_for_ctx = if parsed.working_directory.is_empty() {
         std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -314,10 +272,7 @@ pub fn process_before_agent_start_payload(
         return None;
     }
 
-    // `BeforeAgentStart` is OMNI's own event, emitted and read by the Pi
-    // extension, so it keeps `systemPromptAddition`. Only `SessionStart` is
-    // constrained by Claude Code and Codex, and renaming this too would break a
-    // working host to fix two others (#364).
+    // OMNI's own event, so it keeps `systemPromptAddition` (#364).
     serde_json::to_string(&serde_json::json!({
         "hookSpecificOutput": {
             "hookEventName": "BeforeAgentStart",
@@ -327,7 +282,7 @@ pub fn process_before_agent_start_payload(
     .ok()
 }
 
-/// Auto-detect critical project files to watch based on toolchain
+/// Project files to watch, by toolchain.
 fn detect_watch_paths(
     cwd: &std::path::Path,
     toolchain: &std::collections::HashMap<String, String>,
@@ -337,7 +292,6 @@ fn detect_watch_paths(
     let agent_id = crate::agents::multiagent::detect_agent_id();
     let agent_config = config.for_agent(&agent_id);
 
-    // Watch pinned files dynamically
     for pinned in agent_config.pinned_files() {
         if cwd.join(&pinned).exists() {
             paths.push(pinned);
@@ -417,7 +371,6 @@ fn build_summary(state: &SessionState, now: i64) -> String {
         ));
     }
 
-    // Phase 2: Inject engram progress into session resume
     if !state.engrams.is_empty() {
         out.push_str("Progress: ");
         let engram_strs: Vec<String> = state
@@ -436,18 +389,13 @@ fn build_summary(state: &SessionState, now: i64) -> String {
 fn build_summary_with_context(state: &SessionState, now: i64, store: &Store, cwd: &str) -> String {
     let mut out = build_summary(state, now);
 
-    // Feature B: Critical File Pinning
     out.push_str(&read_pinned_files(cwd));
 
-    // Inject peer agent context (multi-agent awareness)
     if let Some(peer_ctx) = multiagent::build_peer_context(store, cwd) {
         out.push_str(&peer_ctx);
     }
 
-    // Inject cross-session project knowledge. This is the largest memory read in
-    // the product by a distance, it happens without anyone asking for it, and it
-    // recorded nothing, so an injection that fires every continued session and
-    // one that never fires produced identical databases (#272).
+    // Project knowledge, the largest memory read, is recorded as a read (#272).
     if let Some(knowledge_ctx) = multiagent::build_knowledge_context(store, cwd) {
         store.record_memory_read("session_start", cwd);
         out.push_str(&knowledge_ctx);
@@ -456,7 +404,7 @@ fn build_summary_with_context(state: &SessionState, now: i64, store: &Store, cwd
     out
 }
 
-/// Feature B: Read pinned files with length cap
+/// Pinned files, length-capped.
 pub fn read_pinned_files(cwd: &str) -> String {
     let cwd_path = std::path::Path::new(cwd);
     let config = crate::guard::config::load_config();
@@ -490,10 +438,7 @@ pub fn read_pinned_files(cwd: &str) -> String {
 #[cfg(test)]
 mod tests {
 
-    /// Review finding: the gate rested on `prompt_id` alone, and the documented
-    /// `SessionStart` example does not show it. `effort` is the other field only
-    /// Claude Code sends, so either one is enough and the watch list survives if
-    /// one is missing.
+    /// `effort` alone also marks Claude Code.
     #[test]
     fn accepts_either_claude_marker_for_watch_paths() {
         let (store, _dir) = get_store();
@@ -510,13 +455,10 @@ mod tests {
         assert!(out.contains("watchPaths"), "{out}");
     }
 
-    /// #364: a fresh session emitted `watchPaths`, Codex's reply schema forbids
-    /// any field beyond `additionalContext`, so it discarded the whole reply and
-    /// the session summary never arrived. `SessionStart Failed` in its log.
+    /// No `watchPaths` for Codex (#364).
     #[test]
     fn omits_watch_paths_for_a_host_that_rejects_unknown_fields() {
         let (store, _dir) = get_store();
-        // No `prompt_id`: this is Codex's payload shape.
         let input = json!({
             "hook_event_name": "SessionStart",
             "session_id": "cx1",
@@ -533,8 +475,7 @@ mod tests {
         }
     }
 
-    /// Claude Code sends `prompt_id` and documents `watchPaths`, so it still gets
-    /// the file list. Without this the fix would be "never emit it".
+    /// Claude Code still gets `watchPaths`.
     #[test]
     fn still_registers_watch_paths_for_a_host_that_accepts_them() {
         let (store, _dir) = get_store();
@@ -551,11 +492,7 @@ mod tests {
         assert!(out.contains("watchPaths"), "{out}");
     }
 
-    /// #364: the reply carried `systemPromptAddition`, a field neither host
-    /// reads. Claude Code documents `additionalContext`, and Codex's schema is
-    /// `additionalProperties: false` with `additionalContext` as the only
-    /// content field, so it rejected the whole reply and printed
-    /// `SessionStart Failed`. The summary had never reached a model.
+    /// The reply uses `additionalContext` (#364).
     #[test]
     fn emits_the_context_field_both_hosts_read() {
         let out = HookOutput {
@@ -581,7 +518,7 @@ mod tests {
     fn get_store() -> (Arc<Store>, tempfile::TempDir) {
         let dir = tempdir().expect("must succeed");
         let db_path = dir.path().join("omni.db");
-        // Set transcript dir to clean temp dir so find_pending() doesn't interfere
+        // A clean transcript dir, so `find_pending()` sees nothing.
         let transcript_dir = dir.path().join("transcripts");
         crate::store::transcript::MOCK_TRANSCRIPT_DIR.with(|d| {
             *d.borrow_mut() = Some(transcript_dir);
@@ -600,13 +537,8 @@ mod tests {
         }
     }
 
-    /// A previous session, as the product actually leaves one behind.
-    ///
-    /// `upsert_session` alone is not that. Since #482 a session records the
-    /// project it belongs to in `agent_sessions`, and continuation is scoped by
-    /// it, so a fixture that writes only the `sessions` row describes a state the
-    /// code never produces and then asserts against it. Six tests were doing
-    /// exactly that and passed only because continuation ignored the project.
+    /// A previous session as the product leaves it: both rows, since continuation
+    /// is per project (#482).
     fn seed_previous_session(store: &Arc<Store>, state: &SessionState, cwd: &str) {
         store.upsert_session(state);
         store.sync_agent_session(
@@ -630,19 +562,10 @@ mod tests {
         assert!(out.is_none());
     }
 
-    /// #272. `retrieve_events` counted one path out of five, and the biggest
-    /// memory read in the product was not among them: project knowledge is
-    /// injected into every continued session without anyone asking, and recorded
-    /// nothing. So "memory has never been read" and "memory is read constantly
-    /// and never counted" produced the same database, and they point at opposite
-    /// conclusions.
-    ///
-    /// The assertion is on the recorded row rather than on the injected text,
-    /// because the text was already observable and the count was not.
+    /// The project-knowledge injection is recorded as a read (#272).
     #[test]
     fn counts_the_knowledge_it_injects_at_session_start() {
-        // Arrange: a project with something to inject, above the 0.7 confidence
-        // bar `build_knowledge_context` applies.
+        // Above the 0.7 confidence bar `build_knowledge_context` applies.
         let (store, dir) = get_store();
         let cwd = dir.path().to_string_lossy().to_string();
         let mut state = SessionState::new();
@@ -659,10 +582,8 @@ mod tests {
         let mut cfg = default_config();
         cfg.force_continue = true;
 
-        // Act
         let out = process_payload(&input.to_string(), store.clone(), cfg);
 
-        // Assert
         assert!(
             out.expect("a continued session emits a summary")
                 .contains("toolchain_rust"),
@@ -675,16 +596,8 @@ mod tests {
         );
     }
 
-    /// A session belongs to one project (#482).
-    ///
-    /// The lookup used to be `ORDER BY last_active DESC LIMIT 1` over every
-    /// session on the machine, so opening a second repository inside the TTL
-    /// continued the first one's session and inherited its task hint, hot files,
-    /// active errors and command history. Measured on a live database, one
-    /// session id spanned six project paths.
-    ///
-    /// `force_continue` is on deliberately: this must hold because the projects
-    /// differ, not because the session aged out.
+    /// A session belongs to one project (#482). `force_continue` is on, so it is
+    /// the project that decides, not age.
     #[test]
     fn does_not_continue_a_session_from_another_project() {
         let (store, _dir) = get_store();
@@ -705,8 +618,7 @@ mod tests {
 
         let out = process_payload(&input.to_string(), store.clone(), cfg);
 
-        // A fresh session emits either nothing or a watch-path reply; what it
-        // must never carry is the other project's state.
+        // Never the other project's state.
         let body = out.unwrap_or_default();
         assert!(
             !body.contains("missing semicolon"),
@@ -718,20 +630,12 @@ mod tests {
         );
     }
 
-    /// The other half of the same rule: scoping must not break returning.
-    ///
-    /// A, then B, then A again inside the window resumes A's own session. A guard
-    /// that merely refused when the newest session belonged elsewhere would fail
-    /// this, and would have looked like a fix.
+    /// Returning to A resumes A's own session.
     #[test]
     fn still_continues_when_returning_to_an_earlier_project() {
         let (store, _dir) = get_store();
 
-        // Ids are set by hand so this test cannot depend on how they are minted.
-        // It was a workaround when `SessionState::new` read a millisecond clock
-        // and two states built back to back collided; #490 fixed that, and the
-        // explicit ids stay because a scoping test should not be able to fail for
-        // a reason that has nothing to do with scoping.
+        // Ids by hand, so only scoping can fail this test.
         let mut a = SessionState::new();
         a.session_id = "sess-a".to_string();
         a.add_error("error from project a");
@@ -854,7 +758,6 @@ mod tests {
         cfg.ttl_mins = 240;
 
         let out = process_payload(&input.to_string(), store.clone(), cfg);
-        // Should drop and treat as fresh
         assert!(out.is_none());
     }
 
@@ -867,9 +770,8 @@ mod tests {
 
     #[test]
     fn accepts_claude_code_cwd_alias() {
-        // Claude Code sends "cwd" not "workingDirectory", this must not produce a parse error
+        // Claude Code sends `cwd` and snake_case; it must parse.
         let (store, _dir) = get_store();
-        // Claude Code sends "cwd" and snake_case field names (from actual hook transcripts)
         let input = json!({
             "hook_event_name": "SessionStart",
             "session_id": "4ba52c00-c43f-46ed-9e0e-9069d5294302",
@@ -880,10 +782,8 @@ mod tests {
         });
 
         let out = process_payload(&input.to_string(), store.clone(), default_config());
-        // Fresh session with no toolchain → no watch_paths → None output is correct
-        // The important thing is: no "[omni] parse error", session IS written to DB
+        // No toolchain, so no output; the session must still be written.
         assert!(out.is_none());
-        // Verify the session was actually persisted
         assert!(
             store.find_latest_session().is_some(),
             "session must be written to DB when cwd alias is used"
@@ -893,10 +793,7 @@ mod tests {
     #[test]
     fn session_start_accepts_missing_working_directory() {
         let (store, _dir) = get_store();
-        // No workingDirectory / cwd field at all, must not produce a parse error.
-        // The handler falls back to current_dir() and may emit watch paths if the
-        // cwd looks like a project, but the critical guarantee is: no parse error
-        // and the session is persisted.
+        // No `cwd` at all: no parse error, and the session is persisted.
         let input = json!({
             "hookEventName": "SessionStart",
             "sessionId": "no-cwd-1"
@@ -955,10 +852,7 @@ mod tests {
         let out = process_before_agent_start_payload(&input.to_string(), store.clone(), cfg);
         assert!(out.is_some());
         let res = out.expect("must succeed");
-        // Parsed loosely on purpose: `BeforeAgentStart` is OMNI's own event and
-        // keeps `systemPromptAddition`, while `SessionStart` had to move to the
-        // `additionalContext` both Claude Code and Codex read (#364). Sharing a
-        // struct here would tie Pi's contract to theirs.
+        // Parsed loosely: Pi's contract is separate from `SessionStart`'s (#364).
         let parsed: serde_json::Value = serde_json::from_str(&res).expect("must be valid JSON");
         let hso = &parsed["hookSpecificOutput"];
         assert_eq!(hso["hookEventName"], "BeforeAgentStart");
@@ -1047,8 +941,6 @@ mod tests {
         cfg.force_continue = true;
         let out = process_payload(&input.to_string(), store.clone(), cfg);
         assert!(out.is_some());
-        // Since we explicitly added hot_file = secret.txt, it naturally tracks it.
-        // No magic regex scrubbing mandated yet, so let it assert the correct structure is appended.
         let output = out.expect("must succeed");
         assert!(output.contains("Last: ran `cat secret.txt`"));
     }

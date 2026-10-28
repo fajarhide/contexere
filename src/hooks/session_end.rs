@@ -3,18 +3,9 @@ use crate::store::sqlite::Store;
 use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 
-/// Claude Code sends snake_case and names the field `reason`.
-///
-/// `session_id` is deliberately absent: nothing reads it. The guard that did
-/// compared the host's UUID against OMNI's internal timestamp id, which are
-/// different namespaces, so it only ever dropped valid work.
-///
-/// This struct demanded `hookEventName`, so `from_str` failed on every real
-/// payload and the handler returned `None`: no session summary, no FTS row, no
-/// agent-session sync, for every session ever ended. The dispatcher's own peeker
-/// carries `alias = "hook_event_name"`, which is why routing worked and only the
-/// handler was dead. The camelCase spellings are kept as aliases so any host
-/// that does send them keeps working.
+/// Claude Code sends snake_case and names the field `reason`; camelCase stays
+/// as an alias. A required `hookEventName` once made every real payload fail to
+/// parse. No `session_id`: nothing reads it.
 #[derive(Deserialize)]
 struct HookInput {
     #[serde(rename = "hook_event_name", alias = "hookEventName")]
@@ -30,22 +21,15 @@ pub fn process_payload(
 ) -> Option<String> {
     let parsed: HookInput = serde_json::from_str(input_str).ok()?;
 
-    // The handler re-checks the name, so the dispatcher's mapping is not
-    // enough on its own: Cursor's own vocabulary reached here unchanged and
-    // was rejected one layer below the routing (#384).
+    // Cursor's own event names must pass here too (#384).
     if crate::hooks::dispatcher::canonical_event(&parsed.hook_event_name) != "SessionEnd" {
         return None;
     }
 
     let state = session.lock().unwrap_or_else(|p| p.into_inner()).clone();
 
-    // No id comparison here. The host's `session_id` is its own UUID, while
-    // `state.session_id` is OMNI's internal id, a millisecond timestamp from
-    // `SessionState::new`. They are different namespaces and never match, so the
-    // guard that used to sit here dropped every real `SessionEnd` on Claude Code
-    // even once the payload parsed. It also protected nothing: the summary is
-    // written under `state.session_id` below, so the host's id never reaches the
-    // row it was supposedly validating.
+    // No id comparison: the host's UUID and OMNI's minted id never match, and a
+    // guard here dropped every real SessionEnd.
 
     let exit_reason = if parsed.exit_reason.is_empty() {
         "normal"
@@ -57,18 +41,15 @@ pub fn process_payload(
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    // Detect agent_id from env (set by hook dispatcher context)
     let agent_id = std::env::var("OMNI_AGENT_ID")
         .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
-    // Find top filter from this session
     let top_filter = state
         .top_command_info
         .as_ref()
         .map(|(cmd, _)| cmd.chars().take(40).collect::<String>())
         .unwrap_or_else(|| "none".to_string());
 
-    // Save session summary
     store.save_session_summary(
         &state.session_id,
         state.started_at,
@@ -80,7 +61,6 @@ pub fn process_payload(
         &project_path,
     );
 
-    // Index to FTS5
     let summary_msg = format!(
         "SessionEnd ({}): {} commands, ~{} tokens saved, top: {}",
         exit_reason,
@@ -90,12 +70,10 @@ pub fn process_payload(
     );
     store.index_event(&state.session_id, "SessionEnd", &summary_msg);
 
-    // Update multi-agent session sync
     let project_hash = compute_project_hash(&project_path);
     let state_json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
     store.sync_agent_session(&agent_id, &state.session_id, &project_hash, &state_json);
 
-    // Optional CSV export
     if std::env::var("OMNI_EXPORT_CSV")
         .map(|v| v == "1")
         .unwrap_or(false)
@@ -103,7 +81,7 @@ pub fn process_payload(
         export_session_csv(&state, &project_path);
     }
 
-    // SessionEnd returns nothing to Claude, it's a cleanup event
+    // Cleanup only; no reply.
     None
 }
 
@@ -136,8 +114,7 @@ fn compute_project_hash(project_path: &str) -> String {
     crate::agents::multiagent::project_hash(project_path)
 }
 
-/// Lets the SSOT test in `agents::multiagent` assert that this site really does
-/// delegate, rather than the assertion being a copy of the same call.
+/// Lets `agents::multiagent`'s test check this site delegates.
 #[cfg(test)]
 pub fn compute_project_hash_for_test(project_path: &str) -> String {
     compute_project_hash(project_path)

@@ -4,15 +4,10 @@ use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize)]
-/// Same casing defect again, and the failure text is not where this looked.
-///
-/// Claude Code puts it in a top-level `error` string; `tool_response` is absent
-/// from the payload entirely, so even with the name fixed the handler recorded
-/// the literal "unknown error" instead of the message the error list exists for.
+/// Claude Code puts the failure text in a top-level `error` string, with no `tool_response`.
 struct HookInput {
     #[serde(rename = "hook_event_name", alias = "hookEventName")]
     hook_event_name: String,
-    /// Where the host actually puts the failure text.
     #[serde(default)]
     error: Option<String>,
     #[serde(rename = "tool_name", default)]
@@ -42,9 +37,7 @@ pub fn process_payload(
 ) -> Option<String> {
     let parsed: HookInput = serde_json::from_str(input_str).ok()?;
 
-    // The handler re-checks the name, so the dispatcher's mapping is not
-    // enough on its own: Cursor's own vocabulary reached here unchanged and
-    // was rejected one layer below the routing (#384).
+    // Cursor's own event names must pass here too, not only in the dispatcher (#384).
     if crate::hooks::dispatcher::canonical_event(&parsed.hook_event_name) != "PostToolUseFailure" {
         return None;
     }
@@ -55,11 +48,7 @@ pub fn process_payload(
         .and_then(|i| i.command.as_deref())
         .unwrap_or(&parsed.tool_name);
 
-    // Extract error message
-    // The top-level `error` is where Claude Code puts it. `tool_response` is kept
-    // first because other hosts do send it, and it carries more detail when
-    // present; the flat field is the fallback that makes the Claude path work at
-    // all rather than recording "unknown error" for every failure.
+    // `tool_response` first, where hosts send it with more detail; then the top-level `error`.
     let error_msg = parsed
         .tool_response
         .as_ref()
@@ -80,7 +69,6 @@ pub fn process_payload(
         .unwrap_or(error_msg);
     let short_error = crate::util::text::safe_slice(short_error, 200);
 
-    // Update session state with error
     {
         let mut state = session.lock().unwrap_or_else(|p| p.into_inner());
         state.add_error(short_error);
@@ -88,7 +76,6 @@ pub fn process_payload(
         store.upsert_session(&state);
     }
 
-    // Index failure to FTS5 for searchability
     let index_msg = format!(
         "ToolFailure [{}]: {}",
         crate::util::text::safe_slice(command, 50),
@@ -99,7 +86,7 @@ pub fn process_payload(
         store.index_event(&state.session_id, "PostToolUseFailure", &index_msg);
     }
 
-    // PostToolUseFailure never needs to return a response, just side effects
+    // Side effects only; no reply.
     None
 }
 

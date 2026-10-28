@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-/// Format agent yang terdeteksi
+/// The detected payload format.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentFormat {
     ClaudeCode,     // tool_name + tool_input.command + tool_response
@@ -12,27 +12,15 @@ pub enum AgentFormat {
     Aider,          // piped stdin, OMNI_CMD env
     GenericMCP,     // JSON-RPC 2.0 tool result
     Pi,             // camelCase toolName + toolResponse from Pi extension
-    /// `agent: "<host>"` + `exit_code`, sent by a plugin this repo writes.
-    ///
-    /// Hermes and OpenClaw both reach OMNI through our own plugin rather than a
-    /// host format OMNI has to reverse-engineer, so they send one shape and the
-    /// variant carries the name. It carries it because that name is the only
-    /// thing that differs and it decides `agent_id`, which is the bucket every
-    /// per-host figure is computed from.
-    ///
-    /// Its own arm rather than a reshaped Codex or Claude Code payload, for two
-    /// reasons that both bit this project before. `resolve_agent_id` only lets
-    /// `OMNI_AGENT_ID` override a `ClaudeCode` or `Unknown` format, so borrowing
-    /// Codex's shape would file every row under `codex_cli`, which is the
-    /// mislabelling #212 traced a wrong headline to. And Claude Code's shape has
-    /// nowhere to put an exit code, so #120's refusal to distill a failed command
-    /// would never fire on either host (#628).
+    /// `agent: "<host>"` plus `exit_code`, sent by a plugin this repo writes
+    /// (Hermes, OpenClaw). Its own arm: a borrowed Codex shape would file rows as
+    /// `codex_cli`, and Claude Code's shape has no exit code, so #120 could not
+    /// fire (#628).
     Plugin(String),
     Unknown, // fallback ke ClaudeCode parser
 }
 
-/// Internal representation setelah normalization
-/// Engine hanya bekerja dengan struct ini
+/// The normalized payload; the engine works only with this.
 #[derive(Debug, Clone)]
 pub struct NormalizedInput {
     pub agent: AgentFormat,
@@ -41,68 +29,26 @@ pub struct NormalizedInput {
     pub content: String,   // output dari tool
     pub agent_id: String,  // untuk session isolation
     pub failed: bool,      // command exited non-zero / agent signalled an error (#120)
-    /// The host's original `tool_response` object, kept verbatim.
-    ///
-    /// `content` above is a flattened, lossy view of it, stdout and stderr are
-    /// concatenated, and every other key is dropped. That was fine while the
-    /// replacement was emitted in OMNI's own `{status, result}` shape, and became
-    /// the bug in #187: Claude Code validates `updatedToolOutput` against the
-    /// *host tool's* output schema, so the reply has to be the same object shape
-    /// that arrived, with only the output text swapped. Reconstructing it from
-    /// `content` is not possible, `interrupted`, `isImage`, `backgroundTaskId`
-    /// and friends live only here.
-    ///
-    /// `None` for agents whose payload has no `tool_response` object; those keep
-    /// the MCP shape, since their host contracts were not investigated.
+    /// The host's original `tool_response`, verbatim. Claude Code validates the
+    /// reply against its tool's schema, so the reply swaps only the text in this
+    /// object (#187). `None` keeps the MCP shape for hosts not investigated.
     pub raw_response: Option<Value>,
-    /// The host's own session identifier, read from the payload's top-level
-    /// `session_id` (or `sessionId`).
-    ///
-    /// `SessionState::session_id` is minted from the wall clock in
-    /// `SessionState::new`, and the persisted state is global rather than
-    /// per-host-session, so one OMNI "session" collected 16 project paths and
-    /// 3,739 commands (#118). Every per-session number is computed off that
-    /// grouping: the PostToolUse banner, the `omni stats` slices, and the
-    /// turns-since-insertion a cumulative saving would multiply by (#173).
-    ///
-    /// The host has always sent this, `hooks::session_start` parses the same
-    /// key and uses it for one log line before discarding it. `None` when the
-    /// payload carries no such key (pipe mode, Aider, older hosts), and the
-    /// caller falls back to the local id rather than losing the row.
+    /// The host's session id (`session_id` or `sessionId`). The minted local id
+    /// once grouped 16 projects (#118); `None` falls back to it rather than lose
+    /// the row.
     pub host_session_id: Option<String>,
-    /// The host's subagent identifier, read from the payload's top-level
-    /// `agent_id`, and `None` when the main agent made the call.
-    ///
-    /// Not to be confused with `agent_id` above, which names the host family
-    /// (`claude_code`, `codex_cli`) and is detected rather than parsed.
-    ///
-    /// Claude Code gives a subagent **the parent's `session_id`** and
-    /// distinguishes it only here. Verified two ways on 2026-08-17: a sidechain
-    /// transcript carries the parent's `sessionId`, and the CLI builds every
-    /// hook payload as `{session_id, transcript_path, cwd, prompt_id,
-    /// permission_mode, agent_id, agent_type, effort}` with `agent_id` unset for
-    /// the main agent. Without this the ledger's session scope answers a
-    /// subagent with the parent's history and claims "already shown" about bytes
-    /// that context never received (#581).
+    /// The host's subagent id from the top-level `agent_id`, `None` for the main
+    /// agent. A subagent carries the parent's `session_id`, so this keeps its
+    /// ledger scope its own (#581). Not the host family `agent_id` above.
     pub host_agent_id: Option<String>,
-    /// A `Read` that named an `offset` or `limit`: the lines are a window the
-    /// reader picked (#796, #799). Only Claude Code's shape is read.
+    /// A `Read` with `offset` or `limit`: a window the reader picked (#796, #799). Claude Code
+    /// only.
     pub windowed: bool,
 }
 
-/// Append the `[stderr]` section, when the stream actually carries something.
-///
-/// The test was `!stderr.is_empty()` and `"\n"` passes it, so a command that
-/// wrote a newline was reported as having written to stderr. On a failing
-/// command that header is the first thing a reader goes looking at, and it led
-/// them to a blank section (#635).
-///
-/// One function for both emitters, not two matching predicates. The Claude-shaped
-/// payload and the Codex-shaped one each build this section, and #452, #454 and
-/// #456 were each one copy of a pair being fixed while the other kept the bug.
-///
-/// Trimming decides **whether** there is content, never what it is: a stream with
-/// something in it is appended byte for byte, indentation and all.
+/// Append the `[stderr]` section when the stream holds more than whitespace
+/// (#635), byte for byte. One function for both emitters, so the two cannot
+/// drift.
 fn push_stderr(s: &mut String, stderr: &str) {
     if stderr.trim().is_empty() {
         return;
@@ -111,11 +57,10 @@ fn push_stderr(s: &mut String, stderr: &str) {
     s.push_str(stderr);
 }
 
-/// Detect agent format dari raw JSON string
+/// Detect the payload format from the raw JSON.
 pub fn detect_agent(input: &str) -> AgentFormat {
-    // Coba parse sebagai JSON
     let Ok(val) = serde_json::from_str::<Value>(input) else {
-        // Bukan JSON, mungkin piped stdin (Aider)
+        // Not JSON: piped stdin (Aider).
         return AgentFormat::Aider;
     };
 
@@ -124,7 +69,7 @@ pub fn detect_agent(input: &str) -> AgentFormat {
         None => return AgentFormat::Unknown,
     };
 
-    // Deteksi berdasarkan key signatures yang unik per agent:
+    // By each format's unique keys. Pi's camelCase first, since partial keys overlap Claude Code's.
 
     // Pi extension: camelCase "toolName" + "toolResponse" (not snake_case)
     // Must be checked BEFORE ClaudeCode since both could match on partial keys
@@ -132,18 +77,16 @@ pub fn detect_agent(input: &str) -> AgentFormat {
         return AgentFormat::Pi;
     }
 
-    // Our own plugins, before the ClaudeCode test below: their payloads also
-    // carry `tool_name`, and a plugin names itself so no other host reaches this
-    // by accident.
+    // Our plugins before Claude Code: they also carry `tool_name`.
     if let Some(host) = obj.get("agent").and_then(|a| a.as_str())
         && is_plugin_host(host)
     {
         return AgentFormat::Plugin(host.to_string());
     }
 
-    // ClaudeCode / CursorWindsurf: punya "tool_name" dan "tool_response"
+    // Claude Code and Windsurf: `tool_name` and `tool_response`.
     if obj.contains_key("tool_name") && obj.contains_key("tool_response") {
-        // Cursor/Windsurf: content field di tool_response adalah array
+        // Windsurf: `tool_response.content` is an array.
         let is_cursor = obj
             .get("tool_response")
             .and_then(|r| r.get("content"))
@@ -156,22 +99,22 @@ pub fn detect_agent(input: &str) -> AgentFormat {
         };
     }
 
-    // OpenCode: punya "type": "tool_result"
+    // OpenCode: `"type": "tool_result"`.
     if obj.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
         return AgentFormat::OpenCode;
     }
 
-    // Codex CLI: punya "action": "run"
+    // Codex CLI: `"action": "run"`.
     if obj.get("action").and_then(|a| a.as_str()) == Some("run") {
         return AgentFormat::CodexCLI;
     }
 
-    // VS Code Continue.dev: punya "role": "tool"
+    // Continue.dev: `"role": "tool"`.
     if obj.get("role").and_then(|r| r.as_str()) == Some("tool") {
         return AgentFormat::VSCodeContinue;
     }
 
-    // JSON-RPC (Generic MCP): punya "jsonrpc": "2.0" dan "result"
+    // Generic MCP: `"jsonrpc": "2.0"` and `result`.
     if obj.contains_key("jsonrpc") && obj.contains_key("result") {
         return AgentFormat::GenericMCP;
     }
@@ -179,8 +122,7 @@ pub fn detect_agent(input: &str) -> AgentFormat {
     AgentFormat::Unknown
 }
 
-/// Normalize raw input ke NormalizedInput
-/// Returns None jika content tidak bisa diekstrak (bukan error)
+/// Normalize a raw payload; `None` when no content can be extracted.
 pub fn normalize(input: &str) -> Option<NormalizedInput> {
     let agent = detect_agent(input);
     let agent_id = detect_agent_id(&agent);
@@ -188,7 +130,7 @@ pub fn normalize(input: &str) -> Option<NormalizedInput> {
     let mut normalized = match agent {
         AgentFormat::ClaudeCode | AgentFormat::Unknown => normalize_claude_code(input, agent_id),
         AgentFormat::CursorWindsurf => {
-            // Cursor punya content array, tangani itu dulu, lalu delegate ke Claude Code parser
+            // An array `content`: handle it, then defer to the Claude Code parser.
             normalize_cursor(input, agent_id)
         }
         AgentFormat::OpenCode => normalize_opencode(input, agent_id),
@@ -200,23 +142,17 @@ pub fn normalize(input: &str) -> Option<NormalizedInput> {
         AgentFormat::Plugin(ref host) => normalize_plugin(input, host.clone(), agent_id),
     }?;
 
-    // Read once here rather than in each of the eight per-agent parsers: the key
-    // is top-level metadata beside `tool_name`, so it does not vary with the
-    // tool-payload shape those functions exist to tell apart.
+    // Read once here: it is top-level metadata, the same for every shape.
     normalized.host_session_id = extract_host_session_id(input);
     normalized.host_agent_id = extract_top_level_str(input, "agent_id", "agentId");
     Some(normalized)
 }
 
-/// Pull the host's session identifier out of a raw hook payload.
-///
-/// Both spellings are accepted for the same reason `hooks::session_start` accepts
-/// both: the hosts disagree, and guessing one costs the grouping silently.
+/// The host's session id, under either spelling.
 fn extract_host_session_id(input: &str) -> Option<String> {
     extract_top_level_str(input, "session_id", "sessionId")
 }
 
-/// One top-level string key, under either spelling the hosts use.
 fn extract_top_level_str(input: &str, snake: &str, camel: &str) -> Option<String> {
     let value: Value = serde_json::from_str(input).ok()?;
     let obj = value.as_object()?;
@@ -228,72 +164,35 @@ fn extract_top_level_str(input: &str, snake: &str, camel: &str) -> Option<String
         .map(str::to_string)
 }
 
-/// Detect agent ID untuk session isolation
-/// Claude Code: "claude_code"
-/// OpenCode: "opencode"
-/// VS Code: "vscode"
-/// dll.
+/// The payload-contract agent id: `claude_code`, `opencode`, `vscode`, and so on.
 pub fn detect_agent_id(agent: &AgentFormat) -> String {
-    // Pure, and it has to stay pure: `hooks::post_tool` keys the Claude Code
-    // host-cap branch off this value, so it describes the *payload contract*.
-    // Reading the environment here made a behaviour decision depend on ambient
-    // state and let a concurrently running test relabel it, which is the
-    // cross-test hazard `CONTRIBUTING.md` names. The stats label is a different
-    // question and is answered at the point of recording (see `stats_agent_id`).
+    // Pure: `post_tool`'s host-cap branch keys off this, so it must describe the
+    // payload, not ambient env. The stats label is `stats_agent_id`.
     resolve_agent_id(agent, "")
 }
 
-/// Which host to file this row under in `omni stats`.
-///
-/// Separate from `detect_agent_id` because they answer different questions.
-/// That one describes the payload contract and drives behaviour; this one names
-/// the host and drives reporting only.
-///
-/// Codex CLI sends Claude Code's exact payload document, so shape alone filed
-/// every Codex distillation under `claude_code` and Codex could never appear in
-/// Agent Distribution however well its hooks worked (#351). Where the format is
-/// ambiguous the environment decides; a format that identifies itself keeps its
-/// own answer, so a stale env var cannot relabel Aider's pipe as Codex.
+/// Which host to file this row under in `omni stats`. Codex sends Claude Code's
+/// exact payload, so where the format is ambiguous the environment decides
+/// (#351); a self-identifying format keeps its own answer.
 pub fn stats_agent_id(agent: &AgentFormat) -> String {
     resolve_agent_id(agent, &crate::agents::multiagent::detect_agent_id())
 }
 
-/// The decision, split from the environment lookup so it can be tested without
-/// `set_var`. `cargo` runs tests in parallel and a test that mutates the
-/// environment decides what a concurrently running one sees, which is the
-/// failure `CONTRIBUTING.md` calls out.
-///
-/// It also stops the probe lying to you: run the naive check under Claude Code
-/// and `CLAUDECODE` is already set in the ambient environment, so a Codex
-/// payload answers `claude_code` and the fix looks broken when it is not.
-/// True when the environment identified a specific host rather than falling back.
-///
-/// `terminal` is the fallback `detect_agent_id` returns when it recognises
-/// nothing, and `unknown` is the same idea by another name. Treating either as
-/// an answer lets a guess overwrite what the payload's own shape established.
+/// True when the environment named a host, not the `terminal` or `unknown` fallback.
 fn names_a_host(from_env: &str) -> bool {
     !matches!(from_env.trim(), "" | "unknown" | "terminal")
 }
 
-/// The hosts `plugins/` ships a plugin for, and the only names `agent` may take.
-///
-/// An allowlist rather than "whatever the payload calls itself", because that
-/// string becomes `agent_id` and therefore the bucket every per-host saving is
-/// attributed to. Taking it on trust would let one malformed payload invent a
-/// host that never existed, which is the accounting error #212 was.
+/// The hosts `plugins/` ships a plugin for, the only names `agent` may take: the
+/// name becomes a stats bucket, so an invented host is an accounting error.
 fn is_plugin_host(name: &str) -> bool {
     matches!(name, "hermes" | "openclaw")
 }
 
+/// The decision, split from the env lookup so tests never `set_var`.
 pub fn resolve_agent_id(agent: &AgentFormat, from_env: &str) -> String {
-    // `detect_agent_id` never answers "unknown": its last resort is "terminal"
-    // (see `agents::multiagent`). The old guard therefore never fired, and a
-    // Codex session started from a plain shell, whose payload is shaped exactly
-    // like Claude Code's, was filed under `terminal`. That is the bucket #212
-    // showed inflates the savings headline, so the row both disappeared from
-    // Agent Distribution and corrupted the figure it landed in.
-    //
-    // The environment is only allowed to override when it actually names a host.
+    // The fallback is `terminal`, not `unknown`; env may override only when it
+    // names a host, or a Codex session from a plain shell files as `terminal`.
     if matches!(agent, AgentFormat::ClaudeCode | AgentFormat::Unknown) && names_a_host(from_env) {
         return from_env.to_string();
     }
@@ -312,34 +211,27 @@ pub fn resolve_agent_id(agent: &AgentFormat, from_env: &str) -> String {
     }
 }
 
-// ── CLAUDE CODE (existing format, should be removed after all agents are migrated) ────────────────
 fn normalize_claude_code(input: &str, agent_id: String) -> Option<NormalizedInput> {
     #[derive(Deserialize)]
     struct ClaudeInput {
         tool_name: String,
         tool_input: Option<ClaudeToolInput>,
-        /// Kept as a raw `Value` rather than a typed struct so the untouched
-        /// object can be handed back to the host (#187). Deserialising into
-        /// named fields here is what discarded `interrupted` / `isImage` and
-        /// made a host-shaped reply impossible to build downstream.
+        /// A raw `Value`, so the untouched object can be handed back (#187).
         tool_response: Option<Value>,
     }
     #[derive(Deserialize)]
     struct ClaudeToolInput {
         command: Option<String>,
         path: Option<String>,
-        /// What Claude Code's `Read` tool actually names its argument. Without
-        /// it the `Read` arm sees `"unknown"` as the path, so `readfile`'s
-        /// per-language distillation cannot pick a language (#172).
+        /// Claude Code's `Read` argument; without it the language cannot be picked (#172).
         file_path: Option<String>,
-        /// A `Read` window. Only presence matters, so any JSON value counts.
+        /// A `Read` window; any value counts.
         offset: Option<Value>,
         limit: Option<Value>,
     }
 
     let parsed: ClaudeInput = serde_json::from_str(input).ok()?;
 
-    // Extract content (sama persis dengan extract_tool_content yang lama)
     let response = parsed.tool_response.as_ref()?;
     let content = if let Some(c) = response.get("content") {
         extract_value_content(c)?
@@ -348,13 +240,8 @@ fn normalize_claude_code(input: &str, agent_id: String) -> Option<NormalizedInpu
         .and_then(|f| f.get("content"))
         .and_then(Value::as_str)
     {
-        // Claude Code's `Read` result carries its text at `file.content`, beside
-        // `numLines` / `startLine` / `totalLines`. Neither arm around this one
-        // matches that shape, so a `Read` payload normalised to `None` and the
-        // hook emitted nothing. That is the *second* reason the `Read` distiller
-        // has never run: #172 found the matcher naming only `Bash`, and widening
-        // it alone would have produced silence rather than distillation, no
-        // output, no error, and a feature that looks shipped.
+        // A `Read` result keeps its text at `file.content`. Unhandled, every `Read`
+        // normalised to `None` silently, the second reason it never ran (#172).
         if file_content.is_empty() {
             return None;
         }
@@ -385,87 +272,39 @@ fn normalize_claude_code(input: &str, agent_id: String) -> Option<NormalizedInpu
 
     Some(NormalizedInput {
         agent: AgentFormat::ClaudeCode,
-        // Normalised here too. The Pi and OpenAI-shaped branches already did it,
-        // and this one, the shape a third-party integrator is most likely to
-        // send, passed the name straight through. `distil_tool_reply` matches
-        // `"Bash"`, `"Read"`, `"Grep"` and `"WebFetch"` exactly, so a host naming
-        // its tools in snake_case fell to the generic arm and never reached the
-        // per-tool distiller or the ledger (#488).
-        //
-        // The failure looked like success, which is why it survived: the generic
-        // arm still shortens the output, and on a real shell corpus `bash`
-        // reported 59.9% against `Bash`'s 37.6%. The wrong one looked better,
-        // because it was keeping the first thirty lines and throwing the rest
-        // away rather than folding what the agent had already been shown.
+        // Normalise the tool name here too: `bash` fell to the generic arm and
+        // missed the per-tool distiller and the ledger, while looking better (#488).
         tool_name: normalize_tool_name(&parsed.tool_name),
         command,
         content,
         agent_id,
-        // Claude Code sends a failed command as a bare `tool_response` string
-        // ("Error: Exit code N…"). A string has no `content` and no `stdout`
-        // member, so both extraction arms above bail to None (passthrough)
-        // before reaching here. Reaching this point means the tool_response was
-        // an object carrying output, i.e. the command succeeded.
-        //
-        // #187 moved where that bail happens, it used to be serde rejecting a
-        // string for a typed `ClaudeToolResponse`, and is now `Value::get`
-        // returning None, but not whether it happens. `passes_through_failed_
-        // command_payload` locks the behaviour, not the mechanism.
+        // A failed command arrives as a bare string with no `content` or `stdout`,
+        // so it never reaches here; reaching here means success (#187).
+        // `passes_through_failed_command_payload` locks the behaviour.
         failed: false,
         windowed: parsed
             .tool_input
             .as_ref()
             .is_some_and(|i| i.offset.is_some() || i.limit.is_some()),
         raw_response: parsed.tool_response,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
     })
 }
 
-// ── CURSOR / WINDSURF ─────────────────────────────────────────────────
-/// Reached only for a Claude-Code-shaped payload that happens to carry an array
-/// `tool_response.content`, which is what Windsurf sends. **Cursor itself never
-/// gets here, and distilling its command output is not possible at all.**
-///
-/// Cursor's own hook payloads are a different shape:
-///
-/// ```text
-/// postToolUse          { tool_name, tool_input, tool_output, tool_use_id, cwd, duration }
-/// afterShellExecution  { command, output, duration, sandbox }
-/// ```
-///
-/// The output is `tool_output` or `output` at the top level, never
-/// `tool_response`, so `detect_agent_id` does not route them here and the parser
-/// below could not read them if it did. Driven through the 0.6.13 release binary
-/// with both documented shapes: zero bytes returned, zero rows recorded.
-///
-/// Teaching this function those shapes would still change nothing, which is why
-/// it has not been. Cursor's only output-rewriting field is
-/// `updated_mcp_tool_output`, documented as "For MCP tools only", and
-/// `afterShellExecution` defines no output fields. A hook cannot replace the
-/// output of a Shell tool on Cursor, so there is nowhere for a distillation to
-/// go. `additional_context` exists and adds tokens, which is the opposite of the
-/// job. See #340; the README says this per host now rather than listing names
-/// under one verb (#349).
-///
-/// What the Cursor integration does deliver: the pre-hook on
-/// `beforeShellExecution`, the MCP server, and shared session state.
+/// A Claude-Code-shaped payload with an array `tool_response.content`, which is
+/// Windsurf. Cursor's payloads never reach here, and no Cursor hook can replace
+/// Shell output, so there is nothing to distil (#340, #349). Cursor gets the
+/// pre-hook, the MCP server and shared session state.
 fn normalize_cursor(input: &str, agent_id: String) -> Option<NormalizedInput> {
     let mut norm = normalize_claude_code(input, agent_id)?;
     norm.agent = AgentFormat::CursorWindsurf;
     Some(norm)
 }
 
-// ── PI EXTENSION ─────────────────────────────────────────────────────
 fn normalize_pi(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Pi extension sends camelCase JSON:
-    // {
-    //   "hookEventName": "ToolResult",
-    //   "toolName": "Bash",
-    //   "toolResponse": { "toolName": "Bash", "result": "...", "isError": false },
-    //   "isError": false
-    // }
+    // Pi: camelCase `toolName`, `toolResponse.result`, `isError`.
     #[derive(Deserialize)]
     struct PiInput {
         #[serde(rename = "toolName")]
@@ -489,14 +328,13 @@ fn normalize_pi(input: &str, agent_id: String) -> Option<NormalizedInput> {
     let tool_name = parsed.tool_name?;
     let response = parsed.tool_response.as_ref()?;
 
-    // Extract content from "result" field (string or object with nested fields)
+    // `result` is a string or an object.
     let content = extract_value_content(response.result.as_ref()?)?;
 
     if content.is_empty() {
         return None;
     }
 
-    // Normalize tool name using OMNI's internal standard
     let normalized_name = normalize_tool_name(&tool_name);
     let command = parsed
         .command
@@ -515,9 +353,9 @@ fn normalize_pi(input: &str, agent_id: String) -> Option<NormalizedInput> {
         content,
         agent_id,
         failed: response.is_error,
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
@@ -544,10 +382,8 @@ fn extract_pi_command(tool_name: &str, input: &Value) -> Option<String> {
         .map(ToString::to_string)
 }
 
-// ── OPENCODE ──────────────────────────────────────────────────────────
 fn normalize_opencode(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Format OpenCode:
-    // { "type": "tool_result", "tool": "shell", "output": "...", "command": "..." }
+    // OpenCode: `{ "type": "tool_result", "tool": "shell", "output", "command" }`.
     #[derive(Deserialize)]
     struct OpenCodeInput {
         tool: Option<String>,
@@ -562,7 +398,6 @@ fn normalize_opencode(input: &str, agent_id: String) -> Option<NormalizedInput> 
         return None;
     }
 
-    // Normalize tool name ke Claude Code standard
     let tool_name = match parsed.tool.as_deref().unwrap_or("shell") {
         "shell" | "bash" | "exec" => "Bash",
         "read" | "read_file" => "Read",
@@ -579,19 +414,17 @@ fn normalize_opencode(input: &str, agent_id: String) -> Option<NormalizedInput> 
         content,
         agent_id,
         failed: false, // OpenCode payload carries no exit/error signal
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── VS CODE CONTINUE.DEV ──────────────────────────────────────────────
 fn normalize_vscode_continue(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Continue.dev format:
-    // { "role": "tool", "name": "bash", "content": "output here", "tool_use_id": "..." }
+    // Continue.dev: `{ "role": "tool", "name", "content", "tool_use_id" }`.
     #[derive(Deserialize)]
     struct ContinueInput {
         name: Option<String>,
@@ -634,7 +467,7 @@ fn normalize_vscode_continue(input: &str, agent_id: String) -> Option<Normalized
 
     let tool_name = normalize_tool_name(&tool_name_raw);
 
-    // Extract command dari tool_call.function.arguments jika ada
+    // The command from `tool_call.function.arguments`, when present.
     let command = parsed
         .tool_call
         .and_then(|tc| tc.function)
@@ -655,19 +488,17 @@ fn normalize_vscode_continue(input: &str, agent_id: String) -> Option<Normalized
         content,
         agent_id,
         failed: false, // Continue.dev payload carries no exit/error signal
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── CODEX CLI ─────────────────────────────────────────────────────────
 fn normalize_codex(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Codex CLI format:
-    // { "action": "run", "command": "npm test", "result": "...", "exit_code": 0 }
+    // Codex: `{ "action": "run", "command", "result", "exit_code" }`.
     #[derive(Deserialize)]
     struct CodexInput {
         command: Option<String>,
@@ -698,31 +529,18 @@ fn normalize_codex(input: &str, agent_id: String) -> Option<NormalizedInput> {
         content,
         agent_id,
         failed: parsed.exit_code.is_some_and(|c| c != 0),
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── OUR OWN PLUGINS: HERMES AND OPENCLAW ──────────────────────────────
-/// Plugin tool names, in the names `post_tool::process_payload` routes on.
-///
-/// Without this the mapping is not "unknown tool, do nothing", it is worse:
-/// `terminal` fell into the `_` arm, was counted by `record_unhandled_tool`, and
-/// every shell command on the host went undistilled while the install reported
-/// success. Confirmed by driving the hook with a Hermes payload.
-///
-/// One map for both hosts because their vocabularies are disjoint: Hermes says
-/// `terminal` and `read_file`, OpenClaw says `bash` and `read`, and no name
-/// means different things on the two. Splitting it would duplicate the arms that
-/// matter and give the next host two places to forget.
-///
-/// Only names with a distiller behind them are translated. Anything else keeps
-/// the name the host gave it, so `record_unhandled_tool` counts the real thing
-/// and the next map is written from data rather than from a guess.
+/// Plugin tool names, mapped to the names `post_tool` routes on: unmapped,
+/// Hermes' `terminal` went undistilled while install reported success. One map,
+/// since the two vocabularies are disjoint; only names with a distiller map.
 fn plugin_tool_name(name: Option<&str>) -> String {
     match name.unwrap_or("terminal") {
         // Hermes
@@ -732,16 +550,8 @@ fn plugin_tool_name(name: Option<&str>) -> String {
         "web_extract" => "WebFetch",
         "write_file" => "Write",
         "patch" => "Edit",
-        // OpenClaw. These are the names it advertises to the model, captured
-        // from a real turn rather than read out of its bundle: the bundle has a
-        // tool literally named `bash` and the name that arrives at the hook is
-        // `exec`. Mapping the bundle names instead left every shell result
-        // unrecognised, which distils through the generic path and files no
-        // `distillations` row at all.
-        //
-        // The full advertised set is 34 names. Only these carry a distiller;
-        // the rest stay as themselves so `record_unhandled_tool` counts what is
-        // really being missed. There is no search tool in it, so no `Grep`.
+        // OpenClaw's names as they arrive at the hook (`exec`, not the bundle's
+        // `bash`). Only names with a distiller; no search tool, so no `Grep`.
         "exec" => "Bash",
         "read" => "Read",
         "web_fetch" => "WebFetch",
@@ -752,18 +562,9 @@ fn plugin_tool_name(name: Option<&str>) -> String {
     .to_string()
 }
 
-/// The payload the Hermes and OpenClaw plugins' replacement hooks send.
-///
-/// ```json
-/// {"agent":"hermes","tool_name":"terminal","command":"cargo test",
-///  "output":"…","exit_code":1,"session_id":"…"}
-/// ```
-///
-/// `tool_name` is carried rather than assumed, because these are the first hosts
-/// whose replacement hook fires for **every** tool and not only the shell one.
-/// That is what makes the Read, Grep and WebFetch distillers reachable at all;
-/// they have been written and never executed, since Claude Code's PostToolUse
-/// matcher is Bash-only (#172).
+/// The payload the Hermes and OpenClaw plugins send. `tool_name` is carried
+/// because their hook fires for every tool, which makes the Read, Grep and
+/// WebFetch distillers reachable (#172).
 fn normalize_plugin(input: &str, host: String, agent_id: String) -> Option<NormalizedInput> {
     #[derive(Deserialize)]
     struct PluginInput {
@@ -782,25 +583,19 @@ fn normalize_plugin(input: &str, host: String, agent_id: String) -> Option<Norma
         command: parsed.command.unwrap_or_default(),
         content,
         agent_id,
-        // The reason this format exists. Hermes hands the plugin a `returncode`
-        // and OpenClaw an `isError`, and no shape OMNI already parsed had
-        // anywhere to put either, so #120's refusal to distill a failed command
-        // could not have fired on these hosts.
+        // The exit code, so #120 can fire on these hosts.
         failed: parsed.exit_code.is_some_and(|c| c != 0),
-        // Both hooks take a replacement string from the plugin, so there is no
-        // host response object to echo and the MCP shape is what the plugin
-        // reads back.
+        // The plugins read back a string, so the MCP shape.
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── AIDER ─────────────────────────────────────────────────────────────
 fn normalize_aider(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Aider pakai piped stdin, content adalah raw string, command dari OMNI_CMD
+    // Aider pipes stdin: the content is the raw string, the command from `OMNI_CMD`.
     let command = std::env::var("OMNI_CMD").unwrap_or_default();
     if input.trim().is_empty() {
         return None;
@@ -813,19 +608,17 @@ fn normalize_aider(input: &str, agent_id: String) -> Option<NormalizedInput> {
         content: input.to_string(),
         agent_id,
         failed: false, // Aider pipes raw stdout only; no exit signal available
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── GENERIC MCP (JSON-RPC 2.0) ────────────────────────────────────────
 fn normalize_generic_mcp(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // JSON-RPC 2.0 tool result format:
-    // { "jsonrpc": "2.0", "id": 1, "result": { "content": [...], "isError": false } }
+    // JSON-RPC 2.0: `{ "jsonrpc": "2.0", "id", "result": { "content", "isError" } }`.
     #[derive(Deserialize)]
     struct McpResult {
         result: Option<McpResultContent>,
@@ -847,7 +640,7 @@ fn normalize_generic_mcp(input: &str, agent_id: String) -> Option<NormalizedInpu
         return None;
     }
 
-    // Command tidak bisa di-detect dari JSON-RPC result, gunakan OMNI_CMD env
+    // No command in a JSON-RPC result, so `OMNI_CMD`.
     let command = std::env::var("OMNI_CMD").unwrap_or_default();
 
     Some(NormalizedInput {
@@ -857,18 +650,16 @@ fn normalize_generic_mcp(input: &str, agent_id: String) -> Option<NormalizedInpu
         content,
         agent_id,
         failed,
-        // Host contract not investigated (#187), keeps the MCP shape.
+        // MCP shape: host contract not investigated (#187).
         raw_response: None,
-        // Set by `normalize` for every agent; see the field's doc comment.
+        // Set by `normalize`.
         host_session_id: None,
         host_agent_id: None,
         windowed: false,
     })
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────
-
-/// Extract text dari serde_json::Value (string atau array of {type,text})
+/// Text from a string or an array of `{type, text}`.
 fn extract_value_content(val: &Value) -> Option<String> {
     if let Some(s) = val.as_str() {
         return Some(s.to_string());
@@ -893,7 +684,7 @@ fn extract_value_content(val: &Value) -> Option<String> {
     None
 }
 
-/// Normalize berbagai nama tool ke standard OMNI internal
+/// Map host tool names to OMNI's names.
 fn normalize_tool_name(name: &str) -> String {
     match name.to_lowercase().as_str() {
         "bash" | "shell" | "exec" | "run_command" | "execute" => "Bash",
@@ -911,11 +702,7 @@ fn normalize_tool_name(name: &str) -> String {
 mod read_payload_shapes_586 {
     use super::*;
 
-    /// #586. `reference/hooks.md` tells the reader that a `Read` payload has two
-    /// real shapes, a bare `tool_response.content` and a wrapped
-    /// `tool_response.file.content`, and that getting it wrong fails silently
-    /// with a clean `0.0% saved` rather than an error. That page is only worth
-    /// having while both shapes really do parse, so both are asserted here.
+    /// Both documented `Read` shapes parse (#586).
     #[test]
     fn both_documented_read_shapes_carry_their_content() {
         let bare = r#"{"session_id":"s1","tool_name":"Read",
@@ -942,19 +729,7 @@ mod read_payload_shapes_586 {
 
 #[cfg(test)]
 mod tests {
-    /// A snake_case tool name has to reach the same arm as its PascalCase twin
-    /// (#488).
-    ///
-    /// `distil_tool_reply` matches `"Bash"`, `"Read"`, `"Grep"` and `"WebFetch"`
-    /// exactly. The Pi and OpenAI-shaped branches normalised before that; the
-    /// ClaudeCode branch, the shape a third-party integrator is most likely to
-    /// send, passed the name through, so `bash` fell to the generic arm and never
-    /// reached the per-tool distiller or the ledger.
-    ///
-    /// The failure looked like success, which is the reason to guard it: the
-    /// generic arm still shortens, and on a real corpus `bash` reported 59.9%
-    /// against `Bash`'s 37.6%, because it was keeping the first thirty lines
-    /// rather than folding what had already been shown.
+    /// A snake_case tool name reaches its PascalCase arm (#488).
     #[test]
     fn normalizes_tool_names_on_the_claude_code_shape() {
         for (sent, want) in [
@@ -982,11 +757,7 @@ mod tests {
         }
     }
 
-    /// Review finding: the guard tested for "unknown", a value
-    /// `detect_agent_id` never produces. Its real fallback is "terminal", so a
-    /// Codex session from a plain shell (whose payload is shaped exactly like
-    /// Claude Code's) was filed under `terminal`: gone from Agent Distribution,
-    /// and dropped into the bucket #212 showed inflates the savings headline.
+    /// A Codex payload from a plain shell is not filed as `terminal`.
     #[test]
     fn a_generic_environment_does_not_overwrite_the_payloads_own_answer() {
         assert_eq!(
@@ -999,8 +770,6 @@ mod tests {
         );
     }
 
-    /// A named host still wins, which is the whole point of consulting the
-    /// environment for payloads two hosts share.
     #[test]
     fn a_named_host_still_wins_over_an_ambiguous_payload() {
         assert_eq!(
@@ -1010,10 +779,7 @@ mod tests {
     }
     use super::*;
 
-    /// #351: Codex CLI sends Claude Code's exact payload document, so shape alone
-    /// labelled every Codex distillation `claude_code` and Codex could never
-    /// appear in `omni stats` Agent Distribution however well its hooks worked.
-    /// Where the format is ambiguous the environment decides.
+    /// The environment labels Codex payloads (#351).
     #[test]
     fn the_environment_decides_when_two_hosts_share_a_payload_shape() {
         assert_eq!(
@@ -1031,9 +797,7 @@ mod tests {
         );
     }
 
-    /// The other half, and the reason this is not just "prefer the environment":
-    /// a payload that identifies itself keeps its own answer. An env var left
-    /// over from a parent process must not relabel Aider's pipe as Codex.
+    /// A self-identifying payload keeps its own answer.
     #[test]
     fn a_self_identifying_payload_ignores_the_environment() {
         assert_eq!(resolve_agent_id(&AgentFormat::Aider, "codex_cli"), "aider");
@@ -1044,7 +808,6 @@ mod tests {
         );
     }
 
-    /// An empty or unknown environment must not blank the answer.
     #[test]
     fn falls_back_to_the_format_when_the_environment_says_nothing() {
         assert_eq!(
@@ -1063,27 +826,22 @@ mod tests {
         assert_eq!(detect_agent(input), AgentFormat::ClaudeCode);
     }
 
-    /// #118: the host sends its own session id and OMNI dropped it, grouping
-    /// every project under one wall-clock stamp instead.
+    /// The host session id is kept (#118).
     #[test]
     fn carries_the_host_session_id_through_normalisation() {
-        // Arrange
         let input = r#"{"session_id":"4ba52c00-c43f-46ed-9e0e-9069d5294302",
             "hook_event_name":"PostToolUse","tool_name":"Bash",
             "tool_input":{"command":"ls"},"tool_response":{"stdout":"file.txt"}}"#;
 
-        // Act
         let normalized = normalize(input).expect("claude payload normalises");
 
-        // Assert
         assert_eq!(
             normalized.host_session_id.as_deref(),
             Some("4ba52c00-c43f-46ed-9e0e-9069d5294302")
         );
     }
 
-    /// camelCase is accepted for the same reason `session_start` accepts it:
-    /// the hosts disagree, and guessing one spelling loses the grouping quietly.
+    /// camelCase is accepted too.
     #[test]
     fn accepts_the_camel_case_spelling_of_the_host_session_id() {
         let input = r#"{"sessionId":"abc-123","tool_name":"Bash",
@@ -1094,8 +852,7 @@ mod tests {
         assert_eq!(normalized.host_session_id.as_deref(), Some("abc-123"));
     }
 
-    /// A payload without the key must normalise as before, so the caller can
-    /// fall back to the local id rather than lose the row.
+    /// No key still normalises.
     #[test]
     fn reports_no_host_session_id_when_the_payload_omits_it() {
         let input = r#"{"tool_name":"Bash","tool_input":{"command":"ls"},
@@ -1106,8 +863,7 @@ mod tests {
         assert!(normalized.host_session_id.is_none());
     }
 
-    /// An empty string would group every such payload together under `""`,
-    /// which is the #118 defect with a different key.
+    /// An empty id is `None`, not a shared `""` group.
     #[test]
     fn treats_a_blank_host_session_id_as_absent() {
         let input = r#"{"session_id":"   ","tool_name":"Bash",
@@ -1209,7 +965,6 @@ mod tests {
 
     #[test]
     fn test_pi_vs_claude_code_disambiguation() {
-        // Claude Code uses snake_case, Pi uses camelCase
         let claude = r#"{"tool_name":"Bash","tool_response":{"stdout":"hi"}}"#;
         let pi = r#"{"toolName":"Bash","toolResponse":{"result":"hi","isError":false}}"#;
 
@@ -1217,16 +972,7 @@ mod tests {
         assert_eq!(detect_agent(pi), AgentFormat::Pi);
     }
 
-    /// #628. Neither host had a format of its own, and neither shape they could
-    /// have borrowed works: `resolve_agent_id` only lets `OMNI_AGENT_ID`
-    /// override a `ClaudeCode` or `Unknown` payload, so a Codex-shaped one would
-    /// file every row under `codex_cli`, and a Claude-shaped one has nowhere to
-    /// put the exit code the plugin is handed.
-    ///
-    /// Both hosts are asserted here rather than only Hermes, because the whole
-    /// point of one shared shape is that the name in `agent` is the only thing
-    /// separating them. A test on one arm would not notice the other collapsing
-    /// into it.
+    /// Hermes and OpenClaw share one shape, told apart only by `agent` (#628).
     #[test]
     fn a_plugin_payload_is_filed_under_its_own_host_and_carries_the_exit_code() {
         let payload = |host: &str, code: i64| {
@@ -1254,8 +1000,7 @@ mod tests {
         }
     }
 
-    /// The name in `agent` becomes `agent_id`, so an unrecognised one would
-    /// invent a host bucket every per-host figure is then computed against.
+    /// An unknown `agent` does not invent a host.
     #[test]
     fn an_unknown_agent_name_does_not_become_a_host() {
         let payload = serde_json::json!({
@@ -1271,10 +1016,7 @@ mod tests {
         );
     }
 
-    /// #635. `!stderr.is_empty()` passes for `"\n"`, so a command that wrote a
-    /// newline was announced as having written to stderr and the reader was sent
-    /// to a blank section. On a failing command that header is the first thing
-    /// they look at.
+    /// A whitespace-only stderr adds no section (#635).
     #[test]
     fn a_whitespace_only_stderr_is_not_announced() {
         for blank in ["\n", "   ", "\t\n \r\n", ""] {
@@ -1287,9 +1029,7 @@ mod tests {
         }
     }
 
-    /// The other half, and the reason the guard trims rather than the content
-    /// being trimmed: a stream with something in it is appended byte for byte,
-    /// so indentation a compiler emitted survives.
+    /// Real stderr is appended byte for byte.
     #[test]
     fn a_stderr_with_content_keeps_its_own_bytes() {
         let mut s = "out\n".to_string();
@@ -1297,9 +1037,7 @@ mod tests {
         assert_eq!(s, "out\n\n[stderr]\n  warning: unused\n");
     }
 
-    /// Both payload shapes build this section, and the pair is exactly how #452,
-    /// #454 and #456 each shipped a fix for one door and left the other open.
-    /// Driving the two parsers is what proves they share the predicate.
+    /// Both parsers share the stderr predicate.
     #[test]
     fn both_payload_shapes_agree_about_a_blank_stderr() {
         let claude = serde_json::json!({
@@ -1324,10 +1062,7 @@ mod tests {
         }
     }
 
-    /// The tool name decides which arm of `process_payload` runs, and the two
-    /// hosts spell them differently. `terminal` fell into the `_` arm and was
-    /// counted as an unhandled tool, so every shell command on Hermes went
-    /// undistilled while the install reported success.
+    /// Plugin tool names reach their distiller arms.
     #[test]
     fn plugin_tool_names_are_translated_to_the_arms_that_exist() {
         for (theirs, ours) in [

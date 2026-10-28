@@ -5,10 +5,8 @@ use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize)]
-/// Same casing defect as `session_end`: Claude Code sends snake_case, so this
-/// struct never parsed a real payload and the handler was dead. `session_id` was
-/// also required, which would have failed a second time. The host names the
-/// cause `trigger`; camelCase spellings stay as aliases.
+/// Claude Code sends snake_case and `trigger`; camelCase stays as an alias. No required
+/// `session_id`.
 struct HookInput {
     #[serde(rename = "hook_event_name", alias = "hookEventName")]
     hook_event_name: String,
@@ -18,21 +16,9 @@ struct HookInput {
     compaction_reason: Option<String>,
 }
 
-/// `PreCompact` records the snapshot; it never replies with one.
-///
-/// The reply used to carry the snapshot as
-/// `hookSpecificOutput.systemPromptAddition`. Claude Code is the only host OMNI
-/// registers this hook with (`agents/claude.rs:485`), and its `PreCompact` reply
-/// contract has no content field at all, so renaming to `additionalContext`
-/// would not have helped either: the summary was discarded whatever it was
-/// called (#371, the same family as #364 and #158).
-///
-/// Nothing moved to another hook, because nothing had to. This handler already
-/// writes the snapshot to `session_events` and upserts the session before
-/// compaction runs, and Claude Code fires `SessionStart` again afterwards, where
-/// `session_start::process_payload` rebuilds its block from that row and returns
-/// it in `additionalContext`, the field that host does read. The summary still
-/// reaches the model after a compaction; only the dead reply is gone.
+/// `PreCompact` records the snapshot and never replies: Claude Code's reply has
+/// no content field (#371). `SessionStart` rebuilds the block from this row
+/// after compaction and returns it in `additionalContext`.
 pub fn process_payload(
     input_str: &str,
     store: Arc<Store>,
@@ -50,18 +36,15 @@ pub fn process_payload(
         return None;
     }
 
-    // The ledger's whole licence is that the agent is still holding the bytes a
-    // handle replaces. Compaction is where that stops being true inside a
-    // session, so the shown-set goes with it (#401). Deliberately before the
-    // summary work below, because that path can return early on an unchanged
-    // delta and the forgetting must not depend on it.
+    // Forget the shown-set: after compaction the agent no longer holds those bytes
+    // (#401). Before the summary work, which can return early.
     if !parsed.session_id.is_empty() {
         store.ledger_forget(&parsed.session_id);
     }
 
     let mut state = session.lock().unwrap_or_else(|p| p.into_inner());
 
-    // L1-04: Add LoopCheckpoint engram if in a loop
+    // A loop checkpoint engram when in a loop.
     if state.loop_context.mode != crate::pipeline::LoopMode::Interactive {
         let label = format!(
             "Loop #{} checkpoint: {} [iter tokens: {}]",
@@ -84,25 +67,21 @@ pub fn process_payload(
 
     let summary_str = build_summary(&state, &store);
 
-    // Phase 2: Delta detection, skip re-emission if content unchanged
     let new_hash = crate::util::text::short_hash(&summary_str);
     if let Some(ref last_hash) = state.last_compact_hash
         && *last_hash == new_hash
     {
-        // Nothing changed since the last compaction, so re-indexing would store a
-        // duplicate snapshot for `SessionStart` to pick between.
+        // Unchanged since the last compaction: no duplicate snapshot.
         return None;
     }
     state.last_compact_hash = Some(new_hash);
 
-    // Index checkpoint event to FTS5
     let reason_str = parsed
         .compaction_reason
         .unwrap_or_else(|| "limit_reached".to_string());
     let index_msg = format!("PreCompact ({}): {}", reason_str, summary_str);
     store.index_event(&parsed.session_id, "PreCompact", &index_msg);
 
-    // Save updated session state
     state.last_active = Utc::now().timestamp();
     store.upsert_session(&state);
 
@@ -116,23 +95,15 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         .unwrap_or("general development");
     let domain = state.inferred_domain.as_deref().unwrap_or("unknown");
 
-    // We can infer a mock confidence based on hot files count and command count
     let confidence = if state.hot_files.len() > 2 && state.command_count > 5 {
         95
     } else {
         70
     };
 
-    // ── Smart PreCompact v2: Priority-Aware Context Packing ──
-    // Budget allocation (total ~6000 tokens):
-    //   - Header + Task:    ~200 tokens (always)
-    //   - Pinned Files:     ~500 tokens (always if available)
-    //   - Active Errors:    ~400 tokens (always if present)
-    //   - Engrams:          ~600 tokens (subtask progress)
-    //   - Tool Summary:     ~300 tokens (rolling activity)
-    //   - Hot Files:        ~300 tokens (file access context)
-    //   - ROI + Events:     remainder (~600-800 tokens)
-    //   - Footer:           ~100 tokens
+    // Budget, about 6000 tokens: header and task 200, pinned files 500, errors
+    // 400, engrams 600, tool summary 300, hot files 300, ROI and events the rest,
+    // footer 100.
 
     let mut out = format!(
         "⚡ OMNI Context Snapshot, preserved before compaction\n\
@@ -145,7 +116,6 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         task, domain, confidence
     );
 
-    // ── Bucket 0: Loop Checkpoint (L1-04) ──
     if state.loop_context.mode != crate::pipeline::LoopMode::Interactive {
         let budget_str = if let Some(budget) = state.loop_context.budget_tokens {
             let pct = if budget > 0 {
@@ -174,7 +144,6 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         ));
     }
 
-    // ── Bucket 1: Active Errors (high priority) ──
     out.push_str("\n## Unresolved Errors (still active)\n");
     let errs: Vec<String> = state
         .active_errors
@@ -191,7 +160,6 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         }
     }
 
-    // ── Bucket 2: Engrams (subtask memory) ──
     if !state.engrams.is_empty() {
         out.push_str("\n## Subtask Progress (Engrams)\n");
         for engram in state.engrams.iter().take(5) {
@@ -200,14 +168,12 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         }
     }
 
-    // ── Bucket 3: Tool Call Summary ──
     let tool_summary = crate::session::engram::format_tool_summary(&state.tool_call_log);
     if !tool_summary.is_empty() {
         out.push('\n');
         out.push_str(&tool_summary);
     }
 
-    // ── Bucket 4: Hot Files ──
     out.push_str("\n## Hot Files (accessed this session, most recent first)\n");
     let mut hot_vec: Vec<(&String, &u32)> = state.hot_files.iter().collect();
     hot_vec.sort_by_key(|a| std::cmp::Reverse(a.1));
@@ -224,7 +190,6 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         out.push('\n');
     }
 
-    // ── Bucket 5: Session ROI & Events ──
     let tokens_saved = state.estimated_tokens_saved();
 
     let (top_cmd, top_pct) = match state.top_command() {
@@ -263,7 +228,6 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         }
     }
 
-    // ── Bucket 6: Pinned Files (critical instructions) ──
     let cwd = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| ".".to_string());
@@ -275,16 +239,12 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         to verify information already present here.\n",
     );
 
-    // ── Token Budget Enforcement ──
-    // A cap, not a report: `ContentHint::Json` is the conservative end of the
-    // measured bytes-per-token range, so this over-counts slightly and truncates
-    // early rather than overshooting the budget it advertises (#283).
+    // A cap: `ContentHint::Json` over-counts slightly, so it truncates early (#283).
     let current_tokens = crate::util::token_estimate::estimate_tokens(
         out.len(),
         crate::util::token_estimate::ContentHint::Json,
     );
     if current_tokens > 6000 {
-        // Approximate character length for 6000 tokens
         let target_chars = ((6000.0 / current_tokens as f64) * out.len() as f64) as usize;
         crate::util::text::safe_truncate(&mut out, target_chars.saturating_sub(50));
         out.push_str("\n... [OMNI: Intelligently omitted to stay within 6000 token budget]\n");
@@ -308,21 +268,14 @@ mod tests {
         )
     }
 
-    /// The snapshot only exists in the store now, so every assertion about its
-    /// content has to read it back from there. Asserting on the return value
-    /// was what let the dead reply survive: it proved the struct serialised,
-    /// which was never in doubt, and said nothing about the host reading it.
+    /// The snapshot is read back from the store; the reply proves nothing.
     fn recorded_snapshot(store: &Store, session_id: &str) -> String {
         store
             .search_session_events(session_id, "PreCompact", 10)
             .join("\n")
     }
 
-    /// #401. The ledger may only hand back a handle for content the agent is
-    /// still holding, and compaction is where that stops being true inside a
-    /// session. Asserted through the ledger's own answer rather than through a
-    /// row count, because what matters is that the next payload is no longer
-    /// projected.
+    /// After compaction the next payload is no longer folded (#401).
     #[test]
     fn forgets_what_the_agent_lost_to_compaction() {
         let (store, _dir) = get_store();
@@ -331,7 +284,7 @@ mod tests {
             .map(|i| format!("2026-08-10T00:00:{i:02}Z  handler finished request {i}\n"))
             .collect();
 
-        // A session that has been shown this once will project it the second time.
+        // Shown once, so it would fold the second time.
         let ledger = crate::ledger::Ledger::new(&store, "sess-compact");
         ledger.project(&text);
         assert!(
@@ -353,11 +306,7 @@ mod tests {
         );
     }
 
-    /// #807. Claude Code hands a subagent the parent's `session_id` and tells
-    /// them apart by `agent_id`, so the scope is `<session>/<agent>` (#581).
-    /// Forgetting the bare id left that scope answering for a context the
-    /// compaction took with it, and the reply said `already shown` about lines
-    /// nobody was holding any more.
+    /// Subagent scopes are forgotten too (#807, #581).
     #[test]
     fn forgets_the_subagent_scopes_of_that_session_too() {
         let (store, _dir) = get_store();
@@ -488,10 +437,8 @@ mod tests {
             "session_id": &session_id
         });
 
-        // Trigger the hook
         let _ = process_payload(&input.to_string(), store.clone(), session);
 
-        // Verify state is saved in the DB
         let latest = store.find_latest_session().expect("must succeed");
         assert_eq!(latest.session_id, session_id);
     }
@@ -522,8 +469,6 @@ mod tests {
         let out = process_payload("INVALID JSON", store, session);
         assert!(out.is_none());
     }
-
-    // ── Phase 2 Integration Tests ──
 
     #[test]
     fn compact_summary_includes_engrams() {
