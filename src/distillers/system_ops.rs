@@ -890,12 +890,17 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
             continue;
         }
         let value_at = at + key.len() + 1;
-        // A quoted value is judged up to its closing quote: the word alone can
-        // be only the opening quote, and the tail after it is not the value.
+        // A quoted value is judged to the end of its shell word: the word
+        // before a space can be only the opening quote, a command after the
+        // closing quote is not the value, and text glued on (`""secret`) is.
         let rest = &line[value_at..];
         let judged = match quoted_value(rest) {
             Some((_, inner, _)) if value.starts_with(['"', '\'']) => {
-                &rest[..(inner.len() + 2).min(rest.len())]
+                let closed = (inner.len() + 2).min(rest.len());
+                let glued = rest[closed..]
+                    .find(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|'))
+                    .unwrap_or(rest.len() - closed);
+                &rest[..closed + glued]
             }
             _ => value,
         };
@@ -1429,6 +1434,11 @@ mod tests {
             (
                 "cd /app && export DB_PASSWORD=\" h3fake12345\"",
                 "cd /app && export DB_PASSWORD=\"",
+            ),
+            // An empty quoted prefix glued to the password is one word.
+            (
+                "cd /app && export DB_PASSWORD=\"\"h3fake12345",
+                "cd /app && export DB_PASSWORD=",
             ),
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
