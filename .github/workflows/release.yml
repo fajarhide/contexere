@@ -38,12 +38,12 @@ jobs:
 
       # The toolchain used to be chosen by the ref (`@stable`). Pinning the
       # action to a SHA means the version has to be named, and naming it is the
-      # honest form anyway: `rust-toolchain.toml` pins 1.97.0 and rustup prefers
+      # honest form anyway: `rust-toolchain.toml` pins 1.99.1 and rustup prefers
       # that file, so `@stable` fetched a whole toolchain that was then never
       # used, and the two could drift apart without anything saying so (#179).
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
-          toolchain: "1.97.0"
+          toolchain: "1.99.1"
           targets: ${{ matrix.target }}
 
       - name: Install musl tools (Linux x86_64)

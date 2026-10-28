@@ -20,7 +20,7 @@
 #
 # To bump: raise `channel`, run `make ci`, and fix any new lints in the same commit.
 [toolchain]
-channel = "1.97.0"
+channel = "1.99.1"
 components = ["rustfmt", "clippy"]
 # Keep in sync with the release.yml build matrix.
 targets = [

@@ -103,7 +103,7 @@ cargo test --all
 
 Zero clippy warnings. Not "few".
 
-`source "$HOME/.cargo/env"` first, so you get the pinned 1.97.0 rather than a Homebrew
+`source "$HOME/.cargo/env"` first, so you get the pinned 1.99.1 rather than a Homebrew
 cargo that ignores `rust-toolchain.toml` and will keep drifting from CI.
 
 ## Never weaken a check to make it pass
