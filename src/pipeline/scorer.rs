@@ -6,10 +6,8 @@ pub fn score_with_command(
     command: &str,
     session: Option<&crate::pipeline::SessionState>,
 ) -> Vec<crate::pipeline::OutputSegment> {
-    // 1. Resolve pipeline profile from command
     let profile = registry::resolve_profile(command);
 
-    // 2. Score segments based on segmentation mode
     score_segments(input, profile.segmentation, session, command)
 }
 
@@ -44,7 +42,7 @@ pub fn classify_line(line: &str) -> SignalTier {
         return SignalTier::Critical;
     }
 
-    // Noise patterns (must be checked BEFORE Important so prefix-based noise wins over generic important keywords like 'ok')
+    // Noise before Important, so prefix noise beats generic keywords like 'ok'.
     if contains_any(
         trimmed,
         &[
@@ -247,7 +245,6 @@ pub fn score_segments(
             }
         }
         SegmentationMode::Line => {
-            // Segment per line
             for (line_num, line) in (1..).zip(input.lines()) {
                 let lines = vec![line];
                 let (class, score) = crate::pipeline::semantic::classify_block(&lines, tool_family);
@@ -347,7 +344,6 @@ mod tests {
             session.add_hot_file("src/main.rs");
         }
         let score = score_line_with_context("at src/main.rs", SignalTier::Context, Some(&session));
-        // context boost should be > 0
         assert!(score > 0.4);
     }
 
@@ -444,19 +440,16 @@ mod tests {
         assert_eq!(segments[1].tier, SignalTier::Critical);
         // 2: --- PASS: TestBar
 
-        // Let's test with SegmentationMode::Line as well for the backtrace
+        // Line mode too, for the backtrace.
         let input2 = "test result: FAILED\npanicked at something\njust some context\nnoise line";
         let segments2 = score_segments(input2, SegmentationMode::Line, None, "test");
         assert_eq!(segments2[0].tier, SignalTier::Critical); // test result: FAILED
-        // #819. `panicked at` is the failure itself, not context beside one.
-        // This read Important because the tier came from the positional boost
-        // after `test result: FAILED`, which is the same line surviving by
-        // luck rather than by being recognised.
+        // `panicked at` is Critical in its own right, not by a positional boost (#819).
         assert_eq!(segments2[1].tier, SignalTier::Critical);
         assert_eq!(segments2[2].tier, SignalTier::Important); // boosted
         assert_eq!(segments2[3].tier, SignalTier::Important); // boosted
 
-        // For TestGroup, let's verify if a group without Critical/Important is boosted
+        // A TestGroup with no Critical or Important stays Context.
         let input3 = "--- FAIL: TestFoo\ntest something else\nContext line";
         let segments3 = score_segments(input3, SegmentationMode::TestGroup, None, "test");
         assert_eq!(segments3[0].tier, SignalTier::Critical); // FAIL chunk
@@ -479,7 +472,6 @@ mod tests {
 
     #[test]
     fn test_docker_pull_complete_not_important() {
-        // Just checking it doesn't get Important. Without matches it should be Context
         assert_ne!(
             classify_line("docker.io/library/alpine:3.18: Pull complete"),
             SignalTier::Important

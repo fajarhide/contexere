@@ -16,7 +16,7 @@ pub struct TraceDiagnosis {
     pub feedback_notes: Vec<String>,
 }
 
-/// Analyzes an execution trace to determine the quality of the distillation.
+/// Whether a distillation kept the critical signals of its input.
 pub fn analyze_trace(raw_input: &str, distilled_output: &str, _command: &str) -> TraceDiagnosis {
     let raw_len = raw_input.len().max(1) as f32;
     let dist_len = distilled_output.len() as f32;
@@ -25,7 +25,6 @@ pub fn analyze_trace(raw_input: &str, distilled_output: &str, _command: &str) ->
     let mut feedback_notes = Vec::new();
     let mut dropped_critical_lines = 0;
 
-    // Detect critical signals in raw input
     let critical_indicators = [
         "error:",
         "error[",
@@ -42,8 +41,7 @@ pub fn analyze_trace(raw_input: &str, distilled_output: &str, _command: &str) ->
         }
     }
 
-    // F-09: Check if critical signals exist in distilled output
-    // Use a 40-char fingerprint prefix to handle formatting changes
+    // A 40-char prefix fingerprint tolerates formatting changes.
     for crit in raw_critical {
         let fingerprint = crate::util::text::safe_slice(crit, 40);
         if !distilled_output.contains(fingerprint) {

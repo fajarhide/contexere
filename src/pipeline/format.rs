@@ -1,30 +1,22 @@
-//! Format sniffer, detects structured, machine-read payloads.
-//!
-//! Collapse and the distillers are lossy: they are safe on human-facing free text
-//! but they corrupt anything a later step parses (`jq`, `json.load`, `kubectl apply`).
-//! The sniffer is the gate that keeps those payloads out of the lossy path.
-//!
-//! Design principle: when a payload is *plausibly* structured, say so, a missed
-//! compression is cheap, a corrupted payload is not. Detection is still positive
-//! (a signal must be present), because treating unknown text as structured would
-//! disable compression everywhere.
+//! Format sniffer: keeps payloads a later step parses (`jq`, `kubectl apply`)
+//! out of the lossy stages. Unsure means structured, since a missed compression
+//! is cheap and a corrupted payload is not; but detection stays positive, or
+//! nothing would compress.
 
 use std::fmt;
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-/// Above this size a full `serde_json` parse would blow the pipeline's latency
-/// budget, so bracket-shape alone decides.
+/// Above this a full `serde_json` parse blows the latency budget; bracket shape decides.
 const MAX_PARSE_BYTES: usize = 1_000_000;
 
-/// Number of NDJSON lines actually parsed before trusting the rest.
+/// NDJSON lines parsed before trusting the rest.
 const NDJSON_SAMPLE_LINES: usize = 50;
 
-/// Minimum rows before a consistent delimiter count means anything.
 const MIN_DELIMITED_LINES: usize = 3;
 
-/// A structured payload kind. Every variant must survive the pipeline verbatim.
+/// A structured payload kind; every variant passes through verbatim.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Structured {
     Json,
@@ -56,47 +48,32 @@ impl fmt::Display for Structured {
     }
 }
 
-/// Label recorded on the passthrough event when the gate fires.
 pub fn passthrough_reason(kind: Structured) -> String {
     format!("structured:{}", kind)
 }
 
 /// Whether a lossy stage must decline this payload.
-///
-/// Distillers, collapse and the head/tail trim all rewrite content, and a
-/// structured payload is parsed by whatever reads it next, so any of them would
-/// corrupt it. Unsure means structured: a missed compression is cheap and a
-/// corrupted payload is not.
 pub fn refuses_lossy_stages(text: &str) -> bool {
     sniff(text).is_some()
 }
 
-/// Whether the ledger must decline this payload.
-///
-/// Today the same answer as `refuses_lossy_stages`, and deliberately a separate
-/// function rather than a call to it. The two questions are not the same question:
-/// folding a run of already-seen lines leaves a marker and a recoverable handle
-/// rather than rewriting content, which is why #608 proposes letting the ledger in
-/// where nothing downstream parses the payload while lossy stages stay refused.
-///
-/// It exists now, before that decision, because the answer was written out at three
-/// separate call sites, twice in one file. #452, #454 and #456 each fixed one copy
-/// of a duplicated predicate in this codebase and left the other standing (#699).
+/// Whether the ledger must decline this payload. Same answer as
+/// `refuses_lossy_stages` today, but a separate question: a fold is recoverable,
+/// and #608 may let the ledger in where nothing parses. One function, so no
+/// call site decides for itself (#699).
 pub fn refuses_the_ledger(text: &str) -> bool {
     sniff(text).is_some()
 }
 
-/// Classify `input`. `None` means plain text, safe to compress.
+/// Classify `input`; `None` means plain text.
 pub fn sniff(input: &str) -> Option<Structured> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return None;
     }
 
-    // NDJSON sits between the two JSON checks: a `{…}\n{…}` stream is bracketed like
-    // a JSON document but only parses line by line.
-    // First, because a diff of a JSON or CSV file is a diff and nothing else, and
-    // its markers are unambiguous enough to decide that in one pass.
+    // Diff first: a diff of a JSON or CSV file is a diff. NDJSON sits between the
+    // JSON checks, since a `{…}\n{…}` stream is bracketed but parses per line.
     sniff_diff(trimmed)
         .or_else(|| sniff_json(trimmed))
         .or_else(|| sniff_ndjson(trimmed))
@@ -106,47 +83,26 @@ pub fn sniff(input: &str) -> Option<Structured> {
         .or_else(|| sniff_base64(trimmed))
 }
 
-/// A unified diff is parsed by `git apply` and `patch` the way JSON is parsed by
-/// `jq`, so every stage that rewrites it produces a diff no tool accepts (#832).
-///
-/// Three things broke at once on 0.7.9: the distiller replaced the `diff --git`,
-/// `index`, `--- a/…` and `+++ b/…` header with a bare `b/…`, the ledger folded
-/// away the context lines because an earlier `cat` of the same file had shown
-/// them, and `@@ -5,7 +5,7 @@` was left claiming seven lines on each side of a
-/// hunk that now showed two. `git apply --check` answered `patch fragment
-/// without header`.
-///
-/// Guarding the changed lines is not enough and was already tried: #788 and #805
-/// report the mirror, `+`/`-` dropped and the context kept.
-///
-/// `git diff --stat` and `git show --stat` carry neither marker and are still
-/// distilled, which is the enumeration surface and a different question.
+/// A unified diff is parsed by `git apply` and `patch`, so every rewriting stage
+/// broke it: headers replaced, context folded, hunk counts left wrong (#832).
+/// `--stat` output carries no marker and is still distilled.
 fn sniff_diff(trimmed: &str) -> Option<Structured> {
     let lines: Vec<&str> = trimmed.lines().map(without_ansi_prefix).collect();
-    // `diff --git` alone is decisive: `git log -p` and a saved patch both open
-    // with it, and nothing else does.
+    // `diff --git` alone is decisive.
     if lines.iter().any(|l| l.starts_with("diff --git ")) {
         return Some(Structured::Diff);
     }
-    // Otherwise the three header lines have to be consecutive, which they are in
-    // every `diff -u` and every `git format-patch`. Remembering them separately
-    // matched a build log that printed `--- FAIL:` early, `+++` later and `@@`
-    // later still, and passed the whole payload through (PR #835 review).
+    // Otherwise the three header lines must be consecutive, or a Go build log's
+    // `--- FAIL:` matched (PR #835 review).
     lines
         .windows(3)
         .any(|w| w[0].starts_with("--- ") && w[1].starts_with("+++ ") && w[2].starts_with("@@ -"))
         .then_some(Structured::Diff)
 }
 
-/// The line with any leading ANSI colour sequences removed.
-///
-/// Colour survives into the payload when git is asked for it explicitly, so a
-/// painted `diff --git` would otherwise read as prose. The ledger reads hunk
-/// headers past the same colour (PR #809 review) and calls this rather than
-/// keeping a second copy (#699).
-///
-/// Slices here are proven to sit on a char boundary rather than assumed to: the
-/// escape is one ASCII byte and `find('m')` returns the index of another.
+/// The line without leading ANSI colour, so a painted `diff --git` is
+/// recognised; the ledger shares it (#699). The escape and `m` are ASCII, so the
+/// slice is on a boundary.
 #[allow(clippy::string_slice)]
 pub(crate) fn without_ansi_prefix(line: &str) -> &str {
     let mut rest = line;
@@ -159,13 +115,10 @@ pub(crate) fn without_ansi_prefix(line: &str) -> &str {
     rest
 }
 
-/// Below this a run of the alphabet is as likely a hash or a token as a payload.
 const MIN_BASE64_BYTES: usize = 256;
 
-/// Base64 exists to be pasted somewhere verbatim, so one changed character
-/// corrupts what is built from it, and a fold removes the reprint that would
-/// repair it (#798). One long line, or lines wrapped at a fixed width with a
-/// shorter last one: a list of names made of the same alphabet has neither shape.
+/// Base64 is pasted somewhere verbatim, so one changed character corrupts it
+/// (#798). One long line, or a fixed-width wrap with a shorter last line.
 fn sniff_base64(trimmed: &str) -> Option<Structured> {
     let lines: Vec<&str> = trimmed.lines().map(str::trim_end).collect();
     let (last, body) = lines.split_last()?;
@@ -179,19 +132,17 @@ fn sniff_base64(trimmed: &str) -> Option<Structured> {
         .then_some(Structured::Base64)
 }
 
-/// True when `input` must not be compressed.
 pub fn is_structured(input: &str) -> bool {
     sniff(input).is_some()
 }
 
-/// Definitive JSON: a whole document that parses (or is too big to parse in budget).
+/// A whole JSON document that parses, or is too big to parse in budget.
 fn sniff_json(trimmed: &str) -> Option<Structured> {
     if !is_bracketed(trimmed) {
         return None;
     }
 
-    // Too large to parse in budget: bracket shape is the only evidence we can
-    // afford, and it is enough to stay off the lossy path.
+    // Too large to parse: bracket shape is enough to stay off the lossy path.
     if trimmed.len() > MAX_PARSE_BYTES {
         return Some(Structured::Json);
     }
@@ -201,8 +152,7 @@ fn sniff_json(trimmed: &str) -> Option<Structured> {
         .map(|_| Structured::Json)
 }
 
-/// Bracketed but unparseable, truncated or comment-bearing JSON. Unsure →
-/// structured: compression cannot repair it, but it can make it worse.
+/// Bracketed but unparseable JSON: structured, since compression can only make it worse.
 fn sniff_json_shaped(trimmed: &str) -> Option<Structured> {
     if is_bracketed(trimmed) && has_json_field_syntax(trimmed) {
         return Some(Structured::Json);
@@ -220,7 +170,6 @@ fn is_bracketed(trimmed: &str) -> bool {
     (first == b'{' && last == b'}') || (first == b'[' && last == b']')
 }
 
-/// Looks for `"key":`, the one bit of syntax free text almost never carries.
 fn has_json_field_syntax(text: &str) -> bool {
     static JSON_FIELD: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""[^"]*"\s*:"#).expect("valid json field regex"));
@@ -238,8 +187,7 @@ fn sniff_ndjson(trimmed: &str) -> Option<Structured> {
     {
         return None;
     }
-    // Parsing every line of a huge stream is not worth the latency; a sample that
-    // holds is strong enough evidence.
+    // A sample that holds is enough evidence.
     if lines
         .iter()
         .take(NDJSON_SAMPLE_LINES)
@@ -256,7 +204,6 @@ fn sniff_yaml(trimmed: &str) -> Option<Structured> {
         return None;
     }
 
-    // A leading document marker is unambiguous.
     let first = lines[0].trim_end();
     if first == "---" || first.starts_with("--- ") {
         return Some(Structured::Yaml);
@@ -266,9 +213,7 @@ fn sniff_yaml(trimmed: &str) -> Option<Structured> {
         return None;
     }
 
-    // Otherwise every line must be YAML-shaped, and the document must show real
-    // structure (nesting or a list). Free-text logs fail the first test: their
-    // lines carry no `key:` at all.
+    // Otherwise every line must be YAML-shaped and the document nested or listed; logs have no `key:`.
     if !all_lines_yaml_shaped(&lines) {
         return None;
     }
@@ -282,19 +227,14 @@ fn sniff_yaml(trimmed: &str) -> Option<Structured> {
     Some(Structured::Yaml)
 }
 
-/// A block scalar (`config.hcl: |`) hands the rest of the block to whatever the
-/// value happens to be: Vault HCL, a shell script, a PEM certificate. Those
-/// lines carry no `key:` and are not YAML-shaped, but the `|` that introduced
-/// them is YAML's own signal that they are a value, so they are skipped rather
-/// than judged. Without this, one embedded ConfigMap sank a whole 608-line
-/// `kubectl kustomize` manifest: sniff said "not YAML", the format gate stood
-/// down, and the manifest went down the lossy path.
+/// Block scalar bodies (`config.hcl: |`) are skipped, not judged: one embedded
+/// HCL ConfigMap otherwise sent a whole `kubectl kustomize` manifest down the
+/// lossy path.
 fn all_lines_yaml_shaped(lines: &[&str]) -> bool {
     let mut block_indent: Option<usize> = None;
     for line in lines {
         let indent = line.len() - line.trim_start().len();
-        // The body of a block scalar is everything indented deeper than the key
-        // that opened it; the first line back at that indent ends the block.
+        // The body is everything indented deeper than its key.
         if block_indent.is_some_and(|open| indent > open) {
             continue;
         }
@@ -309,9 +249,7 @@ fn all_lines_yaml_shaped(lines: &[&str]) -> bool {
     true
 }
 
-/// `key: |`, `key: >-`, `key: |2+`, an indicator and nothing else after it.
-/// A `|` inside a plain value (`cmd: sh -c "a | b"`) has trailing text, so it
-/// does not match.
+/// `key: |`, `key: >-`, `key: |2+` with nothing after; `sh -c "a | b"` does not match.
 fn opens_block_scalar(line: &str) -> bool {
     static BLOCK_SCALAR: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*\S+\s*:\s*[|>][0-9]*[-+]?\s*$").expect("valid regex"));
@@ -371,7 +309,6 @@ mod tests {
 
     #[test]
     fn detects_json_array_of_similar_objects() {
-        // The live repro: `az ... -o json` shaped output that collapse used to squash.
         let items: Vec<String> = (0..20)
             .map(|i| format!(r#"{{"name": "vm-{i}", "location": "eastus", "id": {i}}}"#))
             .collect();
@@ -387,7 +324,6 @@ mod tests {
 
     #[test]
     fn treats_truncated_json_as_structured() {
-        // Unsure → structured. Compressing a truncated payload cannot help it.
         let payload = r#"{"items": [{"name": "a"}, {"name": "b"#;
         assert_eq!(sniff(payload), None, "unbracketed tail is not JSON-shaped");
 
@@ -437,7 +373,7 @@ mod tests {
 
     #[test]
     fn treats_log_lines_with_colons_as_plain_text() {
-        // `level: message` looks superficially like YAML, it must not gate.
+        // `level: message` is not YAML.
         let payload = "INFO: starting server\nWARN: cache miss\nERROR: connection refused\n";
         assert_eq!(sniff(payload), None);
     }
@@ -475,9 +411,6 @@ mod tests {
         assert_eq!(sniff(&payload), Some(Structured::Json));
     }
 
-    /// `kubectl kustomize` output has no leading `---` on its first document, so
-    /// it is judged line by line, and a ConfigMap carrying Vault HCL made it
-    /// look like free text.
     #[test]
     fn detects_yaml_holding_a_block_scalar_of_foreign_config() {
         let manifest = concat!(
@@ -496,8 +429,7 @@ mod tests {
         assert_eq!(sniff(manifest), Some(Structured::Yaml));
     }
 
-    /// The skip must end with the block, or a block scalar anywhere near the top
-    /// would wave the rest of the document through.
+    /// The skip ends with the block.
     #[test]
     fn stops_skipping_once_the_block_scalar_body_dedents() {
         let payload = concat!(
@@ -509,7 +441,6 @@ mod tests {
         assert_eq!(sniff(payload), None);
     }
 
-    /// A pipe inside a plain value is a value, not a block-scalar indicator.
     #[test]
     fn treats_a_piped_command_value_as_an_ordinary_line() {
         assert!(!opens_block_scalar("  cmd: sh -c \"a | b\""));
@@ -517,9 +448,7 @@ mod tests {
         assert!(opens_block_scalar("  cmd: |2-"));
     }
 
-    /// #798. One long line and a fixed-width wrap stay verbatim. Names, hashes and
-    /// prose drawn from the same alphabet do not, or the ledger loses `ls` and
-    /// `git log --format=%H` for nothing.
+    /// Base64 shapes stay verbatim; names and hashes from the same alphabet do not (#798).
     #[test]
     fn sniffs_base64_by_its_shape_and_not_its_alphabet() {
         assert_eq!(sniff(&"QkJC".repeat(1000)), Some(Structured::Base64));
@@ -527,8 +456,7 @@ mod tests {
         wrapped.push_str("Qg==\n");
         assert_eq!(sniff(&wrapped), Some(Structured::Base64));
 
-        // Uniform bytes encode to one repeated character, and that is still base64
-        // a later step will decode (PR #809 review): 300 zero bytes are 400 `A`s.
+        // 300 zero bytes are 400 `A`s, still base64 (PR #809 review).
         assert_eq!(sniff(&"A".repeat(400)), Some(Structured::Base64));
 
         let names: String = (0..60).map(|i| format!("release{i}\n")).collect();
@@ -539,10 +467,7 @@ mod tests {
         }
     }
 
-    /// #832. Every stage that rewrote a unified diff produced one no tool
-    /// accepts, so the diff joins JSON and base64 on the gate instead of getting
-    /// a guard per stage. `git apply --check` answered `patch fragment without
-    /// header` on what the pipeline delivered.
+    /// A unified diff is gated whole (#832).
     #[test]
     fn a_unified_diff_refuses_every_lossy_stage() {
         let diff = "diff --git a/sample.py b/sample.py\n\
@@ -560,20 +485,16 @@ mod tests {
             "the ledger folded the context lines"
         );
 
-        // No `diff --git` line: `diff -u` and a saved patch open on the header
-        // pair, and the hunk has to follow it.
+        // `diff -u` opens on the header pair.
         let plain = "--- old.txt\t2026-09-01\n+++ new.txt\t2026-09-02\n@@ -1 +1 @@\n-a\n+b\n";
         assert_eq!(sniff(plain), Some(Structured::Diff));
 
-        // Colour survives when git is asked for it, and a painted header would
-        // otherwise read as prose.
+        // Painted headers are still headers.
         let painted = "\x1b[1mdiff --git a/x b/x\x1b[m\n\x1b[36m@@ -1 +1 @@\x1b[m\n-a\n+b\n";
         assert_eq!(sniff(painted), Some(Structured::Diff));
     }
 
-    /// The counterweight: the gate must not swallow the enumeration surfaces the
-    /// distillers exist for. `--stat` carries neither marker, and prose quoting a
-    /// hunk header has no file header above it.
+    /// `--stat` and quoted hunk headers are not gated.
     #[test]
     fn a_diffstat_and_a_quoted_hunk_are_not_diffs() {
         let stat = " src/main.rs | 12 ++++++------\n src/lib.rs  |  4 ++--\n 2 files changed, 8 insertions(+), 8 deletions(-)\n";
@@ -582,17 +503,12 @@ mod tests {
         let prose = "The hunk header @@ -5,7 +5,7 @@ says seven lines.\nIt showed two.\n";
         assert_eq!(sniff(prose), None);
 
-        // A `+++` that never had a `---` above it is a decoration, not a header.
         let banner = "+++ release notes +++\n@@ everything changed @@\n";
         assert_eq!(sniff(banner), None);
 
-        // The three markers in order but scattered: Go prints `--- FAIL:` per
-        // test, and a payload that happens to hold the other two further down is
-        // still a build log (PR #835 review).
+        // Scattered markers are a build log (PR #835 review).
         let scattered = "--- FAIL: TestAlpha (0.00s)\n                         ok  \texample/pkg\t0.4s\n                         +++ regenerated fixtures\n                         running 3 checks\n                         @@ summary @@\n";
-        // Asked of the detector itself: `--- ` at the head also reads as a YAML
-        // document start, which claims it first in the chain and is conservative
-        // in the same direction, so `sniff` alone would not prove this.
+        // Asked of `sniff_diff` itself, since YAML would claim `--- ` first in `sniff`.
         assert_eq!(sniff_diff(scattered), None);
     }
 
@@ -605,16 +521,8 @@ mod tests {
 
 #[cfg(test)]
 mod gate_is_named_once {
-    /// #699. `sniff` was asked the same question at five call sites, three of them
-    /// the same ledger decision written out three times, twice in one file. #452,
-    /// #454 and #456 each fixed one copy of a duplicated predicate here and left
-    /// the other standing, so the fix is to have the question exist once.
-    ///
-    /// This forbids the *gate* shape, `sniff(..).is_some()` or `.is_none()`, in the
-    /// hooks. Calling `sniff` for its `Structured` value is still fine and still
-    /// happens: the passthrough reason is built from it. What may not come back is
-    /// a site deciding for itself what a `Some` means, because #608 will change
-    /// that answer for one of the two questions and must not have to find copies.
+    /// The hooks never test `sniff(..).is_some()` themselves: the gate decision
+    /// lives in one function (#699).
     #[test]
     fn no_hook_decides_for_itself_what_structured_means() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/hooks");
