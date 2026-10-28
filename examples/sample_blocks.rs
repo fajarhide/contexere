@@ -149,7 +149,7 @@ fn main() {
 /// Stable across runs and machines, which a `DefaultHasher` is not, so two
 /// samples of the same corpus grade the same blocks.
 fn spread_key(id: i64, seq: i64) -> String {
-    omni::util::text::short_hash(&format!("{id}:{seq}"))
+    veng::util::text::short_hash(&format!("{id}:{seq}"))
 }
 
 /// Reads the operator's sensitive-name patterns, or exits before a single row
