@@ -1,18 +1,5 @@
-//! Path utilities - single source of truth for all filesystem paths
-//!
-//! This module centralizes all path resolution for OMNI.
-//! All paths are automatically OS-agnostic using cross-platform libraries.
-//! No conditional compilation is needed here - `dirs` and `std::env::temp_dir`
-//! handle platform differences automatically.
-//!
-//! **Single source of truth means every caller asks here.** A call site that
-//! builds `dirs::home_dir().join(".omni")` itself is outside every override this
-//! module offers, and that is not hypothetical: `session::learn::queue_for_learn`
-//! wrote the learn queue to the real home whatever the configuration said
-//! (#312), and `toml_filter::resolve_user_signal_dir` read the developer's live
-//! filters during `cargo test` while the same suite's writes were correctly
-//! isolated (#315). Both looked correct in isolation and both bypassed the
-//! override that was supposed to cover them.
+//! Every path OMNI touches, in one place. A call site that builds
+//! `home_dir().join(".omni")` itself escapes every override here (#312, #315).
 
 use dirs::home_dir;
 use std::env;
@@ -23,25 +10,16 @@ fn legacy_home() -> PathBuf {
     home_dir().unwrap_or_else(temp_dir).join(".omni")
 }
 
-/// Resolve one of the two roots.
-///
-/// Precedence, most specific first (#217):
+/// Resolve one of the two roots, most specific first (#217):
 ///
 /// 1. `OMNI_HOME` puts the whole tree in one place.
 /// 2. `OMNI_CONFIG_HOME` / `OMNI_DATA_HOME` split config from data.
-/// 3. **An existing `~/.omni` wins over XDG.** This is the migration decision
-///    and it is deliberate: an install that already has a tree keeps using it,
-///    so upgrading never appears to lose a database. #217 offered moving the
-///    directory with a notice as an alternative; silently continuing to work is
-///    the boring option and the one that cannot surprise anyone.
-/// 4. `XDG_CONFIG_HOME/omni` / `XDG_DATA_HOME/omni` for a fresh install on a
-///    machine that asked for the spec.
+/// 3. An existing `~/.omni` wins over XDG, so an upgrade never appears to lose
+///    a database.
+/// 4. `XDG_CONFIG_HOME/omni` / `XDG_DATA_HOME/omni` on a fresh install.
 /// 5. `~/.omni`.
 ///
-/// Read once through a `LazyLock` at each call site below. Cargo runs tests in
-/// parallel in one process, so a value re-read per call could change under a
-/// test that set it, which is the process-state hazard this repo has already
-/// paid for once.
+/// Read once through a `LazyLock`: tests run in parallel in one process.
 fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
     if let Some(p) = env::var_os("OMNI_HOME").filter(|p| !p.is_empty()) {
         return PathBuf::from(p);
@@ -75,66 +53,42 @@ pub fn data_home() -> PathBuf {
     ROOT.clone()
 }
 
-/// The OMNI home directory.
-///
-/// Kept as the name most of the tree already asks for, and equal to
-/// [`config_home`]. With no environment set at all, every root here is the same
-/// `~/.omni`, so splitting config from data changes nothing for an existing
-/// install and only matters to someone who asked for it.
+/// The OMNI home directory, equal to [`config_home`].
 #[inline]
 pub fn omni_home() -> PathBuf {
     config_home()
 }
 
-/// Get system temporary directory
-///
-/// Resolves automatically:
-/// - Linux/macOS: `/tmp`
-/// - Windows: `%TEMP%`
 #[inline]
 pub fn temp_dir() -> PathBuf {
     env::temp_dir()
 }
 
-/// Get path to OMNI SQLite database
 #[inline]
 pub fn database_path() -> PathBuf {
     data_home().join("omni.db")
 }
 
-/// Get path to the user configuration file.
 #[inline]
 pub fn config_file() -> PathBuf {
     config_home().join("config.toml")
 }
 
-/// Get path to the cache directory.
 #[inline]
 pub fn cache_directory() -> PathBuf {
     data_home().join("cache")
 }
 
-/// Get path to the session export directory.
 #[inline]
 pub fn exports_directory() -> PathBuf {
     data_home().join("exports")
 }
 
 /// Narrow a path OMNI owns to its owner: `0700` for a directory, `0600` for a
-/// file.
-///
-/// Nothing in the tree asked for a mode before this, so `~/.omni` and the
-/// database inherited the umask and a default 022 left 147 MB of recorded
-/// command output world readable (#631). Redaction does not cover it and is not
-/// meant to: redaction protects what the *model* sees, while the archive keeps
-/// the original on purpose so `omni retrieve` can return it.
-///
-/// Reads the mode before writing it, because this sits on the hook path and a
-/// `stat` is cheaper than a `chmod` on the run where nothing has to change,
-/// which is every run after the first.
-///
-/// Errors are the caller's to ignore. A store that cannot be tightened is still
-/// a store, and `CONTRIBUTING.md` requires hooks to fail open.
+/// file. The archive keeps raw command output on purpose, and a default umask
+/// left it world readable (#631). Reads the mode first, since a `stat` is
+/// cheaper than a `chmod` on the hook path. Errors are the caller's to ignore:
+/// hooks fail open.
 #[cfg(unix)]
 pub fn restrict_to_owner(path: &std::path::Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -158,14 +112,8 @@ pub fn restrict_to_owner(_path: &std::path::Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
-    /// #631. Nothing in the tree set a mode, so `~/.omni` and a 147 MB database
-    /// of recorded command output sat at 0755 and 0644 under a default umask.
-    ///
-    /// Driven from deliberately loose modes rather than by setting a umask: the
-    /// umask is process state, `cargo` runs tests in parallel, and a suite that
-    /// mutates it fails a different test on a different machine. This is also
-    /// the half that matters most, since the sensitive bytes are already on disk
-    /// on every existing install.
+    /// Starts from loose modes rather than setting a umask, which is process
+    /// state that parallel tests would race on.
     #[cfg(unix)]
     #[test]
     fn tightens_a_directory_and_a_file_that_are_already_loose() {
@@ -190,10 +138,8 @@ mod tests {
         assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
     }
 
-    /// #307: without an override the suite wrote into the developer's live
-    /// `~/.omni`. `.cargo/config.toml` points `OMNI_HOME` at the workspace's
-    /// `target/`, so this fails if either half is removed: the config entry, or
-    /// the reading of it here.
+    /// `.cargo/config.toml` points `OMNI_HOME` at `target/`; fails if either half
+    /// is removed (#307).
     #[test]
     fn a_test_run_never_resolves_to_the_developers_real_home() {
         let home = omni_home();
@@ -211,12 +157,7 @@ mod tests {
         );
     }
 
-    /// #315: the previous version of the test above asserted only that the
-    /// *accessor* was overridden, and passed while the filter loader read the
-    /// real `~/.omni/filters` on every hook. Every path the product actually
-    /// opens is checked here, so a new call site that derives its own is caught
-    /// by the one test rather than by a CI flake months later. The filter paths
-    /// left this list with the layer they served (#505).
+    /// Checks every path the product opens, not just the accessor (#315).
     #[test]
     fn every_resolved_path_stays_inside_a_configured_root() {
         let config = config_home();
@@ -243,14 +184,10 @@ mod tests {
         }
     }
 
-    /// The migration decision, stated as a test because it is the one thing an
-    /// upgrade could get visibly wrong: an install that already has `~/.omni`
-    /// keeps using it, even when XDG is set.
     #[test]
     fn an_existing_legacy_tree_wins_over_xdg() {
-        // `resolve_root` is pure apart from the environment, and this asserts
-        // the ordering rather than driving the process env, which a parallel
-        // test would race on.
+        // Asserts the ordering without driving the process env, which a
+        // parallel test would race on.
         let legacy = legacy_home();
         if legacy.exists() {
             assert_eq!(
@@ -267,23 +204,10 @@ mod tests {
 }
 
 /// The project a ledger scope belongs to: the repository root, not the
-/// directory the command happened to run in (#525).
-///
-/// The project scope was `current_dir()` alone, so the same repository reached
-/// by a different path was a different project. Measured on the maintainer's
-/// database before this landed: 31 project scopes, and one repository split
-/// across six of them, 2,759 lines of history (15.6%) stranded in scopes
-/// nothing would consult again. Four of the six were created in a single day of
-/// ordinary work, because a git worktree is a different directory.
-///
-/// **A linked worktree is why this is not a walk up to `.git`.** In a worktree
-/// `.git` is a *file* holding `gitdir: <main>/.git/worktrees/<name>`, so
-/// stopping at the first `.git` returns the worktree root and splits the
-/// history exactly as before, while looking like a fix. The gitdir is read and
-/// resolved back to the main checkout.
-///
-/// Falls back to the directory itself outside a repository, which is what a
-/// scope keyed on a path has always been.
+/// directory the command ran in (#525). A linked worktree's `.git` is a file
+/// pointing at the main checkout, so stopping at the first `.git` would split
+/// one repository into one project per worktree. Outside a repository, the
+/// directory itself.
 pub fn project_key(from: &std::path::Path) -> String {
     for dir in from.ancestors() {
         let dot = dir.join(".git");
@@ -297,11 +221,8 @@ pub fn project_key(from: &std::path::Path) -> String {
     from.to_string_lossy().to_string()
 }
 
-/// `<main>/.git/worktrees/<name>` back to `<main>`.
-///
-/// Returns `None` for anything that does not have that shape, so an unreadable
-/// or unfamiliar `.git` file leaves the caller on the directory it started from
-/// rather than on a guess.
+/// `<main>/.git/worktrees/<name>` back to `<main>`, or `None` for any other
+/// shape rather than a guess.
 fn worktree_main_root(dot_git_file: &std::path::Path) -> Option<String> {
     let contents = std::fs::read_to_string(dot_git_file).ok()?;
     let gitdir = contents.trim().strip_prefix("gitdir:")?.trim();
@@ -329,8 +250,7 @@ mod project_key_tests {
         );
     }
 
-    /// The case the whole change exists for. Stopping at the first `.git` would
-    /// return the worktree root here and pass a test written the obvious way.
+    /// Stopping at the first `.git` would return the worktree root here.
     #[test]
     fn a_linked_worktree_answers_the_main_checkout() {
         let d = tempfile::tempdir().expect("tempdir");
@@ -360,7 +280,6 @@ mod project_key_tests {
         assert_eq!(project_key(&loose), loose.to_string_lossy());
     }
 
-    /// An unreadable or unfamiliar `.git` file must not become a guess.
     #[test]
     fn a_git_file_it_cannot_parse_falls_back_to_the_directory() {
         let d = tempfile::tempdir().expect("tempdir");

@@ -21,8 +21,6 @@ use std::sync::{Arc, Mutex};
 use crate::pipeline::SessionState;
 use crate::store::sqlite::Store;
 
-// ─── Mode Detection ─────────────────────────────────────
-
 #[derive(Debug, PartialEq)]
 enum Mode {
     PostHook,
@@ -33,13 +31,8 @@ enum Mode {
     Cli,
 }
 
-/// The seven hidden flags are the only thing a parser ever decided here.
-///
-/// clap parsed the whole CLI and 15 of 17 arms matched `Some(OmniCommand::X { .. })`,
-/// discarding every field it filled in, then handed the raw `env::args()` to a module
-/// that parsed it again; 18 files under `src/cli/` do that second parse (#506). What
-/// is left is this scan. Help is intercepted before it, and version is
-/// `env!("CARGO_PKG_VERSION")`.
+/// The hidden hook flags. Everything else is dispatched by name, parsed once
+/// in its own module (#506).
 fn detect_mode(args: &[String]) -> Mode {
     for a in &args[1..] {
         match a.as_str() {
@@ -58,8 +51,6 @@ fn detect_pipe_command() -> Option<String> {
     env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
 }
 
-// ─── Engine / Globals ───────────────────────────────────
-
 fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
     match Store::open() {
         Ok(store) => {
@@ -74,16 +65,8 @@ fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
     }
 }
 
-// ─── Help Text ──────────────────────────────────────────
-
-/// Every subcommand, grouped by what a user is trying to do, with the payoff
-/// rather than the noun.
-///
-/// This is the **only** command list. `omni help` and `omni --help` used to be
-/// two hand-maintained copies that had already drifted, six commands including
-/// `exec`, the harness every issue in this tracker asks reporters to run, were
-/// missing from the one a user gets by typing `omni` (#152).
-/// `lists_every_subcommand` keeps this honest.
+/// The only command list: `omni help`, bare `omni` and `--help` all render it
+/// (#152). `lists_every_subcommand` keeps it complete.
 const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "SET UP",
@@ -205,28 +188,12 @@ fn print_help() {
     }
 }
 
-// ─── Main ───────────────────────────────────────────────
-
-/// Restore the default disposition of `SIGPIPE` (#155).
-///
-/// Rust sets `SIGPIPE` to `SIG_IGN` before `main` runs, so writing to a pipe
-/// whose reader has closed returns `EPIPE` instead of killing the process, and
-/// `println!` panics on that error. Every other Unix tool dies quietly, which is
-/// why `omni --help | head -1` printed a panic and a backtrace note where `ls |
-/// head` prints nothing.
-///
-/// Fixing it here rather than at each `println!` is deliberate: the panic is not
-/// specific to the help text. `omni doctor | head` reproduces it too, and so
-/// would any command whose output outlives its reader. One line at the entry
-/// point covers every writer; guarding each call site would not.
-///
-/// `#[cfg(unix)]` because Windows has no `SIGPIPE`; a closed pipe there surfaces
-/// as an ordinary write error.
+/// Restore the default `SIGPIPE` disposition so `omni ... | head` exits quietly
+/// instead of panicking on `EPIPE` (#155). Done once here because every writer
+/// hits it.
 #[cfg(unix)]
 fn restore_default_sigpipe() {
-    // SAFETY: called before any thread is spawned, and `SIG_DFL` is the
-    // disposition the OS starts with, this restores it rather than installing
-    // a handler.
+    // SAFETY: before any thread is spawned, and it restores the OS default.
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
@@ -240,7 +207,6 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
 
-    // Fast-path pipe mode
     if args.len() == 1 && !io::stdin().is_terminal() {
         let store_arc = Store::open().map(Arc::new).ok();
         let session_arc = store_arc.as_ref().map(|s| {
@@ -255,22 +221,15 @@ fn main() {
         return;
     }
 
-    // One help text (#152, #166). `omni help` / bare `omni` rendered a
-    // hand-written list while `omni --help` rendered clap's, and the two had
-    // already drifted, six commands, `exec` among them, were missing from the
-    // one a user gets by typing `omni`. Intercept before clap so every route
-    // reaches the same renderer. A subcommand's own `--help` is untouched:
-    // `args.len() == 2` means nothing but the flag was passed.
+    // Intercepted before dispatch so every help route renders the same text
+    // (#152). `len() == 2`: a subcommand's own `--help` is left alone.
     if args.len() == 2 && matches!(args[1].as_str(), "--help" | "-h" | "help") {
         print_help();
         return;
     }
 
-    // Same shape for `--version` / `-v`. clap used to answer these itself before
-    // any dispatch, and routing them into `cli::version` instead handed the flag
-    // to a module whose `check_flags` correctly rejects it: `omni --version`
-    // exited 1 saying "unknown flag `--version` for `omni version`" (#506).
-    // `omni version` as a subcommand still goes the long way, below.
+    // Answered here: routed into `cli::version`, the flag was rejected as
+    // unknown (#506).
     if args.len() == 2 && matches!(args[1].as_str(), "--version" | "-v") {
         println!("omni {}", env!("CARGO_PKG_VERSION"));
         return;
@@ -287,10 +246,8 @@ fn main() {
         }
 
         Mode::PreHook => {
-            // No store: the pre-hook rewrites a command and updates the in-memory
-            // turn. The only thing it used the database for was `context_turns`,
-            // which had no reader (#270). Not opening it also takes the SQLite
-            // connection off this hook's path entirely.
+            // No store: the pre-hook never needed the database (#270), and skipping
+            // it keeps SQLite off this hook's path.
             let (_, session) = init_globals();
             if let Err(e) = hooks::pre_tool::run(session) {
                 eprintln!("[omni] Pre-Hook error: {}", e);
@@ -299,13 +256,10 @@ fn main() {
         }
 
         Mode::SessionStart => {
-            // Legacy flag, route through dispatcher
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
-                // Background cleanup to prevent DB bloating
                 let s_clone = Arc::clone(&s);
                 std::thread::spawn(move || {
-                    /// Number of days to retain session history in the database
                     const SESSION_RETENTION_DAYS: u32 = 30;
                     s_clone.cleanup_old(SESSION_RETENTION_DAYS);
                 });
@@ -314,7 +268,6 @@ fn main() {
         }
 
         Mode::PreCompact => {
-            // Legacy flag, route through dispatcher
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
                 let _ = hooks::dispatcher::run(s, ss);
@@ -345,11 +298,8 @@ fn main() {
                     }
                 }
                 "init" => {
-                    // Not `let _ =`: a rejected flag has to reach the
-                    // user, or `omni init --curser` installs nothing and
-                    // exits 0 (#151). The clap-side arm got this right
-                    // and this one did not, which is what a parser whose
-                    // result is discarded 15 times out of 17 buys you.
+                    // Not `let _ =`: a rejected flag has to reach the user, or a
+                    // typo installs nothing and exits 0 (#151).
                     if let Err(e) = cli::init::run_init(&args) {
                         eprintln!("[omni] Init error: {}", e);
                         std::process::exit(1);
@@ -436,10 +386,7 @@ fn main() {
                     }
                 },
                 "context" => {
-                    // #609 moved this off the MCP surface, where it cost 189 B in
-                    // the prefix of every request and was never once called. The
-                    // session is best effort: it only decides the "hot in session"
-                    // line, so a store that will not open still gives an answer.
+                    // Best effort: the session only decides the "hot in session" line.
                     let session = Store::open().ok().and_then(|s| s.find_latest_session());
                     if let Err(e) = cli::context::run_context(&args, session.as_ref()) {
                         eprintln!("[omni] Context error: {}", e);
@@ -469,12 +416,7 @@ fn main() {
                         std::process::exit(1);
                     }
                 }
-                // `remember` and `goal` reached only the clap arm and
-                // were never in this fallback, so anything clap did not
-                // classify as a subcommand hit `unknown` and exited 1.
-                // Collapsing the two tables is what surfaced it (#506).
-                // `extra` is what clap used to hand these two: argv after
-                // the subcommand name.
+                // `extra` is argv after the subcommand name.
                 "remember" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::remember::run(&args[2..], Arc::new(store)) {
@@ -527,11 +469,8 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// `COMMANDS` drives the only help a user sees. It used to be checked against
-    /// clap's subcommand enum; with clap gone (#506) the dispatcher is the truth,
-    /// and `hook_e2e::every_advertised_command_routes` drives the real binary to
-    /// prove every name in here reaches a module. This half is the cheap one:
-    /// nothing may be advertised under a heading the renderer does not print.
+    /// Nothing may be advertised under a heading the renderer does not print.
+    /// `hook_e2e::every_advertised_command_routes` proves each name routes.
     #[test]
     fn every_listed_command_sits_in_a_group_that_renders() {
         for (group, name, _) in COMMANDS {
