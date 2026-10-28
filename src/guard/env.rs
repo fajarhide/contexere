@@ -62,26 +62,18 @@ pub fn sanitize_vars(vars: impl IntoIterator<Item = (String, String)>) -> Vec<(S
         .collect()
 }
 
-/// Returns true if OMNI_QUIET=1 is set. Suppresses stderr stats in pipe mode.
+/// `OMNI_QUIET` suppresses the stderr stats in pipe mode.
 pub fn is_quiet() -> bool {
     env::vars().any(|(k, _)| k.eq_ignore_ascii_case("OMNI_QUIET"))
 }
 
-/// Returns true if OMNI_PASSTHROUGH is enabled (1/true/yes).
-/// When enabled, OMNI will bypass distillation and emit raw output.
 pub fn is_passthrough() -> bool {
     env::vars().any(|(k, v)| k.eq_ignore_ascii_case("OMNI_PASSTHROUGH") && means_enabled(&v))
 }
 
-/// Whether an environment value reads as "on".
-///
-/// Split out so the truth table can be tested without touching the process
-/// environment. The test used to set `OMNI_PASSTHROUGH=1` for real, under a
-/// comment claiming the suite is single-threaded. It is not: cargo runs tests in
-/// parallel, and `hooks::pipe::run_inner` reads this on entry, so any test
-/// distilling at that moment took the passthrough branch and archived nothing.
-/// That is what turned `archives_the_raw_output_it_shortens` red on CI while it
-/// passed on every local run.
+/// Split from `is_passthrough` so tests never set the variable for real: cargo
+/// runs tests in parallel, and every test distilling at that moment would pass
+/// through.
 fn means_enabled(value: &str) -> bool {
     matches!(
         value.trim().to_lowercase().as_str(),
@@ -102,26 +94,22 @@ pub fn validate_loop_context(
     goal: Option<&str>,
     budget_tokens: Option<u64>,
 ) -> Result<(), ValidationError> {
-    // loop_id: only alphanumeric and dash, max 64 chars
     if let Some(id) = loop_id
         && (!id.chars().all(|c| c.is_alphanumeric() || c == '-') || id.len() > 64)
     {
         return Err(ValidationError::InvalidLoopId);
     }
 
-    // goal: max 500 chars, no shell metacharacters
     if let Some(goal) = goal {
         if goal.len() > 500 {
             return Err(ValidationError::GoalTooLong);
         }
-        // Block shell injection
         let blocked = ['`', '$', ';', '|', '&', '>', '<', '(', ')'];
         if goal.chars().any(|c| blocked.contains(&c)) {
             return Err(ValidationError::GoalContainsShellMetachars);
         }
     }
 
-    // budget: max 10M tokens (sanity check)
     if budget_tokens.unwrap_or(0) > 10_000_000 {
         return Err(ValidationError::BudgetTooLarge);
     }
@@ -175,12 +163,6 @@ mod tests {
         assert!(has_normal);
     }
 
-    /// Drives the predicate rather than the process environment. Setting
-    /// `OMNI_PASSTHROUGH` for real made every concurrently running test that
-    /// distils take the passthrough branch, because `hooks::pipe::run_inner`
-    /// reads it on entry. The comment that used to sit here said the suite was
-    /// single-threaded; cargo runs tests in parallel, so it was an assumption
-    /// stated as a fact, and it cost a red CI run that passed locally every time.
     #[test]
     fn reads_the_usual_spellings_of_on_and_off() {
         for on in ["1", "true", "TRUE", "yes", "on", " on "] {
@@ -233,27 +215,16 @@ mod tests {
     }
 }
 
-/// `OMNI_PASSTHROUGH=1 <cmd>` written on the command line, which the hook can
-/// only ever see as text (#534).
-///
-/// The manual documents that prefix as "raw output, every time", and on
-/// `omni exec` and the pipe it is, because the variable is read by the same
-/// process. The Claude Code `PostToolUse` hook is a separate process spawned by
-/// the host: it inherits the host's environment and an assignment typed in
-/// front of the command never reaches it. The prefix was inert on the one host
-/// the promise matters on, and nothing said so.
-///
-/// The command string does reach the hook, so the assignment is honoured by
-/// reading it there. Only leading assignments count, the same shape a shell
-/// would apply them in: `echo OMNI_PASSTHROUGH=1` mentions the name and sets
-/// nothing, and must keep being distilled.
+/// `OMNI_PASSTHROUGH=1 <cmd>` typed on the command line. The hook is a separate
+/// process that never inherits that assignment, so it reads the command text
+/// instead (#534). Only leading assignments count, as in a shell:
+/// `echo OMNI_PASSTHROUGH=1` sets nothing.
 pub fn command_asks_for_passthrough(command: &str) -> bool {
     for token in command.split_whitespace() {
         match token.split_once('=') {
             Some((key, value)) if key.eq_ignore_ascii_case("OMNI_PASSTHROUGH") => {
                 return means_enabled(value);
             }
-            // Another leading assignment: keep looking past it.
             Some((key, _))
                 if !key.is_empty()
                     && !key.starts_with(|c: char| c.is_ascii_digit())
@@ -277,7 +248,6 @@ mod command_passthrough_tests {
         assert!(command_asks_for_passthrough(
             "OMNI_PASSTHROUGH=true kubectl get pods -o yaml"
         ));
-        // Past another assignment, the way a shell applies them.
         assert!(command_asks_for_passthrough(
             "FOO=1 OMNI_PASSTHROUGH=on cargo test"
         ));
@@ -289,8 +259,6 @@ mod command_passthrough_tests {
         assert!(!command_asks_for_passthrough("cat file"));
     }
 
-    /// The line between an assignment and a mention. Naming the variable as an
-    /// argument sets nothing, so it must not turn distillation off.
     #[test]
     fn a_mention_is_not_an_assignment() {
         assert!(!command_asks_for_passthrough("echo OMNI_PASSTHROUGH=1"));
