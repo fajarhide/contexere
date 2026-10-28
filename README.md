@@ -3,7 +3,7 @@
 
 <h1>OMNI</h1>
 <p align="center">
-    <em><b>OMNI makes your coding agent read less.</b> It cuts the noise out of command output and stops re-sending files the agent has already seen. Fewer tokens, nothing lost, secrets kept out.</em>
+    <em><b>OMNI makes your coding agent read less.</b> It cuts the noise out of command output and stops re-sending files the agent has already seen. Fewer tokens, and nothing lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
@@ -41,9 +41,10 @@ out stays on your machine, and one command brings it back.
 |---|---|
 | reads a file it already read | sends one line with a handle instead of the file again |
 | runs a noisy build or test | keeps the result and the failures, drops the progress noise |
-| runs `git log`, `git status`, `git diff` | keeps every commit and path, in fewer lines |
+| runs `git log`, `git status`, `git diff` | keeps every commit, sums up the status, and drops lockfile and whitespace churn from the diff |
 | prints a token or password | replaces it with `[REDACTED]` before the model sees it |
-| hits a failing command, or JSON, YAML, CSV | leaves it exactly as it was, on purpose |
+| hits a failing command | leaves it exactly as it was, so the real error reaches the agent, a secret in it included |
+| reads JSON, YAML or CSV | leaves the structure alone, so a later step can still parse it |
 
 ## What you get
 
@@ -51,8 +52,9 @@ out stays on your machine, and one command brings it back.
   depends on how often it re-reads: 97.2% on a file read twice, far less across a whole
   session (see [Numbers](#numbers)). `omni stats` shows it on your own history.
 - **Room in the context.** Long sessions fill up more slowly.
-- **Nothing lost.** `omni retrieve <handle>` returns the original byte for byte.
-- **Secrets stay out of the model.**
+- **Nothing lost.** `omni retrieve <handle>` brings the original back in full.
+- **Secrets kept out.** Tokens and passwords in command output are replaced before the
+  model reads them. A failed command's output is the exception and arrives as printed.
 - **Local only.** No proxy, no account, and the database never leaves your machine.
 
 <img src="docs/website/src/media/where-omni-sits.svg" alt="OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back." width="820" />
