@@ -851,8 +851,47 @@ fn quoted_value(value: &str) -> Option<(char, &str, &str)> {
 fn redact_line(line: &str) -> Option<(String, u32)> {
     match redact_shell_words(line) {
         Some(words) => words,
-        None => redact_whole_value(line).or_else(|| redact_later_credential(line)),
+        None => redact_whole_value(line)
+            .or_else(|| redact_later_credential(line))
+            .or_else(|| redact_after_operator(line)),
     }
+}
+
+/// A credential assigned mid-line, after `export` or a shell operator (#909).
+///
+/// A crontab entry such as `* * * * * cd /app && export DB_PASSWORD="x"` opens
+/// with neither an assignment nor a key, so every rule above handed it back
+/// whole. The word before the assignment is what says shell rather than log:
+/// `INFO done token=abc` has none of these in front of `token`.
+///
+/// Hidden from its `=` to the end of the line, as `redact_later_credential`
+/// does, so a quoted value keeps its quotes and only a tail that could hold
+/// another credential is dropped.
+#[allow(clippy::string_slice)]
+fn redact_after_operator(line: &str) -> Option<(String, u32)> {
+    let mut offset = 0;
+    let mut prev = "";
+    for piece in line.split_inclusive(char::is_whitespace) {
+        let word = piece.trim_end();
+        let after_shell = matches!(
+            prev.trim_start_matches(['"', '\'']),
+            "export" | "&&" | "||" | ";" | "|"
+        ) || prev.ends_with(';');
+        if after_shell
+            && let Some((key, value)) = shell_assignment(word)
+            && redact_assignment(key, value).is_some()
+        {
+            let value_at = offset + key.len() + 1;
+            let hidden = redact_assignment(key, &line[value_at..])
+                .unwrap_or_else(|| "[REDACTED]".to_string());
+            return Some((format!("{}{hidden}", &line[..value_at]), 1));
+        }
+        if !word.is_empty() {
+            prev = word;
+        }
+        offset += piece.len();
+    }
+    None
 }
 
 /// A credential behind an ordinary assignment, on a line the word rule would
@@ -1315,6 +1354,40 @@ mod tests {
         // A log line does not open with an assignment and is not this rule's.
         assert_eq!(
             redact_sensitive_assignments("INFO done token=abc12345 user=bob"),
+            None
+        );
+    }
+
+    /// #909. A crontab entry or a one-liner assigns its credential mid-line, and
+    /// no rule that wants the line to open with an assignment can see it.
+    #[test]
+    fn a_credential_assigned_after_a_shell_operator_is_hidden() {
+        for (line, kept) in [
+            (
+                "* * * * * cd /home/app && export DATABASE_PASSWORD=\"h3fake12345\" && export RAILS_ENV=production",
+                "* * * * * cd /home/app && export DATABASE_PASSWORD=\"",
+            ),
+            (
+                "cd /srv; API_TOKEN=h3fake12345 ./run",
+                "cd /srv; API_TOKEN=",
+            ),
+            (
+                "bash -c 'export DB_PASSWORD=h3fake12345; ./x'",
+                "bash -c 'export DB_PASSWORD=",
+            ),
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(!out.contains("h3fake12345"), "{line} came back as {out}");
+            assert!(out.contains(kept), "{out}");
+        }
+        // Nothing shell-like in front of the key, so a log line is still not ours.
+        assert_eq!(
+            redact_sensitive_assignments("INFO cron ok token=abc12345 user=bob"),
+            None
+        );
+        // An ordinary name after an operator is delivered.
+        assert_eq!(
+            redact_sensitive_assignments("cd /app && export RAILS_ENV=production"),
             None
         );
     }

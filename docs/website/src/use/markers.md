@@ -116,7 +116,9 @@ the dropped part was archived; without one, the marker still says what was remov
 
 Credential redaction on command output. A line that assigns a value to a sensitive name
 had that value replaced with `[REDACTED]`, and this counts the values. Quotes and the
-punctuation around the value stay, so a redacted line still parses.
+punctuation around the value stay, so a redacted line still parses. The assignment can sit
+mid-line after `export` or a shell operator, as in a crontab entry
+`cd /app && export DB_PASSWORD="..."`.
 
 A token that carries its issuer's prefix is hidden with no name beside it, at the length
 the issuer writes it: `sk-ant-`, `ghp_` and its siblings, `github_pat_`, `AKIA`, `xoxb-` and
