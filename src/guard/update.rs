@@ -29,14 +29,13 @@ pub fn get_status() -> Status {
         .unwrap_or_default()
         .as_secs();
 
-    // Try to get latest version from cache or fetch it (Cache: 4 hours)
+    // The cached latest version is trusted for 4 hours.
     let latest = if let Ok(content) = fs::read_to_string(&cache_path)
         && let Ok(cache) = serde_json::from_str::<UpdateCache>(&content)
         && now < cache.last_checked + 14400
     {
         Some(cache.latest_version)
     } else {
-        // Fetch from GitHub
         let url = "https://api.github.com/repos/fajarhide/omni/releases/latest";
         let agent = ureq::AgentBuilder::new()
             .timeout_read(std::time::Duration::from_secs(2))
@@ -51,7 +50,6 @@ pub fn get_status() -> Status {
                 }
                 if let Ok(release) = response.into_json::<GitHubRelease>() {
                     let v = release.tag_name.trim_start_matches('v').to_string();
-                    // Save to cache
                     let cache = UpdateCache {
                         latest_version: v.clone(),
                         last_checked: now,
@@ -79,7 +77,7 @@ pub fn get_status() -> Status {
                 Status::Latest
             }
         }
-        None => Status::Latest, // Assume latest if offline
+        None => Status::Latest, // offline
     }
 }
 
@@ -93,10 +91,7 @@ pub fn check() -> Option<String> {
 fn is_newer(latest: &str, current: &str) -> bool {
     let parse_v = |v: &str| -> Vec<u32> {
         v.split('.')
-            .map(|s| {
-                // Take only the numeric part before any hyphen
-                s.split('-').next().unwrap_or("0").parse().unwrap_or(0)
-            })
+            .map(|s| s.split('-').next().unwrap_or("0").parse().unwrap_or(0))
             .collect()
     };
 
@@ -112,7 +107,6 @@ fn is_newer(latest: &str, current: &str) -> bool {
         }
     }
 
-    // If numeric parts are equal, check pre-release suffixes
     if v1 == v2 {
         let s1 = latest.split('-').nth(1).unwrap_or("");
         let s2 = current.split('-').nth(1).unwrap_or("");
@@ -154,7 +148,6 @@ mod tests {
         assert!(!is_newer("0.5.2", "0.5.2"));
         assert!(!is_newer("0.5.1", "0.5.2"));
 
-        // Pre-release tests
         assert!(is_newer("0.5.4", "0.5.4-rc1"));
         assert!(!is_newer("0.5.4-rc1", "0.5.4"));
         assert!(!is_newer("0.5.3", "0.5.4-rc1"));

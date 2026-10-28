@@ -107,7 +107,6 @@ mod tests {
 
     #[test]
     fn parses_distillation_mode_with_backward_compatibility() {
-        // Test new exact key
         let toml_str = r#"
             [global]
             mode = "efficient"
@@ -118,7 +117,6 @@ mod tests {
             Some(DistillationMode::Efficient)
         );
 
-        // Test old alias functionality
         let toml_str2 = r#"
             [global]
             aggressiveness = "conservative"
@@ -154,7 +152,7 @@ mod tests {
         cfg.mode = Some(DistillationMode::Efficient);
         assert_eq!(cfg.route_thresholds(), (0.60, 0.20));
 
-        cfg.mode = None; // fallback
+        cfg.mode = None;
         assert_eq!(cfg.route_thresholds(), (0.70, 0.30));
     }
 }
