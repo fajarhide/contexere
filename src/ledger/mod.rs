@@ -565,9 +565,12 @@ impl<'a> Ledger<'a> {
         // (#795).
         let fresh_enough =
             chrono::Utc::now().timestamp() - crate::guard::limits::PROJECT_SIGHTING_MAX_AGE_SECS;
+        // A Read is the agent asking for a file it does not hold. A project fold
+        // there hands a new subagent `⋮` for the lines it asked for, because a
+        // sibling read them (#906). Bash keeps the project scope.
         let in_project = match &self.project {
-            Some(p) => self.store.ledger_seen(p, &hashes, fresh_enough),
-            None => HashMap::new(),
+            Some(p) if self.tool != "Read" => self.store.ledger_seen(p, &hashes, fresh_enough),
+            _ => HashMap::new(),
         };
         // A line that states a failure is never folded, however often it has been
         // shown (#458). The heuristic "you have seen this already" is sound for
@@ -1981,6 +1984,36 @@ mod tests {
             view.contains("cache probe 0"),
             "the reader must keep the lines the fold did not claim: {view}"
         );
+    }
+
+    /// #906: two subagents read a file a sibling had read, and each got `⋮` for
+    /// the lines it asked for. The same payload through Bash still folds, so
+    /// this pins the Read refusal and not the project scope going quiet.
+    #[test]
+    fn a_read_never_folds_from_the_project_scope() {
+        let (store, _d) = temp_store();
+        let repeated = project_repeat();
+        let payload = format!("{repeated}{}", fresh_block("cache probe"));
+        Ledger::new(&store, scope_for("s1", Some("sibling")))
+            .with_project("/repo")
+            .tool("Read")
+            .project(&repeated);
+
+        let read = Ledger::new(&store, scope_for("s1", Some("fresh")))
+            .with_project("/repo")
+            .tool("Read")
+            .project(&payload);
+        assert_eq!(
+            read, None,
+            "a fresh reader's Read was folded from the project scope"
+        );
+
+        let bash = Ledger::new(&store, "s2")
+            .with_project("/repo")
+            .tool("Bash")
+            .project(&format!("{repeated}{}", fresh_block("bash probe")))
+            .expect("Bash still folds from the project scope");
+        assert!(bash.contains("not shown here"), "{bash}");
     }
 
     /// The whole licence for the project scope. A second session may reuse the
