@@ -113,7 +113,6 @@ Measured on the fixtures in `tests/fixtures/`, so you can reproduce any row:
 | `cargo test` (490 passed, 10 failed) | 16.5 KB of per-test output | the runner's own pass/fail summary | **93.0%** |
 | `git status` (dirty) | 496 B of porcelain | the branch and the changed paths | **66.7%** |
 | `docker build` (heavy cache noise) | 9.2 KB of layer hashes and progress bars | the build result, cache hits folded | **98.9%** |
-| `git diff` (multi-file) | lockfiles, whitespace, generated churn | the code that actually changed | **37.8%** |
 | `kubectl get pods` (35 pods, 5 crashing) | the full table | the full table | **0%**, by design |
 
 That last row is the point of the table. A pod listing is an enumeration where every

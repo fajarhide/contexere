@@ -49,6 +49,8 @@ const RETIRED: &[&str] = &[
     "4.5",  // file read with the ledger, the hero line's second half
     "24.1", // capture rate, aggregate
     "23.3", // capture rate, aggregate, one release later
+    // #918. Measured on the diff distiller, which the hook never reaches for a diff.
+    "37.8", // git diff (multi-file)
             // rtk alone (6.2) and caveman alone (6.8) are deliberately absent. The
             // match is a substring, so `6.2` also hits every `0.6.2` in a changelog
             // link or a version string. A two-significant-digit figure cannot be

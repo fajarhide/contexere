@@ -100,7 +100,6 @@ Angka nyata, diukur pada `tests/fixtures/` dan trace yang diputar ulang, bukan h
 | `cargo test` (490 lulus, 10 gagal) | 16,5 KB output per-test | ringkasan lulus/gagal dari runner-nya sendiri | **93,0%** |
 | `git status` (kotor) | 496 B porcelain | branch dan path yang berubah | **66,7%** |
 | `docker build` (noise cache berat) | 9,2 KB hash layer dan progress bar | hasil build, cache hit dilipat | **98,9%** |
-| `git diff` (banyak berkas) | lockfile, spasi, perubahan hasil generate | kode yang benar-benar berubah | **37,8%** |
 | `kubectl get pods` (35 pod, 5 crash) | tabel penuh | tabel penuh | **0%**, memang begitu |
 
 Baris `kubectl get pods` yang menarik. Dulu ia melaporkan 9,3%; sekarang tidak

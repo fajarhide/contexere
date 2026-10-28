@@ -294,13 +294,18 @@ marker.
 | `cargo build` (large, successful) | 3,220 B | 62 B | **98.1%** |
 | `cargo test` (490 passed, 10 failed) | 16,515 B | 1,153 B | **93.0%** |
 | `git status` (dirty) | 496 B | 165 B | **66.7%** |
-| `git diff` (multi-file) | 397 B | 247 B | **37.8%** |
+| `git diff` (multi-file) | 397 B | 397 B | **0.0%** |
 | `kubectl get pods` (mixed) | 840 B | 840 B | **0.0%** |
 
 `kubectl get pods` reading 0.0% is the design, not a gap. For one release it read
 73.5%, because a summariser that had been shadowed since #110 became live when #510
 retired the TOML layer, and a 10 row table arrived as three lines with seven pod names
 deleted. A count of pods cannot be turned back into a pod name (#562).
+
+`git diff` reads 0.0% for the same reason a parser's input does. The hook and
+`omni exec` pass a unified diff through byte for byte, so it can still be applied.
+This table read 37.8% until #918, measured on the diff distiller directly, which no
+live path reaches.
 
 `docker build` is the opposite case and worth the contrast: 251 lines of per-layer
 DEBUG and INFO become `docker build: ✓ complete (50 layers, 50 cached)`, and the build
