@@ -17,11 +17,8 @@ pub fn run_exec(
         std::process::exit(1);
     }
 
-    // `--agent <id>` and `--session <id>` are written by our own pre-hook, never
-    // by a user. They name the host that rewrote the command and the session it
-    // belongs to, and both have to be consumed here or they run as part of the
-    // command line (#360). A loop rather than a match on one position, because
-    // there are two of them now and their order is the writer's business.
+    // `--agent` and `--session` come from our own pre-hook, in either order, and
+    // must be consumed or they run as part of the command (#360).
     let mut i = 2;
     while let (Some(flag), Some(value)) = (args.get(i).map(String::as_str), args.get(i + 1)) {
         match flag {
@@ -31,8 +28,7 @@ pub fn run_exec(
         }
         i += 2;
     }
-    // A flag with no command behind it is a malformed rewrite, not a command
-    // named `--agent`. Falling through executed the flag itself.
+    // A flag with no command after it is a malformed rewrite, not a command.
     if args.len() <= i {
         eprintln!("Usage: omni exec [--agent <id>] [--session <id>] <command> [args...]");
         std::process::exit(1);
@@ -42,12 +38,8 @@ pub fn run_exec(
     let cmd = &rest[0];
     let cmd_args = &rest[1..];
 
-    // A shell is needed only when the whole command arrived as a SINGLE string
-    // (`omni exec 'a; b'`), then the metacharacters and word boundaries are the
-    // shell's to interpret. When argv is already split (`omni exec sh -c '…'`,
-    // `omni exec npm run dev`), each element belongs to the program being run;
-    // re-joining and wrapping it in a second `sh -c` corrupts the command (#125).
-    // Those run verbatim via the non-shell branch below.
+    // A shell only for a single-string command (`omni exec 'a; b'`). Split argv
+    // runs verbatim: wrapping it in another `sh -c` corrupts it (#125).
     let needs_shell = cmd_args.is_empty()
         && cmd.contains(|c: char| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '<' | '>'));
 
@@ -98,11 +90,8 @@ pub fn run_exec(
     let mut child_stdout = child.stdout.take().expect("Failed to open stdout");
 
     let status = {
-        // Buffered path: drain stdout first (draining before wait() avoids the
-        // classic full-pipe deadlock), then gate on the real exit code. #122: a
-        // command that exited non-zero passes its stdout through verbatim and is
-        // never distilled, distillation must not turn a failure into output that
-        // reads as success.
+        // Drain stdout before `wait()` to avoid a full-pipe deadlock. A failed command
+        // passes through verbatim, never distilled into apparent success (#122).
         let mut buf = Vec::new();
         child_stdout.read_to_end(&mut buf)?;
         let status = child.wait()?;

@@ -4,9 +4,8 @@ use std::env;
 use std::fs;
 use std::io::IsTerminal;
 
-/// Read by `print_help` and `super::check_flags` (#151). The first
-/// `AGENT_FLAGS` entries are the agents; the rest are Claude-specific, which is
-/// how help groups them.
+/// Read by `print_help` and `super::check_flags` (#151); the first `AGENT_FLAGS` entries are
+/// agents.
 const FLAGS: super::Flags = &[
     ("--claude", "Configure Claude Code (Anthropic)"),
     ("--cursor", "Configure Cursor AI"),
@@ -37,12 +36,9 @@ const FLAGS: super::Flags = &[
 ];
 
 /// Where `FLAGS` stops listing agents and starts listing Claude-specific flags.
-///
-// ponytail: hand-maintained split index rather than two lists, because
-// `check_flags` wants one flat list and a second const would mean teaching it to
-// take several. `splits_flags_between_the_two_help_groups` below is what keeps
-// it honest. Upgrade path: separate consts + a `check_flags` that accepts a
-// slice of lists, worth it the moment a third group appears.
+// ponytail: a hand-kept split index, because `check_flags` takes one flat list.
+// `splits_flags_between_the_two_help_groups` guards it. Split the consts if a
+// third group appears.
 const AGENT_FLAGS: usize = 15;
 
 fn print_help() {
@@ -59,11 +55,7 @@ fn print_help() {
         .chain(std::iter::once(&super::HELP_FLAG))
         .collect();
     super::print_flag_group("SUPPORTED AGENTS:", &entries[..AGENT_FLAGS]);
-    // `--all` sits at the head of this group and is the one flag in it that is
-    // not Claude-specific: it configures every host above. It was documented as
-    // "full Claude setup" while doing exactly that, which is the class of defect
-    // this project files issues about, so the group is named for what it holds
-    // rather than for what most of it does (#455).
+    // `--all` configures every host, so the group is not named "Claude" (#455).
     super::print_flag_group(
         "EVERY HOST, AND CLAUDE SPECIFIC FLAGS:",
         &entries[AGENT_FLAGS..],
@@ -85,14 +77,8 @@ fn print_help() {
     println!();
 }
 
-/// The `init` target for a host `detect_agent_id` recognises, or `None` when
-/// there is no integration to point it at.
-///
-/// Two id vocabularies exist and neither can be derived from the other:
-/// `detect_agent_id` names agents so `omni stats` can group rows, and `init`
-/// names install targets. `windsurf`, `aider` and `vscode_continue` are real
-/// answers over there with nothing to install over here, and `terminal` is a
-/// plain shell.
+/// The `init` target for a host `detect_agent_id` recognises, or `None`. The
+/// two id vocabularies differ: some detected agents have nothing to install.
 fn init_id_for_agent(agent_id: &str) -> Option<&'static str> {
     match agent_id {
         "claude_code" => Some("claude"),
@@ -105,17 +91,9 @@ fn init_id_for_agent(agent_id: &str) -> Option<&'static str> {
     }
 }
 
-/// Which host to configure when there is no terminal to ask on.
-///
-/// `omni init` is the line the README, the Homebrew caption, the landing page and
-/// `install.sh` all print, and the audience for this tool is agents, which run it
-/// with no tty. `dialoguer` can only fail there, so the one documented setup
-/// command exited 1 on `IO error: not a terminal` and named no remedy (#528).
-///
-/// The host running the command is the host to configure, and OMNI already reads
-/// that from the environment on the exec and pipe paths. Anything it cannot name
-/// is an error that lists the flags, rather than a guess: installing into a host
-/// nobody asked for is the worse failure of the two.
+/// Which host to configure with no terminal to ask on: agents run `omni init`
+/// without a tty (#528). The host running it, or an error listing the flags;
+/// never a guess.
 fn non_interactive_host() -> anyhow::Result<&'static str> {
     let agent = crate::agents::multiagent::detect_agent_id();
     init_id_for_agent(&agent).ok_or_else(|| {
@@ -128,14 +106,7 @@ fn non_interactive_host() -> anyhow::Result<&'static str> {
 }
 
 /// Which halves of the Claude Code install a flag set asks for, as (hooks, mcp).
-///
-/// #757. `--hook` has said "Only install hooks" since it shipped and installed
-/// the MCP server as well, which is the shape of #151: a flag the parser accepts
-/// and the code ignores. On this host the hooks are what shortens output and the
-/// MCP server is a convenience whose tool definitions sit in the prefix of every
-/// request, so one without the other is a preference somebody can hold.
-///
-/// Asking for both, by naming the host or by naming both halves, gets both.
+/// A single half means that half only (#757); otherwise both.
 fn claude_halves(is_claude: bool, is_all: bool, is_hook: bool, is_mcp: bool) -> (bool, bool) {
     if is_claude || is_all || (is_hook && is_mcp) || (!is_hook && !is_mcp) {
         return (true, true);
@@ -177,7 +148,6 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         is_mcp = true;
     }
 
-    // No flags -> Interactive Mode
     let no_flags = !is_claude
         && !is_cursor
         && !is_zed
@@ -197,8 +167,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         && !is_hook
         && !is_mcp;
 
-    // Set when the menu could not be shown, so `target_ids` below installs into
-    // the host that ran the command instead of erroring on the absent tty (#528).
+    // No tty for the menu: install into the host that ran it (#528).
     let mut detected: Option<&'static str> = None;
 
     if no_flags {
@@ -442,12 +411,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         if target_ids.contains(&agent.id()) {
             println!("{}", format!("🤖 {} Setup", agent.name()).bold().cyan());
 
-            // #757. `--hook` and `--mcp` have promised "Only install hooks" and
-            // "Only register MCP server" since they shipped, and both installed
-            // the pair. On Claude Code the hooks are what shortens output and the
-            // MCP server is a convenience that puts two tool definitions in the
-            // prefix of every request, so one without the other is a preference
-            // somebody can hold, and the flag that says so has to mean it.
+            // `--hook` and `--mcp` each mean one half (#757).
             let outcome = match (
                 agent.id(),
                 claude_halves(is_claude, is_all, is_hook, is_mcp),
@@ -458,16 +422,8 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             };
             match outcome {
                 Err(e) => eprintln!("  {} Failed: {}", "✗".red(), e),
-                // #684. The success line was the same shape on every host, so
-                // configuring an MCP-only one read as "OMNI is now shortening
-                // your tool output". It is not, and the user found out from an
-                // empty `omni stats` days later. `doctor` says this correctly and
-                // is the wrong place to say it first: installation is the moment
-                // the expectation is set.
-                //
-                // Printed for every tier, not only the one that disappoints. A
-                // line that appears only on bad news is a line users learn to
-                // read as bad news, and `Full` is worth confirming.
+                // Say what this host's tier lets OMNI do, for every tier: installation is
+                // when the expectation forms (#684).
                 Ok(()) => println!(
                     "  {} {}: {}",
                     "ℹ".blue(),
@@ -493,13 +449,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
 
-    /// #757. Both flags have promised a half since they shipped and delivered
-    /// the pair, so `omni init --hook` registered an MCP server the user had
-    /// just said they did not want. The parser accepted the flag and the code
-    /// ignored it, which is #151 wearing a different name.
-    ///
-    /// The table is the point: naming the host, or naming both halves, or naming
-    /// neither, all still get both. Only a single half means a single half.
+    /// Only a single half means a single half (#757).
     #[test]
     fn a_half_flag_installs_that_half_and_nothing_else() {
         // (is_claude, is_all, is_hook, is_mcp) -> (hooks, mcp)
@@ -521,10 +471,7 @@ mod tests {
     }
     use super::*;
 
-    /// Every host the no-tty path can pick has to be a real install target, or
-    /// `omni init` reports it and installs nothing. The two id vocabularies are
-    /// maintained in different files, so a rename on either side breaks this
-    /// quietly (#528).
+    /// Every host the no-tty path picks must be an install target (#528).
     #[test]
     fn maps_detected_hosts_onto_real_install_targets() {
         let known: Vec<&str> = crate::agents::all_integrations()
@@ -547,24 +494,14 @@ mod tests {
             );
         }
 
-        // A plain shell, and three hosts with nothing here to install into. All
-        // four have to reach the error that names the flags.
+        // These four must reach the error that names the flags.
         for agent in ["terminal", "windsurf", "aider", "vscode_continue"] {
             assert_eq!(init_id_for_agent(agent), None, "{agent}");
         }
     }
 
-    /// #684. `omni init --antigravity` printed a green tick and nothing else, so
-    /// the expectation it set was distillation. Antigravity has no hook, records
-    /// nothing, and the user found out from an empty `omni stats` twelve days
-    /// later. `doctor` had said so all along, correctly, and is the wrong place
-    /// to say it first: installation is when the expectation is formed.
-    ///
-    /// Asserted on the source of the install loop rather than on a `Tier` value,
-    /// because the thing that broke was a caller that never asked. A test that
-    /// calls `tier()` itself passes while the loop ignores it, which is the same
-    /// shape as #663's `measurement_method` and #688's plugin key: the contract
-    /// holds and nobody reads it.
+    /// The install loop's success arm consults `agent.tier()` (#684). Read from
+    /// source, because the defect was a caller that never asked.
     #[test]
     fn the_install_loop_reports_the_tier_it_already_knows() {
         let src = include_str!("init.rs");
@@ -577,11 +514,7 @@ mod tests {
             .expect("the install call moved");
         let after = loop_body.get(install..).unwrap_or("");
 
-        // The success arm alone, not "anywhere after the install call". A scan
-        // that wide passes with the tier reported from an unrelated branch, and
-        // the branch next door is `if agent.id() == "claude"`, so the hole is not
-        // hypothetical: the line could report the tier for one host and stay
-        // silent for the other thirteen.
+        // The success arm only: the next branch is Claude's, so a wider scan passes wrongly.
         let ok_arm = after
             .find("Ok(())")
             .map(|i| after.get(i..).unwrap_or(""))
@@ -599,9 +532,7 @@ mod tests {
         );
     }
 
-    /// `AGENT_FLAGS` is a hand-maintained index into `FLAGS`. Getting it wrong
-    /// files an agent under "CLAUDE SPECIFIC FLAGS" in help and nothing else
-    /// breaks, so this is the only thing that would notice.
+    /// `AGENT_FLAGS` must split help correctly; nothing else would notice.
     #[test]
     fn splits_flags_between_the_two_help_groups() {
         assert_eq!(

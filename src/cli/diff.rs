@@ -48,13 +48,11 @@ pub fn run_diff(args: &[String]) -> Result<()> {
     );
     super::print_rule();
 
-    // Before Block
     println!("\n [ {} ]", "RAW INPUT (NOISY)".bold().red());
     for line in truncate_lines(&input, 12) {
         println!("  {}", line.bright_black());
     }
 
-    // After Block
     println!("\n [ {} ]", "OMNI DISTILLED (SIGNAL)".bold().green());
     for line in truncate_lines(&output, 12) {
         println!("  {}", line.bright_white());

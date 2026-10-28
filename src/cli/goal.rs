@@ -1,8 +1,5 @@
-/// [BIZ-03] omni goal: North Star Context Pinning
-///
-/// Stores the project goal as a special reserved key `__omni_goal__`
-/// in `project_knowledge`. The goal is injected into every SessionStart
-/// context so the agent always knows the high-level objective.
+/// `omni goal`: stored under the reserved key `__omni_goal__` in
+/// `project_knowledge` and injected at every SessionStart.
 use crate::store::sqlite::Store;
 use anyhow::Result;
 use colored::*;
@@ -16,7 +13,6 @@ fn project_hash() -> String {
     crate::agents::multiagent::project_hash(&path)
 }
 
-/// Set the project goal (overwrites previous).
 pub fn cmd_set(goal: &str, store: &Store) -> Result<()> {
     if goal.trim().len() < 5 {
         anyhow::bail!("Goal is too short. Describe your project objective clearly.");
@@ -34,7 +30,6 @@ pub fn cmd_set(goal: &str, store: &Store) -> Result<()> {
     Ok(())
 }
 
-/// Display the current project goal.
 pub fn cmd_show(store: &Store) -> Result<()> {
     let ph = project_hash();
     match store.get_knowledge(&ph, GOAL_KEY) {
@@ -58,11 +53,9 @@ pub fn cmd_show(store: &Store) -> Result<()> {
     Ok(())
 }
 
-/// Clear (forget) the current project goal.
 pub fn cmd_clear(store: &Store) -> Result<()> {
     let ph = project_hash();
-    // Overwrite with empty string effectively removes the value from recall,
-    // but keeps the row (upsert). Using confidence=0 marks it stale.
+    // An empty value with confidence 0 keeps the row but drops it from recall.
     match store.get_knowledge(&ph, GOAL_KEY) {
         Some(_) => {
             store.upsert_project_knowledge(&ph, GOAL_KEY, "", 0.0);
@@ -75,16 +68,12 @@ pub fn cmd_clear(store: &Store) -> Result<()> {
     Ok(())
 }
 
-/// Entry point for `omni goal [set|show|clear] ...`
 /// Read by both `print_help` and the guard below (#151).
 const FLAGS: super::Flags = &[("--show, --status", "Print the current goal")];
 
 pub fn run(args: &[String], store: &Store) -> Result<()> {
-    // Only the leading token is checked. Free text is the feature here
-    // (`omni goal build the auth module`) and a goal may legitimately contain a
-    // flag (`omni goal set "ship with --release"`), but a *leading* unknown flag
-    // was silently stored as the goal text by the catch-all arm below: `omni goal
-    // --nonsense` set the goal to "--nonsense" and exited 0 (#151).
+    // Only a leading unknown flag is rejected: free text may contain flags, but
+    // `omni goal --nonsense` once stored "--nonsense" as the goal (#151).
     if let Some(first) = args.first()
         && first.starts_with("--")
     {
@@ -104,7 +93,6 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
             Ok(())
         }
         _ => {
-            // Treat the whole args as the goal text (e.g. `omni goal build the auth module`)
             let goal = args.join(" ");
             cmd_set(goal.trim(), store)
         }
@@ -175,8 +163,7 @@ mod tests {
         let (store, _dir) = get_store();
         cmd_set("Ship v1.0 before Friday", &store).unwrap();
         cmd_clear(&store).unwrap();
-        // After clear, confidence=0 so get_knowledge still returns empty string
-        // (row exists but is semantically cleared)
+        // After clear the row exists but reads empty.
         let ph = project_hash();
         let g = store.get_knowledge(&ph, GOAL_KEY);
         assert!(g.map(|v| v.is_empty()).unwrap_or(true));
@@ -185,7 +172,6 @@ mod tests {
     #[test]
     fn show_prints_no_goal_when_unset() {
         let (store, _dir) = get_store();
-        // Should not panic
         assert!(cmd_show(&store).is_ok());
     }
 }

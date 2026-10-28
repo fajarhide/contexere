@@ -1,9 +1,6 @@
-//! What the host says its sessions cost, read from the host's own transcripts (#859).
-//!
-//! Every other `omni stats` view reports what OMNI did, from OMNI's own tables.
-//! This one reads the other side of the boundary: Claude Code writes per-request
-//! `usage` and every content block to disk, so the bill and the composition of
-//! the context can be stated without taking OMNI's word for anything.
+//! What the host says its sessions cost, from its own transcripts (#859):
+//! Claude Code writes per-request `usage` and every content block, so neither
+//! the bill nor the context composition takes OMNI's word for anything.
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -29,8 +26,7 @@ pub struct Spend {
     pub tokens: u64,
     /// At list price, summed over the requests whose model is in the table.
     pub usd: f64,
-    /// Requests on a model the table does not price. Their tokens are counted,
-    /// their cost is not, so a row with any of these is a lower bound.
+    /// Requests on unpriced models: tokens counted, cost not, so the row is a lower bound.
     pub unpriced: u64,
 }
 
@@ -64,15 +60,12 @@ impl Bill {
         self.tool_result_bytes + self.tool_input_bytes + self.text_bytes
     }
 
-    /// Nothing billed and nothing delivered. A window can hold bytes and no
-    /// request, when a request made before it lands its results inside it, so
-    /// the request count alone would hide real content. It can also hold only
-    /// subagent requests, which reach the spend rows and nothing else.
+    /// Nothing billed and nothing delivered. Checked on bytes too: results of a
+    /// request made earlier can land inside the window.
     pub fn is_empty(&self) -> bool {
         self.requests == 0 && self.context_bytes() == 0 && self.by_model.is_empty()
     }
 
-    /// Every request in the window, subagents included.
     pub fn spend(&self) -> Spend {
         self.by_model.iter().fold(Spend::default(), |mut all, row| {
             all.requests += row.requests;
@@ -203,7 +196,7 @@ pub fn read(root: &Path, since: i64) -> Bill {
         if path.extension().is_none_or(|e| e != "jsonl") {
             continue;
         }
-        // A file last written before the window holds nothing inside it.
+        // Last written before the window: nothing inside it.
         if modified_before(path, since) {
             continue;
         }
@@ -216,18 +209,15 @@ pub fn read(root: &Path, since: i64) -> Bill {
             let Ok(record) = serde_json::from_str::<Value>(&line) else {
                 continue;
             };
-            // A subagent opens its own context, billed apart from the session's.
-            // Counting it in the context tables reads as the session resetting
-            // its context, so it reaches the spend rows and nothing else.
+            // A subagent has its own context: it reaches the spend rows only, or the
+            // session would look like it reset.
             let sidechain = record["isSidechain"].as_bool() == Some(true);
             let message = &record["message"];
             if !message.is_object() {
                 continue;
             }
-            // The host writes one record per content block and repeats the whole
-            // `usage` on each, so a request is counted once by id. Only the
-            // accounting is gated: the blocks on a repeated record are real and
-            // are read below.
+            // `usage` repeats on every content block's record, so a request is counted
+            // once by id; the blocks are still read.
             let first_sight = match record["requestId"].as_str() {
                 Some(id) => seen_requests.insert(id.to_string()),
                 None => true,
@@ -237,10 +227,8 @@ pub fn read(root: &Path, since: i64) -> Bill {
                 .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
                 .is_some_and(|t| t.timestamp() < since)
             {
-                // Outside the window, so nothing here is counted. A call that
-                // started before the window can still finish inside it, and its
-                // result is matched against the request id above and the tool
-                // ids here.
+                // Outside the window: not counted, but its tool ids still match results that
+                // land inside it.
                 if sidechain {
                     continue;
                 }
@@ -256,8 +244,7 @@ pub fn read(root: &Path, since: i64) -> Bill {
             }
 
             let model = message["model"].as_str().unwrap_or("unknown");
-            // `<synthetic>` is a message the host wrote itself, never sent to a
-            // model, so it has no price and no place in a spend row.
+            // `<synthetic>` was never sent to a model.
             if first_sight && message["usage"].is_object() && model != "<synthetic>" {
                 let usage = &message["usage"];
                 let tokens = [

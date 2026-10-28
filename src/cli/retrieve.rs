@@ -1,15 +1,6 @@
-//! `omni retrieve <handle>`, the recovery path every marker names.
-//!
-//! Filed as #452 from a real session: the markers promised `omni_retrieve("…")`,
-//! which is an MCP tool, and on a host where that tool is not surfaced the agent
-//! was left with a hole in the file it had just read and no way to fill it. The
-//! MCP tool works where MCP works; this exists so the promise does not depend on
-//! that.
-//!
-//! It is also the reason the marker text changed. A marker naming a tool call
-//! that only some hosts can make is a handle that does not resolve, and #388
-//! settled that a handle which does not resolve is the one defect this mechanism
-//! cannot have.
+//! `omni retrieve <handle>`, the recovery path every marker names. A marker
+//! naming an MCP call some hosts cannot make is a handle that does not
+//! resolve (#452, #388).
 
 use crate::store::sqlite::Store;
 use anyhow::Result;
@@ -35,13 +26,8 @@ fn print_help() {
     );
 }
 
-/// The stderr frame, built where a test can read it.
-///
-/// `N lines · N B` reads as a measurement of the whole command's output, and for
-/// a ledger fold it measures one block of it: a reader took ten of fourteen
-/// entries as a complete listing and nearly designed a dependency layering
-/// against it (#627). The extra clause is said only when the two differ, so a
-/// handle that does hold an entire output keeps the short frame.
+/// The stderr frame. Adds the whole-output size when the handle holds one block
+/// of it, or a reader takes the block as complete (#627).
 fn frame(handle: &str, content: &str, whole_len: usize) -> String {
     let part = if whole_len > content.len() {
         format!(
@@ -68,8 +54,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
     }
     super::check_flags("retrieve", args, FLAGS)?;
 
-    // `args` is the whole argv, so the handle is the first token after the
-    // subcommand that is not a flag.
+    // The first non-flag token after the subcommand.
     let handle = args
         .iter()
         .skip_while(|a| *a != "retrieve")
@@ -81,16 +66,13 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
         anyhow::bail!("no handle given");
     };
 
-    // Accept what a marker prints and what a model might paste back: bare, in
-    // quotes, or still wrapped in the MCP call it used to name.
+    // Bare, quoted, or still wrapped in the old MCP call.
     let handle = handle
         .trim_start_matches("omni_retrieve(")
         .trim_end_matches(')')
         .trim_matches('"');
 
-    // Said before the lookup, because the generic miss below blames pruning and
-    // that would be a cause this code cannot know. A reader who pasted the
-    // manual's example deserves to be told it was an example (#583).
+    // Before the lookup: the generic miss blames pruning, wrong for an example (#583).
     if handle == crate::util::text::EXAMPLE_HANDLE {
         anyhow::bail!(
             "`{handle}` is the documentation example, not a real handle. Copy the 16 characters from a marker in your own output instead"
@@ -99,14 +81,9 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
 
     match store.retrieve_rewind_sized(handle) {
         Some((content, whole_len)) => {
-            // The same door the marker tells the agent to use, so it counts the
-            // same as the MCP tool (#512).
+            // Counts like the MCP tool (#512).
             store.record_rewind_pull(handle);
-            // The frame goes to stderr and the payload to stdout, byte for byte.
-            // #463 asked for this surface to be framed like the others, and a
-            // header on stdout would have done it by editing archived bytes that
-            // a caller is about to paste or parse. Same rule the pipeline holds
-            // itself to: what a later step reads is not ours to decorate.
+            // Frame to stderr, payload to stdout byte for byte: callers paste or parse it (#463).
             eprintln!("{}", frame(handle, &content, whole_len));
             print!("{content}");
             if !content.ends_with('\n') {
@@ -114,9 +91,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
             }
             Ok(())
         }
-        // Naming the retention window matters more than the failure does: a
-        // handle older than the working tier is gone on purpose, and "not found"
-        // alone reads as a bug in the archive.
+        // Name the retention window, or "not found" reads as an archive bug.
         None => anyhow::bail!(
             "no archived content for `{handle}`. Handles live as long as the working tier, 30 days; older ones are pruned"
         ),
@@ -131,11 +106,6 @@ mod tests {
         v.iter().map(|s| s.to_string()).collect()
     }
 
-    /// #627. `omni retrieve` returned ten of the fourteen lines a command
-    /// produced, under `10 lines · 227 B`. Nothing was lost, the other four were
-    /// on screen and the handle holds what the fold replaced, but the frame
-    /// reads as a measurement of the whole and the reader took the short listing
-    /// as complete.
     #[test]
     fn says_when_a_handle_holds_one_block_of_a_larger_output() {
         let block = "one\ntwo\nthree\n";
@@ -164,12 +134,7 @@ mod tests {
         assert!(run(&args(&["omni", "retrieve", &handle]), &store).is_ok());
     }
 
-    /// #583. Four of the seven example handles in our own source and manual
-    /// still resolved on the maintainer's machine, so a checker asking "does
-    /// this handle resolve" counted our documentation as evidence of folding.
-    /// The reserved one has to be refused, and refused for the right reason:
-    /// the generic miss blames the 30 day prune, which for an example is a
-    /// cause this code cannot know.
+    /// The reserved example handle is refused for the right reason (#583).
     #[test]
     fn the_documentation_example_is_refused_and_not_blamed_on_pruning() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -192,13 +157,7 @@ mod tests {
         );
     }
 
-    /// #512. `get_retrieve_rate` backs off the route thresholds for a command
-    /// family whose full output keeps being needed, and it reads
-    /// `retrieve_events`. Only the MCP tool wrote there, while the marker sends
-    /// the agent to this subcommand, so the counter saw a minority of pulls.
-    ///
-    /// Asserted at this level and not on `record_rewind_pull` directly: the
-    /// defect was never in the recording, it was a door that walked past it.
+    /// A CLI pull is counted, like an MCP one (#512).
     #[test]
     fn counts_a_pull_the_adaptive_rate_can_read() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -208,8 +167,7 @@ mod tests {
             .store_rewind_whole("archived output\n")
             .expect("archived");
 
-        // No distillation row names this hash, so the family resolves to
-        // `unknown`, which is the key the row lands under.
+        // No distillation names this hash, so it lands under `unknown`.
         let events = |store: &Store| store.count_memory_reads("unknown");
         assert_eq!(events(&store), 0, "nothing has been pulled yet");
 
@@ -222,8 +180,7 @@ mod tests {
         );
     }
 
-    /// A model handing back the marker verbatim is the likeliest way this is
-    /// called, so the shapes a marker has ever printed all have to work.
+    /// Every shape a marker has printed must work.
     #[test]
     fn accepts_the_handle_in_every_shape_a_marker_has_printed() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -242,9 +199,7 @@ mod tests {
         }
     }
 
-    /// The fixture moved off all-zeros in #583. That value is now the reserved
-    /// documentation handle and is refused earlier with a different reason, so
-    /// leaving it here would have quietly stopped testing the prune message.
+    /// Not all-zeros: that is now the reserved example handle (#583).
     #[test]
     fn says_why_a_missing_handle_is_missing() {
         let dir = tempfile::tempdir().expect("tempdir");

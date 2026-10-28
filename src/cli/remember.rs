@@ -13,13 +13,8 @@ const FLAGS: super::Flags = &[
     ("--project-scoped", "Scope to this project (the default)"),
 ];
 
-/// The parsed form of `omni remember`, hand-read from argv.
-///
-/// This was the one subcommand of seventeen that used clap's result rather than
-/// discarding it and re-parsing (#506). Four fields is less code than the
-/// dependency, and `check_flags` already rejects an unknown flag for every other
-/// subcommand, so this one now fails the same way rather than through clap's
-/// exit path.
+/// `omni remember`, parsed by hand like every other subcommand (#506), so an
+/// unknown flag fails through `check_flags`.
 struct RememberArgs {
     content: String,
     category: String,
@@ -37,8 +32,7 @@ fn parse(args: &[String]) -> Result<RememberArgs> {
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
-        // `--flag=value` and `--flag value` both, because the old parser took
-        // both and a user who learned one should not find it gone.
+        // Both `--flag=value` and `--flag value`, as before.
         let (name, inline) = match arg.split_once('=') {
             Some((n, v)) => (n, Some(v.to_string())),
             None => (arg.as_str(), None),
@@ -56,11 +50,7 @@ fn parse(args: &[String]) -> Result<RememberArgs> {
             "-c" | "--category" => category = value()?,
             "-t" | "--tags" => tags = Some(value()?),
             "--global" => project_scoped = false,
-            // Accepted because it always was, and it is the default. Under clap
-            // it was `default_value_t = true` on a plain bool, so passing it
-            // could not change anything and there was no way to ask for global
-            // scope at all, against a doc comment that said global was the
-            // default. `--global` is the half that was missing.
+            // Accepted as before; it is the default. `--global` is the other half.
             "--project-scoped" => project_scoped = true,
             _ if content.is_none() => content = Some(arg.clone()),
             _ => anyhow::bail!("unexpected argument `{arg}`, quote the whole memory as one string"),
@@ -151,14 +141,11 @@ mod tests {
         assert_eq!(split.content, "a memory");
     }
 
-    /// #151's class: a flag nobody parsed used to run the default and exit 0.
     #[test]
     fn rejects_a_flag_it_does_not_know() {
         assert!(parse(&["a memory".into(), "--catgory".into(), "fact".into()]).is_err());
     }
 
-    /// Under clap this could not be expressed: the bool defaulted to true, so
-    /// every memory was project-scoped whatever was passed.
     #[test]
     fn global_scope_is_reachable() {
         assert!(
