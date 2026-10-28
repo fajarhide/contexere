@@ -1,5 +1,3 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
 use anyhow::{Context, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -9,21 +7,10 @@ use crate::paths;
 use crate::pipeline::DistillResult;
 use crate::pipeline::SessionState;
 
-/// Customizes each pooled connection with required PRAGMA settings.
-/// WAL mode is database-level and persists, but synchronous and foreign_keys are per-connection.
-///
-/// The last three are the in-process cache tier (#393). Asked whether omni should
-/// gain Redis-class caching, and the answer is that SQLite already has one and it
-/// was left at defaults: `cache_size` was `-2000`, two megabytes, against a 54 MB
-/// working set, so roughly 500 pages of 50,226 were cached. `mmap_size` and
-/// `temp_store` were unset, so a read-heavy projection paid syscall overhead and
-/// spilled temporary results to disk. None of this needs a second daemon.
-///
-/// **`busy_timeout` is deliberately absent.** rusqlite calls
-/// `sqlite3_busy_timeout(db, 5000)` itself in `inner_connection.rs`, so there is
-/// nothing to add here and setting it can only lower it. A source grep for the
-/// pragma finds nothing in this tree and reads like a missing setting, which is
-/// how an earlier attempt talked itself into shortening the wait.
+/// Per-connection pragmas. The cache settings are the in-process cache tier
+/// (#393): the default 2 MB cache held about 1% of a 54 MB working set.
+/// `busy_timeout` is absent on purpose: rusqlite already sets 5000 ms, and
+/// setting it here could only lower it.
 #[derive(Debug)]
 struct PragmaCustomizer;
 
@@ -57,13 +44,9 @@ impl std::ops::Deref for Store {
     }
 }
 
-/// How long a verbatim execution trace is worth keeping.
-///
-/// Shorter than everything else on purpose. `execution_traces` stores `raw_input`
-/// and `distilled_output` in full, so a row is two orders of magnitude heavier
-/// than a `distillations` row, and it was in no cleanup at all: 160.1 MB of a
-/// 187 MB database, against 6.0 MB for the last seven days. Its only reader is
-/// `get_recent_traces`, which asks for the newest N (#165).
+/// How long a verbatim execution trace is kept. Shorter than the rest: a row
+/// holds raw and distilled output in full, and the table was 160 MB of 187 MB
+/// before it had any cleanup (#165).
 pub const TRACE_RETENTION_DAYS: u32 = 7;
 
 impl Store {
@@ -81,7 +64,7 @@ impl Store {
 }
 
 impl SqliteBackend {
-    /// Creates dir ~/.omni/ if none exists, Open/create DB, Run schema migrations
+    /// Opens the default database, creating its directory and running migrations.
     pub fn open() -> Result<Self> {
         let db_path = if let Ok(custom_path) = std::env::var("OMNI_DB_PATH") {
             std::path::PathBuf::from(custom_path)
@@ -92,32 +75,20 @@ impl SqliteBackend {
         Self::open_path(&db_path)
     }
 
-    /// Open a Store at a specific path (used by open() and tests)
     pub fn open_path(path: &std::path::Path) -> Result<Self> {
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).context("Failed to create .omni directory")?;
-            // Only a directory OMNI resolved for itself. `OMNI_DB_PATH` can name
-            // any directory on the machine, and tightening one the user chose
-            // would take access away from whoever else is in it (#631).
+            // Only a directory OMNI chose: `OMNI_DB_PATH` may point at a shared one (#631).
             if parent == paths::data_home() || parent == paths::config_home() {
                 let _ = paths::restrict_to_owner(parent);
             }
         }
 
         let manager = SqliteConnectionManager::file(path);
-        // `build()` blocks until `min_idle` connections exist, and r2d2 defaults
-        // `min_idle` to `max_size`. A hook is a run-once process, so it was
-        // opening four SQLite connections and running the pragma customizer on
-        // each before doing any work. Measured on the release binary, median of
-        // 10 opens: **3.19 ms with the default, 1.26 ms with one idle**, against
-        // 0.81 ms for a bare `Connection` with the same pragmas. One line
-        // recovers 73% of what the pool was costing.
-        //
-        // The pool itself stays. #174 asked whether a run-once process needs one
-        // at all, and the honest answer is that removing it is 62 `self.pool`
-        // call sites for the remaining 0.45 ms, while the MCP server shares this
-        // type and serves over a single stdio stream where a pool is harmless.
+        // One idle connection: r2d2 otherwise opens `max_size` connections before
+        // any work, which cost a run-once hook 3.19 ms against 1.26 ms. The pool stays
+        // because the MCP server shares this type (#174).
         let pool = Pool::builder()
             .max_size(4)
             .min_idle(Some(1))
@@ -128,13 +99,9 @@ impl SqliteBackend {
         let store = Self { pool };
         store.init_schema()?;
 
-        // After the schema, because WAL mode is what creates the sidecars and
-        // they hold committed rows that have not been checkpointed yet. Tighten
-        // the database whatever directory it was asked for: the file is OMNI's
-        // own, unlike the directory above (#631).
-        // The sidecar names append to the whole filename rather than replacing an
-        // extension, which `cli::reset` learned when 4.2 MB of `-wal` survived a
-        // wipe that reported success (#446).
+        // After the schema, since WAL creates the sidecars. The file is OMNI's own,
+        // so it is tightened wherever it lives (#631). Sidecar names append to the
+        // whole filename (#446).
         let _ = paths::restrict_to_owner(path);
         for sidecar in ["-wal", "-shm"] {
             let mut p = path.to_path_buf().into_os_string();
@@ -156,11 +123,8 @@ impl SqliteBackend {
         Ok((sessions, rewinds))
     }
 
-    /// How many distillations the database holds.
-    ///
-    /// `stats` counts sessions and rewinds, and `doctor` printed the session
-    /// count under the label "records", so a database holding 8,260
-    /// distillations announced itself as "24 records" (#118).
+    /// How many distillations the database holds; `doctor` once printed the session
+    /// count as "records" (#118).
     pub fn distillation_count(&self) -> usize {
         self.pool
             .get()
@@ -182,14 +146,8 @@ impl SqliteBackend {
             )
             .ok()
             .flatten();
-        // Read from `distillations`, not `rewind_store`. The rewind table only
-        // gains a row when a distillation had content worth storing for
-        // retrieval, which on a real installation is rare, 0 rows beside 8,260
-        // distillations on the reporting machine. `doctor` uses this for its
-        // "Last distill" line, so it read `None` forever and printed
-        // "never [IDLE]" two seconds after a distilled command (#118). That is
-        // the exact line someone reads while checking whether hooks fire, and
-        // it was telling them the opposite of the truth.
+        // From `distillations`, not `rewind_store`, which rarely gains rows: `doctor`
+        // read "never" seconds after a distilled command (#118).
         let d_ts: Option<i64> = conn
             .query_row(
                 "SELECT ts FROM distillations ORDER BY ts DESC LIMIT 1",
@@ -212,10 +170,9 @@ impl SqliteBackend {
             .is_ok()
     }
 
-    /// Aggregate distillation stats since a given timestamp
     pub fn aggregate_stats(&self, since: i64) -> Result<(u64, u64, u64, u64, i64, u64, u64)> {
         let conn = self.pool.get().context("DB pool exhausted")?;
-        // returns (count, total_input, total_output, sum_latency, max_latency, raw_tokens, filtered_tokens)
+        // (count, total_input, total_output, sum_latency, max_latency, raw_tokens, filtered_tokens)
         let r = conn.query_row(
             &format!(
                 "SELECT COALESCE(COUNT(*),0), COALESCE(SUM(input_bytes),0), COALESCE(SUM(output_bytes),0), COALESCE(SUM(latency_ms),0), COALESCE(MAX(latency_ms),0), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(filtered_tokens),0) FROM distillations WHERE ts >= ?1 AND {}",
@@ -235,7 +192,7 @@ impl SqliteBackend {
         Ok(r)
     }
 
-    /// Per-filter breakdown: (filter_name, count, avg_reduction_pct)
+    /// Per filter: (name, count, avg_reduction_pct).
     #[allow(clippy::type_complexity)]
     pub fn filter_breakdown(&self, since: i64) -> Result<Vec<(String, u64, u64, u64, u64, u64)>> {
         let conn = self.pool.get().context("DB pool exhausted")?;
@@ -262,27 +219,13 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Per-filter re-run rate, distilled arm against raw arm (#109).
+    /// Per-filter re-run rate, distilled against raw (#109): the same command in
+    /// the same session within `RERUN_WINDOW_SECS`, i.e. the agent needed more.
+    /// Claude Code rows before `POST_HOOK_FIX_TS` are excluded: nothing was applied
+    /// there, so they are controls labelled as treatment.
     ///
-    /// Needs no new instrumentation: `session_id`, `ts`, `command` and `route`
-    /// are already on every row, so this answers "which distillers cost the
-    /// agent a second run" over history already collected.
-    ///
-    /// A re-run is the same command, in the same session, within
-    /// `RERUN_WINDOW_SECS`. That is the closest thing to an objective statement
-    /// that distillation dropped something needed: the agent held the output,
-    /// it was not enough, and it paid to fetch the rest.
-    ///
-    /// Claude Code rows from before `POST_HOOK_FIX_TS` are excluded: on that
-    /// path nothing was applied, so their `Keep` rows are controls wearing a
-    /// treatment label. Keeping them does not just add noise, it can zero out a
-    /// true finding, see the constant. This is not a call on what `omni stats`
-    /// does with those rows for *savings* (#163); it is this comparison
-    /// refusing rows that were never the experiment it is running.
-    ///
-    /// ponytail: correlated `EXISTS` per row: O(n²) worst case. Fine at the
-    /// ~7k rows this table holds in practice; if it ever gets slow, materialise
-    /// the window join into a temp table keyed on `(session_id, cmd)`.
+    /// ponytail: correlated `EXISTS` per row is O(n²); fine at ~7k rows, else
+    /// materialise the window join keyed on `(session_id, cmd)`.
     pub fn rerun_breakdown(&self, since: i64) -> Result<Vec<RerunRow>> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let mut stmt = conn.prepare(
@@ -341,7 +284,7 @@ impl SqliteBackend {
             .filter_map(|r| r.ok())
             .collect();
 
-        // Worst offender first, that is the one worth reading a distiller for.
+        // Worst offender first.
         rows.sort_by(|a, b| {
             b.delta_pp()
                 .partial_cmp(&a.delta_pp())
@@ -373,9 +316,7 @@ impl SqliteBackend {
             ))
         })?;
         for (route, calls, input, output) in rows.flatten() {
-            // A declined call contributes no saving and no base. Averaging it in
-            // is what turned 48% into 9%, and putting its 31 MB in the same
-            // column as the savings reads as bytes that went missing.
+            // A declined call has no saving and no base; averaging it in turned 48% into 9%.
             if route == "Passthrough" {
                 t.declined_calls += calls;
                 t.declined_bytes += input;
@@ -386,18 +327,9 @@ impl SqliteBackend {
             }
         }
 
-        // One fold writes one row per (origin, source agent) pair and repeats
-        // the same `payload_bytes` on each, so rows are not folds. Counting rows
-        // inflates the population and, below, sums one payload several times:
-        // 479 priced rows on the maintainer's machine are 406 folds, and the
-        // difference took a real 41% down to a reported 31%. `bytes` is the one
-        // column that is genuinely per-row and stays a plain sum.
-        //
-        // `fold_id` is exact for anything written since the migration that added
-        // it. Rows older than that were backfilled from (second, session, agent,
-        // scope, payload size), which merges two folds that share all five, so a
-        // historical count is a lower bound and a historical ratio a slight
-        // overstatement.
+        // Rows are not folds: one fold writes a row per (origin, source agent) with the
+        // same `payload_bytes`, so count and sum by `fold_id`. Rows from before that
+        // column were backfilled by inference, so old counts are lower bounds.
         let folds = conn.query_row(
             "SELECT COUNT(*), COALESCE(SUM(bytes),0), MIN(ts) FROM (
                  SELECT SUM(bytes) AS bytes, MIN(ts) AS ts FROM ledger_folds
@@ -417,10 +349,8 @@ impl SqliteBackend {
             t.first_fold_ts = first;
         }
 
-        // `payload_bytes` arrived in a migration defaulting to 0, so most rows
-        // carry a saving with no base to divide it by. Counting them separately
-        // is the difference between a ratio and the two-population error that
-        // put a wrong figure in #533's thread.
+        // Rows with `payload_bytes` 0 have no base; counted apart so the ratio is
+        // not a two-population error (#533).
         let priced = conn.query_row(
             "SELECT COUNT(*), COALESCE(SUM(bytes),0), COALESCE(SUM(payload),0) FROM (
                  SELECT SUM(bytes) AS bytes, MAX(payload_bytes) AS payload FROM ledger_folds
@@ -443,7 +373,6 @@ impl SqliteBackend {
         Ok(t)
     }
 
-    /// Route distribution: (route, count)
     pub fn route_distribution(&self, since: i64) -> Result<Vec<(String, u64)>> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let mut stmt = conn.prepare(
@@ -458,21 +387,10 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// RewindStore metrics: (total_stored, total_retrieved)
-    /// Archives whose row was last written since `since`, and how many of those
-    /// rows have ever been pulled. `since` of 0 is all time.
-    ///
-    /// Both halves are looser than they look and the wording is exact on purpose.
-    /// `ts` is refreshed when identical content is archived again, so a row can
-    /// enter this window carrying a `retrieved` count from before it; and
-    /// `retrieved` is a lifetime counter, never a pull inside the window.
-    ///
-    /// Resetting that counter on re-archive would make the looser reading true and
-    /// is not this function's call: #581 pays a verbatim delivery per recorded
-    /// pull, so zeroing it here cancels a debt the reader is still owed.
-    ///
-    /// It took a window because `--detail` prints this pair under a header naming
-    /// one, so an all-time count read as part of the window (#667).
+    /// Archives last written since `since` (0 is all time), and how many were ever
+    /// pulled. `retrieved` is a lifetime counter and `ts` refreshes on re-archive,
+    /// so neither is strictly inside the window. Not reset on re-archive: #581
+    /// owes one verbatim delivery per pull (#667).
     pub fn rewind_metrics(&self, since: i64) -> Result<(u64, u64)> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let total: u64 = conn
@@ -492,7 +410,6 @@ impl SqliteBackend {
         Ok((total, retrieved))
     }
 
-    /// Hot files for session insight
     pub fn hot_files_global(&self, since: i64) -> Result<Vec<(String, u64)>> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let mut stmt = conn.prepare(
@@ -507,7 +424,7 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Collapse aggregate: (event_count, total_original_lines, total_collapsed_lines)
+    /// (event_count, total_original_lines, total_collapsed_lines)
     pub fn collapse_aggregate(&self, since: i64) -> Result<(u64, u64, u64)> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let r = conn.query_row(
@@ -881,7 +798,7 @@ impl SqliteBackend {
             "#,
         )?;
 
-        // Safe migration: check for legacy content_type (v0.5.6 migration)
+        // Legacy `content_type` (v0.5.6).
         let has_content_type = {
             let mut stmt = conn.prepare("PRAGMA table_info(distillations)")?;
             let mut rows = stmt.query([])?;
@@ -897,7 +814,6 @@ impl SqliteBackend {
         };
 
         if has_content_type {
-            // Recreate table to remove legacy NOT NULL content_type column
             conn.execute_batch(
                 r#"
                 ALTER TABLE distillations RENAME TO distillations_old;
@@ -929,28 +845,18 @@ impl SqliteBackend {
             )?;
         }
 
-        // #441. Rows written before this column carry their reason concatenated
-        // onto `command`, so the default says exactly that rather than naming a
-        // reason nobody recorded.
+        // Older rows carry the reason inside `command` (#441).
         let _ = conn.execute(
             "ALTER TABLE passthrough_events ADD COLUMN reason TEXT NOT NULL DEFAULT 'unrecorded'",
             [],
         );
-        // #773. The table could not say which door a decline came through, so it
-        // could not say what share of what OMNI declines was declined on behalf
-        // of a model. `session` is not that test: `host output cap` fires only
-        // for `claude_code`, and 20 of its 39 rows carry no session id.
-        //
-        // Old rows read `unknown` rather than being guessed at. The door cannot
-        // be recovered after the fact, so any query about the split windows
-        // itself, the same rule the `reason` column above already needs.
+        // Which door a decline came through (#773). Older rows read `unknown`: it
+        // cannot be recovered, so queries on the split must window by ts.
         let _ = conn.execute(
             "ALTER TABLE passthrough_events ADD COLUMN agent_id TEXT NOT NULL DEFAULT 'unknown'",
             [],
         );
-        // Rows written before this column predate the flag entirely, so 0 means
-        // "not recorded" and not "was a partial fold". Queries about the floor
-        // have to bound themselves by ts for that reason.
+        // Older rows read 0 for "not recorded"; window by ts.
         let _ = conn.execute(
             "ALTER TABLE ledger_folds ADD COLUMN whole_output INTEGER NOT NULL DEFAULT 0",
             [],
@@ -959,32 +865,18 @@ impl SqliteBackend {
             "ALTER TABLE ledger_folds ADD COLUMN payload_bytes INTEGER NOT NULL DEFAULT 0",
             [],
         );
-        // #602. Rows written before this have no session, so a per-session
-        // lookup finds nothing for them, which is honest: the column did not
-        // exist and the project-keyed `scope` cannot be narrowed to one session
-        // after the fact.
+        // Older rows have no session, honestly (#602).
         let _ = conn.execute(
             "ALTER TABLE ledger_folds ADD COLUMN session TEXT NOT NULL DEFAULT ''",
             [],
         );
-        // #822. A marker recorded which shape it rendered and never which tool
-        // produced the reply, so a report could say `project_run` is retrieved
-        // more often than `session_run` and never which surface that lands on.
-        // Rows written before this carry an empty string, which is the honest
-        // answer rather than a guess from the scope.
+        // Which tool produced the reply (#822). Older rows: empty.
         let _ = conn.execute(
             "ALTER TABLE fold_markers ADD COLUMN tool TEXT NOT NULL DEFAULT ''",
             [],
         );
-        // #665. One fold writes a row per (origin, source agent) pair, and until
-        // this column nothing recorded which rows belonged together. Reporting
-        // had to infer it from (second, session, agent, scope, payload size),
-        // which merges two folds that land in one second on a payload of the
-        // same size.
-        //
-        // Rows written before the column get that same inference as a backfill,
-        // because the information is genuinely gone: the smallest `id` in each
-        // inferred group, which is stable and matches what a new fold gets.
+        // Groups the rows of one fold (#665). Older rows are backfilled by inference
+        // on (second, session, agent, scope, payload size): the smallest id per group.
         let fresh_fold_id = conn
             .execute(
                 "ALTER TABLE ledger_folds ADD COLUMN fold_id INTEGER NOT NULL DEFAULT 0",
@@ -1001,17 +893,9 @@ impl SqliteBackend {
                 [],
             );
         }
-        // #766. `ledger_folds` aggregates a call's folds by (origin, source agent),
-        // so it cannot say which marker wording a reader was handed, and it holds
-        // no handle, so nothing joins a retrieval back to the fold that caused it.
-        // Both questions are per marker, which is a finer grain than that table
-        // has, and widening it would change every figure already published from
-        // it. A second table at the right grain answers them and disturbs nothing.
-        //
-        // `kind` is decided by the code that renders the string, never by parsing
-        // one back: this repository has been bitten three times by two copies of
-        // one string (#452, #454, #456), and #765 removed a tally that tried to
-        // recognise markers in text.
+        // One row per marker emitted, with its handle, so wording and retrievals can be
+        // joined (#766). `kind` comes from the code that renders the string, never
+        // from parsing it back.
         let _ = conn.execute(
             "CREATE TABLE IF NOT EXISTS fold_markers (
                 id      INTEGER PRIMARY KEY,
@@ -1041,11 +925,7 @@ impl SqliteBackend {
             [],
         );
 
-        // #672. Nothing tied a declined call to the session that made it, so the
-        // reason breakdown could only ever be global. A time window is not a
-        // substitute: a third of sessions on this machine overlap another.
-        // Empty means the host sent no id, which is the honest answer for pipe
-        // mode rather than the wall-clock fallback that made #118's slices wrong.
+        // Ties a decline to its session (#672). Empty means the host sent no id.
         let _ = conn.execute(
             "ALTER TABLE passthrough_events ADD COLUMN session TEXT NOT NULL DEFAULT ''",
             [],
@@ -1055,11 +935,9 @@ impl SqliteBackend {
             [],
         );
 
-        // #581. Set when a handle is pulled and cleared by the delivery that
-        // answers it, so the content a marker sent the reader to fetch is not
-        // folded back into that same marker on its way in. Separate from
-        // `retrieved`, which is a lifetime counter `rewind_metrics` and #512's
-        // adaptive rate both read and must not be reset.
+        // Set on pull, cleared by the delivery that answers it, so the fetched
+        // content is not folded straight back into its marker (#581). Separate from
+        // the lifetime `retrieved` counter.
         let _ = conn.execute(
             "ALTER TABLE rewind_store ADD COLUMN owed INTEGER NOT NULL DEFAULT 0",
             [],
@@ -1088,48 +966,30 @@ impl SqliteBackend {
             "ALTER TABLE distillations ADD COLUMN filtered_tokens INTEGER DEFAULT 0",
             [],
         );
-        // #509. `INSERT OR IGNORE` keeps the first writer, so an existing row is
-        // the agent that first emitted that line into that scope and the default
-        // is honest about rows written before anyone was recorded.
+        // The first agent to emit the line into the scope (#509).
         let _ = conn.execute(
             "ALTER TABLE ledger_lines ADD COLUMN agent_id TEXT NOT NULL DEFAULT 'unknown'",
             [],
         );
-        // #622. What command first showed this line. The table keyed lines by
-        // (scope, hash) alone, so a fold could replace a block in file B with one
-        // shown from file A and the marker had no way to say so. Reading two
-        // files to check a shared block matches is exactly that case, and the
-        // dedup answered it by deleting the evidence.
-        //
-        // It is also what makes the frequency measurable: nothing in the corpus
-        // could say how often a fold draws on a different source, because the
-        // column did not exist. Same reason `ledger_folds` was added by #533.
-        // Rows written before this keep the empty default, which reads as
-        // "unrecorded" and suppresses the marker clause rather than guessing.
+        // What command first showed this line, so a marker can name a different
+        // source (#622). Older rows: empty, which suppresses the clause.
         let _ = conn.execute(
             "ALTER TABLE ledger_lines ADD COLUMN source TEXT NOT NULL DEFAULT ''",
             [],
         );
-        // #911. Rows written before it keep their text in `source` and age out
-        // with the window; `ledger_seen` reads either.
+        // #911: older rows keep their text in `source`; `ledger_seen` reads either.
         let _ = conn.execute(
             "ALTER TABLE ledger_lines ADD COLUMN source_id INTEGER NOT NULL DEFAULT 0",
             [],
         );
-        // #212: `output_bytes` is what the distiller returned, which is not the
-        // same as what a model read. Rows written before this column exists keep
-        // the default of -1, which `omni stats` reads as "unknown" rather than as
-        // "nothing was delivered", backfilling them from `output_bytes` would
-        // restate the old assumption as if it had been measured.
+        // What the model actually read, distinct from what the distiller returned
+        // (#212). Older rows are -1, "unknown", not backfilled.
         let _ = conn.execute(
             "ALTER TABLE distillations ADD COLUMN delivered_bytes INTEGER DEFAULT -1",
             [],
         );
 
-        // One-time data migration:
-        // Older builds could attribute Cursor sessions as "vscode" because TERM_PROGRAM
-        // detection happened before explicit OMNI_AGENT_ID routing.
-        // Keep this migration idempotent and run only once.
+        // One-time, idempotent: Cursor sessions once recorded as `vscode`.
         let migration_id = "2026_05_cursor_agent_id_backfill_vscode_to_cursor";
         let already_applied: Option<i64> = conn
             .query_row(
@@ -1159,13 +1019,8 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // Every pattern in an existing database carries a `was_resolved` that was
-        // set by any success in its tool family and never taken back, so
-        // `omni patterns` reported 20 of 20 RESOLVED while five of them were
-        // still firing (#427). The flag now clears on recurrence, but history
-        // cannot be re-derived: nothing recorded when a resolution happened. So
-        // the label is cleared once and re-earned by the new rule, which is the
-        // only reading of these rows that is not a guess.
+        // `was_resolved` was never cleared on recurrence (#427); history cannot be
+        // re-derived, so the label is cleared once and re-earned.
         let migration_clear_resolved = "2026_08_clear_unearned_pattern_resolutions";
         let resolved_applied: Option<i64> = conn
             .query_row(
@@ -1188,25 +1043,11 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // #566. The hook sends no reply on the `Passthrough` route, so the host
-        // keeps the bytes it already had, but every byte and token column on the
-        // row was computed from the distiller's output. The row therefore booked a
-        // saving nobody received. Reconciled against the host's own transcripts
-        // that was 16.4% of the bytes booked as saved over the sessions a
-        // transcript exists for; across the whole table these rows are 93.0% of
-        // them, and they are the difference between the 37.1% `omni stats`
-        // published and the 8.3% that is true.
-        //
-        // Corrected in the column rather than in the queries. Six call sites sum
-        // these columns, and a `CASE` in each is one rule in six copies waiting to
-        // drift, which this repo has already paid for once. Nothing is lost:
-        // `execution_traces` still carries `raw_input` and `distilled_output` for
-        // these rows, so what the distiller produced is still readable.
-        //
-        // A redaction is the one passthrough that does send a reply, and no column
-        // records that it happened, so those rows are zeroed here too. That
-        // undercounts a rare case by the few bytes `[REDACTED]` saves, which is the
-        // safe direction to be wrong in.
+        // Passthrough rows booked savings nobody received: the host kept its bytes
+        // (#566). They were most of the gap between a published 37.1% and a true
+        // 8.3%. Zeroed in the column, not in six queries; `execution_traces` still
+        // has the distiller output. Redacted passthroughs are zeroed too, undercounting
+        // by the few bytes `[REDACTED]` saves.
         let migration_passthrough = "2026_08_passthrough_rows_book_no_saving";
         let passthrough_applied: Option<i64> = conn
             .query_row(
@@ -1232,25 +1073,10 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // #605. #603 fixed `filter_name` going forward and left every row already
-        // written, so `omni stats` and every workload query still group 16% of
-        // this corpus under an assignment or a binary's full path. 2,892 of
-        // 17,402 rows across 398 names on the machine that measured it, and they
-        // kept accumulating until 0.7.7 was installed, because merging a fix does
-        // not change the binary on disk.
-        //
-        // Not the #163 shape, which is what makes this cheap. There the rows
-        // recorded a saving that never reached an agent, no arithmetic could
-        // recover the truth, and the answer was to exclude them by timestamp and
-        // delete nothing. Here every column is right except a derived one, the
-        // column it derives from is intact on all of them, and `producer_label`
-        // is pure. So the recompute is arithmetic rather than a judgement, and it
-        // needs no timestamp constant: run over a row written after the fix it
-        // returns that row's own label.
-        //
-        // Ordered after #677 deliberately. Recomputing before that landed would
-        // have turned `A=$(ls` into `-1t`, destroying the original label to write
-        // something no more correct.
+        // Recompute `filter_name` on old rows (#605): #603 fixed new ones only, and
+        // 16% of the corpus was grouped under assignments or full paths. Safe because
+        // the source column is intact and `producer_label` is pure. Must run after
+        // #677, or `A=$(ls` would become `-1t`.
         let migration_labels = "2026_08_recompute_filter_name_from_command";
         let labels_applied: Option<i64> = conn
             .query_row(
@@ -1286,13 +1112,8 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // `context_turns` was written on every hooked command, carried an index,
-        // and had no `SELECT` anywhere in the tree: 5,532 rows paying write
-        // latency and disk for a reader that never existed (#270). The in-memory
-        // `SessionState::current_turn` it was built from is still read, by
-        // `omni_context_breakdown` and `omni stats`; only the table is gone.
-        // `verification_results` had no writer and no reader anywhere in the
-        // tree, which is as dead as a table gets (#165).
+        // Dropped tables: `context_turns` had no reader (#270), `verification_results`
+        // had neither writer nor reader (#165).
         let migration_drop_ver = "2026_08_drop_unused_verification_results";
         let ver_applied: Option<i64> = conn
             .query_row(
@@ -1311,12 +1132,8 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // Unconditional, not migration-gated. Gated, the drop ran once, recorded
-        // itself as applied, and then a concurrently installed older binary
-        // recreated the table 12 seconds later. The migration never re-runs, so
-        // the table survived its own removal permanently (#379). A mixed-version
-        // machine is the normal case during an upgrade, and `DROP TABLE IF
-        // EXISTS` against a table that is already gone costs a catalogue lookup.
+        // Unconditional, not migration-gated: an older binary running alongside
+        // recreated the table after a one-time drop (#379).
         conn.execute("DROP INDEX IF EXISTS idx_ctx_session", [])?;
         conn.execute("DROP TABLE IF EXISTS context_turns", [])?;
 
@@ -1330,7 +1147,7 @@ impl SqliteBackend {
             .optional()?;
         if already_applied2.is_none() {
             let tx = conn.unchecked_transaction()?;
-            // Use 3.8 chars/token (~4 bytes/token heuristic) for backfill
+            // 3.8 chars per token for the backfill.
             tx.execute(
                 "UPDATE distillations SET raw_tokens = input_bytes / 4, filtered_tokens = output_bytes / 4 WHERE raw_tokens = 0",
                 [],
@@ -1342,32 +1159,10 @@ impl SqliteBackend {
             tx.commit()?;
         }
 
-        // One-time data migration: collapse distillations that were recorded
-        // twice for one command (#118).
-        //
-        // On the reporting installation 1,231 of 8,272 rows are second copies -
-        // 15% of the table, inflating every count and every top-command tally
-        // `omni stats` publishes. They stop at 2026-07-17 and 1,229 of them are
-        // `aider`, so whatever produced them is long closed; feeding one payload
-        // through the post-hook on this build yields exactly one row. This
-        // migration is therefore about the history, not about the write path.
-        //
-        // The key is every column except `id` and `latency_ms`. Measured on that
-        // data, `latency_ms` is the *only* column that ever varies inside a
-        // duplicate group, `session_id`, `project_path` and the byte counts
-        // never do, which is the fingerprint of the same input distilled twice
-        // rather than of two separate commands. Grouping on it as well would
-        // leave 947 of the 1,231 in place.
-        //
-        // A user really could run one command twice inside the same second and
-        // get byte-identical input and output. Collapsing that pair costs one
-        // under-counted row, and under-counting is the direction this project
-        // errs in when it has to choose.
-        //
-        // Deliberately no UNIQUE index behind this. The write that produced the
-        // duplicates no longer happens, and an index over these columns would
-        // reject the legitimate case above from then on, trading a closed bug
-        // for a permanent silent under-count.
+        // One-time: collapse distillations recorded twice for one command (#118),
+        // 15% of the reporting table, all historical. Keyed on every column except
+        // `id` and `latency_ms`, the only one that varied inside a duplicate group.
+        // No UNIQUE index: it would also reject a real repeat within one second.
         let migration_id3 = "2026_07_dedupe_double_recorded_distillations";
         let already_applied3: Option<i64> = conn
             .query_row(
@@ -1398,10 +1193,7 @@ impl SqliteBackend {
         Ok(())
     }
 
-    /// Row counts used by the hook-routing integration tests.
-    ///
-    /// Exposed so a test can assert what a hook wrote without shelling out to
-    /// the `sqlite3` binary, which is not guaranteed on every CI runner.
+    /// Row counts for the hook-routing tests, without the `sqlite3` binary.
     pub fn session_summary_count(&self) -> usize {
         self.count_rows("session_summaries")
     }
@@ -1466,7 +1258,6 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            // Log to stderr for visibility during development/debugging
             eprintln!("[omni:error] failed to record distillation: {}", e);
             if e.to_string().contains("NOT NULL constraint failed") {
                 eprintln!(
@@ -1524,16 +1315,9 @@ impl SqliteBackend {
         );
     }
 
-    /// Records that a payload was handed back untouched, and why.
-    ///
-    /// The reason used to be tagged onto the end of `command` because there was
-    /// no column for it (#254), which made the largest population in the corpus
-    /// readable only by string matching on the thing it was concatenated to.
-    /// `reason` is its own column now, so `GROUP BY reason` answers the question
-    /// the tagging was invented for (#441): "declined because the payload was
-    /// JSON" and "declined because no distiller could parse it" call for
-    /// opposite work, and the second is the only direct evidence that the
-    /// never-fabricate invariant is doing any.
+    /// Records that a payload was handed back untouched, and why, in its own
+    /// `reason` column (#441): a JSON passthrough and an unparseable one call for
+    /// opposite work.
     pub fn record_passthrough(
         &self,
         command: &str,
@@ -1554,16 +1338,8 @@ impl SqliteBackend {
         );
     }
 
-    /// What each door declined, in bytes, over the last `days`.
-    ///
-    /// The question `passthrough_events` could not answer until #773: what share
-    /// of what OMNI declines was declined on behalf of a model. `session` is not
-    /// that test, since a hook payload can arrive without one, so this groups by
-    /// the agent the row was recorded for.
-    ///
-    /// Rows written before the column read `unknown`, which is why the window
-    /// matters: a query over all time is mostly a report about a column that did
-    /// not exist yet.
+    /// What each door declined, in bytes, over the last `days`, grouped by agent
+    /// (#773). Older rows read `unknown`, hence the window.
     pub fn passthrough_bytes_by_agent(&self, days: i64) -> Vec<(String, i64, i64)> {
         let Ok(conn) = self.pool.get() else {
             return Vec::new();
@@ -1584,23 +1360,14 @@ impl SqliteBackend {
             .unwrap_or_default()
     }
 
-    /// How many payloads each gate declined, newest window first.
-    ///
-    /// The point of the column: most calls are passthrough and correctly do
-    /// nothing, and until this existed that population was one bucket.
+    /// How many payloads each gate declined.
     pub fn passthrough_reasons(&self, since: i64) -> Vec<(String, u64)> {
         self.passthrough_reasons_for(since, None)
     }
 
-    /// One session's declines, or every session's when `session` is `None`.
-    ///
-    /// `Some("")` returns nothing. An empty id means the host sent none, so it is
-    /// shared by every pipe-mode row in the table and cannot identify a session.
+    /// One session's declines, or every session's for `None`. `Some("")` returns
+    /// nothing: an empty id is shared by every pipe-mode row.
     pub fn passthrough_reasons_for(&self, since: i64, session: Option<&str>) -> Vec<(String, u64)> {
-        // An empty id is not a session, it is the host declining to name one, so
-        // every pipe-mode row from every session carries it. Falling through to
-        // the unscoped query here answered "what did this session decline" with
-        // every session's declines, which is worse than not answering.
         if matches!(session, Some("")) {
             return Vec::new();
         }
@@ -1630,8 +1397,7 @@ impl SqliteBackend {
         }
     }
 
-    /// Newest first. Exists so the tag above can be asserted; nothing in the
-    /// shipped binary reads this table yet.
+    /// Newest first; only tests read this table.
     pub fn recent_passthroughs(&self, limit: usize) -> Vec<String> {
         let Ok(conn) = self.pool.get() else {
             return Vec::new();
@@ -1646,45 +1412,21 @@ impl SqliteBackend {
             .unwrap_or_default()
     }
 
-    /// Archives `content` under its own hash and returns the key, or `None` when
-    /// the row did not land.
-    ///
-    /// The key is the content address and nothing else. It used to carry a
-    /// nanosecond prefix, `{ts_ns}_{hash}`, which made every key unique and so
-    /// made the `INSERT OR IGNORE` beneath it decoration: the same output stored
-    /// a fresh copy on every run. That was invisible while the archive never
-    /// fired, and became a live disk cost the moment #271 started archiving on
-    /// every lossy call (#274).
-    ///
-    /// A repeat refreshes `ts` rather than being ignored, so content that is
-    /// still being produced does not age out of the retention window on the
-    /// strength of when it was first seen. `retrieved` is left alone.
-    ///
-    /// The return used to be a bare `String` handed back on every path,
-    /// including a pool-get failure and a swallowed `execute`. The caller then
-    /// printed `omni_retrieve("<key>")` for content that is not in the table,
-    /// which is the one promise this store exists to keep (#388). Rare while the
-    /// archive fired on 139 of 14,962 calls; routine once the ledger records
-    /// every emitted block.
-    /// `whole_len` is the length of the payload `content` was cut out of, which
-    /// is `content.len()` when the handle holds an entire output. It is the only
-    /// thing that lets `omni retrieve` tell a reader whether it is holding the
-    /// whole answer or one block of it (#627). Before this it was written as
-    /// `content.len()` unconditionally, so the column duplicated the content
-    /// length and could never answer that.
+    /// Archives `content` under its hash and returns the key, or `None` when the
+    /// row did not land: a handle for missing content breaks the one promise this
+    /// store makes (#388). The key is the content address only (#274). A repeat
+    /// refreshes `ts` so live content does not age out; `retrieved` is untouched.
+    /// `whole_len` is the payload `content` was cut from, so `omni retrieve` can
+    /// say whether it holds the whole answer (#627).
     pub fn store_rewind(&self, content: &str, whole_len: usize) -> Option<String> {
-        // The reserved example handle must never name real content, or the
-        // documented "an example never resolves" check would be wrong for
-        // whichever payload happened to hash to it (#583).
+        // The reserved example handle must never name real content (#583).
         let rewind_key =
             crate::util::text::avoid_example_handle(crate::util::text::short_hash(content));
 
         let conn = self.pool.get().ok()?;
 
         let ts = chrono::Utc::now().timestamp();
-        // A caller that understates the whole would make `retrieve` claim
-        // completeness for a fragment, which is the defect being fixed, so the
-        // floor is the content itself rather than trust.
+        // The whole is never smaller than the content itself.
         let original_len = whole_len.max(content.len()) as i64;
 
         conn.execute(
@@ -1702,32 +1444,11 @@ impl SqliteBackend {
         Some(rewind_key)
     }
 
-    /// Records a handle pulled back into an agent's context, whichever door it
-    /// came through.
-    ///
-    /// `get_retrieve_rate` reads what this writes and raises the route
-    /// thresholds when a command family keeps needing its full output. The CLI
-    /// was not writing it, and the CLI is the door the mechanism advertises:
-    /// the marker prints `omni retrieve <handle>`, a shell command. Measured on
-    /// the maintainer's install before the fix, 49 pulls counted on
-    /// `rewind_store.retrieved` against 19 rows here (#512).
-    ///
-    /// Deliberately **not** inside `retrieve_rewind`. `store::query` reads
-    /// archived content to answer reports, and counting those would inflate the
-    /// rate with reads no agent asked for, which is the same defect in the
-    /// other direction.
+    /// Records a pull from any door; `get_retrieve_rate` raises route thresholds
+    /// from it (#512). Not inside `retrieve_rewind`, which reports also call.
     pub fn record_rewind_pull(&self, hash: &str) {
-        // #581. The debt is booked here and not in `retrieve_rewind`, for the
-        // same reason the counter above is: `store::query` reads archived
-        // content to answer reports (`query.rs:122` and `:174`), and a report
-        // is not a reader asking for its bytes back. Booking it there created
-        // debt nobody incurred and spent the next matching delivery paying it.
-        // Review on #593 caught that, against a comment two paragraphs up that
-        // says exactly this about the other counter.
-        //
-        // A count rather than a flag, so two readers pulling the same handle
-        // before either is answered earn one verbatim delivery each instead of
-        // the first clearing it for both.
+        // Booked here, not in `retrieve_rewind`, for the same reason (#581, #593
+        // review). A count, so two readers pulling one handle each get a delivery.
         if let Ok(conn) = self.pool.get() {
             let _ = conn.execute(
                 "UPDATE rewind_store SET owed = owed + 1 WHERE hash = ?1",
@@ -1743,19 +1464,10 @@ impl SqliteBackend {
         self.record_retrieve_event(&family, hash, &agent_id);
     }
 
-    /// Consumes the debt a pull left behind, and says whether there was one.
-    ///
-    /// #581. A marker tells the reader to run `omni retrieve <handle>`. Whichever
-    /// way those bytes come back, through a file it then reads or through the
-    /// command's own output, they pass the hook again and hash the same, so the
-    /// ledger replaced them with the very marker that sent the reader there. An
-    /// agent following the instruction got the instruction back.
-    ///
-    /// One delivery, not a permanent exemption. Once the reader has the content
-    /// the ledger's claim is true again and the next repeat folds normally,
-    /// which is why this clears the flag as it reads it. The `UPDATE` does both
-    /// in one statement so two hooks racing cannot each be told they are the one
-    /// answering the pull.
+    /// Consumes the debt a pull left behind, and says whether there was one. The
+    /// retrieved bytes pass the hook again and would fold back into the marker
+    /// that sent the reader there (#581). One delivery, cleared in the same
+    /// `UPDATE` so racing hooks cannot both claim it.
     pub fn take_owed_delivery(&self, hash: &str) -> bool {
         let Ok(conn) = self.pool.get() else {
             return false;
@@ -1768,9 +1480,7 @@ impl SqliteBackend {
         .unwrap_or(false)
     }
 
-    /// Archive a payload that is the whole of what a marker replaced. Test-only:
-    /// production callers state the whole explicitly, because the interesting
-    /// case is the one where it differs.
+    /// Test-only: archives a payload that is its own whole.
     #[cfg(test)]
     pub fn store_rewind_whole(&self, content: &str) -> Option<String> {
         self.store_rewind(content, content.len())
@@ -1780,9 +1490,7 @@ impl SqliteBackend {
         self.retrieve_rewind_sized(hash).map(|(content, _)| content)
     }
 
-    /// The archived block and the size of the payload it was cut out of. Equal
-    /// when the handle holds a whole output; `whole_len` is larger when it holds
-    /// one block of one, which is what a ledger fold archives (#627).
+    /// The archived block and the size of the payload it was cut from (#627).
     pub fn retrieve_rewind_sized(&self, hash: &str) -> Option<(String, usize)> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -1811,17 +1519,9 @@ impl SqliteBackend {
         })
     }
 
-    /// Get recent distillation rows for omni_history MCP tool
-    /// Recent distillations, optionally narrowed to one session.
-    ///
-    /// `None` is the honest answer from the MCP server. `SessionState::new` mints
-    /// `{millis}-{pid}-{counter}` every time it is constructed, while the hook
-    /// path keys its rows on the **host** session id: 11,281 rows on this machine
-    /// carry a host UUID against 892 minted ones. The server filtering on its own
-    /// id therefore matched nothing in a Claude Code session, which is most of
-    /// what `omni_explain_savings` was reporting when it said "No recent
-    /// distillations" (#602). The server cannot see the host id, so it asks by
-    /// recency and says so, rather than filtering on a value known to be wrong.
+    /// Recent distillations, optionally for one session. The MCP server passes
+    /// `None`: its minted id never matches the host's id the hook rows carry
+    /// (#602), so it asks by recency instead.
     pub fn get_recent_distillations(
         &self,
         session_id: Option<&str>,
@@ -1853,21 +1553,9 @@ impl SqliteBackend {
         }
     }
 
-    /// Recent cross-turn folds for a session, which `distillations` never holds.
-    ///
-    /// The ledger writes its own table, and `omni_explain_savings` read only
-    /// `distillations`, so a route that fired and handed back a live retrieve
-    /// handle was reported as "No recent distillations found in current session"
-    /// (#602). Counted on the machine that confirmed it: 936 rows in
-    /// `ledger_folds`, none of them visible to the tool.
-    ///
-    /// Keyed on the fold's own `session` column and not on `scope`. `scope` is
-    /// deliberately the **project** whenever there is one, so the cross-agent
-    /// question #533 exists to answer stays askable, and every one of the 936
-    /// rows on the machine that confirmed this bug holds a filesystem path there.
-    /// A first draft of this queried `scope` against the session id and returned
-    /// nothing in production while its test passed, because the test wrote rows
-    /// by hand instead of through `Ledger::project`. Caught in review of #625.
+    /// Recent cross-turn folds for a session, which `distillations` never holds
+    /// (#602). Keyed on the `session` column, not `scope`, which holds the project
+    /// path (#625 review).
     pub fn get_recent_ledger_folds(
         &self,
         session_id: Option<&str>,
@@ -1944,17 +1632,9 @@ impl SqliteBackend {
         );
     }
 
-    /// The most recent session **this agent had in this project**.
-    ///
-    /// `sessions` has no project column and its id is a wall-clock stamp, so the
-    /// project comes from `agent_sessions`, which is already keyed
-    /// `(agent_id, project_hash)` and already written on every session start and
-    /// end. Joining is what lets a session be found for one repository without
-    /// giving `sessions` a schema it does not have.
-    ///
-    /// Returning `None` for a project this agent has never worked in is the
-    /// answer, not a miss: the caller then starts fresh, which is what should
-    /// happen the first time you open a repository (#482).
+    /// The most recent session this agent had in this project, through
+    /// `agent_sessions`, since `sessions` has no project column. `None` for a new
+    /// project means start fresh (#482).
     pub fn find_latest_session_for_project(
         &self,
         agent_id: &str,
@@ -2045,13 +1725,8 @@ impl SqliteBackend {
         results
     }
 
-    /// Per-command totals in the window, most-called first.
-    ///
-    /// `limit` of 0 means every class. The cap is by call count, so any caller
-    /// ranking on something else is reading a sample chosen by a different
-    /// measure: a class that removed 40 MB in three calls sits below 300 chatty
-    /// ones and never reaches the sort. `omni context --tokens` ranks by bytes
-    /// and so asks for all of them.
+    /// Per-command totals in the window, most-called first. `limit` 0 means all:
+    /// the cap ranks by calls, so a caller ranking by bytes must ask for all.
     #[allow(clippy::type_complexity)]
     pub fn get_per_command_stats(
         &self,
@@ -2096,16 +1771,9 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Agent breakdown: (agent_id, count, input_bytes, output_bytes)
-    /// Per-agent totals, with the unapplied rows counted but not added in (#163).
-    ///
-    /// `calls` / `input_bytes` / `output_bytes` cover only rows that reached an
-    /// agent. `unverified` counts the ones excluded, pre-#158 Claude Code rows
-    /// whose savings the host discarded, and rows whose result no model read
-    /// (#212). They are reported rather than dropped so a shrinking call count
-    /// reads as the correction it is, instead of looking like OMNI stopped
-    /// working. It is `SUM(NOT (applied))` against the same predicate, so a new
-    /// exclusion is surfaced by construction rather than by remembering to.
+    /// Per-agent totals over rows that reached an agent. `unverified` counts the
+    /// rows left out (pre-#158 Claude Code, and results no model read, #212) so a
+    /// shrinking count reads as a correction (#163).
     pub fn get_agent_breakdown(&self, since: i64) -> Result<Vec<AgentRow>> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         let applied = applied_only();
@@ -2138,7 +1806,9 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Per-command stats with agent_id: (command, agent_id, count, input_bytes, output_bytes)
+    /// Every `(command, agent)` pair in the window, unaggregated and unlimited: the
+    /// caller folds them into shortened keys, and a raw-row cap dropped rows the
+    /// fold needed (#471).
     #[allow(clippy::type_complexity)]
     /// Every `(command, agent)` pair in the window, unaggregated.
     ///
@@ -2187,7 +1857,7 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Multi-period stats: Vec of (period_label, count, input_bytes, output_bytes, raw_tokens, filtered_tokens)
+    /// Per period: (label, count, input_bytes, output_bytes, raw_tokens, filtered_tokens)
     #[allow(clippy::type_complexity)]
     pub fn multi_period_stats(&self) -> Result<Vec<(String, u64, u64, u64, u64, u64)>> {
         let now = chrono::Utc::now().timestamp();
@@ -2237,9 +1907,7 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    // ─── Loop Memory (L2-02) ────────────────────────────────
-
-    /// Set or update a loop memory entry. On conflict, bumps times_confirmed and updates value.
+    /// Upsert; a conflict bumps `times_confirmed` and updates the value.
     pub fn loop_memory_set(&self, goal_hash: &str, key: &str, value: &str, confidence: f64) {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2258,7 +1926,6 @@ impl SqliteBackend {
         );
     }
 
-    /// Get a single loop memory entry.
     pub fn loop_memory_get(&self, goal_hash: &str, key: &str) -> Option<(String, f64, i64)> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2271,7 +1938,6 @@ impl SqliteBackend {
         ).optional().unwrap_or(None)
     }
 
-    /// List all loop memory entries for a given goal hash.
     pub fn loop_memory_list(&self, goal_hash: &str) -> Vec<(String, String, f64, i64)> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2296,7 +1962,6 @@ impl SqliteBackend {
         }
     }
 
-    /// Delete a loop memory entry.
     pub fn loop_memory_forget(&self, goal_hash: &str, key: &str) {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2308,22 +1973,10 @@ impl SqliteBackend {
         );
     }
 
-    /// Which of `hashes` this scope has already been shown, and to whom.
-    ///
-    /// Asked as a bounded `IN` probe rather than by loading the scope's whole
-    /// line set, because each hook is its own process: a session with 100,000
-    /// recorded lines would pay to read all of them to ask about 200. Chunked
-    /// under SQLite's default 32,766 parameter ceiling with room to spare.
-    ///
-    /// The agent comes back with the hash because a fold cannot otherwise say
-    /// whose bytes it replaced, and that is the whole question #533 has to price:
-    /// a project-scoped fold drawing on another agent's lines is the reuse that
-    /// keying the scope on `(repo, agent)` would end. `INSERT OR IGNORE` keeps
-    /// the first writer, so this names the agent actually shown that line rather
-    /// than the last one to repeat it.
-    ///
-    /// Fails to an empty map. A ledger that cannot read is a ledger that has
-    /// seen nothing, which costs a missed reduction and never a false claim.
+    /// Which of `hashes` this scope has already been shown, and to whom. A bounded
+    /// `IN` probe, chunked under SQLite's parameter limit, rather than loading the
+    /// scope. The agent is the first writer, so a fold can say whose bytes it
+    /// replaced (#533). Fails to an empty map: a missed fold, never a false claim.
     pub fn ledger_seen(
         &self,
         scope: &str,
@@ -2334,8 +1987,7 @@ impl SqliteBackend {
         let Ok(conn) = self.pool.get() else {
             return found;
         };
-        // Distinct first: a payload that repeats a line inside itself would
-        // otherwise ask about it once per occurrence.
+        // Distinct first, so a repeated line is asked about once.
         let unique: Vec<&String> = hashes
             .iter()
             .collect::<std::collections::BTreeSet<_>>()
@@ -2376,17 +2028,9 @@ impl SqliteBackend {
         found
     }
 
-    /// Records every line of an emitted block against a scope.
-    ///
-    /// Unconditional by design. The old archive gate demanded more than 40% noise
-    /// across more than 20 segments and fired on 139 of 14,962 calls, under 1%,
-    /// which is the right bound for "was this worth compressing" and the wrong
-    /// one for "might the agent see this again". A block is worth remembering
-    /// because it may recur.
-    ///
-    /// One transaction and one cached statement for the whole batch: this is the
-    /// loop where `prepare_cached` actually pays, unlike the one-shot statements
-    /// a hook process runs once each.
+    /// Records every line of an emitted block against a scope, unconditionally:
+    /// a block is worth remembering because it may recur. One transaction and one
+    /// cached statement for the batch.
     pub fn ledger_record(&self, scope: &str, hashes: &[String], agent_id: &str, source: &str) {
         let Ok(mut conn) = self.pool.get() else {
             return;
@@ -2395,8 +2039,7 @@ impl SqliteBackend {
         let Ok(tx) = conn.transaction() else {
             return;
         };
-        // The command is stored once and the lines point at it (#911). Its `ts`
-        // moves on every call so the prune keeps what the window still uses.
+        // The command is stored once (#911); its `ts` moves so the prune keeps it.
         let source_id: i64 = if source.is_empty() {
             0
         } else {
@@ -2418,15 +2061,9 @@ impl SqliteBackend {
             ) else {
                 return;
             };
-            // The conflict arm keeps the first writer's `agent_id` and `source`, so
-            // they still name the command that actually showed the line rather than
-            // the last one to repeat it. That is the property the marker's claim
-            // rests on (#622).
-            //
-            // `ts` is the exception and moves, because the freshness cutoff asks
-            // when these bytes last reached an agent, not when they first did
-            // (#795). Only lines this call delivered in full are passed here, so a
-            // line that was folded away cannot refresh its own sighting.
+            // The conflict keeps the first writer's agent and source, which the marker's
+            // claim rests on (#622), but refreshes `ts`: freshness asks when the bytes
+            // last reached an agent (#795). Only fully delivered lines reach here.
             for h in hashes {
                 let _ = stmt.execute(params![scope, h, ts, agent_id, source_id]);
             }
@@ -2434,33 +2071,13 @@ impl SqliteBackend {
         let _ = tx.commit();
     }
 
-    /// Retrieve rate per marker shape, over the last `days`.
+    /// Retrieve rate per marker shape over the last `days`, joined on the handle.
+    /// Markers before #766 are absent, so window the query.
     ///
-    /// Joined on the handle, which is the only thing that ties a retrieval to the
-    /// marker that caused it. `retrieve_events` predates `fold_markers`, so a
-    /// retrieval of a marker written before #766 finds no row here and is absent
-    /// rather than counted against some other shape: window the query and read
-    /// `folds` before reading the rate.
-    ///
-    /// `EXISTS` rather than a join, and the difference is not style (#771 review).
-    /// A handle is the SHA of the content, so the same bytes folded twice carry
-    /// the same handle, and a plain `LEFT JOIN` then multiplies a marker by every
-    /// retrieval that ever matched it: `COUNT(*)` stops counting markers and the
-    /// sum stops counting pulls. This asks one question per marker instead, which
-    /// is "was this content ever fetched after this marker was shown".
-    ///
-    /// The bound that remains, stated rather than hidden: two markers of the same
-    /// content, in different shapes, are both credited by one retrieval. Content
-    /// addressing is what makes a handle worth having, and separating those two
-    /// would need a per-marker id the retrieval path does not carry.
-    ///
-    /// `>=` and not `>`, deliberately. Both tables keep whole seconds, so a tie is
-    /// ambiguous either way, and the two readings are not equally likely: a reader
-    /// follows a handle within seconds of meeting it (#543 recorded four of four
-    /// pulls inside nine seconds), while the case `>` would protect against needs
-    /// the same content folded twice with a pull in between, inside one second.
-    /// `>` would drop the common case to avoid the rare one. Resolving the tie for
-    /// real needs sub-second timestamps on both tables (#771 review).
+    /// `EXISTS`, not a join: a handle is a content hash, so a join multiplies a
+    /// marker by every retrieval of the same content (#771 review). Two markers of
+    /// one content in different shapes are both credited by one pull. `>=` because
+    /// timestamps are whole seconds and pulls follow markers within seconds.
     pub fn marker_retrieve_rates(&self, since: i64) -> Vec<MarkerRate> {
         let Ok(conn) = self.pool.get() else {
             return Vec::new();
@@ -2488,12 +2105,9 @@ impl SqliteBackend {
             .unwrap_or_default()
     }
 
-    /// Records what one call's folds drew on, grouped by origin and source agent.
-    ///
-    /// Written after the view is decided rather than while it is being built, so
-    /// a store that cannot be reached costs a measurement and never a marker.
-    /// Same reasoning as `ledger_record` above: the ledger's writes are evidence,
-    /// and evidence must not be able to change the output.
+    /// Records what one call's folds drew on, by origin and source agent. Written
+    /// after the view is decided, so a failed write costs a measurement, never a
+    /// marker.
     pub fn ledger_record_folds(
         &self,
         scope: &str,
@@ -2513,10 +2127,7 @@ impl SqliteBackend {
         let Ok(tx) = conn.transaction() else {
             return;
         };
-        // Every row of this call carries it, so reporting can group by fold
-        // instead of inferring one from a timestamp (#665). `id` is the rowid,
-        // so `MAX` is a lookup rather than a scan, and the value it picks is the
-        // id the first row is about to get.
+        // One `fold_id` for every row of this call (#665); `MAX(id)` is a rowid lookup.
         let fold_id: i64 = tx
             .query_row(
                 "SELECT COALESCE(MAX(id), 0) + 1 FROM ledger_folds",
@@ -2576,23 +2187,14 @@ impl SqliteBackend {
         let _ = tx.commit();
     }
 
-    /// Forgets everything a scope was shown, and answers how many lines that was.
-    ///
-    /// Called at compaction. The ledger's licence to replace a run with a handle
-    /// is that the agent is still holding those bytes, and compaction is the
-    /// moment inside a session where that stops being true. Forgetting costs a
-    /// missed reduction; not forgetting means telling an agent it has content its
-    /// context no longer contains, which is the same defect that cancelled the
-    /// project-scoped ledger (#401).
+    /// Forgets everything a scope was shown, at compaction, and returns how many
+    /// lines. After compaction the agent no longer holds those bytes (#401).
     pub fn ledger_forget(&self, session: &str) -> usize {
         let Ok(conn) = self.pool.get() else {
             return 0;
         };
-        // A subagent's scope is `<session>/<agent>` (#581), and taking the bare
-        // session id left those rows standing: the parent compacts, the scope
-        // that survives keeps answering "already shown", and nothing in the
-        // reply says the lines went with the summary (#807). `substr` rather
-        // than `LIKE`, so an id carrying `_` or `%` cannot widen the delete.
+        // Subagent scopes `<session>/<agent>` go too (#807). `substr`, not `LIKE`, so
+        // `_` or `%` in an id cannot widen the delete.
         conn.execute(
             "DELETE FROM ledger_lines
               WHERE scope = ?1 OR substr(scope, 1, length(?1) + 1) = ?1 || '/'",
@@ -2601,14 +2203,8 @@ impl SqliteBackend {
         .unwrap_or(0)
     }
 
-    /// Pages in the file and how many of them are free, or `None` when the
-    /// database cannot be read.
-    ///
-    /// Measured 2026-08-09 on the maintainer's install: 50,226 pages with 36,264
-    /// on the freelist, a 196 MB file holding 54 MB of data. `cleanup_old` and
-    /// the trace pruning in #285 delete rows, and SQLite keeps their pages for
-    /// reuse rather than returning them, so a database that has been pruned once
-    /// stays large forever with `auto_vacuum = 0`.
+    /// Pages in the file and how many are free, or `None`. Pruned pages stay on the
+    /// freelist with `auto_vacuum = 0`: once 36,264 of 50,226 pages.
     pub fn page_stats(&self) -> Option<(i64, i64)> {
         let conn = self.pool.get().ok()?;
         let pages = conn.query_row("PRAGMA page_count", [], |r| r.get(0)).ok()?;
@@ -2618,14 +2214,9 @@ impl SqliteBackend {
         Some((pages, free))
     }
 
-    /// Rewrites the file without its freelist.
-    ///
-    /// Operator-triggered, never on the hook path: it rewrites the whole
-    /// database, holds a write lock for the duration and needs free disk equal
-    /// to the file. `auto_vacuum = INCREMENTAL` was the alternative and is worse
-    /// here, because enabling it on an existing database needs a full `VACUUM`
-    /// first and then taxes every commit thereafter, to reclaim space this
-    /// workload loses in one prune a year.
+    /// Rewrites the file without its freelist. Operator-triggered only: it locks
+    /// and needs free disk equal to the file. `auto_vacuum = INCREMENTAL` would tax
+    /// every commit to reclaim one prune a year.
     pub fn vacuum(&self) -> Result<()> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         conn.execute_batch("VACUUM")?;
@@ -2660,30 +2251,15 @@ impl SqliteBackend {
             "DELETE FROM session_events WHERE ts < ?1",
             params![ts_threshold],
         );
-        // #672. This was the one time-series table nobody pruned, so it kept
-        // command strings past the window every other table honours.
+        // Was never pruned (#672).
         let _ = conn.execute(
             "DELETE FROM passthrough_events WHERE ts < ?1",
             params![ts_threshold],
         );
-        // The ledger's eviction policy, defined before the project scope shipped
-        // rather than after it, which is what the direction spec asks for.
-        //
-        // **Time, not size, and one window for both scopes.** A session scope
-        // cannot outlive the session, so the ordinary retention window already
-        // bounds it. The project scope is the one that could grow without limit,
-        // and the honest bound on it is the same window: content nobody has
-        // produced in 30 days is content this project has stopped emitting, and a
-        // handle for it buys a retrieval of something the agent will not
-        // recognise either. A size cap was the alternative and is worse here,
-        // because evicting by size evicts the oldest rows of the *busiest*
-        // project first, which is exactly where the repeats are.
-        //
-        // Rows are 16 bytes of hash plus a scope key, so the cost is bounded by
-        // distinct lines emitted in the window rather than by bytes shown.
-        // Pruned in the same window as the lines it describes. `passthrough_events`
-        // shipped with no cleanup at all and grew unbounded, so a new table gets
-        // its deletion in the same commit as its schema rather than a follow-up.
+        // Ledger eviction is by time, one window for both scopes: a project that has
+        // not emitted a line in 30 days has stopped emitting it. A size cap would
+        // evict the busiest project first, where the repeats are. New tables get
+        // their prune in the same commit as their schema.
         let _ = conn.execute(
             "DELETE FROM ledger_folds WHERE ts < ?1",
             params![ts_threshold],
@@ -2697,46 +2273,23 @@ impl SqliteBackend {
             "DELETE FROM ledger_lines WHERE ts < ?1",
             params![ts_threshold],
         );
-        // A source a surviving line still points at stays even when its own
-        // `ts` is old: a line's `ts` can be refreshed by a later command while
-        // it keeps the first one's `source_id`. `NOT IN` scans the lines once.
+        // A source a surviving line still points at stays, however old its own `ts`.
         let _ = conn.execute(
             "DELETE FROM ledger_sources WHERE ts < ?1
                AND id NOT IN (SELECT source_id FROM ledger_lines)",
             params![ts_threshold],
         );
 
-        // `loop_memory` declared `ttl_days INTEGER DEFAULT 30` and nothing read
-        // it, so goal memory was a permanent table wearing a 30 day label (#438).
-        // Honoured per row rather than by the caller's window, because the column
-        // is per row: a memory written with a longer ttl asked for one.
-        //
-        // `last_seen` and not `first_seen`, so a fact the loop keeps confirming
-        // keeps its place and only what nobody has reconfirmed expires.
+        // `ttl_days` per row, by `last_seen`, so reconfirmed facts stay (#438).
         let now = chrono::Utc::now().timestamp();
         let _ = conn.execute(
             "DELETE FROM loop_memory WHERE last_seen < ?1 - (COALESCE(ttl_days, 30) * 86400)",
             params![now],
         );
 
-        // `execution_traces` was in no cleanup at all, which is why it alone grew
-        // to 160 MB of a 187 MB database while every other table stayed bounded:
-        // it stores `raw_input` and `distilled_output` verbatim, so it is two
-        // orders of magnitude heavier per row than anything else here (#165).
-        //
-        // It gets its own, shorter window. Its only reader is `get_recent_traces`,
-        // which asks for the newest N, so a trace older than a week answers no
-        // question anyone is posing. Measured on the maintainer's database: 160.1
-        // MB in total, 6.0 MB within seven days.
-        // Held open by `OMNI_TRACE_RETENTION_DAYS` while a measurement is in
-        // flight (#440). Roadmap axis 3 asks that a published figure be
-        // reproducible by a stranger with the repo, and it cannot be if the
-        // corpus behind it is deleted seven days later. Seven days stays the
-        // default: #165 recorded this table at 160 MB of a 187 MB database
-        // before the window existed, so the default is load bearing and only the
-        // override is new. A value that does not parse is ignored rather than
-        // failing the cleanup, because a typo in an env var must not stop the
-        // database from being maintained.
+        // Traces get a shorter window: two orders of magnitude heavier per row, and
+        // only the newest are read (#165). `OMNI_TRACE_RETENTION_DAYS` holds it open
+        // during a measurement (#440); an unparseable value is ignored.
         let retention_days = std::env::var("OMNI_TRACE_RETENTION_DAYS")
             .ok()
             .and_then(|v| v.parse::<u32>().ok())
@@ -2767,7 +2320,7 @@ impl SqliteBackend {
         Ok(rows)
     }
 
-    /// Test that the database is actually writable (catches sandbox restrictions)
+    /// Whether the database is writable, e.g. under a sandbox.
     pub fn test_write(&self) -> bool {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2781,8 +2334,6 @@ impl SqliteBackend {
             Err(_) => false,
         }
     }
-
-    // ──  Session Summaries ─────────────────────────────────────
 
     #[allow(clippy::too_many_arguments)]
     pub fn save_session_summary(
@@ -2820,19 +2371,9 @@ impl SqliteBackend {
         );
     }
 
-    /// How long a session lasts before the host ends it, in commands.
-    ///
-    /// This is the meter #357 promoted and #435 found missing from every
-    /// surface: a distillation percentage says how well one payload compressed,
-    /// while the thing a user feels is how many turns they get before the
-    /// context window forces a compaction. Only sessions the host actually
-    /// closed are counted, because an open session's command count is a
-    /// half-measured number that would drag the median down every time.
-    ///
-    /// Returns `(sessions, median_commands, longest, ended_by_compaction)`.
-    /// `ended_by_compaction` is the count whose `exit_reason` names compaction,
-    /// which is what makes the median mean "before the window ran out" rather
-    /// than "before the user went to lunch".
+    /// How long a session lasts before the host ends it, in commands, over closed
+    /// sessions only (#435). Returns `(sessions, median_commands, longest,
+    /// ended_by_compaction)`.
     pub fn session_lifetime(&self, since: i64) -> (u64, u32, u32, u64) {
         let Ok(conn) = self.pool.get() else {
             return (0, 0, 0, 0);
@@ -2894,8 +2435,6 @@ impl SqliteBackend {
         }
     }
 
-    // ──  Retrieve Events (adaptive threshold) ──────────────────
-
     pub fn record_retrieve_event(&self, command_prefix: &str, hash: &str, agent_id: &str) {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -2910,39 +2449,18 @@ impl SqliteBackend {
         );
     }
 
-    /// Records that a memory tool was asked for something.
-    ///
-    /// Same table as the rewind counter, told apart by the tool name sitting in
-    /// `command_prefix`. Until now `retrieve_events` counted one path out of
-    /// five: `omni_retrieve` and nothing else, so "was memory read" was an
-    /// inference rather than a query. `session_start` injects project knowledge
-    /// into every continued session and recorded nothing, which means an
-    /// injection that fires every time and one that never fires produced
-    /// identical databases (#272).
-    ///
-    /// Every call is recorded, including the ones that come back empty. The
-    /// question this answers is whether anyone asks, and a query that found
-    /// nothing is still someone asking. `omni_retrieve` keeps its own rule of
-    /// recording only what it found, because its counter feeds the adaptive
-    /// compression rate rather than this one.
+    /// Records that a memory tool was asked, empty answers included: the question
+    /// is whether anyone asks (#272). `omni_retrieve` keeps its own rule, since its
+    /// counter feeds the adaptive rate.
     pub fn record_memory_read(&self, tool: &str, subject: &str) {
         let agent_id = std::env::var("OMNI_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
         self.record_retrieve_event(tool, crate::util::text::safe_slice(subject, 60), &agent_id);
     }
 
-    /// Tokens saved at insertion, and the same saving compounded over the turns
-    /// each distilled result was re-sent.
-    ///
-    /// Returns `(at_insertion, cumulative)`. The second is
-    /// `delta × (1 + turns_after × CACHE_READ_RATE)` summed over every row that
-    /// actually reduced something, where `turns_after` is how many later
-    /// distillations share the row's session. That is the closest a hook can get
-    /// to "how many times was this text re-sent", and it is why the figure is an
-    /// estimate rather than a measurement (#173).
-    ///
-    /// `cumulative >= at_insertion` always, and the two are equal for a session
-    /// of one call, because a one-shot command earns no multiplier.
+    /// Tokens saved at insertion, and compounded over later turns:
+    /// `delta × (1 + turns_after × CACHE_READ_RATE)`. An estimate (#173);
+    /// `cumulative >= at_insertion` always.
     pub fn token_savings_with_reuse(&self, cache_read_rate: f64) -> Result<(u64, u64)> {
         let conn = self.pool.get().context("DB pool exhausted")?;
         conn.query_row(
@@ -2965,11 +2483,7 @@ impl SqliteBackend {
         .context("summing token savings with reuse")
     }
 
-    /// How many times `tool` handed memory back, all time.
-    ///
-    /// The point of #272 is that this is a query rather than an inference, so it
-    /// belongs beside the insert instead of being re-derived in SQL by whoever
-    /// wants the number.
+    /// How many times `tool` handed memory back, all time (#272).
     pub fn count_memory_reads(&self, tool: &str) -> i64 {
         let Ok(conn) = self.pool.get() else {
             return 0;
@@ -2982,8 +2496,7 @@ impl SqliteBackend {
         .unwrap_or(0)
     }
 
-    /// Returns retrieve_rate for a command prefix (0.0, 1.0)
-    /// High rate = OMNI too aggressive for this command type
+    /// Retrieve rate for a command prefix, 0.0 to 1.0; high means OMNI is too aggressive.
     pub fn get_retrieve_rate(&self, command_prefix: &str, window_days: i64) -> f64 {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3018,8 +2531,6 @@ impl SqliteBackend {
         )
         .ok()
     }
-
-    // ──  Project Knowledge (cross-session semantic memory) ─────
 
     pub fn upsert_project_knowledge(
         &self,
@@ -3070,9 +2581,6 @@ impl SqliteBackend {
         }
     }
 
-    // ──  Multi-Agent Sessions ─────────────────────────────────
-
-    /// Sync agent session for cross-agent state sharing
     pub fn sync_agent_session(
         &self,
         agent_id: &str,
@@ -3096,7 +2604,7 @@ impl SqliteBackend {
         );
     }
 
-    /// Get all active agents working on the same project (within last 8h)
+    /// Agents active on this project within the last 8 hours.
     pub fn get_active_agents_for_project(
         &self,
         project_hash: &str,
@@ -3129,9 +2637,6 @@ impl SqliteBackend {
         }
     }
 
-    // ── Pattern Memory (AI-5) ────────────────────────────────────────
-
-    /// Record or update a recurring error pattern
     pub fn upsert_pattern(&self, pattern_text: &str, tool_family: &str) {
         let hash = Self::pattern_hash(pattern_text);
         let now = chrono::Utc::now().timestamp();
@@ -3157,14 +2662,14 @@ impl SqliteBackend {
         );
     }
 
-    /// Mark a pattern as resolved (command succeeded after failure)
+    /// Resolved when a command in the family succeeds after a failure.
     pub fn resolve_pattern(&self, tool_family: &str, resolution_hint: &str) {
         let now = chrono::Utc::now().timestamp();
         let conn = match self.pool.get() {
             Ok(c) => c,
             Err(_) => return,
         };
-        // Resolve patterns for this tool family that were seen in the last hour
+        // Only patterns seen in the last hour.
         let _ = conn.execute(
             "UPDATE pattern_memory SET was_resolved = 1, resolution_hint = ?1
              WHERE tool_family = ?2 AND was_resolved = 0 AND last_seen > ?3",
@@ -3176,7 +2681,7 @@ impl SqliteBackend {
         );
     }
 
-    /// Get recurring patterns for a tool family (sorted by occurrence count)
+    /// Recurring patterns for a tool family, most frequent first.
     pub fn get_patterns(&self, tool_family: Option<&str>, limit: usize) -> Vec<PatternMemoryRow> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3240,7 +2745,6 @@ impl SqliteBackend {
         }
     }
 
-    /// Get top recurring issues across all tools
     pub fn get_top_insights(&self, limit: usize) -> Vec<PatternMemoryRow> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3285,36 +2789,21 @@ impl SqliteBackend {
     }
 }
 
-// ── v0.5.7 Row Types ─────────────────────────────────────────────────
-
-/// One fold's worth of evidence: whose lines it replaced, and how much.
-///
-/// Grouped by the caller so a payload folding twenty runs from one agent writes
-/// one row rather than twenty. The recipient is on the call, not the row, since
-/// it is the same for every fold in a payload.
-/// What each engine removed, and the base each removed it from (#665).
-///
-/// The two ratios come from different populations and may never be added or
-/// averaged together. Bytes may be summed; percentages may not.
+/// What each engine removed, and the base each removed it from (#665). The
+/// two ratios come from different populations: sum bytes, never percentages.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct EngineTotals {
     pub distilled_calls: u64,
     pub distilled_input: u64,
     pub distilled_output: u64,
-    /// Calls OMNI declined. They save nothing and cost nothing, and they are the
-    /// 15,395 that dragged a 48% distiller down to a reported 9%.
+    /// Calls OMNI declined; averaged in, they turned 48% into 9%.
     pub declined_calls: u64,
-    /// Bytes those declined calls carried. Never a saving and never a loss, so it
-    /// stays out of every ratio; it exists so a composition report can say what
-    /// OMNI saw without inferring it from the distiller's output, which is what
-    /// survived distillation rather than what was handed back (#612).
+    /// Bytes the declined calls carried, kept out of every ratio (#612).
     pub declined_bytes: u64,
-    /// Fold operations, not `ledger_folds` rows. One fold writes a row per
-    /// (origin, source agent) pair carrying the same payload size.
+    /// Fold operations, not `ledger_folds` rows.
     pub folds: u64,
     pub fold_bytes: u64,
-    /// Folds recording the payload they came out of, which is the only base the
-    /// fold ratio may be taken against. Calls, for the same reason as above.
+    /// Folds that record their payload size, the only valid base for the fold ratio.
     pub priced_folds: u64,
     pub priced_fold_bytes: u64,
     pub priced_payload: u64,
@@ -3326,8 +2815,7 @@ impl EngineTotals {
         self.distilled_input.saturating_sub(self.distilled_output)
     }
 
-    /// Bytes neither engine let through. Absolute, because summing the two
-    /// percentages is the error this whole type exists to prevent.
+    /// Bytes neither engine let through, absolute because percentages may not be summed.
     pub fn total_saved(&self) -> u64 {
         self.distilled_saved() + self.fold_bytes
     }
@@ -3337,8 +2825,7 @@ impl EngineTotals {
             .then(|| 100.0 * self.distilled_saved() as f64 / self.distilled_input as f64)
     }
 
-    /// `None` when no fold in the window records a payload size, because a
-    /// ratio over a base that does not exist is a guess wearing a percent sign.
+    /// `None` when no fold records a payload size: no base, no ratio.
     pub fn fold_pct(&self) -> Option<f64> {
         (self.priced_payload > 0)
             .then(|| 100.0 * self.priced_fold_bytes as f64 / self.priced_payload as f64)
@@ -3346,29 +2833,18 @@ impl EngineTotals {
 }
 
 #[derive(Debug, Clone)]
-/// How often one marker shape sent a reader back for the bytes.
-///
-/// The whole point of recording the kind (#766). A shape with a high retrieve
-/// rate is one that did not answer the question it interrupted, which is a work
-/// queue rather than an opinion about wording.
+/// How often one marker shape sent a reader back for the bytes (#766). A high
+/// rate means the shape did not answer the question it interrupted.
 pub struct MarkerRate {
     pub kind: String,
-    /// The tool whose reply the marker replaced, empty for a row written before
-    /// the column existed (#822).
+    /// The tool whose reply the marker replaced; empty before #822.
     pub tool: String,
     pub folds: i64,
     pub retrieved: i64,
 }
 
-/// One marker a reader was actually handed, at the grain `ledger_folds` cannot
-/// reach: that table groups a call's folds by (origin, source agent), and a
-/// marker is per run.
-///
-/// `kind` comes from the arm that rendered the string, so a wording change moves
-/// the label with it (#766). `handle` is what joins a later `retrieve_events`
-/// row back to the marker that sent the reader looking, which is the measurement
-/// this exists for: a marker shape with a high retrieve rate is one that did not
-/// answer the question it interrupted.
+/// One marker a reader was handed, finer than `ledger_folds`. `kind` comes from
+/// the rendering arm (#766); `handle` joins later retrievals back to it.
 pub struct MarkerRecord {
     pub kind: &'static str,
     pub handle: String,
@@ -3376,25 +2852,19 @@ pub struct MarkerRecord {
     pub bytes: usize,
 }
 
+/// One fold's evidence: whose lines it replaced and how much, grouped by the
+/// caller so twenty runs from one agent write one row.
 pub struct FoldRecord {
-    /// The agent that was shown these lines first, from `ledger_lines.agent_id`.
+    /// The agent shown these lines first.
     pub source_agent: String,
-    /// `session` or `project`. Kept as a string because it is read by SQL far
-    /// more often than by Rust, and a query should not have to know an enum's
-    /// discriminants.
+    /// `session` or `project`, a string because SQL reads it far more than Rust.
     pub origin: &'static str,
     pub lines: usize,
     pub bytes: usize,
-    /// Every line of the payload was folded, so the agent holds markers and no
-    /// content. A property of the call, not of this row: each row of one call
-    /// carries the same value, because the table already aggregates by
-    /// (origin, source agent) and a per-run flag has nowhere to live here.
+    /// Every line was folded. Per call, repeated on each row of it.
     pub whole_output: bool,
-    /// The whole payload this fold came out of, repeated on every row of the
-    /// call so the floor audit is a row predicate rather than a GROUP BY. `ts`
-    /// is whole seconds and so cannot key a call: two folds by one agent inside
-    /// one second would merge, and their combined size can clear a floor
-    /// neither cleared alone.
+    /// The whole payload, repeated on each row so the floor audit is a row
+    /// predicate; whole-second `ts` cannot key a call.
     pub payload_bytes: usize,
 }
 
@@ -3419,23 +2889,16 @@ pub struct DistillationRow {
     pub filter_name: String,
 }
 
-/// One cross-turn fold, as `omni_explain_savings` needs to report it (#602).
-///
-/// No command column, because a fold is not attributed to one: the ledger keys
-/// lines by scope and hash, so the bytes it replaced may have been shown by a
-/// different command than the one being answered. Saying which would need a
-/// source per line, which the table does not carry.
-/// What the ledger remembers about a line it has shown before.
-///
-/// `source` is the command that showed it first, and is empty for rows written
-/// before #622 added the column. Empty means unrecorded, which suppresses the
-/// marker's source clause rather than guessing at one.
+/// What the ledger remembers about a line: `source` is the command that showed
+/// it first, empty before #622, which suppresses the marker clause.
 #[derive(Debug, Clone)]
 pub struct SeenLine {
     pub agent: String,
     pub source: String,
 }
 
+/// One cross-turn fold for `omni_explain_savings` (#602). No command: the
+/// folded bytes may have been shown by a different one.
 #[derive(Debug)]
 pub struct LedgerFoldRow {
     pub origin: String,
@@ -3444,12 +2907,8 @@ pub struct LedgerFoldRow {
     pub whole_output: bool,
 }
 
-/// One filter's re-run comparison: distilled output against raw output (#109).
-///
-/// `Passthrough` rows are the control arm, the agent read the original bytes -
-/// so the two arms differ only in whether OMNI changed what was read. A filter
-/// whose distilled arm is re-run more often than its raw arm removed something
-/// the agent needed, whatever its reduction percentage claims.
+/// One filter's re-run comparison (#109). `Passthrough` rows are the control:
+/// a distilled arm re-run more often than raw removed something needed.
 #[derive(Debug, Clone)]
 pub struct RerunRow {
     pub filter_name: String,
@@ -3470,25 +2929,19 @@ impl RerunRow {
         pct(self.raw_reruns, self.raw)
     }
 
-    /// Percentage points by which distilling this filter's output raised the
-    /// re-run rate. Positive means distillation cost the agent a second run.
+    /// Points by which distilling raised the re-run rate; positive cost a second run.
     pub fn delta_pp(&self) -> f64 {
         self.distilled_pct() - self.raw_pct()
     }
 
-    /// Whether the two arms are too differently sized to compare.
-    ///
-    /// See `RERUN_SIZE_SKEW_LIMIT`: distillation only fires on large output, so
-    /// a filter can land its big invocations in one arm and its small ones in
-    /// the other. When that happens the delta measures input size, not lost
-    /// signal, and must not be reported as if it measured lost signal.
+    /// Whether the arms differ too much in size to compare (`RERUN_SIZE_SKEW_LIMIT`):
+    /// then the delta measures input size, not lost signal.
     pub fn is_confounded(&self) -> bool {
         let (lo, hi) = if self.distilled_avg_input <= self.raw_avg_input {
             (self.distilled_avg_input, self.raw_avg_input)
         } else {
             (self.raw_avg_input, self.distilled_avg_input)
         };
-        // A zero-byte arm cannot be size-matched against a non-zero one.
         if lo == 0 {
             return hi > 0;
         }
@@ -3500,43 +2953,19 @@ impl RerunRow {
 #[derive(Debug, Clone)]
 pub struct AgentRow {
     pub agent_id: String,
-    /// Calls whose distillation reached the agent.
     pub calls: u64,
     pub input_bytes: u64,
     pub output_bytes: u64,
-    /// Calls excluded from the three fields above: pre-#158 Claude Code rows
-    /// whose savings were recorded but never applied.
+    /// Calls left out above: pre-#158 Claude Code rows never applied.
     pub unverified: u64,
 }
 
-/// SQL restricting a savings sum to rows whose distillation actually reached an
-/// agent (#163).
-///
-/// A `claude_code` row written before `POST_HOOK_FIX_TS` records a distillation
-/// that was computed, scored, routed and stored, and then dropped by the host,
-/// because the hook emitted `updatedResponse`, a key Claude Code ignores (#158).
-/// The agent read the raw bytes. Those rows are indistinguishable from the
-/// `omni exec` and pipe rows where the same numbers are true.
-///
-/// The rest of such a row is still good evidence, latency, command, project and
-/// file access all really happened. Only the byte and token columns are fiction,
-/// so this gates **sums over those columns**, not the row. Deleting the rows
-/// would destroy true history to remove a false column, which is what the
-/// never-drop invariant argues against.
-///
-/// The second clause is #212, and it is the larger of the two. `omni exec` and
-/// the shell pipe write to a TTY: a human reads the result, no context holds it,
-/// nothing is billed. Compressing it may still help readability, but counting it
-/// as *tokens saved* and folding it into one headline makes the headline
-/// meaningless, those rows were **73.4% of every byte OMNI claimed to have
-/// saved all-time**, and stripping them took the figure from 66.3% to the 29.3%
-/// that Claude Code actually saw. Rows written since `delivered_bytes` exists say
-/// so themselves; older `terminal` rows are excluded by name, because the column
-/// is `-1` there and `-1` means "recorded before this was known", never "nothing
-/// was delivered".
-///
-/// Interpolated rather than bound because `POST_HOOK_FIX_TS` is a compile-time
-/// `i64` constant, never user input.
+/// SQL restricting savings sums to rows whose distillation reached an agent
+/// (#163). Pre-`POST_HOOK_FIX_TS` Claude Code rows were dropped by the host
+/// (#158), and terminal rows were read by a human, not billed (#212: 73.4% of
+/// all claimed savings). Gates the sums, not the rows, which stay true history.
+/// `delivered_bytes` -1 means "not yet recorded". Interpolated because the
+/// timestamp is a compile-time constant.
 pub(crate) fn applied_only() -> String {
     format!(
         "NOT (agent_id = 'claude_code' AND ts < {}) \
@@ -3575,7 +3004,6 @@ pub struct AgentSessionRow {
     pub state_json: String,
 }
 
-// ── Engram Persistence & FTS5 Search ────────────────────
 impl SqliteBackend {
     pub fn persist_engram(
         &self,
@@ -3739,7 +3167,7 @@ impl SqliteBackend {
             });
         }
 
-        // Sort by score descending (larger is better for our abs(rank) and scaled confidence)
+        // Score descending.
         results.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -3751,10 +3179,8 @@ impl SqliteBackend {
     }
 }
 
-// ── Adaptive Scoring & Knowledge Helpers (Sprint 3) ──────
 impl SqliteBackend {
-    /// Log every recall invocation for adaptive scoring feedback loop.
-    /// Called by omni_recall MCP tool after returning results.
+    /// Logged by `omni_recall` for adaptive scoring.
     pub fn log_retrieval(
         &self,
         query: &str,
@@ -3781,8 +3207,7 @@ impl SqliteBackend {
         );
     }
 
-    /// Retrieve a single knowledge value by exact key.
-    /// Used for `__omni_goal__` pinning and similar reserved keys (BIZ-03).
+    /// One knowledge value by exact key, e.g. `__omni_goal__`.
     pub fn get_knowledge(&self, project_hash: &str, key: &str) -> Option<String> {
         let conn = self.pool.get().ok()?;
         conn.query_row(
@@ -3795,7 +3220,6 @@ impl SqliteBackend {
         .flatten()
     }
 
-    /// Count engrams for a project (for stats display, BIZ-02).
     pub fn count_engrams(&self, project_hash: &str) -> usize {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3809,7 +3233,6 @@ impl SqliteBackend {
         .unwrap_or(0) as usize
     }
 
-    /// Count knowledge entries for a project (for stats display, BIZ-02).
     pub fn count_knowledge_entries(&self, project_hash: &str) -> usize {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3823,7 +3246,6 @@ impl SqliteBackend {
         .unwrap_or(0) as usize
     }
 
-    /// Count recall calls within the last 24 hours for a project (BIZ-02).
     pub fn count_recalls_today(&self, project_hash: &str) -> usize {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3838,9 +3260,7 @@ impl SqliteBackend {
         .unwrap_or(0) as usize
     }
 
-    /// Analyze retrieval patterns to surface adaptive insights (INT-01).
-    /// Returns a Vec of (command_ctx, recall_count) for commands recalled >= threshold times
-    /// within the last 7 days. This is the raw signal for `omni_adaptive_insights`.
+    /// Commands recalled at least `threshold` times in 7 days, for `omni_adaptive_insights`.
     pub fn get_frequent_recall_commands(
         &self,
         project_hash: &str,
@@ -3872,7 +3292,7 @@ impl SqliteBackend {
         .unwrap_or_default()
     }
 
-    /// Surface knowledge entries that have never been recalled (Underused signal, INT-01).
+    /// Knowledge entries never recalled.
     pub fn get_unreferenced_knowledge(&self, project_hash: &str) -> Vec<String> {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3892,8 +3312,6 @@ impl SqliteBackend {
             .unwrap_or_default()
     }
 }
-
-// ── Public Data Types ────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct KnowledgeHit {
@@ -3932,8 +3350,7 @@ mod tests {
         (Store::open_path(&db_path).unwrap(), dir)
     }
 
-    /// #911. A command is stored once however many lines it showed, and a row
-    /// written before the lookup table still answers with its own text.
+    /// One stored command per call; pre-#911 rows answer with their own text.
     #[test]
     fn a_source_is_stored_once_and_old_rows_still_name_theirs() {
         let (store, _dir) = get_temp_store();
@@ -3962,8 +3379,6 @@ mod tests {
         assert_eq!(seen["old"].source, "git diff");
     }
 
-    /// #911. The prune drops a source no line points at, and keeps an old one a
-    /// refreshed line still names.
     #[test]
     fn the_prune_keeps_a_source_a_surviving_line_still_names() {
         let (store, _dir) = get_temp_store();
@@ -3994,14 +3409,8 @@ mod tests {
         assert_eq!(left, ["cat kept.rs"]);
     }
 
-    /// #631. The database holds raw command output, and it inherited the umask:
-    /// 0644 on the machine that reported it, for 147 MB of it.
-    ///
-    /// Loosened by hand and reopened rather than tested straight after creation,
-    /// for two reasons. A runner with a strict umask would give 0600 anyway and
-    /// the assertion would pass against no code at all, and an existing install
-    /// already has the bytes on disk, so tightening on the next run is the case
-    /// that matters.
+    /// Loosened by hand then reopened: a strict-umask runner would pass with no
+    /// code, and existing installs need tightening on the next run (#631).
     #[cfg(unix)]
     #[test]
     fn a_reopen_tightens_a_database_left_world_readable() {
@@ -4024,18 +3433,8 @@ mod tests {
         assert_eq!(mode, 0o600, "recorded output must not stay world readable");
     }
 
-    /// #602. `omni_explain_savings` reported "No recent distillations" for a
-    /// session whose only compression was cross-turn folding, because folds go to
-    /// `ledger_folds` and the tool read `distillations`.
-    ///
-    /// Driven through `Ledger::project`, the real write path, rather than by
-    /// inserting rows by hand. The first version of this test did insert them,
-    /// invented a session-shaped `scope`, and passed against a fix that returned
-    /// nothing in production: `scope` holds the **project** whenever there is one,
-    /// by design, and all 936 rows on the machine that confirmed the bug carry a
-    /// filesystem path there. A fixture that writes its own rows cannot catch a
-    /// disagreement between the writer and the reader, which is the only thing
-    /// that was wrong.
+    /// Driven through `Ledger::project`: a hand-written fixture with an invented
+    /// scope passed against a fix that returned nothing in production (#602).
     #[test]
     fn folds_are_found_by_the_session_that_made_them() {
         let (store, _dir) = get_temp_store();
@@ -4068,9 +3467,7 @@ mod tests {
             "a session with no folds borrowed another's"
         );
 
-        // The shape the MCP server actually asks in. It cannot see the host
-        // session id, and the id it does hold is minted by `SessionState::new`,
-        // so filtering on that returns nothing and reads as "nothing happened".
+        // As the MCP server asks: it cannot see the host session id.
         assert!(
             !store.get_recent_ledger_folds(None, 10).is_empty(),
             "an unfiltered lookup must see the folds, or the MCP tool is blind again"
@@ -4082,9 +3479,6 @@ mod tests {
         );
     }
 
-    /// #441. The largest population in the corpus was one undifferentiated
-    /// bucket, readable only by string matching on the command it had been
-    /// concatenated to.
     #[test]
     fn counts_passthroughs_by_the_gate_that_declined_them() {
         let (store, _d) = get_temp_store();
@@ -4109,8 +3503,7 @@ mod tests {
         );
     }
 
-    /// #440. The knob exists so a corpus can outlive the window while a figure
-    /// is being measured; the default has to stay where #165 put it.
+    /// The override holds traces open; the default stays at #165's window.
     #[test]
     fn holds_traces_open_when_the_override_asks_and_ignores_a_bad_one() {
         let read = |raw: Option<&str>| -> u32 {
@@ -4127,9 +3520,7 @@ mod tests {
         );
     }
 
-    /// #427: every one of 20 entries read RESOLVED, including patterns that had
-    /// fired 27 times, because a success resolves a whole tool family and
-    /// nothing ever took the flag back.
+    /// A recurring pattern loses its resolved flag (#427).
     #[test]
     fn a_pattern_that_recurs_stops_being_resolved() {
         let (store, _d) = get_temp_store();
@@ -4157,8 +3548,7 @@ mod tests {
         assert_eq!(after_recurrence.occurrence_count, 2);
     }
 
-    /// #438: the column declared a contract for four releases and nothing read
-    /// it, so the schema said 30 days and the table was permanent.
+    /// `ttl_days` is honoured (#438).
     #[test]
     fn expires_loop_memory_that_nothing_has_reconfirmed() {
         let (store, _d) = get_temp_store();
@@ -4194,8 +3584,7 @@ mod tests {
         );
     }
 
-    /// The headline `omni stats` leads with, so a wrong median is a wrong
-    /// product claim rather than a wrong debug line.
+    /// The headline `omni stats` leads with.
     #[test]
     fn reports_the_median_session_and_how_many_hit_a_compaction() {
         let (store, _d) = get_temp_store();
@@ -4203,8 +3592,7 @@ mod tests {
             ("s1", 10u32, "clear"),
             ("s2", 50, "auto_compact"),
             ("s3", 200, "logout"),
-            // Never closed, so it has nothing to say about how long a session
-            // lasts, and counting it would drag every median down.
+            // Never closed, so excluded from the median.
             ("s4", 0, "clear"),
         ] {
             store.save_session_summary(id, 0, "claude_code", commands, 0, "", reason, "/p");
@@ -4246,11 +3634,7 @@ mod tests {
         assert!(tables.contains(&"execution_traces".to_string()));
     }
 
-    /// #212: `terminal` rows were 73.4% of every byte OMNI claimed to have
-    /// saved. That path writes to a TTY, a human reads it, no context holds it,
-    /// nothing is billed, so folding it into a *token* headline made the
-    /// headline describe nothing. Stripping it took the all-time figure from
-    /// 66.3% to the 29.3% Claude Code actually saw.
+    /// Terminal rows are not token savings (#212).
     #[test]
     fn excludes_bytes_no_model_read_from_the_savings_sum() {
         let (store, _dir) = get_temp_store();
@@ -4273,7 +3657,6 @@ mod tests {
             delivered_bytes: delivered,
         };
 
-        // One call a model read, one written to a terminal.
         store.record_distillation("s1", &row(100), "cat a.txt", "", "claude_code");
         store.record_distillation("s1", &row(0), "cat b.txt", "", "terminal");
 
@@ -4284,7 +3667,6 @@ mod tests {
         assert_eq!(output, 100);
     }
 
-    /// A row for these two tests; the values are irrelevant, only that it lands.
     fn any_distillation() -> DistillResult {
         DistillResult {
             output: String::new(),
@@ -4305,9 +3687,7 @@ mod tests {
         }
     }
 
-    /// #822. A marker recorded its shape and never the tool behind the reply,
-    /// so a rate could say `project_run` is retrieved more often than
-    /// `session_run` and never which surface that lands on. Grouped by both now.
+    /// Rates group by tool as well as shape (#822).
     #[test]
     fn a_marker_records_the_tool_that_produced_the_reply() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -4359,15 +3739,8 @@ mod tests {
         assert_eq!(read.kind, "project_run");
     }
 
-    /// #665. The one percentage `omni stats` printed was the distiller averaged
-    /// over every call OMNI deliberately declined, and `ledger_folds` was not
-    /// read at all. On the maintainer's machine that reported 4.5% for a week in
-    /// which the distiller took 48% off what it was given and the ledger removed
-    /// 1.6 times as many bytes again.
-    ///
-    /// Both halves are here because either one alone passes with the other
-    /// broken: a base that includes the declined calls still reads folds, and a
-    /// reader that ignores the ledger still gets the distiller ratio right.
+    /// Declined calls are out of the base and folds are read (#665); either half
+    /// alone passes with the other broken.
     #[test]
     fn the_declined_calls_stay_out_of_the_base_and_the_folds_are_counted() {
         let (store, _dir) = get_temp_store();
@@ -4378,8 +3751,7 @@ mod tests {
         distilled.delivered_bytes = 200;
         store.record_distillation("s1", &distilled, "cargo build", "", "claude_code");
 
-        // Nine declined calls, each larger than the distilled one. Averaged in
-        // they drag 80% down to 8%, which is the shape of the defect.
+        // Nine large declined calls: averaged in, 80% reads as 8%.
         let mut declined = any_distillation();
         declined.route = crate::pipeline::Route::Passthrough;
         declined.input_bytes = 10_000;
@@ -4389,9 +3761,7 @@ mod tests {
             store.record_distillation("s1", &declined, "kubectl get pods", "", "claude_code");
         }
 
-        // One fold, two rows: the lines came from two agents, and every row of a
-        // fold repeats the same payload size. Summing `payload_bytes` over rows
-        // therefore divides 500 saved bytes by 4,000 instead of 2,000.
+        // One fold, two rows from two agents, same payload size: sum per fold, not per row.
         store.ledger_record_folds(
             "/proj",
             "claude_code",
@@ -4418,9 +3788,7 @@ mod tests {
             &[],
         );
 
-        // A second fold, same second, same session, same payload size, and it
-        // repeats a (origin, source agent) pair the first one already used. The
-        // table has no fold id, so nothing but that repeat distinguishes the two.
+        // A second fold in the same second that repeats an (origin, agent) pair.
         store.ledger_record_folds(
             "/proj",
             "claude_code",
@@ -4437,9 +3805,7 @@ mod tests {
             &[],
         );
 
-        // A third fold sharing the second, the session, the agent, the scope and
-        // the payload size, and overlapping the first two in no (origin, source
-        // agent) pair at all. Nothing outside `fold_id` separates it from them.
+        // A third fold that only `fold_id` separates from the first two.
         store.ledger_record_folds(
             "/proj",
             "claude_code",
@@ -4473,9 +3839,7 @@ mod tests {
             &[],
         );
 
-        // Force every row into one second. The recorder stamps wall clock, so a
-        // test cannot otherwise decide whether two folds land together, and the
-        // collision these three are here to prove would appear or not by timing.
+        // One second for every row, so the collision does not depend on timing.
         store
             .pool
             .get()
@@ -4500,32 +3864,23 @@ mod tests {
             t.priced_payload, 6_000,
             "one payload per fold, not one per row"
         );
-        // 1,000 removed from 6,000. Two rows deep it would be 1,000 from 2,000,
-        // and one row per payload would make it 1,000 from 8,000.
+        // 1,000 removed from 6,000; per-row sums would give 2,000 or 8,000.
         assert_eq!(t.fold_pct().map(|p| (p * 10.0).round()), Some(167.0));
 
-        // 800 from the distiller, 1,050 from the ledger. Bytes may be summed;
-        // the two percentages above may not.
+        // Bytes add up; the two percentages may not.
         assert_eq!(t.total_saved(), 1_850);
     }
 
-    /// #118: the "Last distill" reading came from `rewind_store`, which only
-    /// gains a row when a distillation had content worth storing for later
-    /// retrieval. On a real installation that table was empty beside 8,260
-    /// distillations, so `doctor` printed "never [IDLE]" seconds after
-    /// distilling, the wrong answer to the one question it is asked.
+    /// "Last distill" reads `distillations`, not the rarely written `rewind_store` (#118).
     #[test]
     fn reports_the_last_distillation_not_the_last_rewind() {
-        // Arrange
         let (store, _dir) = get_temp_store();
         store.record_distillation("s1", &any_distillation(), "git status", "", "claude_code");
 
-        // Act
         let (_sessions, last_distill) = store
             .latest_activity_timestamps()
             .expect("timestamps readable");
 
-        // Assert
         assert!(
             last_distill.is_some(),
             "a recorded distillation must set the last-distill reading, \
@@ -4533,8 +3888,7 @@ mod tests {
         );
     }
 
-    /// #118: `doctor` printed the session count under the label "records", so a
-    /// database holding thousands of distillations announced a two-digit number.
+    /// `doctor`'s record count is distillations, not sessions (#118).
     #[test]
     fn counts_distillations_apart_from_sessions() {
         let (store, _dir) = get_temp_store();
@@ -4552,16 +3906,8 @@ mod tests {
         );
     }
 
-    /// #566. A `Passthrough` row books a saving the model never received: the
-    /// hook sends no reply on that route, so the host keeps its own bytes, while
-    /// every byte and token column was computed from the distiller's output.
-    /// Across the reporting installation these rows carried 93.0% of every byte
-    /// booked as saved, and correcting them moves `omni stats` all-time from a
-    /// published 37.1% to 8.3%.
-    ///
-    /// A `Keep` row in the same table is the control: it really was delivered, so
-    /// the migration must not touch it. Without that half the test would pass
-    /// against an `UPDATE` with no `WHERE` clause.
+    /// Passthrough rows book no saving (#566). The `Keep` row is the control, so an
+    /// `UPDATE` without a `WHERE` fails.
     #[test]
     fn passthrough_rows_stop_booking_a_saving() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -4614,10 +3960,8 @@ mod tests {
         );
     }
 
-    /// Puts rows straight into an existing database and re-arms the dedupe
-    /// migration, so the next `open_path` runs it over them. Going through
-    /// `record_distillation` would stamp `ts` from the clock, and two calls
-    /// landing in the same second is not something a test should depend on.
+    /// Inserts rows directly and re-arms the dedupe migration, so two rows land in
+    /// one second without depending on the clock.
     fn seed_rows_and_rearm_migration(db: &std::path::Path, rows: &[(&str, i64, i64, i64)]) {
         let conn = rusqlite::Connection::open(db).expect("open seed db");
         conn.execute(
@@ -4643,14 +3987,9 @@ mod tests {
             .expect("count")
     }
 
-    /// #118: 1,231 of 8,272 rows on the reporting installation are a second
-    /// copy of one command, inflating every count `omni stats` publishes by 15%.
-    /// Inside a duplicate group `latency_ms` is the only column that ever
-    /// differs, which is what distinguishes one input distilled twice from two
-    /// separate commands.
+    /// Duplicates differing only in `latency_ms` collapse to one (#118).
     #[test]
     fn collapses_a_distillation_recorded_twice() {
-        // Arrange
         let dir = tempfile::tempdir().expect("tempdir");
         let db = dir.path().join("omni.db");
         drop(Store::open_path(&db).expect("first open builds the schema"));
@@ -4662,15 +4001,12 @@ mod tests {
             ],
         );
 
-        // Act
         drop(Store::open_path(&db).expect("second open runs the migration"));
 
-        // Assert
         assert_eq!(row_count(&db), 1, "the second copy must be collapsed");
     }
 
-    /// The counter-case. Two rows that differ in something a reader can act on
-    /// are two events, and deleting one would under-report a real command.
+    /// Rows that differ in anything else are two events and both stay.
     #[test]
     fn keeps_rows_that_differ_in_more_than_latency() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -4691,8 +4027,7 @@ mod tests {
         assert_eq!(row_count(&db), 4, "distinguishable rows must survive");
     }
 
-    /// The migration is recorded, so a later open must not touch rows written
-    /// after it ran. Without the marker every open would re-collapse history.
+    /// Recorded once, so later rows are never re-collapsed.
     #[test]
     fn does_not_run_the_dedupe_a_second_time() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -4707,7 +4042,6 @@ mod tests {
         );
         drop(Store::open_path(&db).expect("second open runs the migration"));
 
-        // A genuine repeat arriving later, which the migration must now ignore.
         let conn = rusqlite::Connection::open(&db).expect("open");
         conn.execute(
             "INSERT INTO distillations
@@ -4747,15 +4081,10 @@ mod tests {
             filtered_tokens: 5,
             delivered_bytes: 10,
         };
-        // Should not panic
         store.record_distillation("sess_123", &res, "npm start", "", "claude_code");
     }
 
-    /// The `LIMIT 200` this carried was applied to raw commands, but the caller
-    /// folds them into shortened keys afterwards, so the cap silently cut rows
-    /// the fold would have summed. `node -e` was 21 one-call rows adding up to a
-    /// displayed `21x`, all of them below the cut, and the command was rendered
-    /// with an agent nobody had resolved (#471).
+    /// No row cap: the caller's fold needs every row (#471).
     #[test]
     fn returns_every_command_not_the_first_two_hundred() {
         let (store, _dir) = get_temp_store();
@@ -4776,8 +4105,7 @@ mod tests {
             filtered_tokens: 5,
             delivered_bytes: 10,
         };
-        // 250 distinct one-call commands, which is the shape that defeats a cap
-        // ordered by call count: every row ties at 1.
+        // 250 one-call commands, all tied at 1, defeat a cap ordered by calls.
         for i in 0..250 {
             store.record_distillation(
                 "s",
@@ -4818,10 +4146,7 @@ mod tests {
         }
     }
 
-    /// #173. A one-shot command earns no multiplier: nothing is re-sent after
-    /// it, so the compounded figure must equal the at-insertion one. Anything
-    /// else is a free multiplier, which is the bigger-but-not-truer number this
-    /// tracker exists to fight.
+    /// A one-shot command earns no multiplier (#173).
     #[test]
     fn gives_a_single_call_session_no_reuse_credit() {
         let (store, _dir) = get_temp_store();
@@ -4838,9 +4163,7 @@ mod tests {
         );
     }
 
-    /// The first result of a three-call session is re-sent twice, the second
-    /// once, the third never. At a 10% cache-read rate that is
-    /// 60×1.2 + 60×1.1 + 60×1.0, and never 60×3.
+    /// 60×1.2 + 60×1.1 + 60×1.0 at a 10% cache-read rate, never 60×3.
     #[test]
     fn discounts_reuse_instead_of_multiplying_it() {
         let (store, _dir) = get_temp_store();
@@ -4858,8 +4181,7 @@ mod tests {
         assert!(cumulative >= at_insertion);
     }
 
-    /// Sessions are independent: a long one must not lend its turn count to a
-    /// short one, which is what a global row ordering would do.
+    /// A long session must not lend its turn count to a short one.
     #[test]
     fn counts_reuse_within_a_session_only() {
         let (store, _dir) = get_temp_store();
@@ -4876,11 +4198,7 @@ mod tests {
         );
     }
 
-    /// #165. `execution_traces` stores `raw_input` and `distilled_output`
-    /// verbatim and was in no cleanup at all, which is why it alone reached 160.1
-    /// MB of a 187 MB database while every other table stayed bounded. Its only
-    /// reader asks for the newest N, so a trace older than the window answers no
-    /// question anyone is posing.
+    /// Traces are pruned by their own shorter window (#165).
     #[test]
     fn prunes_execution_traces_on_their_own_shorter_window() {
         let (store, _dir) = get_temp_store();
@@ -4896,8 +4214,7 @@ mod tests {
         }
         drop(conn);
 
-        // The general retention is far longer than the trace window, so anything
-        // pruned here was pruned by the trace rule and not by the shared one.
+        // The general window is far longer, so anything pruned here was the trace rule.
         store.cleanup_old(365);
 
         let conn = store.pool.get().expect("conn");
@@ -4917,7 +4234,6 @@ mod tests {
         );
     }
 
-    /// `verification_results` had no writer and no reader anywhere in the tree.
     #[test]
     fn drops_the_table_with_neither_a_writer_nor_a_reader() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -4941,17 +4257,12 @@ mod tests {
         assert_eq!(left, 0);
     }
 
-    /// #270. `context_turns` was written on every hooked command, carried an
-    /// index, and had no `SELECT` anywhere in the tree: 5,532 rows paying write
-    /// latency and disk for a reader that never existed. Opening a store that
-    /// still has it must remove it, or the rows keep their index and nothing
-    /// reclaims the space.
+    /// Opening an old store drops `context_turns` (#270).
     #[test]
     fn drops_the_write_only_context_turns_table() {
         let dir = tempfile::tempdir().expect("tempdir");
         let db = dir.path().join("omni.db");
 
-        // A database from before the drop.
         {
             let conn = rusqlite::Connection::open(&db).expect("open");
             conn.execute_batch(
@@ -4984,10 +4295,7 @@ mod tests {
         assert_eq!(indexes, 0, "its index costs write latency too");
     }
 
-    /// #379. The drop was gated on a `schema_migrations` row, so once it had run
-    /// the table could be recreated by a concurrently installed older binary and
-    /// never be removed again. Seeding both the marker row and the table is that
-    /// machine, and the drop has to run anyway.
+    /// The drop runs even with its migration row present (#379).
     #[test]
     fn drops_context_turns_even_when_its_migration_is_already_recorded() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -5018,12 +4326,7 @@ mod tests {
         assert_eq!(tables, 0, "a recorded migration must not protect the table");
     }
 
-    /// #667. `--detail` prints this pair under a header naming a window, so an
-    /// all-time count read as part of that window. The window is the archive's own
-    /// timestamp: `retrieved` is a lifetime counter on the row, and re-archiving
-    /// refreshes `ts`, so the pair means "archives last written in this window, and
-    /// how many of those rows have ever been pulled". Both halves are pinned here
-    /// because the wording is what went wrong first.
+    /// Both halves of the windowed pair are pinned (#667).
     #[test]
     fn rewind_metrics_counts_only_the_window() {
         let (store, _dir) = get_temp_store();
@@ -5065,10 +4368,7 @@ mod tests {
         );
     }
 
-    /// #274. The key carried a nanosecond prefix, so every key was unique and
-    /// the `INSERT OR IGNORE` under it could never fire: the same output was
-    /// archived again on every run. Harmless while the archive never fired at
-    /// all, a live disk cost from #271 onward.
+    /// Identical content is archived once (#274).
     #[test]
     fn archives_identical_content_once() {
         let (store, _dir) = get_temp_store();
@@ -5086,11 +4386,7 @@ mod tests {
         assert_eq!(store.retrieve_rewind(&first), Some(content.to_string()));
     }
 
-    /// #593 review, the first of two. `store::query` calls `retrieve_rewind` to
-    /// answer reports, so booking the debt there charged a delivery to a read no
-    /// agent made, and the next real fold paid it. The comment on the counter
-    /// beside it already said this about `retrieve_rewind`; the flag went in on
-    /// the wrong side of it anyway.
+    /// Report reads do not book a delivery debt (#593 review).
     #[test]
     fn a_report_read_does_not_owe_a_delivery() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -5107,9 +4403,7 @@ mod tests {
         );
     }
 
-    /// #593 review, the second. A flag would let the first delivery clear the
-    /// debt of two readers, so the second one is folded back into the marker it
-    /// was following. A count pays each of them once.
+    /// Two readers of one handle each get a delivery (#593 review).
     #[test]
     fn two_pulls_earn_two_verbatim_deliveries() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -5129,9 +4423,7 @@ mod tests {
         );
     }
 
-    /// #388. The key used to come back on every path, including a swallowed
-    /// insert, so the caller printed `omni_retrieve("<key>")` for a row that was
-    /// never written. The archive's whole promise is that the handle resolves.
+    /// No key for a row that was never written (#388).
     #[test]
     fn reports_an_archive_write_that_did_not_land() {
         let (store, _dir) = get_temp_store();
@@ -5148,8 +4440,6 @@ mod tests {
         );
     }
 
-    /// Different content still gets its own row, so the deduplication is by
-    /// identity rather than by collapsing everything into one key.
     #[test]
     fn keeps_distinct_content_apart() {
         let (store, _dir) = get_temp_store();
@@ -5175,15 +4465,13 @@ mod tests {
         let content = "this is some compressed content";
         let hash = store.store_rewind_whole(content).expect("archived");
 
-        // A content address and nothing else. The nanosecond prefix this used to
-        // carry is what made `INSERT OR IGNORE` decoration (#274).
+        // A content address only (#274).
         assert_eq!(hash.len(), 16);
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
 
         let retrieved = store.retrieve_rewind(&hash);
         assert_eq!(retrieved, Some(content.to_string()));
 
-        // Retrieved counts updated
         let conn = store.pool.get().unwrap();
         let count: i32 = conn
             .query_row(
@@ -5195,12 +4483,7 @@ mod tests {
         assert_eq!(count, 1);
     }
 
-    /// Was `duplicate_rewind_hashes_are_unique`, which asserted `hash1 != hash2`
-    /// for identical content. That was the defect written down as a requirement:
-    /// the keys differed only because of a nanosecond prefix, and the prefix is
-    /// what stopped the archive from ever deduplicating (#274). The half of it
-    /// that stated a real guarantee, that a returned key resolves to its content,
-    /// is kept here and in `archives_identical_content_once`.
+    /// A returned key resolves to its content.
     #[test]
     fn every_returned_key_resolves_to_its_content() {
         let (store, _dir) = get_temp_store();
@@ -5230,7 +4513,7 @@ mod tests {
         let (store, _dir) = get_temp_store();
         store.index_event("sess_2", "log", "The server is running now");
 
-        // Porter stemming makes 'run' match 'running'
+        // Porter stemming: 'run' matches 'running'.
         let res = store.search_session_events("sess_2", "run", 10);
         assert_eq!(res.len(), 1);
         assert_eq!(res[0], "The server is running now");
@@ -5254,8 +4537,6 @@ mod tests {
         assert_eq!(count, 0);
     }
 
-    // ─── Re-run metric (#109) ───────────────────────────
-
     fn row(distilled: u64, raw: u64, d_avg: u64, r_avg: u64) -> RerunRow {
         RerunRow {
             filter_name: "f".into(),
@@ -5268,15 +4549,12 @@ mod tests {
         }
     }
 
-    /// The guard that stopped `kubectl`'s +48.6pp from being published as a
-    /// finding: 244,606 B of `get -A` dumps against 115 B of config reads is
-    /// not one population, so the delta measures size, not lost signal.
+    /// Size-skewed arms are flagged: their delta measures size, not lost signal.
     #[test]
     fn flags_arms_of_wildly_different_size_as_confounded() {
         assert!(row(239, 140, 244_606, 115).is_confounded());
     }
 
-    /// `grep`'s arms are matched (3,196 B vs 3,240 B), so its delta is real.
     #[test]
     fn treats_similarly_sized_arms_as_comparable() {
         assert!(!row(103, 255, 3_196, 3_240).is_confounded());
@@ -5284,12 +4562,11 @@ mod tests {
 
     #[test]
     fn treats_a_skew_at_the_limit_as_comparable() {
-        // Exactly 3×, the limit is exclusive, so this still compares.
+        // Exactly 3×: the limit is exclusive.
         assert!(!row(10, 10, 3_000, 1_000).is_confounded());
         assert!(row(10, 10, 3_001, 1_000).is_confounded());
     }
 
-    /// An empty arm cannot be size-matched, and must not divide by zero.
     #[test]
     fn treats_an_empty_arm_as_confounded_without_panicking() {
         assert!(row(10, 10, 0, 4_000).is_confounded());
@@ -5340,8 +4617,6 @@ mod tests {
         .unwrap();
     }
 
-    /// Four commands run twice under distillation (so the first of each pair is
-    /// a re-run) against eight distinct commands passed through raw.
     fn seed_rerun_fixture(store: &Store, filter: &str) {
         for i in 0..4 {
             let cmd = format!("{filter} task{i}");
@@ -5370,7 +4645,6 @@ mod tests {
         let npm = rows.iter().find(|r| r.filter_name == "npm").unwrap();
         assert_eq!(npm.distilled, 8);
         assert_eq!(npm.raw, 8);
-        // Only the first of each pair has a later twin.
         assert_eq!(npm.distilled_reruns, 4);
         assert_eq!(npm.raw_reruns, 0);
         assert_eq!(npm.delta_pp(), 50.0);
@@ -5382,7 +4656,6 @@ mod tests {
         for i in 0..4 {
             let cmd = format!("npm task{i}");
             insert(&store, "s1", 1000, "npm", &cmd, "Keep");
-            // One second past RERUN_WINDOW_SECS.
             insert(
                 &store,
                 "s1",
@@ -5442,13 +4715,11 @@ mod tests {
         );
     }
 
-    /// Below the sample floor a delta is noise, and publishing it would be the
-    /// confident-but-unsupported number this metric exists to catch.
+    /// Below the sample floor no delta is published.
     #[test]
     fn excludes_a_filter_below_the_minimum_sample_size() {
         let (store, _dir) = get_temp_store();
         seed_rerun_fixture(&store, "npm");
-        // One short on the distilled arm.
         for i in 0..(crate::pipeline::RERUN_MIN_SAMPLES - 1) {
             insert(&store, "s1", 1000, "rare", &format!("rare a{i}"), "Keep");
         }
@@ -5469,8 +4740,6 @@ mod tests {
         assert!(!rows.iter().any(|r| r.filter_name == "rare"));
     }
 
-    /// Pre-#158 Claude Code `Keep` rows are controls wearing a treatment label;
-    /// counting them can zero out a real finding.
     #[test]
     fn excludes_claude_code_rows_recorded_before_the_post_hook_fix() {
         let (store, _dir) = get_temp_store();
@@ -5541,7 +4810,6 @@ mod tests {
     fn ranks_the_worst_offender_first() {
         let (store, _dir) = get_temp_store();
         seed_rerun_fixture(&store, "npm");
-        // `quiet` is distilled but never re-run: delta 0 against npm's +50.
         for i in 0..8 {
             insert(&store, "s1", 1000, "quiet", &format!("quiet a{i}"), "Keep");
             insert(
@@ -5559,13 +4827,9 @@ mod tests {
         assert_eq!(rows.first().unwrap().filter_name, "npm");
     }
 
-    // ─── Unapplied savings (#163) ───────────────────────
-
     const BEFORE_FIX: i64 = crate::pipeline::POST_HOOK_FIX_TS - 1;
     const AFTER_FIX: i64 = crate::pipeline::POST_HOOK_FIX_TS + 1;
 
-    /// A `claude_code` row written before #158 landed recorded a saving the host
-    /// threw away. Summing it overstates what OMNI actually did.
     #[test]
     fn excludes_unapplied_claude_code_savings_from_the_totals() {
         let (store, _dir) = get_temp_store();
@@ -5602,8 +4866,7 @@ mod tests {
         assert_eq!((count, input, output), (1, 1000, 500));
     }
 
-    /// The #158 cutoff is about a hook whose output the host ignored, so it must
-    /// not touch an agent that never used that hook, at any timestamp.
+    /// The #158 cutoff applies only to Claude Code.
     #[test]
     fn counts_other_agents_savings_regardless_of_when_they_were_recorded() {
         let (store, _dir) = get_temp_store();
@@ -5614,13 +4877,7 @@ mod tests {
         assert_eq!(count, 1);
     }
 
-    /// `terminal` used to be counted here on the grounds that `omni exec` and the
-    /// pipe "wrote stdout directly and were always genuine". The compression is
-    /// genuine and it is still not a *token* saving: that output goes to a TTY,
-    /// no context holds it and nothing is billed. Those rows were 73.4% of every
-    /// byte OMNI claimed all-time, which is what made the headline describe
-    /// nothing (#212). Split from the timestamp case above because the two
-    /// exclusions have nothing to do with each other.
+    /// Terminal rows are not token savings (#212).
     #[test]
     fn excludes_terminal_rows_from_the_token_headline() {
         let (store, _dir) = get_temp_store();
@@ -5633,8 +4890,6 @@ mod tests {
         assert_eq!(count, 0, "TTY bytes are not tokens anyone was billed for");
     }
 
-    /// Excluded rows are reported, not silently missing: a call count that
-    /// shrinks without explanation reads as OMNI having stopped working.
     #[test]
     fn reports_unapplied_rows_beside_the_totals_rather_than_dropping_them() {
         let (store, _dir) = get_temp_store();
@@ -5659,8 +4914,7 @@ mod tests {
         assert_eq!(cc.input_bytes, 1000, "excluded bytes stay out of the sum");
     }
 
-    /// The rows survive, only their byte columns are disowned. Deleting them
-    /// would destroy true latency and command history to remove a false sum.
+    /// The rows survive; only their byte sums are excluded.
     #[test]
     fn keeps_the_unapplied_rows_in_the_table() {
         let (store, _dir) = get_temp_store();
@@ -5700,14 +4954,7 @@ mod tests {
         assert!(store.get_agent_breakdown(0).unwrap().is_empty());
     }
 
-    /// #773. The table could say what OMNI declined and not who it declined for,
-    /// and `session` is not that test: a hook payload can arrive without a
-    /// session id, so `host output cap`, a branch that only fires for
-    /// `claude_code`, had 20 of its 39 rows carrying none.
-    ///
-    /// That gap made #608 unsizeable. Its case rests on 12.33 MB of structured
-    /// payload having no downstream reader, and the share of that which ever
-    /// entered a model's context is the only part the ledger could take.
+    /// Declines group by the agent they were for (#773).
     #[test]
     fn a_decline_records_which_agent_it_was_declined_for() {
         let (store, _dir) = get_temp_store();
@@ -5743,9 +4990,7 @@ mod tests {
         );
     }
 
-    /// #672. Every other time-series table is pruned by `cleanup_old` and this
-    /// one was not, so it kept command strings past the window the rest honour.
-    /// A user who shortens retention got it everywhere except here.
+    /// `passthrough_events` is pruned like the rest (#672).
     #[test]
     fn the_retention_window_reaches_the_passthrough_log() {
         let (store, _dir) = get_temp_store();
@@ -5777,9 +5022,7 @@ mod tests {
         );
     }
 
-    /// #672. Nothing tied a decline to the session that made it, so the reason
-    /// breakdown could only be global. A time window is not a substitute: a
-    /// third of the sessions on the machine this was measured on overlap another.
+    /// Declines can be scoped to one session (#672).
     #[test]
     fn a_decline_is_attributed_to_the_session_that_made_it() {
         let (store, _dir) = get_temp_store();
@@ -5804,7 +5047,7 @@ mod tests {
             "theirs",
             "claude_code",
         );
-        // Pipe mode, where the host sends no id at all.
+        // Pipe mode: no id.
         store.record_passthrough("sort -u", 400, "below guardrail", "", "claude_code");
 
         assert_eq!(
@@ -5815,10 +5058,7 @@ mod tests {
         assert_eq!(theirs.len(), 2, "{theirs:?}");
         assert_eq!(theirs.iter().map(|(_, n)| n).sum::<u64>(), 2);
 
-        // An empty id is not a session. Asking for one must not hand back every
-        // *other* session's declines, which is what falling through to the
-        // unscoped query did, and what the first version of this assertion
-        // locked in by expecting it.
+        // An empty id must not return other sessions' declines.
         assert!(
             store.passthrough_reasons_for(0, Some("")).is_empty(),
             "an empty session id answered with the whole table"
@@ -5826,14 +5066,7 @@ mod tests {
         assert_eq!(store.passthrough_reasons_for(0, None).len(), 2);
     }
 
-    /// #605. #603 fixed the label going forward and left 16% of the recorded
-    /// corpus filed under an assignment or a binary's full path, which every
-    /// workload query groups on equally.
-    ///
-    /// Run twice on purpose. #379 is the precedent for a migration undone by live
-    /// code, and a recompute that is not idempotent is the same hazard wearing a
-    /// different hat: the predicate that selects a stale row must not match the
-    /// row the migration just wrote.
+    /// The label recompute is idempotent: run twice, like the #379 hazard (#605).
     #[test]
     fn the_recompute_fixes_a_stale_label_and_does_not_run_twice() {
         let dir = tempdir().unwrap();
@@ -5844,7 +5077,6 @@ mod tests {
             ("A=$(kubectl", "A=$(kubectl get pods -n web)"),
             ("/bin/ls", "/bin/ls -l /tmp"),
             ("S=/tmp/x", "S=/tmp/x cargo build --release"),
-            // Already correct, and it must come out unchanged.
             ("cargo", "cargo build --release"),
         ];
         {
@@ -5891,14 +5123,11 @@ mod tests {
             "a stale label survived the recompute"
         );
 
-        // Second open. The migration is recorded, so nothing runs, and even if it
-        // did the recompute is its own fixed point.
+        // Second open: recorded, and a fixed point anyway.
         assert_eq!(labels(&db), after, "a second open changed the labels again");
     }
 
-    /// The recompute reads `command` and nothing else, so a row that lost its
-    /// command has no arithmetic to recover and is left exactly as it is rather
-    /// than relabelled from a guess.
+    /// A row without a command is left as it is.
     #[test]
     fn a_row_with_no_command_keeps_its_stale_label() {
         let dir = tempdir().unwrap();
