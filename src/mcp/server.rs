@@ -1,5 +1,3 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
 use crate::pipeline::scorer::score_segments;
 use crate::pipeline::{SessionState, SignalTier};
 use crate::store::sqlite::Store;
@@ -16,11 +14,9 @@ use std::sync::{Arc, Mutex};
 /// emits; anything below this is that command's content (#266).
 const MIN_COMMANDS_FOR_NOISE: usize = 2;
 
-/// How long `omni_run` waits for a command before abandoning it.
-///
-/// Below every host MCP timeout we know of (Cursor's is 120s) so the model reads
-/// which command stalled instead of an opaque `-32001` (#544). Overridable
-/// because a real build can outlast it and there is no other escape hatch.
+/// How long `omni_run` waits for a command. Below every known host MCP timeout
+/// (Cursor's is 120s), so the model learns which command stalled instead of
+/// reading `-32001` (#544). Overridable for builds that outlast it.
 const RUN_TIMEOUT_SECS: u64 = 60;
 
 fn run_timeout() -> std::time::Duration {
@@ -32,17 +28,9 @@ fn run_timeout() -> std::time::Duration {
     std::time::Duration::from_secs(secs)
 }
 
-/// Runs `command` and returns what the model should read: the distilled output
-/// on success, the raw output on failure.
-///
-/// Separate from the `#[tool]` method so it is testable without an MCP client,
-/// which is the only level at which the interesting behaviour can be wrong.
-///
-/// The failure branch is #122 and is not an optimisation: a command that exited
-/// non-zero passes through verbatim, because distilling a failure is how a
-/// broken build gets reported as a clean one. `run_inner` is the same entry
-/// point `omni exec` uses, so the filters, the format gate and the redaction all
-/// apply here exactly as they do everywhere else.
+/// Runs `command` and returns what the model should read: distilled output on
+/// success, raw output on failure, because distilling a failure is how a
+/// broken build reads as clean (#122). Same `run_inner` as `omni exec`.
 pub(crate) fn run_and_distill(
     command: &str,
     store: Arc<Store>,
@@ -51,10 +39,8 @@ pub(crate) fn run_and_distill(
     run_with_timeout(command, store, session, run_timeout())
 }
 
-/// The body of `run_and_distill`, with the deadline passed in so a test can
-/// drive it without setting `OMNI_RUN_TIMEOUT_SECS` on the whole process. Cargo
-/// runs tests in parallel, and an env var one test writes is an env var every
-/// other test reads.
+/// `run_and_distill` with the deadline passed in, so tests never set
+/// `OMNI_RUN_TIMEOUT_SECS` on the whole process.
 fn run_with_timeout(
     command: &str,
     store: Arc<Store>,
@@ -73,9 +59,7 @@ fn run_with_timeout(
         .arg(command)
         .env_clear()
         .envs(crate::guard::env::sanitize_env())
-        // The server's stdin is the JSON-RPC pipe to the host. A child that reads
-        // a byte of it breaks the framing for the rest of the session, so it gets
-        // EOF instead of the transport.
+        // stdin is the JSON-RPC pipe; a child reading from it would break framing.
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -86,9 +70,8 @@ fn run_with_timeout(
         Err(e) => return format!("omni_run: failed to start `{command}`: {e}"),
     };
 
-    // `wait_with_output` drains both pipes at once. Draining stdout to EOF and
-    // only then stderr deadlocks on any child that fills the stderr pipe buffer
-    // before closing stdout: 64 KB on macOS, around 4 KB on Windows (#544).
+    // `wait_with_output` drains both pipes at once. Draining stdout first deadlocks
+    // a child that fills the stderr buffer before closing stdout (#544).
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let _ = tx.send(child.wait_with_output());
@@ -392,7 +375,6 @@ impl OmniServer {
             .unwrap_or_else(|p| p.into_inner())
             .clone();
 
-        // Use generic Line segmentation for density analysis
         let segments = score_segments(
             &text,
             crate::pipeline::SegmentationMode::Line,
@@ -475,7 +457,6 @@ impl OmniServer {
             query
         );
         for (i, hit) in results.iter().enumerate() {
-            // Log retrieval for INT-01 Adaptive Feedback Loop
             self.store
                 .log_retrieval(&query, &hit.source, &hit.key, &project_hash, &command_ctx);
 
@@ -570,14 +551,12 @@ impl OmniServer {
         self.store.record_memory_read("omni_insight", "");
         let mut report = String::new();
 
-        // Proactive: Context Pressure Notification (Item 10)
         if let Ok(s) = self.session.lock() {
             if let Some(warning) = s.pressure_warning() {
                 report.push_str(&warning);
                 report.push_str("\n\n");
             }
 
-            // Surface active errors for quick awareness
             if !s.active_errors.is_empty() {
                 report.push_str(&format!(
                     "⚠ Active errors ({}): {}\n\n",
@@ -751,7 +730,6 @@ impl OmniServer {
                     .map(|g| format!("[Goal] {} ", g))
                     .unwrap_or_default();
 
-                // Inject INT-02 recent session summary if available
                 let last_session_str = self
                     .store
                     .get_recent_session_summaries(1)
@@ -854,9 +832,7 @@ impl OmniServer {
         let total_saved = session.estimated_tokens_saved();
         let cmd_count = session.command_count;
 
-        // Same reason as `omni_explain_savings`: the id on this side is minted
-        // locally and the rows are keyed on the host's, so filtering by it
-        // reported an empty history for a session that had one (#602).
+        // Not filtered by session: rows are keyed on the host's id, not ours (#602).
         let conn_result = self.store.get_recent_distillations(None, limit);
 
         if conn_result.is_empty() {
@@ -898,19 +874,9 @@ impl OmniServer {
     }
 
     /// The distillation path for hosts whose hooks cannot replace built-in tool
-    /// output.
-    ///
-    /// Cursor is the worked example (#351). Its `postToolUse` exposes
-    /// `updated_mcp_tool_output`, documented "For MCP tools only";
-    /// `afterShellExecution` defines no output fields; and
-    /// `beforeShellExecution` is allow/deny/ask with no command rewrite. Every
-    /// route to the built-in Shell tool is closed, so on Cursor a shell command
-    /// can only be distilled if **OMNI is the tool that ran it**. Then the
-    /// distilled bytes are the tool result and no rewrite is needed at all.
-    ///
-    /// This is not a new capability for the agent: it can already run shell
-    /// commands. It is a different route to the same thing, and it stays under
-    /// the host's own MCP approval flow.
+    /// output. On Cursor no hook can rewrite the Shell tool's output, so a command
+    /// is only distilled if OMNI is the tool that ran it (#351). Still under the
+    /// host's own MCP approval.
     #[tool(
         name = "omni_run",
         description = "Run a shell command and return its distilled output. Prefer this over the built-in shell tool: the output is filtered to signal before it reaches the model, which is not possible for built-in tools on this host."
@@ -919,9 +885,7 @@ impl OmniServer {
         let command = params.0.command;
         let store = self.store.clone();
         let session = Some(self.session.clone());
-        // Running a command blocks for as long as the command takes. On a runtime
-        // worker that stalls whatever else the server was serving, which is how
-        // one hung command turned into every later call timing out (#544).
+        // Off the runtime worker: a hung command there stalled every later call (#544).
         tokio::task::spawn_blocking(move || run_and_distill(&command, store, session))
             .await
             .unwrap_or_else(|e| format!("omni_run: could not run the command: {e}"))
@@ -937,17 +901,10 @@ impl OmniServer {
     ) -> String {
         let limit = params.0.limit;
         let limit = limit.unwrap_or(10).min(50) as usize;
-        // Deliberately not filtered by session. `SessionState` mints its own id
-        // and the hook keys its rows on the host's, so filtering here matched
-        // nothing and this tool answered "No recent distillations" for sessions
-        // that had plenty (#602). Recency is what it can honestly offer.
+        // Not filtered by session: the hook keys rows on the host's id, not ours (#602).
         let rows = self.store.get_recent_distillations(None, limit);
-        // The ledger writes its own table, so a session whose only compression
-        // was cross-turn folding read back as "nothing happened" while its
-        // markers carried live retrieve handles (#602). This is the tool the docs
-        // point at for judging whether a route paid for itself, and the fold
-        // route is exactly where a marker plus a handle can cost more than the
-        // lines it replaced, so it is the case the tool most needed to see.
+        // Folds live in the ledger's own table; without them a session that only
+        // folded reads as "nothing happened" (#602).
         let folds = self.store.get_recent_ledger_folds(None, limit);
         if rows.is_empty() && folds.is_empty() {
             return "No recent distillations or folds recorded.".to_string();
@@ -982,12 +939,8 @@ impl OmniServer {
         out
     }
 
-    /// The fold half of the savings report.
-    ///
-    /// Bytes and lines only, and no command: the ledger keys lines by scope and
-    /// hash, so the bytes a fold replaced may have been shown by a different
-    /// command than the one being answered, and naming the current one would be
-    /// a guess dressed as attribution. That gap is #622.
+    /// The fold half of the savings report. No command name: the folded bytes may
+    /// have been shown by a different command (#622).
     fn render_folds(folds: &[crate::store::sqlite::LedgerFoldRow]) -> String {
         let lines: usize = folds.iter().map(|f| f.lines).sum();
         let bytes: usize = folds.iter().map(|f| f.bytes).sum();
@@ -1023,14 +976,8 @@ impl OmniServer {
         if traces.is_empty() {
             return "No recent traces found.".to_string();
         }
-        // Detect per trace, then keep only what several commands produced.
-        //
-        // Concatenating every trace and counting once made "four times inside one
-        // command" indistinguishable from "once in each of four commands", so a
-        // `gh issue list` row and a Terraform variable description were suggested
-        // as permanent strip patterns at confidence 0.85 (#266). Recurring noise
-        // is by definition what more than one command emits; a string seen only
-        // within a single output is that command's content.
+        // Per trace, then only what several commands produced: a string repeated
+        // inside one output is that command's content, not noise (#266).
         let mut seen_in: HashMap<String, (usize, crate::session::learn::PatternCandidate)> =
             HashMap::new();
         for (_, _, raw, _) in &traces {
@@ -1103,13 +1050,10 @@ impl OmniServer {
             0.0
         };
 
-        // `raw_tokens` is `estimate_tokens` output and nothing else, so this was
-        // reporting `actual` for every row ever written (#663). The flag still
-        // decides which figure to show; only the label was a claim.
+        // `raw_tokens` is always an estimate (#663).
         let is_actual = raw_tokens > 0;
         let method = "estimated";
 
-        // Fallback for legacy
         let display_raw = if is_actual {
             raw_tokens
         } else {
@@ -1201,7 +1145,6 @@ impl OmniServer {
                 format!("{}h ago", age_mins / 60)
             };
 
-            // Parse their state for useful info
             let peer_state: serde_json::Value =
                 serde_json::from_str(&peer.state_json).unwrap_or_default();
             let peer_task = peer_state
@@ -1263,7 +1206,7 @@ impl OmniServer {
                 if k.is_empty() {
                     return "Usage: omni_knowledge(\"forget\", \"key\")".to_string();
                 }
-                // Set confidence to 0 effectively forgets it (below 0.5 threshold)
+                // Confidence 0 is below the 0.5 threshold, which forgets it.
                 self.store.upsert_project_knowledge(&project_hash, &k, "", 0.0);
                 format!("Forgotten: [{k}]")
             }
@@ -1300,7 +1243,6 @@ impl OmniServer {
             session.estimated_tokens_saved()
         ));
 
-        // Active Errors
         out.push_str("## Active Errors\n");
         if session.active_errors.is_empty() {
             out.push_str("None\n");
@@ -1314,7 +1256,6 @@ impl OmniServer {
             }
         }
 
-        // Engrams
         out.push_str("\n## Subtask Progress\n");
         if session.engrams.is_empty() {
             out.push_str("No engrams recorded.\n");
@@ -1325,7 +1266,6 @@ impl OmniServer {
             }
         }
 
-        // Hot Files
         out.push_str("\n## Hot Files\n");
         let mut hot_vec: Vec<(&String, &u32)> = session.hot_files.iter().collect();
         hot_vec.sort_by_key(|a| std::cmp::Reverse(a.1));
@@ -1337,20 +1277,17 @@ impl OmniServer {
             }
         }
 
-        // Tool Call Summary
         let tool_summary = crate::session::engram::format_tool_summary(&session.tool_call_log);
         if !tool_summary.is_empty() {
             out.push('\n');
             out.push_str(&tool_summary);
         }
 
-        // Recent Commands
         out.push_str("\n## Recent Commands\n");
         for cmd in session.last_commands.iter().take(10) {
             out.push_str(&format!("- `{}`\n", crate::util::text::safe_slice(cmd, 80)));
         }
 
-        // Context Pressure
         out.push_str(&format!(
             "\n## Context Pressure: {}\n",
             session.context_pressure
@@ -1514,24 +1451,9 @@ impl OmniServer {
         .to_string()
     }
 
-    /// The routes this host is told about.
-    ///
-    /// Built by removing from the generated router rather than by listing what
-    /// to keep, so a tool added later is inactive until it is put in
-    /// `policy::FULL`. That default is deliberate: the cost of a tool is paid
-    /// by every user on every request, and the benefit is paid by whoever calls
-    /// it (#577).
-    /// Drop the two schema keys that cost bytes and tell a caller nothing.
-    ///
-    /// `schemars` stamps every parameter struct with `$schema`, a 56 byte URL
-    /// naming the JSON Schema draft, and `title`, which is the Rust struct name
-    /// (`OmniRunParams`). Neither changes how a tool is called, and both sit in
-    /// the prefix of every request for the life of a session, which is the unit
-    /// #609 measured the surface in. Over the nine advertised tools: 2,972 B to
-    /// 2,286 B, 23.1%, with no tool removed and no description shortened.
-    ///
-    /// `title` also leaked an internal type name onto the wire, which is not
-    /// something a caller should be reading.
+    /// Drops `$schema` and `title`, which `schemars` stamps on every parameter
+    /// struct. Neither changes how a tool is called, and both are re-sent on every
+    /// request: 686 B of 2,972 B (#609).
     fn strip_schema_boilerplate(
         router: &mut rmcp::handler::server::router::tool::ToolRouter<Self>,
     ) {
@@ -1545,6 +1467,8 @@ impl OmniServer {
         }
     }
 
+    /// The routes this host is told about. Built by removing from the generated
+    /// router, so a new tool stays inactive until it is priced into `policy` (#577).
     fn router_from(
         agent_id: &str,
         keep_everything: bool,
@@ -1568,14 +1492,11 @@ impl OmniServer {
         router
     }
 
-    /// As `router_from`, reading the override from the environment. `doctor`
-    /// reads it through the same function, so its line cannot claim a cut that
-    /// is not in force.
+    /// As `router_from`, with the override read from the environment, as `doctor` reads it.
     fn router_for(agent_id: &str) -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         Self::router_from(agent_id, crate::mcp::policy::override_is_on())
     }
 
-    /// The router the served handler uses.
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
         Self::router_for(&agent_id)
@@ -1588,12 +1509,8 @@ impl rmcp::ServerHandler for OmniServer {}
 fn compute_project_hash_str(project_path: &str) -> String {
     crate::agents::multiagent::project_hash(project_path)
 }
-/// A session id for this MCP connection, stable for the process and unique to it.
-///
-/// Prefixed so a row is recognisable as this path's and can never collide with an
-/// id a host forwards. Pid plus start time rather than a random value, because the
-/// crate has no uuid dependency and adding one to name a process is more than this
-/// needs.
+/// A session id for this MCP connection: prefixed so it never collides with a
+/// host's id, and pid plus start time to avoid a uuid dependency.
 fn mcp_session_id() -> String {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1603,28 +1520,17 @@ fn mcp_session_id() -> String {
 }
 
 pub async fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow::Result<()> {
-    // #686. `omni_run` distils through `pipe::run_inner`, which has carried the
-    // ledger stage since #416, and that stage is gated on a host session id. Only
-    // `omni exec --session` ever set one, so on an MCP host the gate stood shut and
-    // cross-turn folding never ran: the tier with no hook, where `omni_run` is the
-    // only way the model reads less, was the tier that folded nothing.
-    //
-    // Minted per process, and deliberately not `SessionState::session_id`. That one
-    // is a wall-clock stamp on globally persisted state, and `init_globals` hands
-    // this process whichever session was last written by anything, so scoping by it
-    // would tell one agent it had been shown output that went to another (#118). An
-    // `omni --mcp` process serves one stdio client for its lifetime, so the process
-    // is the session: it begins when the client connects and ends when it
-    // disconnects, which is exactly the boundary a fold may reason across.
+    // The ledger stage is gated on a host session id, and nothing set one here, so
+    // `omni_run` never folded (#686). Minted per process rather than taken from
+    // `SessionState`, which may belong to another agent (#118): one `omni --mcp`
+    // process serves one client, so the process is the session.
     crate::hooks::pipe::set_host_session(&mcp_session_id());
 
     let server = OmniServer { store, session };
 
-    // Setup transport over standard IO seamlessly
     use tokio::io::{stdin, stdout};
     let transport = (stdin(), stdout());
 
-    // Serve the server binding transport dynamically via `serve_server`
     let running_service = rmcp::serve_server(server, transport).await?;
     running_service.waiting().await?;
     Ok(())
@@ -1635,16 +1541,13 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    /// #351: on Cursor every route to the built-in Shell tool is closed, so the
-    /// only way a command's output can be distilled is if OMNI is the tool that
-    /// ran it. This is that path, and it must actually shorten.
+    /// On Cursor this is the only path that distils a command, so it must shorten (#351).
     #[cfg(unix)]
     #[test]
     fn omni_run_returns_distilled_output_on_success() {
         let dir = tempdir().unwrap();
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
 
-        // 400 near-identical lines: noisy enough that any real filter shortens it.
         let cmd = "for i in $(seq 1 400); do echo \"INFO  worker ready seq=$i\"; done";
         let out = run_and_distill(cmd, store, None);
 
@@ -1657,9 +1560,7 @@ mod tests {
         assert!(!out.is_empty(), "and it must not hand back nothing");
     }
 
-    /// #122, and the reason this is not just "call the pipeline": a command that
-    /// exited non-zero passes through verbatim. Distilling a failure is how a
-    /// broken build gets reported as a clean one.
+    /// A failed command passes through verbatim (#122).
     #[cfg(unix)]
     #[test]
     fn omni_run_never_distills_a_failed_command() {
@@ -1679,20 +1580,15 @@ mod tests {
         );
     }
 
-    /// #544: stdout was drained to EOF and only then stderr, so a child that
-    /// filled the stderr pipe buffer before closing stdout blocked forever. The
-    /// buffer is 64 KB here and around 4 KB on Windows, which is why it surfaced
-    /// there first, as a 120s MCP idle timeout with no clue which command hung.
-    ///
-    /// The call is fenced off in a thread so the regression fails this test
-    /// rather than hanging the suite.
+    /// A child that fills the stderr buffer before closing stdout must not hang
+    /// (#544). Run in a thread so a regression fails instead of hanging the suite.
     #[cfg(unix)]
     #[test]
     fn omni_run_survives_a_command_that_floods_stderr() {
         let dir = tempdir().unwrap();
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
 
-        // 200 KB of stderr, past any pipe buffer, with stdout written only after.
+        // 200 KB of stderr, past any pipe buffer, before stdout.
         let cmd = "yes ERRLINE | head -c 200000 1>&2; echo done-stdout";
 
         let (tx, rx) = std::sync::mpsc::channel();
@@ -1710,8 +1606,6 @@ mod tests {
         );
     }
 
-    /// A command that never finishes must come back as a sentence naming itself,
-    /// not as the host's opaque idle timeout (#544).
     #[cfg(unix)]
     #[test]
     fn omni_run_gives_up_on_a_command_that_never_finishes() {
@@ -1757,10 +1651,8 @@ mod tests {
         assert_eq!(output, "testing_payload");
     }
 
-    /// #826. The marker says `omni retrieve <handle>`, so an agent that copies it
-    /// sends `handle`; every caller written before this sends `hash`. Both have
-    /// to land on the same field or one of the two readers of a marker cannot
-    /// spend it.
+    /// The marker says `omni retrieve <handle>` while older callers send `hash`;
+    /// both must work (#826).
     #[tokio::test]
     async fn the_word_in_the_marker_and_the_old_field_both_deserialize() {
         let by_marker: OmniRetrieveParams =
@@ -1793,8 +1685,6 @@ mod tests {
         assert!(density.contains("Signal analysis:"));
         assert!(density.contains("Critical:"));
     }
-
-    // ── Phase 2 MCP Tests ──
 
     #[tokio::test]
     async fn test_omni_handoff_exports_markdown() {
@@ -1889,24 +1779,8 @@ mod tests {
         );
     }
 
-    /// The gate from the design: the advertised surface on a Full-tier host is
-    /// under 3,000 bytes. It was 7,912 before this, and the 4,940 that came off
-    /// is the half that had never been called.
-    ///
-    /// Ratcheted to 2,500 for #609, which took another 686 B off by dropping the
-    /// `$schema` and `title` keys `schemars` stamps on every parameter struct.
-    /// The old 3,000 gate stayed green through that whole regression, which is
-    /// what a bound set far above the measurement buys you.
-    ///
-    /// Ratcheted again to 2,200 when `omni_context` left the surface: it was the
-    /// only advertised tool never called once in 253 sessions, and it cost 189 B
-    /// of every request. Kept just above the 2,098 that measures today, for the
-    /// same reason: a gate with room in it does not notice a regression.
-    ///
-    /// Ratcheted to 500 when the admission rule stopped being "called at least
-    /// once" and started being priced (#609). On this tier the list is
-    /// `omni_retrieve` and `omni_explain_savings`, which carried 138 of the 149
-    /// calls in the 256-session corpus; the six that left cost 1,631 B for 11.
+    /// The advertised surface on a Full-tier host stays under 500 B. Kept just
+    /// above the measurement, since a gate with room in it misses regressions.
     #[test]
     fn the_advertised_surface_is_smaller_than_it_was() {
         let router = OmniServer::router_from("claude_code", false);
@@ -1928,9 +1802,6 @@ mod tests {
         );
     }
 
-    /// A host that cannot rewrite built-in tool output has one path left, and
-    /// removing it would leave the install with nothing to do (`strategy.md`
-    /// section 5).
     #[test]
     fn a_handoff_first_host_is_still_told_about_omni_run() {
         let names: Vec<String> = OmniServer::router_from("cursor", false)
@@ -1944,16 +1815,8 @@ mod tests {
         );
     }
 
-    /// #609. The surface sits in the prefix of every request for the life of a
-    /// session, so bytes that tell a caller nothing are paid over and over.
-    /// `schemars` stamps each parameter struct with `$schema`, a URL naming the
-    /// draft, and `title`, the Rust struct name. Neither affects how a tool is
-    /// called; together they were 686 B of 2,972 B.
-    ///
-    /// Asserted on `router_from` rather than `tool_router`, because the raw
-    /// router is the source the strip runs on and still carries both keys.
-    /// Checked on both arms: the override restores every *tool*, not the
-    /// boilerplate.
+    /// Checked on `router_from`, since the raw router still carries both keys, and
+    /// on both arms: the override restores tools, not the boilerplate.
     #[test]
     fn the_advertised_schemas_carry_no_boilerplate() {
         for keep_everything in [false, true] {
@@ -1969,8 +1832,6 @@ mod tests {
         }
     }
 
-    /// The escape hatch, because a cut nobody can undo is a cut that gets
-    /// reported as a missing feature.
     #[test]
     fn the_override_restores_every_tool() {
         let all = OmniServer::tool_router().list_all().len();
@@ -1980,10 +1841,8 @@ mod tests {
         assert_eq!(restored, all);
     }
 
-    /// Design gate 2: every tool in the active set is callable, per tier. The
-    /// policy lists are string literals and the router builds its routes from a
-    /// macro, so a typo in a list deletes a tool from that tier with nothing
-    /// failing: `doctor` then prints a count the router cannot serve.
+    /// Every tool in each tier's list is callable: a typo in a list would silently
+    /// delete a tool from that tier.
     #[test]
     fn every_policy_name_resolves_to_a_route() {
         let routes: Vec<String> = OmniServer::tool_router()
@@ -2005,8 +1864,6 @@ mod tests {
         }
     }
 
-    /// `doctor` prints `ALL_TOOL_COUNT` without building a router, so nothing
-    /// catches the two drifting apart except this.
     #[test]
     fn the_declared_tool_count_matches_the_router() {
         assert_eq!(
@@ -2015,46 +1872,19 @@ mod tests {
         );
     }
 
-    /// The other half of #686, and the half the fold test cannot reach.
-    ///
-    /// `run` is an async server loop over stdio, so a unit test cannot drive it,
-    /// and the fold test opens the gate itself. That means the fold test passes
-    /// with the call in `run` deleted, which is exactly the defect: the mechanism
-    /// worked all along and nothing on this path invoked it.
-    ///
-    /// So this reads `run`'s own body. Narrow window on purpose: "somewhere in the
-    /// file" would pass on the call inside this test module.
-    /// #351: on Cursor every route to the built-in Shell tool is closed, so the
-    /// only way a command's output can be distilled is if OMNI is the tool that
-    /// ran it. This is that path, and it must actually shorten.
-    /// #686. `omni_run` distils through `pipe::run_inner`, whose ledger stage is
-    /// gated on a host session id, and nothing on this path ever set one. So the
-    /// tier where `omni_run` is the only way the model reads less was the tier
-    /// that never folded across turns.
-    ///
-    /// Driven through the real entry point rather than by calling the ledger, and
-    /// asserting on the *second* run of the same command: the first is what the
-    /// ledger learns from, the second is the one it can fold. A test that runs the
-    /// command once cannot tell a working ledger from an absent one.
-    ///
-    /// Unix only, like its neighbour and for the same reason: the fixture needs a
-    /// shell that has `seq` and `awk`. On Windows it produced 175 bytes of error
-    /// text both times, which is two equal lengths and a red assertion for a
-    /// reason that has nothing to do with the ledger.
+    /// The second `omni_run` of a command must fold against the first (#686).
+    /// Unix only: the fixture needs `seq` and `awk`.
     #[cfg(unix)]
     #[test]
     fn a_repeated_omni_run_folds_against_what_the_first_one_showed() {
         let dir = tempfile::tempdir().unwrap();
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
 
-        // The gate this test exists for. Without it the two runs come back the
-        // same length and the assertion below is meaningless.
+        // Without the session the two runs come back the same length.
         crate::hooks::pipe::set_host_session(&super::mcp_session_id());
 
-        // Distinct lines, and enough of them. Forty *identical* lines came to 176
-        // bytes because `collapse` had already folded them to one marker, which is
-        // under `MIN_LEDGER_INPUT` (264 B) and never reached the ledger at all: the
-        // fixture has to clear the floor of the stage under test.
+        // Distinct lines: identical ones collapse under `MIN_LEDGER_INPUT` and never
+        // reach the ledger.
         let cmd = "seq 1 40 | awk '{ printf \"worker-%02d handled request id=req_%05d in %dms\\n\", $1, $1 * 37, $1 }'";
 
         let first = run_and_distill(cmd, store.clone(), None);
@@ -2073,15 +1903,8 @@ mod tests {
         );
     }
 
-    /// The other half of #686, and the half the fold test cannot reach.
-    ///
-    /// `run` is an async server loop over stdio, so a unit test cannot drive it,
-    /// and the fold test opens the gate itself. That means the fold test passes
-    /// with the call in `run` deleted, which is exactly the defect: the mechanism
-    /// worked all along and nothing on this path invoked it.
-    ///
-    /// So this reads `run`'s own body. Narrow window on purpose: "somewhere in the
-    /// file" would pass on the call inside this test module.
+    /// `run` cannot be driven by a unit test, so this reads its body: the session
+    /// must be set before `serve_server`, which blocks for the connection (#686).
     #[test]
     fn the_server_sets_a_session_before_serving() {
         let src = include_str!("server.rs");
@@ -2091,9 +1914,6 @@ mod tests {
         let body = src.get(start..).unwrap_or("");
         let body = body.split("\n}\n").next().unwrap_or(body);
 
-        // Positive and exact. A negative check for `session_id` looked stricter
-        // and was not: `run` takes a `session` parameter and the window is easy to
-        // over-slice, so it failed on text that was never a scope decision.
         let set = body.find("set_host_session(&mcp_session_id())");
         assert!(
             set.is_some(),
@@ -2103,9 +1923,6 @@ mod tests {
              session was last written by anything (#118)."
         );
 
-        // Before serving, not merely somewhere in the function. `serve_server`
-        // blocks for the life of the connection, so a call below it runs at
-        // shutdown and every request in between is unscoped.
         let serve = body
             .find("serve_server")
             .expect("`run` no longer serves; this test is reading the wrong function");
