@@ -95,8 +95,7 @@ fn distill_status(input: &str) -> String {
     out
 }
 
-/// The old and new line counts a hunk header declares, from `@@ -a,b +c,d @@`.
-/// A missing count means one line, which is how git writes a single-line hunk.
+/// The line counts from `@@ -a,b +c,d @@`; a missing count means one.
 fn parse_hunk_header(line: &str) -> Option<(usize, usize)> {
     let body = line.strip_prefix("@@ ")?;
     let (ranges, _) = body.split_once(" @@")?;
@@ -110,19 +109,10 @@ fn parse_hunk_header(line: &str) -> Option<(usize, usize)> {
     Some((count(old)?, count(new)?))
 }
 
-/// Walks a payload line by line and says which lines are hunk body.
-///
-/// Position is what separates diff payload from the prose around it, not the
-/// leading character, and the hunk header is the only thing that says where the
-/// body ends. Two review findings on #618 are the same mistake at different
-/// distances: `git show --format=%B -p` prints the commit body unindented, so a
-/// bullet opening with `-` read as a removal; and running to the next
-/// `diff --git` instead let a *later* commit's message in `git log -p` be read as
-/// patch content, which is what the declared counts fix.
-///
-/// Deciding by position also settles a case the obvious prefix test gets wrong in
-/// the other direction: a removed line whose own text starts with `--` renders as
-/// `--- …`, so excluding `---` would drop a real removal.
+/// Walks a payload line by line and says which lines are hunk body, by the
+/// counts each header declares rather than a leading `-`: commit bodies in
+/// `git show -p` and `git log -p` are prose, and a removed `-- x` renders as
+/// `--- x` (#618 review).
 #[derive(Default)]
 struct HunkWalk {
     old_left: usize,
@@ -130,8 +120,7 @@ struct HunkWalk {
 }
 
 impl HunkWalk {
-    /// Feeds one line, returning whether it is inside a hunk body. A header is
-    /// not body, so it returns false for one.
+    /// Whether this line is hunk body; a header is not.
     fn step(&mut self, line: &str) -> bool {
         if let Some((old, new)) = parse_hunk_header(line) {
             self.old_left = old;
@@ -150,13 +139,9 @@ impl HunkWalk {
                 self.old_left = self.old_left.saturating_sub(1);
                 true
             }
-            // `\ No newline at end of file` annotates the line above it and is
-            // not itself a line of either side, so it spends no budget.
+            // `\ No newline at end of file` spends no budget.
             Some(b'\\') => true,
-            // A context line, and an empty one counts too: git writes it as a
-            // lone space, which anything that strips trailing whitespace turns
-            // into "". Treating that as the end of the hunk would undercount the
-            // rest of it, which is the failure this whole function exists to stop.
+            // An empty line is a context line whose space was stripped.
             Some(b' ') | None => {
                 self.old_left = self.old_left.saturating_sub(1);
                 self.new_left = self.new_left.saturating_sub(1);
@@ -171,7 +156,6 @@ impl HunkWalk {
     }
 }
 
-/// The diffstat, counted the way `git show --numstat` counts it.
 fn count_hunk_lines(input: &str) -> (usize, usize) {
     let mut walk = HunkWalk::default();
     let (mut added, mut removed) = (0, 0);
@@ -187,8 +171,7 @@ fn count_hunk_lines(input: &str) -> (usize, usize) {
     (added, removed)
 }
 
-/// Whether a segment carries a hunk, which is what makes it diff rather than the
-/// prose around one.
+/// Whether a segment carries a hunk.
 fn holds_a_hunk(content: &str) -> bool {
     content.lines().any(|l| l.starts_with("@@ "))
 }
@@ -197,10 +180,7 @@ fn distill_diff(segments: &[OutputSegment], input: &str) -> String {
     let mut out = String::new();
     let mut files = std::collections::HashSet::new();
 
-    // Counted over the payload, never over what survived the filter below. The
-    // summary labels the diff it replaces, so a line the scorer dropped is still
-    // a line the diff changed, and reporting the surviving count as the diffstat
-    // is a measurement the output cannot support (#616).
+    // Counted over the payload, not the survivors (#616).
     let (added, removed) = count_hunk_lines(input);
 
     for seg in segments {
@@ -217,28 +197,16 @@ fn distill_diff(segments: &[OutputSegment], input: &str) -> String {
             continue;
         }
 
-        // A hunk is never noise. `is_blank_or_decorative` tiers a block whose
-        // lines hold only `-`, `=`, `*` or `_` as Noise, which is exactly what a
-        // diff removing a rule of `=====` looks like once each line carries its
-        // `-` marker. Skipping the segment dropped the hunk from the output and
-        // from the counts below, so a 1+/5- diff came out as
-        // `git diff: 1 files changed, 0+, 0-` with no hunk at all (#616). The
-        // per-line filter further down already decides what a segment
-        // contributes; the tier only gets to drop a segment carrying no diff.
+        // A hunk is never Noise, even a removed `=====` rule (#616).
         if seg.tier == SignalTier::Noise && !holds_a_hunk(&seg.content) {
             continue;
         }
 
         let mut hunk_out = String::new();
-        // Context lines are kept only when session context boosted the segment,
-        // which is what buys the >60% reduction. The old note here claimed a hunk
-        // is always Important because it contains "@@ -"; the tier is assigned by
-        // `classify_block` over the whole block and a decorative one comes back
-        // Noise, which is the assumption #616 was built on.
+        // Context lines only when the session boosted the segment.
         let keep_context = seg.context_score > 0.0 || seg.tier == SignalTier::Critical;
 
-        // The same walk the counts use, so what is shown and what is counted
-        // cannot disagree.
+        // The same walk as the counts.
         let mut walk = HunkWalk::default();
         for line in seg.content.lines() {
             let in_body = walk.step(line);
@@ -267,13 +235,8 @@ fn distill_diff(segments: &[OutputSegment], input: &str) -> String {
 
 fn distill_log(segments: &[OutputSegment], input: &str) -> String {
     let mut out = String::new();
-    // After a `commit <sha>` line, the first non-metadata line is the subject.
-    // Keeping every commit's full body reduced little on a verbose multi-commit
-    // log, missed the size guardrail, and the pipe's collapse fallback then
-    // dropped whole commits (#199): `git log -12` came back with 2 of 12. Keep
-    // one compact line per commit, hash + subject, the `--oneline` view, so
-    // every commit and its subject survive while the body and the
-    // Author/Date/Merge metadata go.
+    // One `hash subject` line per commit: keeping bodies missed the guardrail and
+    // the collapse fallback dropped whole commits (#199).
     let mut awaiting_subject = false;
     for seg in segments {
         for line in seg.content.lines() {
@@ -284,8 +247,7 @@ fn distill_log(segments: &[OutputSegment], input: &str) -> String {
 
             if line.starts_with("commit ") {
                 let hash: String = line.replace("commit ", "").chars().take(7).collect();
-                // If the previous commit had no subject line, close its line off
-                // so hashes never run together.
+                // Close a subject-less commit's line.
                 if awaiting_subject {
                     out.push('\n');
                 }
@@ -293,39 +255,27 @@ fn distill_log(segments: &[OutputSegment], input: &str) -> String {
                 out.push(' ');
                 awaiting_subject = true;
             } else if crate::distillers::git::RE_GIT_LOG_HASH.is_match(line) {
-                // `--oneline`: the hash and the subject share one line. Taking
-                // `chars().take(7)` kept the hash and threw the subject away -
-                // the only part a reader wanted, and `push(' ')` then joined
-                // every commit into a wall of hashes reported as an ~89% saving
-                // (#107). The hash is the cheap part; the subject is the signal.
-                // Keep the line whole.
+                // Keep the `--oneline` line whole: the subject is the signal (#107).
                 out.push_str(line);
                 out.push('\n');
-                // A verbose-log subject can itself start with a 7+ hex word
-                // (`a1b2c3d fix …`) and match here; clear the flag so the next
-                // body line is not then taken as the subject too (review of #204).
+                // A subject starting with a hex word matched here; clear the flag (review of #204).
                 awaiting_subject = false;
             } else if line.starts_with("Author:")
                 || line.starts_with("Date:")
                 || line.starts_with("Merge:")
             {
-                // Metadata, drop.
             } else if awaiting_subject {
-                // First content line after `commit <sha>` is the subject.
                 out.push_str(line);
                 out.push('\n');
                 awaiting_subject = false;
             }
-            // Any further body lines before the next `commit` are dropped (#199).
+            // Body lines go (#199).
         }
     }
 
     let result = out.trim().to_string();
     if result.is_empty() {
-        // Nothing matched a commit or a `--oneline` entry, this input is not a
-        // git log we can parse (the fixture harness even feeds non-log text here).
-        // Fail open: return it verbatim rather than a lossy guess or empty output
-        // (#143). Real logs always produce a compact result above.
+        // Not a git log: return it verbatim (#143).
         input.to_string()
     } else {
         result
@@ -349,10 +299,7 @@ mod tests {
         }]
     }
 
-    /// #107. Each `--oneline` entry carries its subject on the same line as the
-    /// hash; the distiller kept 7 chars and dropped the rest, joining every
-    /// commit into a wall of hashes reported as an ~89% saving. Assert the
-    /// subjects survive, the hash alone is close to worthless to a reader.
+    /// `--oneline` subjects survive (#107).
     #[test]
     fn oneline_keeps_every_commit_subject() {
         let input = "\
@@ -373,7 +320,6 @@ a370713 Wordmark ForgePod: bobot 900 asli, italic (#72)
             out.contains("fix: success token hardcoded hex"),
             "subject dropped: {out:?}"
         );
-        // One line per commit, not a single space-joined run of hashes.
         assert_eq!(
             out.lines().count(),
             3,
@@ -381,8 +327,7 @@ a370713 Wordmark ForgePod: bobot 900 asli, italic (#72)
         );
     }
 
-    /// Verbose `git log` keeps the `commit <sha>` handling untouched: the subject
-    /// still arrives on its own indented line and must survive.
+    /// A verbose log's indented subject survives.
     #[test]
     fn verbose_log_still_keeps_the_subject() {
         let input = "\
@@ -400,11 +345,7 @@ Date:   Mon Mar 20 10:30:00 2026 +0700
         assert!(!out.contains("Author:"), "kept noise: {out:?}");
     }
 
-    /// #199: a verbose multi-commit log must keep *every* commit as one compact
-    /// `hash subject` line. Before this the git_log TOML filter kept each commit's
-    /// body, blew past its `max_lines = 20`, and truncated the older commits away
-    /// with no marker (`git log -12` returned 2 of 12). The body is dropped, the
-    /// commits are not.
+    /// Every commit survives as `hash subject` (#199).
     #[test]
     fn verbose_log_keeps_every_commit_and_drops_the_body() {
         let input = "\
@@ -451,9 +392,7 @@ Date:   Sat Mar 18 10:00:00 2026 +0700
         );
     }
 
-    /// Review of #204: a subject that itself starts with a 7+ hex word matches the
-    /// `--oneline` regex; that branch must clear `awaiting_subject` too, or the
-    /// next body line is appended as a second "subject".
+    /// A hex-led subject does not swallow the next body line (review of #204).
     #[test]
     fn hex_looking_subject_does_not_leak_the_body() {
         let input = "\
@@ -473,17 +412,7 @@ Date:   Mon Mar 20 10:00:00 2026 +0700
         );
     }
 
-    /// #616. The summary is a claim about the diff, so it has to be measured
-    /// from the diff. It used to count the `+`/`-` lines that survived the
-    /// filter, and a hunk whose removed lines hold only rule characters is
-    /// tiered `Noise` by `is_blank_or_decorative` and was skipped before either
-    /// the emit or the count. A 1+/5- diff came back as
-    /// `git diff: 1 files changed, 0+, 0-` with no hunk under it, which reads as
-    /// a commit that changed nothing.
-    ///
-    /// Scored through the real scorer on purpose: with a hand-built `Important`
-    /// segment the tier that causes this never occurs and the test passes either
-    /// way.
+    /// The diffstat counts the diff, including a removed rule, through the real scorer (#616).
     #[test]
     fn diffstat_counts_the_diff_and_a_decorative_hunk_survives() {
         let input = "\
@@ -523,14 +452,7 @@ index 1111111..2222222 100644
         );
     }
 
-    /// Review of #618. Position decides whether a line is diff payload, not its
-    /// leading character. `git show --format=%B -p` prints the commit body
-    /// unindented, so a body line opening with `-` reads as a removal; counting
-    /// those turned a 60+/60- diff into `61+, 62-`.
-    ///
-    /// The hunk here also removes a line whose own text starts with `--`, which
-    /// git renders as `--- comment`. Excluding it by prefix, the obvious way to
-    /// keep the file headers out, would drop a real removal instead.
+    /// Commit body lines are not counted, and a removed `--` line is (#618 review).
     #[test]
     fn diffstat_counts_hunk_lines_and_not_the_prose_around_them() {
         let input = "\
@@ -567,11 +489,7 @@ index 1111111..2222222 100644
         );
     }
 
-    /// Second review pass on #618. A hunk ends where its own header says it does,
-    /// not at the next `diff --git`. `git log --format=%B -p` puts the next
-    /// commit's message straight after the previous commit's last hunk, so
-    /// running to the next file header read that message as patch content: two
-    /// 1+/1- commits came out as `2+, 3-` because of three prose bullets.
+    /// A hunk ends at its declared count, not the next `diff --git` (#618 review).
     #[test]
     fn a_later_commit_message_is_not_counted_as_patch() {
         let input = "\

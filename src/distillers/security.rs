@@ -17,7 +17,6 @@ impl Distiller for SecurityDistiller {
 
         for line in input.lines() {
             let l = line.trim();
-            // Semgrep, trivy, snyk format detection
             if l.contains("CRITICAL") || l.contains("critical") {
                 critical_findings.push(l.to_string());
             } else if l.contains("HIGH") || l.contains("high") {
@@ -33,9 +32,8 @@ impl Distiller for SecurityDistiller {
         let total_high = high_findings.len();
 
         if total_critical == 0 && total_high == 0 && medium_count == 0 {
-            // Zero-state guard (#143): this distiller only counts severity keywords,
-            // so with none seen it cannot tell a clean scan from a misrouted input.
-            // Only assert "no issues" if at least one severity token was parsed.
+            // Claim "no issues" only if a severity token was parsed: a clean scan and a misrouted
+            // input look alike (#143).
             let parsed = total_critical > 0 || total_high > 0 || medium_count > 0 || low_count > 0;
             return parsed.then_some("Security scan: no issues found ✓".to_string());
         }

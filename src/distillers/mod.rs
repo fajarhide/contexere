@@ -12,18 +12,9 @@ pub mod system_ops;
 pub mod test;
 
 pub trait Distiller: Send + Sync {
-    /// `None` means "I could not read this input". The dispatch boundary then
-    /// hands the raw bytes back, which is the only honest answer for output a
-    /// distiller did not parse.
-    ///
-    /// The return type carries the invariant on purpose (#250). Nine releases
-    /// shipped the same defect, `Build: ok` for a `python3` script, `Tests: 0
-    /// passed` for a package with no tests, `grep: 20 matches` for a search that
-    /// found nothing, because the rule lived in a helper each distiller had to
-    /// remember to call, and the nine that forgot are where every instance
-    /// landed. A verdict a distiller synthesised for input it never recognised
-    /// is worse than no compression: it is shorter, plausible, and wrong, and
-    /// no caller can tell it apart from a real one.
+    /// `None` means "I could not read this input", and the dispatch boundary hands
+    /// the raw bytes back. In the return type because nine distillers forgot a
+    /// helper and invented verdicts like `Build: ok` (#250).
     fn distill(
         &self,
         segments: &[OutputSegment],
@@ -32,59 +23,30 @@ pub trait Distiller: Send + Sync {
     ) -> Option<String>;
 }
 
-/// The same zero-state rule as `Distiller::distill`'s `None`, for the helpers
-/// several layers below it that still hand a `String` back to their caller.
-///
-/// The trait is where the invariant is enforced now (#250), it applies whether
-/// a distiller remembers this function or not. This stays because converting an
-/// entire helper chain to `Option` would be a large diff for an identical
-/// outcome: a helper returning the input and the boundary returning the input
-/// produce the same bytes.
+/// The `None` rule for helpers that still return a `String`; converting the chain would change no
+/// bytes.
 pub(crate) fn require_parsed(parsed: bool, input: &str, summary: String) -> String {
     if parsed { summary } else { input.to_string() }
 }
 
-/// Distill output based on command.
-///
-/// This is the boundary that enforces the trait's `None` contract: a distiller
-/// that could not read its input, and every arm that declines to route, fail
-/// open to the raw bytes here rather than in twelve separate files.
+/// Distill output by command; every decline fails open to the raw bytes here.
 pub fn distill_with_command(
     segments: &[crate::pipeline::OutputSegment],
     input: &str,
     command: &str,
     session: Option<&crate::pipeline::SessionState>,
 ) -> String {
-    // Format-safety, applied per line at the one place every distiller is reached
-    // from. `hooks::post_tool` already gates whole structured payloads, but that
-    // gate is all-or-nothing: two JSON API responses printed beside a single
-    // `pod "vmq" deleted` notice are not NDJSON, so the protection switched off
-    // for the payload and the cloud distiller delivered 17 bytes of a 460 byte
-    // answer, both result sets gone (#334). A distiller re-parses raw input, so
-    // tiering the line in the scorer does not reach it; the guard has to sit
-    // ahead of dispatch.
-    //
-    // Measured over 5,515 recorded traces before taking it: 116 hold at least one
-    // JSON line, and handing all of those back whole costs **0 KB** of the 371 KB
-    // the corpus saves, because none of them was being usefully compressed in the
-    // first place. A free guard against the worst failure class in this tracker.
+    // Per-line format safety before dispatch: two JSON responses beside a
+    // `deleted` notice are not NDJSON, and the cloud distiller kept 17 of 460
+    // bytes (#334). Free on the corpus: none of the 116 JSON-bearing traces was
+    // usefully compressed.
     if input.lines().any(is_json_line) {
         return input.to_string();
     }
 
-    // Gate 6, moved off the command and onto the payload. It used to live inside
-    // the env distiller, which only ran when the registry decided the command was
-    // an env command, so a bare `env` (`passes_through_verbatim`) and `printenv`
-    // both delivered their secrets as printed. Measured over 5,733 recorded
-    // traces: 25 carry an env-shaped payload and **none of them came from a
-    // command named `env`** (they arrive from `cd … && …`, `kubectl exec`, `sed`,
-    // `printf`, `export`), while 17 hold a credential that reached the model
-    // unredacted, `DB_POSTGRESDB_PASSWORD` eight times among them. Keying on the
-    // command could only ever have covered the case nobody runs (#344).
-    //
-    // It returns rather than continuing to a distiller: the redacted form is the
-    // input minus its secrets, so there is nothing a summariser could add that is
-    // worth the risk of it dropping the line instead.
+    // Credential redaction keyed on the payload, not the command: env-shaped
+    // output arrives from `kubectl exec`, `sed`, `printf`, never `env` (#344).
+    // Returns without a distiller, which could only drop lines.
     if let Some(redacted) = system_ops::redact_sensitive_assignments(input) {
         return redacted;
     }
@@ -92,9 +54,8 @@ pub fn distill_with_command(
     route(segments, input, command, session).unwrap_or_else(|| input.to_string())
 }
 
-/// A whole line that is a JSON object or array. Strict on purpose: it must
-/// bracket *and* parse, so prose containing a brace, or a truncated fragment,
-/// cannot silently switch compression off.
+/// A whole line that brackets and parses as JSON, so prose with a brace does not switch compression
+/// off.
 fn is_json_line(line: &str) -> bool {
     let t = line.trim();
     if t.len() < 2 {
@@ -105,9 +66,7 @@ fn is_json_line(line: &str) -> bool {
     bracketed && serde_json::from_str::<serde_json::Value>(t).is_ok()
 }
 
-/// One `match` over the registry's decision. Every arm of what used to be here
-/// is now a variant of `registry::Distillation`, which is where `CONTRIBUTING.md` says
-/// the command-to-behaviour mapping belongs (#194).
+/// One `match` over `registry::Distillation` (#194).
 fn route(
     segments: &[crate::pipeline::OutputSegment],
     input: &str,
@@ -116,11 +75,7 @@ fn route(
 ) -> Option<String> {
     use crate::pipeline::registry::Distillation;
 
-    // A chain's stdout belongs to several programs and arrives as one stream, so
-    // there is no honest way to hand it to the distiller named by the first of
-    // them: `git status && echo === && find .` came back as the git one-liner
-    // with the `find` output deleted, unmarked (#264). One producer routes;
-    // several pass through.
+    // A chain with several producers passes through (#264).
     let command = crate::pipeline::registry::sole_output_command(command)?;
 
     match crate::pipeline::registry::resolve_distiller(command) {
@@ -133,9 +88,7 @@ fn route(
         Distillation::Cloud(tool) => {
             cloud::CloudDistiller { tool: &tool }.distill(segments, input, session)
         }
-        // The only distiller allowed near a payload the caller's pattern already
-        // selected: it hoists repeated paths and hands the input back when that
-        // does not shrink it, so neither outcome can lose a match (#316/#326).
+        // Only the lossless grep path may touch a pattern's result (#316, #326).
         Distillation::UserFiltered => Some(system_ops::distill_user_filtered(input)),
         Distillation::SystemOps => system_ops::SystemOpsDistiller.distill(segments, input, session),
         Distillation::Generic => generic::GenericDistiller.distill(segments, input, session),
@@ -148,11 +101,7 @@ mod tests {
     use crate::pipeline::registry::passes_through_verbatim;
     use crate::pipeline::scorer;
 
-    /// #334: two JSON API responses printed beside a single `pod "vmq" deleted`
-    /// notice are not NDJSON, so the payload-level gate in `hooks::post_tool` did
-    /// not fire and the cloud distiller delivered 17 bytes of a 460 byte answer
-    /// with both result sets gone. A distiller re-parses raw input and never sees
-    /// the scorer's tiers, so format-safety has to reach the dispatch point.
+    /// JSON lines survive inside a mixed payload (#334).
     #[test]
     fn hands_back_a_payload_holding_a_json_line() {
         let input = "{\"result\":[{\"cluster\":\"a\",\"v\":154},{\"cluster\":\"b\",\"v\":11}]}\n\
@@ -163,11 +112,7 @@ mod tests {
         assert_eq!(distill_with_command(&[], input, cmd, None), input);
     }
 
-    /// #344: the redaction used to live inside the env distiller, so it only ran
-    /// when the registry decided the command was an env command. A bare `env` is
-    /// `passes_through_verbatim` and `printenv` is not recognised at all, so both
-    /// delivered their secrets as printed. Of 25 env-shaped payloads in the
-    /// recorded corpus, none came from a command named `env`.
+    /// Redaction applies whatever command printed the env (#344).
     #[test]
     fn redacts_a_secret_whatever_command_produced_it() {
         let raw = "DB_HOST=db.svc.internal\n\
@@ -193,8 +138,7 @@ mod tests {
         }
     }
 
-    /// A payload with no sensitive key must be untouched by the redactor, or every
-    /// `KEY=VALUE` listing stops being distilled.
+    /// No sensitive key: untouched.
     #[test]
     fn leaves_an_ordinary_assignment_alone() {
         use crate::distillers::system_ops::redact_sensitive_assignments;
@@ -202,17 +146,15 @@ mod tests {
             redact_sensitive_assignments("PATH=/usr/bin\nHOME=/root\n"),
             None
         );
-        // Not an assignment at all: a grep hit that happens to contain the word.
         assert_eq!(
             redact_sensitive_assignments("61-        PASS the value along\n"),
             None
         );
-        // An empty value has nothing to hide and must not grow a marker.
+        // An empty value gets no marker.
         assert_eq!(redact_sensitive_assignments("API_KEY=\n"), None);
     }
 
-    /// The guard must stay strict, or a brace in prose stops compression
-    /// everywhere. It has to bracket *and* parse.
+    /// The JSON guard stays strict.
     #[test]
     fn a_brace_in_prose_is_not_a_json_line() {
         assert!(!is_json_line("use crate::pipeline::{CollapseMode};"));
@@ -223,9 +165,7 @@ mod tests {
         assert!(is_json_line("[1, 2, 3]"));
     }
 
-    /// From #170: `cargo tree` prints a dependency tree that *is* the answer.
-    /// Routing every `cargo` command to `BuildDistiller` summarised 21.4 KB of
-    /// it as `Build: ok`, 9 bytes, and reported a 100% reduction as a win.
+    /// `cargo tree` is data, not a build (#170).
     #[test]
     fn hands_back_the_output_of_cargo_commands_that_are_not_builds() {
         let tree = "omni v0.6.3 (/repo)\n\
@@ -249,11 +189,7 @@ mod tests {
         }
     }
 
-    /// From #301: `kubectl config get-contexts -o name` prints one identifier
-    /// per row with no status column, so `distill_kubectl_generic` kept only the
-    /// rows matching its own vocabulary and dropped the rest. The estate sorts
-    /// alphabetically, so the cut landed on the tail and every production
-    /// cluster was the half that went, leaving a list that looks complete.
+    /// A names-only kubectl listing passes through (#301).
     #[test]
     fn hands_back_kubectl_listings_that_have_no_columns() {
         let names = "Mercury-cluster\n\
@@ -286,15 +222,10 @@ mod tests {
             );
         }
 
-        // The pod table keeps its distiller: it has a STATUS column with real
-        // noise and a fingerprint that says so.
         assert!(!passes_through_verbatim("kubectl get pods -A"));
     }
 
-    /// #819, end to end. 400 progress rows in front of one panic: the header is
-    /// the only line naming the test and the source location, and it came back
-    /// missing while 96 `Compiling` rows survived. The command is a shell script
-    /// on purpose, because that is what leaves `tool_family` unset.
+    /// A panic header survives 400 progress rows from a shell script (#819).
     #[test]
     fn a_panic_survives_four_hundred_progress_lines() {
         let mut input: String = (0..400)
@@ -315,11 +246,7 @@ mod tests {
         );
     }
 
-    /// From #129: a `make` target runs several programs and hands back their
-    /// concatenated output with no delimiter, so no single-tool distiller can
-    /// speak for it. `BuildDistiller` took the whole buffer and answered
-    /// `Build: 1 errors, 0 warnings` for a run that also had an eslint warning
-    /// and a failed test, deleting the eslint finding on the way.
+    /// `make` passes through (#129).
     #[test]
     fn hands_back_a_composite_make_target() {
         let mixed = "npx tsc --noEmit\n\
@@ -343,15 +270,11 @@ mod tests {
             );
         }
 
-        // The passthrough must be declared in one place, or the collapse
-        // fallback folds what routing just handed back (#214).
+        // One declaration, or collapse folds it (#214).
         assert!(passes_through_verbatim("make check"));
     }
 
-    /// From #190: a `python3 -c "..."` script prints arbitrary output that *is*
-    /// the answer. Routing bare interpreters to `BuildDistiller` fabricated
-    /// `Build: ok` for any script with no error/warning line, inventing success
-    /// for a verification command whose real answer was the printed text.
+    /// A bare interpreter's output passes through (#190).
     #[test]
     fn hands_back_the_output_of_bare_script_interpreters() {
         let script_out = " tokenRefs : ['vmuser-a']\n VSS dests : ['vault-a']\n dangling  : NONE\n";
@@ -360,9 +283,7 @@ mod tests {
             "python3 -c \"import re; print('dangling  : NONE')\"",
             "python audit.py",
             "ruby check.rb",
-            // The substring "test" inside a `-c` arg or a path segment must NOT
-            // route to TestDistiller, it fabricates `Tests: 1 passed` on this
-            // output, which is #190 via a different distiller. Boundary locked.
+            // "test" inside an argument does not route to tests (#190).
             "python3 -c \"testing_flag = True; print('config ok')\"",
             "ruby /projects/contest/verify.rb",
         ] {
@@ -382,8 +303,7 @@ mod tests {
 
     #[test]
     fn still_routes_real_cargo_builds_and_tests_to_their_distillers() {
-        // Guards the other direction: the fix must not turn every cargo command
-        // into passthrough and quietly end all savings on the ones that work.
+        // Other cargo commands still distil.
         let noisy_build: String = (0..40)
             .map(|i| format!("   Compiling crate_{i} v0.1.0\n"))
             .collect::<String>()
@@ -398,8 +318,7 @@ mod tests {
 
     #[test]
     fn vitest_zero_parse_passes_through_instead_of_claiming_success() {
-        // #143 / #115: a Vite dev server (no tests) must never distill to a
-        // green `vitest: ✓ 0/0 passed`. With nothing parsed, fail open.
+        // A Vite dev server is not `vitest: ✓ 0/0` (#143, #115).
         let input = include_str!("../../tests/fixtures/vite_dev_server.txt");
         let segments = scorer::score_with_command(input, "vitest", None);
         let output = distill_with_command(&segments, input, "vitest", None);
@@ -408,22 +327,18 @@ mod tests {
             !output.contains("0/0 passed"),
             "zero-parse produced a false success claim: {output:?}"
         );
-        // The load-bearing signal (the bound port) survives.
         assert!(
             output.contains(":8080"),
             "dev-server port was dropped: {output:?}"
         );
     }
 
-    // #143 umbrella: each distiller below is routed a payload that trips its
-    // content detector but carries no signal it can actually parse. The zero-state
-    // must pass the input through, never emit a confident green string. Each asserts
-    // the false claim is absent AND the original content survives (passthrough).
+    // Each distiller below gets a payload that trips its detector with nothing to parse: it must
+    // pass through (#143).
 
     #[test]
     fn tsc_zero_parse_passes_through_instead_of_no_errors() {
-        // `tsc --` command echo trips is_tsc_output, but there is no `error TS`
-        // line to parse, the #106 shape.
+        // #106
         let input = "> tsc --noEmit\nresolving project references, nothing to compile\n";
         let segments = scorer::score_with_command(input, "tsc", None);
         let output = distill_with_command(&segments, input, "tsc", None);
@@ -436,7 +351,6 @@ mod tests {
 
     #[test]
     fn playwright_zero_parse_passes_through_instead_of_passed() {
-        // A `[chromium]` banner trips is_playwright_output with no result summary.
         let input = "[chromium] › launching browser\nno spec files matched the filter\n";
         let segments = scorer::score_with_command(input, "playwright", None);
         let output = distill_with_command(&segments, input, "playwright", None);
@@ -446,8 +360,7 @@ mod tests {
 
     #[test]
     fn eslint_zero_parse_passes_through_instead_of_no_problems() {
-        // A banner naming an eslint rule id trips is_eslint_output, but there is no
-        // finding line or `problems (` summary to parse, the #114 shape.
+        // #114
         let input = "Oxc linter v0.15\nusing preset @typescript-eslint/recommended\n";
         let segments = scorer::score_with_command(input, "eslint", None);
         let output = distill_with_command(&segments, input, "eslint", None);
@@ -460,7 +373,6 @@ mod tests {
 
     #[test]
     fn security_zero_parse_passes_through_instead_of_no_issues() {
-        // A clean scan with no severity token must not be certified `no issues`.
         let input = "trivy image myapp:latest\nscanning filesystem, database up to date\n";
         let segments = scorer::score_with_command(input, "trivy", None);
         let output = distill_with_command(&segments, input, "trivy", None);
@@ -474,11 +386,7 @@ mod tests {
         );
     }
 
-    /// #233. `docker ps` came back as `docker: 5 containers | 3 running, 2
-    /// exited` plus the names of the exited two. Every running container, with
-    /// its image, ports and uptime, was counted and discarded by construction:
-    /// 862 bytes to 75, reported as a 91.3% saving, with no marker because
-    /// nothing thought anything was lost.
+    /// `docker ps` passes through (#233).
     #[test]
     fn keeps_every_row_of_a_container_listing() {
         let input = std::fs::read_to_string("tests/fixtures/docker_ps_mixed.txt")
@@ -500,12 +408,7 @@ mod tests {
         }
     }
 
-    /// #234. `az aks command invoke` runs an arbitrary command inside a cluster
-    /// and returns that program's stdout, so routing on `az` handed a four
-    /// section run to a cloud distiller with no grammar for it. Nine rows of the
-    /// first section came back and the TLS probe that was the point of the call
-    /// went with the rest, after a 40 second round trip against a private
-    /// cluster. `kubectl exec` had already done this once as #112.
+    /// `az aks command invoke` passes through (#234).
     #[test]
     fn hands_back_what_a_wrapper_ran_inside() {
         let inner = "=== ENV names ===\nBE_LIVEKIT_SERVICE_PORT_RTC_UDP\n\
@@ -529,8 +432,7 @@ mod tests {
 
     #[test]
     fn docker_logs_zero_parse_passes_through_instead_of_no_errors_detected() {
-        // A manifest that merely mentions "docker logs" routes to distill_docker_logs
-        // but is not log-shaped (is_docker_logs false), the #112 misroute.
+        // #112
         let input =
             "apiVersion: v1\nkind: Pod\n# inspect with: docker logs app\nmetadata:\n  name: app\n";
         let segments = scorer::score_with_command(input, "docker", None);
@@ -583,10 +485,7 @@ mod tests {
         "git_status_dirty.txt",
         "git status"
     );
-    // #107: `--oneline` puts the hash and subject on one line. The distiller used
-    // to keep 7 chars of hash and drop the subject, joining every commit into a
-    // wall of hashes. This locks the whole line surviving, there was no git_log
-    // snapshot before, which is why the regression shipped unseen.
+    // `--oneline` lines survive whole (#107).
     snapshot_test!(
         test_git_log_oneline_distillation,
         "git_log.txt",
@@ -627,11 +526,7 @@ mod tests {
     );
     snapshot_test!(test_systemops_grep, "grep_recursive_output.txt", "grep -r");
 
-    // #198/#200: `ls`, `find` and `env` are enumerations, every line is the
-    // answer, not noise, so they must pass through verbatim, never be summarised
-    // or truncated. (These replaced snapshot tests that asserted the old lossy
-    // distillation; `grep` above stays snapshotted because its hoisting is
-    // lossless.)
+    // Enumerations pass through verbatim (#198, #200).
     macro_rules! passthrough_test {
         ($name:ident, $file:expr, $cmd:expr) => {
             #[test]
@@ -655,24 +550,14 @@ mod tests {
         "find_project_output.txt",
         "find ."
     );
-    /// `env` was a `passthrough_test!` until #344. The fixture holds a real-shaped
-    /// `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY` and a
-    /// `DATABASE_URL` with a password in it, and the assertion required all four
-    /// to be delivered exactly as printed. That is #200's enumeration rule
-    /// outranking Gate 6, which is the wrong way round.
-    ///
-    /// The enumeration rule still holds for everything that is not a credential,
-    /// so this asserts the stronger property: every line survives, every ordinary
-    /// value survives, and only the secrets change.
+    /// Every env line and ordinary value survives; only secrets change (#344).
     #[test]
     fn env_passes_through_verbatim_except_its_secrets() {
         let input = include_str!("../../tests/fixtures/env_output.txt");
         let segments = scorer::score_with_command(input, "env", None);
         let output = distill_with_command(&segments, input, "env", None);
 
-        // The redactor prepends `[OMNI: N sensitive value(s) redacted]` since
-        // #486, so the count is compared without it. The invariant being guarded
-        // is that no line is *dropped*, and a header is not a dropped line.
+        // Compared without the redaction header (#486).
         let body: Vec<&str> = output
             .lines()
             .filter(|l| !l.starts_with("[OMNI: "))
@@ -703,10 +588,7 @@ mod tests {
         assert!(output.contains("ANTHROPIC_API_KEY=[REDACTED]"));
     }
 
-    /// Review of #205: bare `env` and `command env` both leave `base` empty (the
-    /// wrapper is stripped), so the guard matches on any `env` token. Locks that
-    /// in, a narrowing back to "first word only" would silently drop `command
-    /// env` passthrough.
+    /// `command env` passes through too (review of #205).
     #[test]
     fn treats_bare_and_wrapped_env_as_enumeration() {
         assert!(passes_through_verbatim("env"));
@@ -715,12 +597,7 @@ mod tests {
         assert!(!passes_through_verbatim("echo hi"));
     }
 
-    /// #326. `grep` moved into this predicate, which reads oddly next to a
-    /// routing arm that still distils it, so the reason is worth pinning: the
-    /// predicate governs only the hooks' collapse fallback, and that fallback
-    /// runs exactly when the grep distiller punted and handed the input back.
-    /// Folding three `mcp … connected` lines into one marker at that point loses
-    /// the two server names the pattern matched on.
+    /// A punted grep result is not collapsed (#326).
     #[test]
     fn exempts_the_callers_own_filter_from_the_collapse_fallback() {
         assert!(passes_through_verbatim("grep -r foo"));
@@ -728,26 +605,18 @@ mod tests {
         assert!(passes_through_verbatim("ag TODO src/"));
     }
 
-    /// #214 moved the interpreters into this predicate and deleted their own
-    /// routing arm, so the predicate is now the only thing keeping them out of
-    /// `BuildDistiller` *and* out of the hooks' collapse fallback. Dropping one
-    /// entry costs both at once, which is worth catching here rather than in the
-    /// integration test, where it only shows up after it has propagated.
+    /// Interpreters stay in the predicate (#214).
     #[test]
     fn treats_bare_script_interpreters_as_passthrough() {
         assert!(passes_through_verbatim("python3 -c \"print('x')\""));
         assert!(passes_through_verbatim("python audit.py"));
         assert!(passes_through_verbatim("ruby /proj/contest/verify.rb"));
         assert!(passes_through_verbatim("/usr/bin/python3 gen.py"));
-        // `pip` and `rake` stay on the build path: their output is task oriented.
         assert!(!passes_through_verbatim("pip install requests"));
         assert!(!passes_through_verbatim("rake db:migrate"));
     }
 
-    /// #236: a prose document that happens to quote a directory layout was
-    /// classified by the one line holding a box-drawing character and delivered
-    /// as `tree: N entries`, a different *kind* of thing, asserted with no
-    /// marker. Reading a file is not a grammar, so the readers pass through.
+    /// File readers pass through (#236).
     #[test]
     fn hands_back_a_document_that_quotes_a_directory_tree() {
         let doc = "# Development Guide\n\
@@ -783,12 +652,7 @@ mod tests {
         }
     }
 
-    /// #231: `--stat` exists only to produce the file list, and `distill_log`
-    /// dropped every row of it while keeping the `--oneline` subject, so the
-    /// output stayed well-formed, got shorter, and read as a complete answer to
-    /// a question it no longer answered. The reporter was checking whether
-    /// `git add -A` had swept three screenshots into a commit; it came back
-    /// naming no files.
+    /// `git show --stat` keeps its file list (#231).
     #[test]
     fn hands_back_the_file_rows_git_was_asked_to_enumerate() {
         let stat = "9cd7a80 docs(changelog): record the #228 pass-counter fix\n \
@@ -813,13 +677,7 @@ mod tests {
         }
     }
 
-    /// #235: a contiguous line range of source code is what the caller already
-    /// chose, so there is nothing to cut. The reported loss was 37 of 56 lines,
-    /// under a marker suggesting a `--limit` flag neither command has.
-    ///
-    /// The reported pipeline leads with `gh`, so `VcsDistiller` claimed it, the
-    /// bare `sed` form goes through the reader arm. Both are covered here
-    /// because either alone leaves the reproduction broken.
+    /// A line range of source passes through, piped or bare (#235).
     #[test]
     fn hands_back_a_source_line_range_however_it_was_fetched() {
         let mut src = String::new();
@@ -843,10 +701,7 @@ mod tests {
         }
     }
 
-    /// #833 reverses what this test asserted. `gh pr list` was the one surface
-    /// #235 left the summariser, on the grounds that `--limit` could re-fetch the
-    /// rest. It cannot: `gh issue list --limit 20` returns twenty rows, ten reach
-    /// the reader, and raising the limit returns more rows and still shows ten.
+    /// `gh pr list` passes through (#833).
     #[test]
     fn hands_back_a_real_gh_list() {
         let mut listing = String::new();
@@ -862,8 +717,7 @@ mod tests {
         assert_eq!(out, listing, "a gh list was summarised");
     }
 
-    /// The gate must not disarm the distiller it guards: a plain `git log` is
-    /// still summarised, so the fix is not a blanket passthrough for `git`.
+    /// A plain `git log` is still summarised.
     #[test]
     fn still_distills_a_plain_git_log() {
         let log = "commit a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0\n\
@@ -894,10 +748,7 @@ mod tests {
 
     snapshot_test!(test_jsts_vitest, "vitest_mixed.txt", "vitest");
     snapshot_test!(test_jsts_tsc, "tsc_errors.txt", "tsc");
-    // #106: a composite `npm run <script>` (an `&&` chain) must NOT be claimed by a
-    // single tool distiller, `tsc --` in npm's echo used to collapse the whole thing
-    // to `tsc: no errors`. jsts declines composites (returns them for the pipeline's
-    // generic collapse), so every gate's verdict survives.
+    // A composite `npm run` is declined, keeping every verdict (#106).
     snapshot_test!(
         test_jsts_npm_composite,
         "npm_run_verify.txt",
@@ -909,10 +760,7 @@ mod tests {
         "playwright test"
     );
     snapshot_test!(test_jsts_eslint, "eslint_errors.txt", "eslint");
-    // #114: `prettier --write` (via `npm run format`) used to report `eslint: no
-    // problems found`, `is_eslint_output` matched the filename `eslint.config.js`
-    // in prettier's file list. It must now be recognised as prettier and summarised
-    // per real prettier output (both modes), never as a clean run of another tool.
+    // Prettier is recognised as prettier (#114).
     snapshot_test!(
         test_jsts_prettier_write,
         "prettier_write.txt",
@@ -924,18 +772,13 @@ mod tests {
         "prettier --check ."
     );
 
-    // #891: a client's error is a line or two, and the summary that replaced it
-    // was longer than this one. The same summariser read `error:` inside query
-    // rows as a failed query.
+    // #891
     snapshot_test!(
         database_psql_error_passes_through_verbatim,
         "psql_error.txt",
         "psql -U postgres mydb"
     );
-    // #216: the generic arm answered a schema dump with `DB: ok (N lines
-    // output)`, a verdict invented in the success direction over a payload it
-    // never read. With no error segment and nothing tabular parsed it must hand
-    // the DDL back verbatim.
+    // A schema dump is not `DB: ok` (#216).
     snapshot_test!(
         database_sqlite_schema_passes_through_verbatim,
         "sql_create.txt",

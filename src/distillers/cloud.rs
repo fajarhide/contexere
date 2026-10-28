@@ -1,16 +1,9 @@
 use crate::distillers::Distiller;
 use crate::pipeline::{OutputSegment, SignalTier};
 
-/// The cloud tool that produced this output, as resolved by the dispatcher from
-/// the command it ran.
-///
-/// It is *not* re-derived from the content (#112): content heuristics can
-/// disambiguate a format *within* one tool (`docker ps` vs `docker build` vs
-/// `docker logs`), but they cannot establish identity. `is_docker_logs` matches
-/// any timestamped log, so sniffing routed `kubectl exec` output into the docker
-/// summariser, which then reported `docker logs: 9 lines, no errors detected`
-/// over an `ls: … No such file or directory`, a tool that never ran, denying an
-/// error that was right there.
+/// The cloud tool that produced this output, from the command, never from the
+/// content: a shape sniff routed `kubectl exec` into the docker summariser,
+/// which denied a real `ls:` error (#112).
 pub struct CloudDistiller<'a> {
     pub tool: &'a str,
 }
@@ -31,36 +24,15 @@ impl Distiller for CloudDistiller<'_> {
                 } else if is_docker_logs(input) {
                     Some(distill_docker_logs(segments, input))
                 } else {
-                    // `is_docker_logs` existed and was never consulted: every
-                    // docker/podman payload that was not a ps table or a build
-                    // fell through to the log summariser. A two-line
-                    // `podman run` failure came back as
-                    // `docker logs: 1 errors/warnings found`, keeping the socket
-                    // path and deleting the line that says how to fix it, under
-                    // a header naming a command that never ran (#354).
-                    //
-                    // A tool that cannot establish identity hands the payload
-                    // back. That is the same rule #105 and #112 arrived at.
+                    // Not a ps table, a build or a log stream: hand it back. A `podman run`
+                    // failure once came back as `docker logs: 1 errors/warnings found` (#354).
                     None
                 }
             }
             "kubectl" => {
                 if is_resource_table(input) {
-                    // Any columnar listing, pod tables included. Every row is a
-                    // datum: which pods exist is the answer, not preamble to it,
-                    // and no count of them can be turned back into a name.
-                    //
-                    // A pod summariser used to sit in front of this arm and was
-                    // unreachable through the hook, because `signals/tools/kubectl.toml`
-                    // matched first (#110). #510 retired the TOML layer, the
-                    // summariser became live for the first time, and a 10 row table
-                    // started arriving as 3 lines with 7 pod names deleted (#562).
-                    // Deleted rather than guarded: the arm below already states the
-                    // rule for every other resource, and a pod table is one.
-                    //
-                    // Repeated tables are still cheap. The ledger folds a listing
-                    // the agent has already been shown, which is the honest saving
-                    // here, and it needs the rows intact to do it.
+                    // Any columnar listing, pod tables included: the rows are the answer (#562).
+                    // The ledger still folds a listing the agent was already shown.
                     None
                 } else {
                     Some(distill_kubectl_generic(segments, input))
@@ -69,19 +41,13 @@ impl Distiller for CloudDistiller<'_> {
             "helm" => Some(distill_helm(input)),
             "terraform" | "tofu" => Some(distill_terraform(input)),
             "aws" => Some(distill_aws(segments, input)),
-            // gcloud, az, doctl, …, no dedicated parser, so keep the signal
-            // tiers rather than guessing at a format.
+            // gcloud, az, doctl: no parser, so keep the signal tiers.
             _ => Some(distill_fallback(segments, input)),
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Detection helpers
-// ---------------------------------------------------------------------------
-
-/// Any tabular listing with a `NAME` column and an otherwise all-caps header.
-/// Used only to refuse: we can recognise the shape without knowing the schema.
+/// A table with a `NAME` column and an all-caps header; used only to refuse.
 fn is_resource_table(input: &str) -> bool {
     input.lines().take(5).any(|l| {
         let cols: Vec<&str> = l.split_whitespace().collect();
@@ -101,7 +67,6 @@ fn is_helm_table(input: &str) -> bool {
 }
 
 fn is_docker_logs(input: &str) -> bool {
-    // Heuristic: multiple lines with timestamp-like prefix
     let ts_count = input
         .lines()
         .take(20)
@@ -117,10 +82,6 @@ fn is_docker_logs(input: &str) -> bool {
         .count();
     ts_count >= 5
 }
-
-// ---------------------------------------------------------------------------
-// Critical / Noise patterns
-// ---------------------------------------------------------------------------
 
 const CRITICAL_PATTERNS: &[&str] = &[
     "error",
@@ -165,12 +126,7 @@ fn is_noise(line: &str) -> bool {
     NOISE_PATTERNS.iter().any(|p| line.contains(p))
 }
 
-// ---------------------------------------------------------------------------
-// kubectl generic (describe, logs, apply, etc.)
-// ---------------------------------------------------------------------------
-
 fn distill_kubectl_generic(segments: &[OutputSegment], input: &str) -> String {
-    // Extract critical lines first
     let mut critical_lines: Vec<&str> = Vec::new();
     let mut important_lines: Vec<&str> = Vec::new();
 
@@ -211,10 +167,6 @@ fn distill_kubectl_generic(segments: &[OutputSegment], input: &str) -> String {
     out.trim().to_string()
 }
 
-// ---------------------------------------------------------------------------
-// docker ps
-// ---------------------------------------------------------------------------
-
 fn distill_docker_ps(input: &str) -> String {
     let mut running = 0u32;
     let mut exited = 0u32;
@@ -229,8 +181,8 @@ fn distill_docker_ps(input: &str) -> String {
         }
         total += 1;
 
-        // docker ps columns: CONTAINER ID | IMAGE | COMMAND | CREATED | STATUS | PORTS | NAMES
-        // STATUS is typically at column index 4 (0-based)
+        // STATUS is column 4 of `CONTAINER ID | IMAGE | COMMAND | CREATED | STATUS | PORTS |
+        // NAMES`.
         let parts: Vec<&str> = trimmed.split_whitespace().collect();
         let status_str = trimmed.to_lowercase();
 
@@ -238,7 +190,6 @@ fn distill_docker_ps(input: &str) -> String {
             running += 1;
         } else if status_str.contains("exited") {
             exited += 1;
-            // Try to get container name (last column)
             if let Some(name) = parts.last() {
                 problem_containers.push(name.to_string());
             }
@@ -269,10 +220,6 @@ fn distill_docker_ps(input: &str) -> String {
 
     out
 }
-
-// ---------------------------------------------------------------------------
-// docker build
-// ---------------------------------------------------------------------------
 
 fn distill_docker_build(input: &str) -> String {
     let mut steps_total = 0u32;
@@ -316,10 +263,6 @@ fn distill_docker_build(input: &str) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// docker logs
-// ---------------------------------------------------------------------------
-
 fn distill_docker_logs(_segments: &[OutputSegment], input: &str) -> String {
     let mut critical_lines: Vec<&str> = Vec::new();
 
@@ -331,11 +274,8 @@ fn distill_docker_logs(_segments: &[OutputSegment], input: &str) -> String {
 
     if critical_lines.is_empty() {
         let total = input.lines().count();
-        // Zero-state guard (#143): "no errors detected" is only truthful about
-        // real logs. The dispatch reaches here on a weak content sniff too
-        // (`input.contains("docker logs")`, #112), so require the log shape -
-        // otherwise a misrouted payload (kubectl exec, a manifest) passes through
-        // instead of being falsely certified clean.
+        // "No errors" only over a real log shape: the dispatch can reach here on a weak sniff
+        // (#143, #112).
         return super::require_parsed(
             is_docker_logs(input),
             input,
@@ -358,30 +298,19 @@ fn distill_docker_logs(_segments: &[OutputSegment], input: &str) -> String {
     out.trim().to_string()
 }
 
-// ---------------------------------------------------------------------------
-// terraform
-// ---------------------------------------------------------------------------
-
 fn distill_terraform(input: &str) -> String {
     let mut added = 0u32;
     let mut changed = 0u32;
     let mut destroyed = 0u32;
     let mut resources: Vec<String> = Vec::new();
-    // Whether a plan/apply was actually read. `terraform init` and `fmt` reach
-    // here too, and "+0 ~0 -0 resources" would report an empty plan for output
-    // that never contained one.
+    // Whether a plan was read: `init` and `fmt` reach here too.
     let mut parsed = false;
 
     for line in input.lines() {
         let trimmed = line.trim();
 
-        // A plan line is terraform's resource-address comment and nothing else:
-        // "  # aws_instance.web will be created". Matching the verb phrase
-        // anywhere in the line also matched terraform's own error prose, so a
-        // *failing* `terraform validate` came back as "+1 ~0 -0 resources" with
-        // "+ configuration" under it, which is the shape of a clean plan (#633).
-        // The pipe made #120's failed-command guard blind to it: the exit code
-        // the host sees belongs to `tail`, not to terraform.
+        // A plan line is the anchored address comment only; error prose containing
+        // "will be created" read as a clean plan (#633).
         let plan_line = trimmed.strip_prefix("# ").unwrap_or("");
 
         if plan_line.contains("will be created") {
@@ -406,11 +335,9 @@ fn distill_terraform(input: &str) -> String {
 
         let t_lower = trimmed.to_lowercase();
 
-        // Also catch the summary line: "Plan: X to add, Y to change, Z to destroy."
-        // Anchored for the same reason: prose quoting `terraform plan:` is not one.
+        // The anchored `Plan:` summary line.
         if t_lower.starts_with("plan:") {
             parsed = true;
-            // Parse "Plan: 3 to add, 1 to change, 0 to destroy."
             for part in trimmed.split(',') {
                 let part = part.trim();
                 if part.contains("to add") {
@@ -434,7 +361,6 @@ fn distill_terraform(input: &str) -> String {
             }
         }
 
-        // "Apply complete! Resources: X added, Y changed, Z destroyed."
         if t_lower.starts_with("apply complete!") {
             return format!(
                 "terraform: apply complete +{} ~{} -{}",
@@ -463,14 +389,10 @@ fn distill_terraform(input: &str) -> String {
 }
 
 fn extract_tf_resource(line: &str) -> Option<String> {
-    // "# aws_instance.web will be created" -> "aws_instance.web"
+    // "# aws_instance.web will be created" → "aws_instance.web"
     let trimmed = line.trim().trim_start_matches('#').trim();
     trimmed.split_whitespace().next().map(|s| s.to_string())
 }
-
-// ---------------------------------------------------------------------------
-// helm
-// ---------------------------------------------------------------------------
 
 fn distill_helm(input: &str) -> String {
     let mut deployed = 0u32;
@@ -479,7 +401,6 @@ fn distill_helm(input: &str) -> String {
     let mut other_h = 0u32;
     let mut releases: Vec<String> = Vec::new();
 
-    // `NAME` + `STATUS` is the common prefix of half of kubectl's tables too;
     // `REVISION` + `CHART` is what only `helm list` prints.
     let has_header = is_helm_table(input);
 
@@ -492,8 +413,7 @@ fn distill_helm(input: &str) -> String {
             let parts: Vec<&str> = trimmed.split_whitespace().collect();
             if parts.len() >= 4 {
                 let name = parts[0];
-                // Helm table: NAME NAMESPACE REVISION UPDATED STATUS CHART APP VERSION
-                // Find STATUS col, typically index 4
+                // STATUS is usually column 4.
                 let status = if parts.len() >= 5 { parts[4] } else { parts[3] };
                 match status.to_lowercase().as_str() {
                     "deployed" => deployed += 1,
@@ -523,14 +443,9 @@ fn distill_helm(input: &str) -> String {
         out.push_str(&releases.join(", "));
     }
 
-    // Without the release table there is nothing to count, and "0 deployed,
-    // 0 failed, 0 pending" would assert a cluster state we never read.
+    // No release table: no count to assert.
     super::require_parsed(has_header, input, out)
 }
-
-// ---------------------------------------------------------------------------
-// aws
-// ---------------------------------------------------------------------------
 
 fn distill_aws(segments: &[OutputSegment], input: &str) -> String {
     let mut critical_lines: Vec<&str> = Vec::new();
@@ -578,10 +493,6 @@ fn distill_aws(segments: &[OutputSegment], input: &str) -> String {
     out.trim().to_string()
 }
 
-// ---------------------------------------------------------------------------
-// Fallback: take Critical + Important segments, max 20 lines
-// ---------------------------------------------------------------------------
-
 fn distill_fallback(segments: &[OutputSegment], input: &str) -> String {
     let mut out = String::new();
     let mut lines = 0;
@@ -603,32 +514,21 @@ fn distill_fallback(segments: &[OutputSegment], input: &str) -> String {
     }
 
     if out.trim().is_empty() {
-        // Absolute fallback: first 10 lines
         for seg in segments.iter().take(10) {
             out.push_str(&seg.content);
             out.push('\n');
         }
     }
 
-    // Nothing survived scoring, returning "" would delete the output entirely
-    // and report it as a 100% saving.
+    // Never return empty, which reads as a 100% saving.
     super::require_parsed(!out.trim().is_empty(), input, out.trim().to_string())
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// #354: `podman run` with the machine stopped prints the fix on line one
-    /// and the symptom on line two. It came back as
-    /// `docker logs: 1 errors/warnings found`, keeping the socket path and
-    /// deleting the remediation, under a header naming a command that never ran.
-    /// `is_docker_logs` was already in this file and the dispatch never called
-    /// it.
+    /// A `podman run` failure is not summarised as docker logs (#354).
     #[test]
     fn hands_back_a_podman_failure_instead_of_calling_it_docker_logs() {
         let input = "Cannot connect to Podman. Please verify your connection to the Linux system using `podman system connection list`, or try `podman machine init` and `podman machine start` to manage a new Linux VM\nError: unable to connect to Podman socket: dial unix /tmp/podman.sock: connect: no such file or directory\n";
@@ -641,8 +541,7 @@ mod tests {
         );
     }
 
-    /// The other direction, so the gate is not just "never summarise": a real
-    /// log stream still reaches the summariser.
+    /// A real log stream is still summarised.
     #[test]
     fn still_summarises_a_real_docker_log_stream() {
         let mut input = String::new();
@@ -655,8 +554,7 @@ mod tests {
         assert!(out.is_some(), "a timestamped stream is docker logs");
     }
 
-    /// From issue #105: `kubectl get pvc -A` matched the pod fingerprint and
-    /// every healthy `Bound` claim was reported as an error.
+    /// Healthy `Bound` PVCs are not errors (#105).
     const PVC_TABLE: &str = "\
 NAMESPACE    NAME                      STATUS   VOLUME         CAPACITY   ACCESS MODES   STORAGECLASS   AGE
 datasource   qdrant-storage-qdrant-0   Bound    pvc-0a75d858   5Gi        RWO            default        2y
@@ -668,8 +566,6 @@ default     api-7fb96c846b-f4jnm     1/1     Running            0          5d
 kube-系统   auth-5d4f6c8b99-abc12    0/1     CrashLoopBackOff   15         2h";
 
     fn distill_as(tool: &str, input: &str) -> String {
-        // Mirrors the dispatch boundary: a distiller that could not read its
-        // input fails open to the raw bytes.
         CloudDistiller { tool }
             .distill(&[], input, None)
             .unwrap_or_else(|| input.to_string())
@@ -679,9 +575,7 @@ kube-系统   auth-5d4f6c8b99-abc12    0/1     CrashLoopBackOff   15         2h"
         distill_as("kubectl", input)
     }
 
-    /// From issue #112: `is_docker_logs` is a pure shape heuristic, five
-    /// timestamped lines, so `kubectl exec` output was routed into the docker
-    /// summariser, which erased a real `ls:` error and asserted there was none.
+    /// `kubectl exec` output is not docker logs (#112).
     #[test]
     fn routes_by_command_not_by_content_shape() {
         let mut input = String::from("ls: /data/models: No such file or directory\n");
@@ -711,12 +605,7 @@ kube-系统   auth-5d4f6c8b99-abc12    0/1     CrashLoopBackOff   15         2h"
         assert_eq!(distill_as("terraform", input), input);
     }
 
-    /// #633: a failing `terraform validate` came back as `+1 ~0 -0 resources`
-    /// with `+ configuration` under it, because the error prose says "so if this
-    /// file will be created by a resource in this configuration" and the counter
-    /// matched that phrase anywhere in the line. The rendering is the shape of a
-    /// clean plan, so the failure reads as success. Wrapped exactly as terraform
-    /// wraps it: the phrase and the address token land on different lines.
+    /// A failing `terraform validate` is not a clean plan, wrapped as terraform wraps it (#633).
     #[test]
     fn refuses_to_count_resources_out_of_terraform_error_prose() {
         let input = "function works only with files that are distributed as part of the\n\
@@ -739,10 +628,7 @@ kube-系统   auth-5d4f6c8b99-abc12    0/1     CrashLoopBackOff   15         2h"
 
     #[test]
     fn keeps_every_row_of_a_pod_table() {
-        // #562. The summariser that used to run here was live for one release,
-        // after #510 removed the TOML filter that had been shadowing it since
-        // #110, and it turned a 10 row table into 3 lines. A count of pods cannot
-        // be turned back into a pod name, so the rows are the answer.
+        // Pod rows are the answer (#562).
         assert_eq!(distill(PODS_ALL_NAMESPACES), PODS_ALL_NAMESPACES);
     }
 

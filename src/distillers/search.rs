@@ -24,10 +24,8 @@ pub fn distill_grep(content: &str) -> Option<String> {
     }
 
     let mut files: Vec<&str> = file_counts.keys().copied().collect();
-    // Count descending, then path, so equal counts do not fall back to `HashMap`
-    // iteration order. Now that the tail is listed too, an unstable order changed
-    // both the listing and which files were quoted, for identical input: it
-    // breaks the determinism `CONTRIBUTING.md` requires and defeats prompt-cache reuse.
+    // Count descending, then path, so ties never follow `HashMap` order: output must be
+    // deterministic.
     files.sort_by(|a, b| {
         file_counts
             .get(b)
@@ -46,7 +44,6 @@ pub fn distill_grep(content: &str) -> Option<String> {
         let total = lines.len();
         out.push_str(&format!("\n--- {} ({} matches) ---\n", file, total));
 
-        // Priority lines extraction
         let mut priority = Vec::new();
         let mut regular = Vec::new();
 
@@ -91,11 +88,8 @@ pub fn distill_grep(content: &str) -> Option<String> {
     }
 
     if files.len() > 10 {
-        // A grep asks *where* something occurs, so a count of what was dropped
-        // does not answer it: on a repo-wide search this hid 58 of 68 files, and
-        // the one the caller wanted was as likely to be in the tail as the head
-        // (#362). Naming the rest with their counts restores the answer for
-        // about 8% of the raw bytes, which is cheap next to losing it.
+        // Name every file with its count: the caller's file is as likely in the tail as the head
+        // (#362).
         out.push_str(&format!(
             "\n--- {} more files with matches ---\n",
             files.len() - 10
@@ -107,7 +101,7 @@ pub fn distill_grep(content: &str) -> Option<String> {
                 file_counts.get(file).copied().unwrap_or(0)
             ));
         }
-        // Phase 6: factual guard. Match lines for these files are not shown.
+        // Tail files are named, their match lines not shown.
         out.push_str(
             "[OMNI Guard: match lines shown for the 10 densest files only; run omni retrieve on the handle for the rest]\n",
         );
@@ -123,19 +117,10 @@ pub fn distill_grep(content: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
 
-    /// Review finding: the sort compared counts only, so files with equal counts
-    /// fell back to `HashMap` iteration order. With the tail now listed, the same
-    /// input produced a different listing and different quoted files run to run.
-    ///
-    /// Calling it repeatedly proves nothing: `RandomState` is seeded per process,
-    /// so the order is stable within one test run and only varies between them.
-    /// The observable guarantee is the tiebreak itself, so assert that equal
-    /// counts come out in path order.
+    /// Equal counts sort by path. Asserted directly, since `RandomState` only varies between runs.
     #[test]
     fn breaks_ties_by_path_rather_than_hash_order() {
-        // Twelve files, forty matches each: every count ties, and the per-file
-        // cap leaves enough reduction to clear the guardrail so the distiller
-        // does not punt.
+        // Every count ties, and the cap keeps the reduction past the guardrail.
         let input = (0..12)
             .flat_map(|f| {
                 (0..40).map(move |m| format!("src/file_{f:02}.rs:{}:    pub fn thing()", m + 1))
@@ -157,9 +142,7 @@ mod tests {
     }
     use super::distill_grep;
 
-    /// File `i` gets `total - i` matches, so the ranking is strict. Equal counts
-    /// would leave the order to `HashMap` iteration, and a test that depends on
-    /// it passes and fails on the same code.
+    /// A strict ranking, so no test depends on `HashMap` order.
     fn ranked_matches(files: usize) -> String {
         (0..files)
             .flat_map(|f| {
@@ -170,9 +153,7 @@ mod tests {
             .join("\n")
     }
 
-    /// #362: only the ten densest files were named and the rest became a bare
-    /// count, so a repo-wide search answered "where" for 10 of 68 files. The
-    /// caller's file is as likely to be in the tail as the head.
+    /// Every file is named (#362).
     #[test]
     fn names_every_file_that_matched() {
         let input = ranked_matches(30);
@@ -187,8 +168,7 @@ mod tests {
         }
     }
 
-    /// Naming the tail must not turn into printing it: the match lines for those
-    /// files stay out, which is what keeps the reduction worth having.
+    /// Tail files are named, not printed.
     #[test]
     fn keeps_match_lines_only_for_the_densest_files() {
         let input = ranked_matches(30);
