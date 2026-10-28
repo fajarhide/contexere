@@ -41,7 +41,7 @@ out stays on your machine, and one command brings it back.
 |---|---|
 | reads a file it already read | sends one line with a handle instead of the file again |
 | runs a noisy build or test | keeps the result and the failures, drops the progress noise |
-| runs `git log`, `git status`, `git diff` | keeps every commit, sums up the status, and drops lockfile and whitespace churn from the diff |
+| runs `git log` or `git status` | keeps every commit, and sums up the status |
 | prints a token or password | replaces it with `[REDACTED]` before the model sees it |
 | hits a failing command | leaves it exactly as it was, so the real error reaches the agent, a secret in it included |
 | reads JSON, YAML or CSV | leaves the structure alone, so a later step can still parse it |
