@@ -238,13 +238,6 @@ fn restore_default_sigpipe() {}
 fn main() {
     restore_default_sigpipe();
 
-    // Initialize observability
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(std::io::stderr) // Write to stderr to avoid polluting stdout
-        .try_init()
-        .ok(); // Ignore if already initialized (e.g. in tests)
-
     let args: Vec<String> = env::args().collect();
 
     // Fast-path pipe mode

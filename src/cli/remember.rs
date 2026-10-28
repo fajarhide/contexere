@@ -98,13 +98,7 @@ pub fn run(args: &[String], store: Arc<Store>) -> Result<()> {
         "global".to_string()
     };
 
-    let project_hash = {
-        use sha2::{Digest, Sha256};
-        let mut h = Sha256::new();
-        h.update(project_path.as_bytes());
-        let enc = hex::encode(h.finalize());
-        crate::util::text::safe_slice(&enc, 16).to_string()
-    };
+    let project_hash = crate::agents::multiagent::project_hash(&project_path);
 
     let tags: Vec<String> = parsed
         .tags

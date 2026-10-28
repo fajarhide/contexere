@@ -85,12 +85,7 @@ pub fn process_payload(
     let summary_str = build_summary(&state, &store);
 
     // Phase 2: Delta detection, skip re-emission if content unchanged
-    let new_hash = {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(summary_str.as_bytes());
-        hex::encode(&hasher.finalize()[..8])
-    };
+    let new_hash = crate::util::text::short_hash(&summary_str);
     if let Some(ref last_hash) = state.last_compact_hash
         && *last_hash == new_hash
     {

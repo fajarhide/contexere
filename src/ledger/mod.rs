@@ -1240,10 +1240,7 @@ fn names_line_numbers(arg: &str) -> bool {
 /// line rather than two. Hashed rather than stored whole because the table is
 /// keyed on it and a 4 KB line would otherwise become a 4 KB index entry.
 pub fn line_key(line: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(line.trim().as_bytes());
-    crate::util::text::safe_slice(&hex::encode(h.finalize()), 16).to_string()
+    crate::util::text::short_hash(line.trim())
 }
 
 #[cfg(test)]

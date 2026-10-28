@@ -45,15 +45,12 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 
 # Observability
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Pattern matching
 regex = "1"
 
 # Security & hashing
 sha2 = "0.10"
-hex = "0.4"
 
 # Time & analytics
 chrono = "0.4"

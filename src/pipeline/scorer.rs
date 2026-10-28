@@ -153,7 +153,6 @@ fn split_into_hunks(input: &str) -> Vec<(String, usize, usize)> {
     chunks
 }
 
-#[tracing::instrument(skip_all)]
 pub fn score_segments(
     input: &str,
     mode: SegmentationMode,
