@@ -1,33 +1,21 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
-/// Engram: Automatic Subtask Digest
-///
-/// Rule-based state snapshots capturing subtask progress without LLM calls.
-/// Triggered by signal events: error resolution, commits, test pass-after-failure.
+//! Rule-based snapshots of finished subtasks: an error resolved, a commit, or a test or
+//! build passing after a failure.
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 
-/// Maximum number of engrams retained in session state
 pub const MAX_ENGRAMS: usize = 10;
 
-/// Maximum number of tool call entries in the rolling log
 pub const MAX_TOOL_CALL_LOG: usize = 50;
 
-/// Number of tool calls between pinned file re-injections
 pub const PINNED_REINJECT_INTERVAL: u32 = 15;
 
-// ── Engram ──────────────────────────────────────────────
-
-/// A snapshot of a completed subtask, captured by rule-based triggers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Engram {
     /// Human-readable label: "Fixed cargo test error in src/main.rs"
     pub label: String,
-    /// What triggered this engram
     pub trigger: EngramTrigger,
     /// Unix timestamp
     pub timestamp: i64,
-    /// Files involved
     pub files: Vec<String>,
     /// Optional detail (e.g. the resolved error text)
     pub detail: Option<String>,
@@ -39,9 +27,7 @@ pub enum EngramTrigger {
     ErrorResolved,
     /// `git commit` detected in command
     Commit,
-    /// Test passed after prior test failure
     TestPassAfterFailure,
-    /// Build succeeded after prior build failure
     BuildSucceeded,
     /// Triggered when pre_compact fires inside a loop context (L1-04)
     LoopCheckpoint,
@@ -80,9 +66,6 @@ impl Engram {
     }
 }
 
-// ── Tool Call Summary ───────────────────────────────────
-
-/// A single entry in the rolling tool call log.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallEntry {
     /// Tool family: "cargo", "git", "npm", "kubectl", etc.
@@ -97,7 +80,6 @@ pub struct ToolCallEntry {
     pub timestamp: i64,
 }
 
-/// Aggregated summary of tool calls, grouped by family.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolFamilySummary {
     pub family: String,
@@ -108,7 +90,6 @@ pub struct ToolFamilySummary {
     pub last_files: Vec<String>,
 }
 
-/// Build aggregated summary from a tool call log.
 pub fn summarize_tool_calls(log: &VecDeque<ToolCallEntry>) -> Vec<ToolFamilySummary> {
     let mut by_family: BTreeMap<String, Vec<&ToolCallEntry>> = BTreeMap::new();
     for entry in log {
@@ -135,12 +116,10 @@ pub fn summarize_tool_calls(log: &VecDeque<ToolCallEntry>) -> Vec<ToolFamilySumm
         })
         .collect();
 
-    // Sort by total_calls descending for relevance
     summaries.sort_by_key(|s| std::cmp::Reverse(s.total_calls));
     summaries
 }
 
-/// Format tool call summary as a compact string for context injection
 pub fn format_tool_summary(log: &VecDeque<ToolCallEntry>) -> String {
     let summaries = summarize_tool_calls(log);
     if summaries.is_empty() {
@@ -162,10 +141,6 @@ pub fn format_tool_summary(log: &VecDeque<ToolCallEntry>) -> String {
     out
 }
 
-// ── Engram Triggers ─────────────────────────────────────
-
-/// Detect if an engram should be created based on current command context.
-/// Returns `Some(Engram)` if a trigger condition is met.
 pub fn detect_engram(
     command: &str,
     had_errors: bool,
@@ -177,7 +152,6 @@ pub fn detect_engram(
     let now = chrono::Utc::now().timestamp();
     let top_files: Vec<String> = files.iter().take(3).cloned().collect();
 
-    // Trigger: git commit
     if command.contains("git commit") {
         let msg = extract_commit_msg(command).unwrap_or_else(|| "commit".to_string());
         return Some(Engram {
@@ -189,7 +163,6 @@ pub fn detect_engram(
         });
     }
 
-    // Trigger: error resolved (had errors, now the same tool family succeeds)
     if had_errors && !has_errors_now {
         let detail = resolved_error.map(|e| truncate(e, 100).to_string());
         let label = if let Some(ref d) = detail {
@@ -206,7 +179,6 @@ pub fn detect_engram(
         });
     }
 
-    // Trigger: test pass after failure
     if is_test_command(command) && had_errors && !has_errors_now {
         return Some(Engram {
             label: format!("{} tests now passing", tool_family),
@@ -217,7 +189,6 @@ pub fn detect_engram(
         });
     }
 
-    // Trigger: build succeeded after failure
     if is_build_command(command) && had_errors && !has_errors_now {
         return Some(Engram {
             label: format!("{} build succeeded", tool_family),
@@ -231,9 +202,6 @@ pub fn detect_engram(
     None
 }
 
-// ── Pinned File Re-injection ────────────────────────────
-
-/// Check if pinned files should be re-injected based on pressure and interval.
 pub fn should_reinject_pinned(
     pressure: &crate::pipeline::ContextPressure,
     command_count: u32,
@@ -245,8 +213,6 @@ pub fn should_reinject_pinned(
     let gap = command_count.saturating_sub(last_reinject_at);
     gap >= PINNED_REINJECT_INTERVAL
 }
-
-// ── Helpers ─────────────────────────────────────────────
 
 pub fn classify_engram_category(engram: &Engram) -> &'static str {
     match engram.trigger {
@@ -271,11 +237,7 @@ fn has_decision_keywords(text: &str) -> bool {
     KEYWORDS.iter().any(|k| lower.contains(k))
 }
 
-/// Slices here are proven to sit on a char boundary rather than assumed to.
-/// A file-level allow used to cover them and hid a real panic elsewhere (#619),
-/// so the exemption is per function and says why.
-///
-/// `find("-m ")` plus that needle's three bytes, all ASCII.
+/// Slices sit on ASCII boundaries: `find("-m ")` plus its three bytes.
 #[allow(clippy::string_slice)]
 fn extract_commit_msg(command: &str) -> Option<String> {
     // git commit -m "message"
@@ -323,8 +285,6 @@ fn age_str(timestamp: i64) -> String {
         format!("{}h ago", age_mins / 60)
     }
 }
-
-// ── Tests ───────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

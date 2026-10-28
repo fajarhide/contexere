@@ -1,5 +1,3 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
 use crate::pipeline::{DistillResult, SessionState};
 use crate::store::sqlite::Store;
 use regex::Regex;
@@ -14,16 +12,8 @@ static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     ).unwrap()
 });
 
-/// What this run contributes to the session's savings figure.
-///
-/// Zero when nothing reached a model. #212 excluded `agent_id='terminal'` rows
-/// from the token headline because they are TTY bytes nobody is billed for, and
-/// `sqlite.rs` has a test for it; the exclusion never reached `SessionState`, so
-/// `estimated_tokens_saved` (the session summary and `omni_context`) counted
-/// them anyway and overstated the saving.
-///
-/// Split out because `track_command` does its work on a spawned thread, which a
-/// test cannot observe without racing it.
+/// Zero when nothing reached a model: terminal runs are TTY bytes nobody is billed for.
+/// Split out because `track_command` runs on a thread a test cannot observe.
 fn savings_counters(result: &DistillResult, reaches_a_model: bool) -> (u64, u64, u64, u64) {
     if !reaches_a_model {
         return (0, 0, 0, 0);
@@ -46,15 +36,8 @@ impl SessionTracker {
         Self { session, store }
     }
 
-    /// `reaches_a_model` gates the savings counters only.
-    ///
-    /// #212 excluded `agent_id='terminal'` rows from the token headline because
-    /// they are TTY bytes no model reads, and `sqlite.rs` has a test for it. That
-    /// exclusion never reached `SessionState`: this tracker had no agent filter,
-    /// so `estimated_tokens_saved` (the session summary and `omni_context`) still
-    /// counted them and overstated what OMNI had saved. Commands, hot files and
-    /// errors are still tracked either way, because they feed relevance scoring
-    /// and `session --inject` regardless of who read the output.
+    /// `reaches_a_model` gates only the savings counters. Commands, hot files and errors are
+    /// tracked either way because relevance scoring and `session --inject` use them.
     pub fn track_command(
         &self,
         command: &str,
@@ -80,7 +63,6 @@ impl SessionTracker {
 
             session_locked.add_command(&cmd);
 
-            // Update Distillation Telemetry, for work a model actually read.
             let (input, output, raw, filtered) = savings_counters(&result_clone, reaches_a_model);
             session_locked.cumulative_input_bytes += input;
             session_locked.cumulative_output_bytes += output;
@@ -125,7 +107,6 @@ impl SessionTracker {
             }
 
             if errors.is_empty() && result_clone.route.clone() != crate::pipeline::Route::Error {
-                // Command succeeded, mark recent patterns for this tool as resolved
                 store.resolve_pattern(&tool_family, &cmd);
             } else {
                 for err in &errors {
@@ -135,7 +116,6 @@ impl SessionTracker {
                 }
             }
 
-            // Phase 2: Rolling Tool Call Log
             let all_files: Vec<String> = paths.iter().chain(cmd_paths.iter()).cloned().collect();
             let succeeded =
                 errors.is_empty() && result_clone.route != crate::pipeline::Route::Error;
@@ -147,8 +127,6 @@ impl SessionTracker {
                 timestamp: chrono::Utc::now().timestamp(),
             });
 
-            // Phase 2: Engram Detection
-            // Check if errors were resolved (had errors before, now none for this tool family)
             let had_errors_before = !session_locked.active_errors.is_empty() || !errors.is_empty();
             let has_errors_now = !errors.is_empty();
             let resolved_error = if !has_errors_now {
@@ -276,7 +254,6 @@ fn extract_errors(text: &str) -> Vec<String> {
         errors.push(truncate_error(&current_err));
     }
 
-    // Deduplicate
     let mut unique = Vec::new();
     let mut seen = HashSet::new();
     for err in errors {
@@ -336,11 +313,8 @@ pub fn infer_task(session: &SessionState) -> Option<String> {
     })
 }
 
-// Three slices here, each proven to sit on a char boundary rather than assumed
-// to: `rfind` returns one by definition, and the prefix loop below skips every
-// index that is not one, which is also what `prefix_len` inherits. A blanket
-// file-level allow used to cover these and hid the one that was genuinely wrong
-// (#619), so the exemption is per-function and says why.
+// Slices sit on char boundaries: `rfind` returns one, and the prefix loop skips every
+// index that is not.
 #[allow(clippy::string_slice)]
 pub fn infer_domain(session: &SessionState) -> Option<String> {
     let paths: Vec<String> = session.hot_files.keys().cloned().collect();
@@ -355,19 +329,13 @@ pub fn infer_domain(session: &SessionState) -> Option<String> {
         .filter(|d| !d.is_empty())
         .collect();
 
-    // 1) If we have enough directory information, infer from common directory prefix.
     if dirs.len() >= 2 {
         let min_len = dirs.iter().map(|p| p.len()).min().unwrap_or(0);
         let mut prefix_len = 0;
 
         let first = dirs[0].as_str();
         for r in 0..=min_len {
-            // `r` walks bytes, so most values of it land inside a multi-byte
-            // character and slicing there panics. Any path with an accent or a
-            // CJK segment took the process down here, and two such paths are
-            // enough to reach this loop (#619). Skipping the non-boundaries also
-            // leaves `prefix_len` on one, which is what makes the slice below
-            // safe.
+            // `r` walks bytes; slicing off a char boundary panics on accented or CJK paths.
             if !first.is_char_boundary(r) {
                 continue;
             }
@@ -388,7 +356,6 @@ pub fn infer_domain(session: &SessionState) -> Option<String> {
         return parts.last().map(|last| last.to_string());
     }
 
-    // 2) Fallback: if we have a single directory, infer from its last segment.
     if let Some(dir) = dirs.first() {
         let parts: Vec<&str> = dir.split('/').filter(|s| !s.is_empty()).collect();
         if let Some(last) = parts.last() {
@@ -396,8 +363,7 @@ pub fn infer_domain(session: &SessionState) -> Option<String> {
         }
     }
 
-    // 3) Last resort: hot files contain only basenames (no '/').
-    // Return basename without extension to avoid "not detected".
+    // Hot files may be bare basenames; return one without its extension.
     let first = paths.first().cloned()?;
     let filename = first.rsplit('/').next().unwrap_or(&first);
     if let Some((base, _ext)) = filename.rsplit_once('.') {
@@ -476,11 +442,7 @@ mod tests {
         }
     }
 
-    /// #212 excluded `agent_id='terminal'` rows from the token headline because
-    /// they are TTY bytes nobody is billed for, and `sqlite.rs` has a test for
-    /// it. The exclusion never reached `SessionState`, so the session summary
-    /// and `omni_context` kept counting them: the same figure was reported two
-    /// ways depending on which path you read it from.
+    /// Terminal runs are TTY bytes nobody is billed for, so they must not count as saved.
     #[test]
     fn output_no_model_read_adds_nothing_to_the_savings_figure() {
         assert_eq!(savings_counters(&a_distillation(), false), (0, 0, 0, 0));
@@ -539,15 +501,10 @@ mod tests {
         state.add_hot_file("src/auth/middleware.rs");
 
         let domain = infer_domain(&state);
-        // prefix -> "src/auth/"
-        // split -> ["src", "auth"] -> last is "auth"
         assert_eq!(domain.unwrap(), "auth");
     }
 
-    /// #619. The common-prefix loop walked byte indices and sliced at each one,
-    /// so any path with a multi-byte character in it panicked here. Two hot files
-    /// under a directory are all it takes to reach the loop, and an accented or
-    /// CJK directory name is ordinary rather than adversarial.
+    /// A multi-byte character in a directory name must not panic the common-prefix loop.
     #[test]
     fn infers_domain_from_paths_with_multi_byte_characters() {
         let mut state = SessionState::new();
@@ -636,20 +593,16 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path();
 
-        // 1. Rust detection
         std::fs::write(path.join("Cargo.toml"), "").unwrap();
         assert_eq!(detect_rust_toolchain(path), Some("cargo".into()));
 
-        // 2. JS detection (pnpm)
         std::fs::write(path.join("pnpm-lock.yaml"), "").unwrap();
         assert_eq!(detect_js_toolchain(path), Some("pnpm".into()));
 
-        // 3. JS detection (yarn) - after removing pnpm to avoid conflict or just check order
         std::fs::remove_file(path.join("pnpm-lock.yaml")).unwrap();
         std::fs::write(path.join("yarn.lock"), "").unwrap();
         assert_eq!(detect_js_toolchain(path), Some("yarn".into()));
 
-        // 4. Python detection (poetry)
         std::fs::write(path.join("pyproject.toml"), "").unwrap();
         assert_eq!(detect_python_toolchain(path), Some("poetry".into()));
     }
