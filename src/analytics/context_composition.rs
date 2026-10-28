@@ -6,23 +6,10 @@ pub struct ContextTurn {
     pub session_id: String,
     pub timestamp: i64,
 
-    // Breakdown sources
     pub estimated_total_tokens: u64,
-    /// Bytes, and named for them since #589. These were `*_tokens` holding
-    /// `size_bytes / 4`, a rougher estimator than the 3.6 the rest of the report
-    /// used and still not a Claude token count. The file size and the delivered
-    /// length are both counted exactly, so there is nothing to estimate here.
-    ///
-    /// `serde(default)` because `SessionState` is persisted as JSON and
-    /// `list_recent_sessions` skips a row it cannot parse **silently**
-    /// (`sqlite.rs:1435` matches on `Ok`). Without it, every session stored
-    /// before this rename would vanish from `omni stats` with no error, which is
-    /// a worse defect than the unit this rename fixes (#595 review).
-    ///
-    /// Deliberately not `serde(alias)` on the old names: those held
-    /// `size_bytes / 4`, so aliasing would load a quarter of the real figure
-    /// into a field that now means bytes. A turn that predates the rename
-    /// reports nothing rather than something wrong.
+    /// Bytes, counted exactly. `serde(default)` because a stored session that
+    /// fails to parse is skipped silently and would vanish from `omni stats`.
+    /// Not `serde(alias)` on the old `*_tokens` names: they held `size_bytes / 4`.
     #[serde(default)]
     pub file_read_bytes: u64,
     #[serde(default)]
@@ -30,7 +17,6 @@ pub struct ContextTurn {
     pub conversation_tokens: u64,
     pub system_prompt_tokens: u64,
 
-    // Flags
     pub has_duplicate_file_reads: bool,
     pub duplicate_files: Vec<String>,
     pub largest_single_read: (String, u64),
@@ -40,11 +26,7 @@ pub struct ContextTurn {
 mod tests {
     use super::*;
 
-    /// #595 review. `SessionState` is persisted as JSON and
-    /// `list_recent_sessions` skips a row it cannot parse without saying so, so
-    /// a rename here does not fail loudly: it deletes history from `omni stats`.
-    /// The old names held `size_bytes / 4`, which is why they are dropped rather
-    /// than aliased into fields that now mean bytes.
+    /// A rename that breaks parsing deletes history from `omni stats` silently.
     #[test]
     fn a_turn_written_before_the_rename_still_loads() {
         let stored = r#"{"turn_number":3,"session_id":"old","timestamp":1,
