@@ -3,12 +3,10 @@ use crate::pipeline::{OutputSegment, SignalTier};
 
 pub struct BuildDistiller;
 
-/// Detect single-line diagnostic format used by Python tools (mypy, ruff, pylint).
-/// Pattern: "filepath:line:col: severity: message" or "filepath:line: severity: message"
-/// Must NOT match Rust compiler location lines like " --> src/main.rs:1:5"
+/// Python single-line diagnostics (`path:line[:col]: severity: msg`), not Rust's ` -->
+/// src/main.rs:1:5`.
 fn is_single_line_diagnostic(content: &str) -> bool {
     let trimmed = content.trim();
-    // Exclude Rust compiler location lines
     if trimmed.starts_with("-->") || trimmed.starts_with('|') || trimmed.starts_with("=") {
         return false;
     }
@@ -16,7 +14,7 @@ fn is_single_line_diagnostic(content: &str) -> bool {
     if parts.len() >= 3 {
         let filepath = parts[0].trim();
         let potential_line = parts[1].trim();
-        // filepath must look like a path (contain . or /) and not be empty
+        // The path must contain `.` or `/`.
         let looks_like_path = !filepath.is_empty()
             && (filepath.contains('.') || filepath.contains('/'))
             && !filepath.contains(' ');
@@ -27,23 +25,10 @@ fn is_single_line_diagnostic(content: &str) -> bool {
     false
 }
 
-/// A build actually happened here.
-///
-/// `Build: ok` is a verdict *about a build*, so it may only be emitted when the
-/// output carries a line that only a build prints. Without this gate the arm
-/// routing `make`, `pip`, `go`, `dotnet`, `gradle` and `mvn` to this distiller
-/// answered every non-build invocation of them with it: `pip list` (307 B of
-/// installed packages), `go env` (297 B of environment), `make help` (420 B of
-/// targets) and `dotnet --list-sdks` all came back as the same nine bytes, each
-/// reported as a ~97% saving. Measured through the release post-hook, not only
-/// in a unit test, the agent really received `Build: ok` for `pip list` (#250).
-///
-/// The list is short on purpose and holds only build *activity*, not success
-/// banners. A tool whose clean run is a single line (`ruff`: `All checks
-/// passed!`, `mypy`: `Success: no issues found`, `black`: `All done!`) has
-/// nothing worth compressing, so failing open on it costs nothing and saves a
-/// list that would rot. What is here is the shape of a run long enough to be
-/// worth summarising.
+/// A build actually happened here. `Build: ok` is a verdict about a build, so
+/// it needs a line only a build prints: `pip list`, `go env` and `make help`
+/// all came back as `Build: ok` (#250). Activity lines only; a one-line clean
+/// run has nothing to compress anyway.
 fn saw_build_activity(input: &str) -> bool {
     input.lines().any(|line| {
         let l = line.trim_start();
@@ -71,11 +56,8 @@ impl Distiller for BuildDistiller {
         let mut is_error_block = false;
 
         for seg in segments {
-            // F-08: Handle single-line diagnostic format (Python/mypy/ruff/pylint)
-            // These may be classified as Context by classify_line since ruff codes
-            // (E501, F401) don't match standard error/warning keywords
+            // Python diagnostics may classify as Context, since codes like E501 match no keyword.
             if is_single_line_diagnostic(&seg.content) {
-                // Flush any pending block first
                 if !current_block.is_empty() {
                     if is_error_block {
                         errors.push(current_block.join("\n"));
@@ -84,7 +66,7 @@ impl Distiller for BuildDistiller {
                     }
                     current_block.clear();
                 }
-                // Classify based on content: "error" keyword → error, else warning
+                // "error" means error, otherwise a warning.
                 let is_error = seg.tier == SignalTier::Critical
                     || seg.content.contains(": error:")
                     || seg.content.contains("ERROR:");
@@ -100,8 +82,7 @@ impl Distiller for BuildDistiller {
                 if current_block.is_empty() {
                     is_error_block = seg.tier == SignalTier::Critical;
                 }
-                // If we see a new critical and we're currently in a warning block,
-                // or if it's a clear new error boundary, flush it
+                // A new critical line, or a clear error boundary, flushes the block.
                 if seg.tier == SignalTier::Critical && !current_block.is_empty() && !is_error_block
                 {
                     warnings.push(current_block.join("\n"));
@@ -166,14 +147,7 @@ mod tests {
     use super::*;
     use crate::pipeline::scorer;
 
-    /// #250: `Build: ok` is a verdict about a build, and every tool routed to
-    /// this distiller has invocations that are not one. Each of these came back
-    /// as the same nine bytes with its entire answer deleted, reported as a
-    /// ~97% saving, and the post-hook really handed that to the agent.
-    ///
-    /// Driven through `distill_with_command` rather than `BuildDistiller`
-    /// directly: the routing arm is half of the defect, so a test that skips it
-    /// would pass while the shipped path still fabricated.
+    /// Non-build invocations get no `Build: ok`, through the real routing (#250).
     #[test]
     fn declines_output_from_a_tool_that_did_not_build_anything() {
         for (cmd, output) in [
@@ -203,8 +177,7 @@ mod tests {
         }
     }
 
-    /// The other half: gating the verdict must not stop a real build from being
-    /// summarised, which is where this distiller earns its keep.
+    /// A real build is still summarised.
     #[test]
     fn still_summarises_a_clean_build() {
         let output = "   Compiling libc v0.2.176\n   Compiling serde v1.0.228\n   Compiling omni v0.6.9 (/repo)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.40s\n";
@@ -218,7 +191,6 @@ mod tests {
 
     #[test]
     fn test_is_single_line_diagnostic() {
-        // True: Python diagnostic formats
         assert!(is_single_line_diagnostic(
             "src/auth.py:42: error: incompatible type"
         ));
@@ -228,12 +200,10 @@ mod tests {
         assert!(is_single_line_diagnostic(
             "src/utils.py:8:1: F401 imported but unused"
         ));
-        // False: Rust compiler output
         assert!(!is_single_line_diagnostic("error[E0308]: mismatched types"));
         assert!(!is_single_line_diagnostic(" --> src/main.rs:1:5"));
         assert!(!is_single_line_diagnostic("  |"));
         assert!(!is_single_line_diagnostic("1 | use std::collections::Foo;"));
-        // False: general
         assert!(!is_single_line_diagnostic("normal output line"));
         assert!(!is_single_line_diagnostic(""));
     }

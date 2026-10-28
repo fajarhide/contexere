@@ -1,10 +1,4 @@
-/// The no-dependency-context form, kept for the tests below that exercise the
-/// per-language distillers without caring about the dependents guard.
-///
-/// Production has no caller: the Read hook always has a way to count dependents,
-/// and since #320 it passes that as a closure the distiller may never call. The
-/// `graph failed` fallback that used to call this was unreachable once the graph
-/// stopped being built up front.
+/// The form without a dependents count, for tests only.
 #[cfg(test)]
 fn distill_readfile(content: &str, filepath: &str) -> Option<String> {
     distill_readfile_with_context(content, filepath, || 0)
@@ -12,15 +6,9 @@ fn distill_readfile(content: &str, filepath: &str) -> Option<String> {
 
 const MIN_DISTILL_TOKENS: usize = 2000;
 
-/// `imported_by_count`: number of files that import this file (from graph).
-/// When > 3, append a factual warning suggesting `omni context` (#609).
-/// `imported_by` is a closure, not a number, because computing it walks the
-/// repository. It is consulted at one place, the dependents guard below, and
-/// only after two earlier gates have already decided there is something to
-/// return. Passing the value meant `hooks::post_tool` built the whole import
-/// graph before either gate ran, so every hooked `Read` of a small file paid
-/// **48 ms** on this repository to produce a number that was discarded a few
-/// lines later, against a 10 ms budget for the entire hook (#320).
+/// `imported_by` counts the files importing this one; above 3 the reply
+/// suggests `omni context` (#609). A closure, since computing it walks the repo:
+/// building it up front cost 48 ms per hooked `Read` (#320).
 pub fn distill_readfile_with_context(
     content: &str,
     filepath: &str,
@@ -46,40 +34,19 @@ pub fn distill_readfile_with_context(
         "java" | "kt" => distill_java_file(content),
         "json" => distill_json_file(content),
         "toml" | "yaml" | "yml" => distill_config_file(content, ext),
-        // `.log` only. `.txt` is not a log format, and sending it to a log
-        // summariser is the fingerprint problem from #105 and #112: a shape a
-        // sibling format also has. 12 of the 14 `.txt` files in the measured
-        // corpus came back as `Log: 0 errors, 0 warnings` with every line gone
-        // (#246). It falls to the arm below and is handed back whole.
+        // `.log` only: `.txt` prose came back as `Log: 0 errors` with every line gone (#246).
         "log" => distill_log_file(content),
-        // Everything else passes through (#523). The arm here used to be
-        // `distill_unknown_file`, which keeps 15 lines of head and 5 of tail and
-        // parses nothing: a 333-line markdown spec arrived as 18 lines, with the
-        // whole document in the 309 it dropped.
-        //
-        // That is the rule this project holds every other distiller to, broken
-        // in place. A distiller that could not parse its input returns the input;
-        // slicing by position is a confident answer about content nothing
-        // understood. In a log the first and last lines carry the run and its
-        // verdict, which is why `.log` keeps a summariser. In prose they carry
-        // the title and the closing caveats, and every requirement is in between.
-        //
-        // It also inverts on the surface it fires on. `Read` is what an agent
-        // calls before editing one named file, so the base rate of "those lines
-        // were never wanted" is close to zero, and the recovery is
-        // `omni retrieve`, which re-emits all of it: the turn then pays for the
-        // cut copy, the marker, and the whole file.
+        // Everything else passes through (#523): a head-and-tail cut is confident
+        // about content nothing parsed, and a `Read` precedes an edit of that file.
         _ => return None,
     };
 
-    // Only return if meaningful compression achieved
     if distilled.len() < content.len() * 8 / 10 {
         let mut out = format!(
             "[OMNI ReadFile: {} → distilled ({} lines)]\n{}",
             filepath, line_count, distilled
         );
-        // Phase 6: factual guard, file has many dependents. The walk happens
-        // here or not at all.
+        // The dependents guard: the repo walk happens here or not at all.
         let imported_by_count = imported_by();
         if imported_by_count > 3 {
             out.push_str(&format!(
@@ -122,36 +89,10 @@ fn distill_unknown_file(content: &str) -> String {
     )
 }
 
-/// What a code distiller must say about the lines it dropped (#176).
-///
-/// These distillers keep selected lines, imports, signatures, risk markers -
-/// and discard everything else, function bodies included. The never-drop
-/// invariant requires the output to say so with a count; a skeleton returned
-/// silently is data loss wearing a compression badge, the #111 shape.
-///
-/// `distill_rust_file` was the only one that said anything, and it said it
-/// without a number. The other four returned the skeleton and left the reader
-/// no way to tell the bodies had ever existed: a 24,999 B Python file came back
-/// as 3,275 B of repeated signatures, 86.9% reported as a win, with the business
-/// rule it was read for deleted and unmentioned.
-///
-/// It names no recovery route, and that is the fix rather than an omission
-/// (#598). It used to end `Re-read with offset/limit for the full file.`, which
-/// does not work and cannot: a re-read is a fresh `Read` of the same file, so it
-/// reaches this same distiller and returns this same skeleton. Following the
-/// instruction verbatim on a 303 line file returned the identical summary a
-/// second time, and a third identical request folded to one ledger marker with
-/// no content at all.
-///
-/// The reply already carries the route that does work, one line below this one:
-/// the `omni retrieve <handle>` marker, whose handle every probe resolved. The
-/// note counts what was dropped and stops there, because the handle is minted
-/// after this function runs and this string cannot name it.
-///
-/// Its number counts **file** lines the skeleton does not render. The marker
-/// below counts **reply** lines cut from what was about to be sent, so the two
-/// legitimately differ on the same read, and `of {total_lines}` is here to say
-/// which denominator this one uses.
+/// What a code distiller must say about the lines it dropped: a count, never a
+/// silent skeleton (#176, #111). No recovery route: a re-read returns the same
+/// skeleton (#598), and the retrieve marker below already names one. Counts
+/// file lines, while the marker counts reply lines.
 fn omitted_note(total_lines: usize, kept_lines: usize) -> String {
     let omitted = total_lines.saturating_sub(kept_lines);
     if omitted == 0 {
@@ -162,10 +103,7 @@ fn omitted_note(total_lines: usize, kept_lines: usize) -> String {
     )
 }
 
-/// The scan behind every `--- … ---` section runs over the **whole** file, not
-/// over the lines kept, so an empty section means "absent from the file" rather
-/// than "absent from what you can see". A bare `None` next to a visibly
-/// truncated body cannot convey which, so it says which.
+/// Sections scan the whole file, so an empty one says "absent from the file".
 const NONE_IN_FULL_FILE: &str = "None in the full file\n";
 
 fn content_hint_for_extension(ext: &str) -> crate::util::token_estimate::ContentHint {
@@ -415,10 +353,7 @@ fn distill_config_file(content: &str, ext: &str) -> String {
     if out.is_empty() {
         return distill_unknown_file(content);
     }
-    // Keys only, values and nesting dropped. #176 gave every language path a
-    // count of what it removed and stopped here, which is why 13 of the 13
-    // measured `.yaml` reads came back as a key list with no way to tell a
-    // container spec had ever been below the fold (#246).
+    // Keys only; the count says a spec was below the fold (#246).
     let kept = out.lines().count();
     format!(
         "[Config structure, {} lines total]\n{}{}",
@@ -456,26 +391,17 @@ fn distill_log_file(content: &str) -> String {
     }
     out.push_str(&omitted_note(total, shown));
 
-    // A file with no error and no warning lines is not a clean log. It is a file
-    // this function could not read, and `Log: 0 errors, 0 warnings` over 362
-    // deleted lines of prose is the exact claim `require_parsed` exists to stop:
-    // a summary byte-identical to a real clean run, emitted with nothing parsed
-    // (#246, the same shape as #190, #195 and #216).
+    // No error or warning line is nothing parsed, not a clean log (#246).
     crate::distillers::require_parsed(errors + warnings > 0, content, out.trim().to_string())
 }
 
 #[cfg(test)]
 mod tests {
 
-    /// The guard suggests a command a reader will paste into a shell, so the path
-    /// has to survive being a filename rather than becoming shell syntax. Flagged
-    /// on #609 when the suggestion changed from an MCP call, where the argument
-    /// was already quoted by JSON, to a command line where it is not.
+    /// The suggested command quotes the path for a shell (#609).
     #[test]
     fn the_suggested_command_quotes_the_path() {
-        // Same shape as `the_dependents_guard_still_fires_when_it_is_reached`,
-        // which is the fixture already proven to clear both gates: the token
-        // floor and the 20% compression the guard sits behind.
+        // The fixture known to clear both gates.
         let mut content = String::new();
         for i in 0..400 {
             content.push_str(&format!(
@@ -494,21 +420,12 @@ mod tests {
         );
     }
 
-    /// #320: `hooks::post_tool` built the whole import graph before calling this,
-    /// so every hooked `Read` paid 48 ms on this repository, most of them for a
-    /// number discarded a few lines later. The count is a closure now, consulted
-    /// only at the dependents guard, which sits behind two gates that reject the
-    /// common case.
-    ///
-    /// Asserting the closure is *not called*, because "it compiles with a
-    /// closure" was true of the version that still walked the repository every
-    /// time.
+    /// The dependents closure is not called when the gates reject (#320).
     #[test]
     fn the_dependents_walk_is_skipped_when_the_file_is_too_small_to_distil() {
         use std::cell::Cell;
         let called = Cell::new(false);
 
-        // Well under MIN_DISTILL_TOKENS, so both gates reject it.
         let tiny = "fn main() {}\n";
         let out = distill_readfile_with_context(tiny, "src/main.rs", || {
             called.set(true);
@@ -522,8 +439,7 @@ mod tests {
         );
     }
 
-    /// The other half: when the guard is reached the count is consulted and the
-    /// advisory line appears, so deferring did not disable the feature.
+    /// When reached, the guard consults the count.
     #[test]
     fn the_dependents_guard_still_fires_when_it_is_reached() {
         let mut content = String::new();
@@ -551,14 +467,11 @@ mod tests {
         assert!(distill_readfile(content, "src/lib.rs").is_none());
     }
 
-    /// Enough repeated bodies to clear MIN_DISTILL_TOKENS in any language.
     fn bulky(unit: &str) -> String {
         unit.repeat(200)
     }
 
-    /// #176: every code distiller drops the lines it did not select, so every
-    /// one of them must say how many went. Four of the five said nothing, and a
-    /// silently returned skeleton is the #111 never-drop violation.
+    /// Every code distiller states how many lines went (#176).
     #[test]
     fn every_code_distiller_reports_how_many_lines_it_dropped() {
         let cases = [
@@ -604,8 +517,6 @@ mod tests {
         }
     }
 
-    /// The count is the point, "output was truncated" does not let a reader
-    /// judge whether to re-read, a number does.
     #[test]
     fn states_the_omitted_line_count_against_the_file_total() {
         let content = bulky("def f(o):\n    return o.total * 2\n");
@@ -619,22 +530,12 @@ mod tests {
         );
     }
 
-    /// #246. A prose `.txt` was routed to the log summariser, which counts lines
-    /// containing `error`/`warn` and emits the count as a finding. A notes file
-    /// has neither, so a 19 KB document came back as 103 bytes reading
-    /// `Log: 0 errors, 0 warnings (362 total lines)`, with all 362 lines gone and
-    /// nothing saying so. The reader is told a log was clean that was never a log.
+    /// Prose `.txt` is never a clean log (#246).
     #[test]
     fn never_reports_a_prose_file_as_a_clean_log() {
         let content = bulky("Active account: true, token scopes gist, project, repo\n");
 
-        // #246 asked that prose never be summarised as a clean log, and was
-        // settled by sending it to head-and-tail with an honest count instead.
-        // #523 removed that arm: the count was honest and the cut was still
-        // positional, so a spec arrived as its title and its closing caveats.
-        // Passthrough is the same guarantee in its stronger form, and this
-        // asserts the stronger one rather than the mechanism that used to
-        // deliver it.
+        // Passthrough since #523.
         assert_eq!(
             distill_readfile(&content, "notes.txt"),
             None,
@@ -642,13 +543,7 @@ mod tests {
         );
     }
 
-    /// #523, at the size it was reported. A 333-line markdown spec came back as
-    /// 13 head lines and 5 tail lines, and everything it said was in the 309
-    /// between them.
-    ///
-    /// Sized against `MIN_DISTILL_TOKENS` deliberately: the fixture has to clear
-    /// the first gate, or it would return `None` for the old reason and pass
-    /// whatever the last arm does.
+    /// A long markdown spec passes through whole, sized past `MIN_DISTILL_TOKENS` (#523).
     #[test]
     fn hands_back_a_whole_markdown_spec() {
         let content: String = (1..=331)
@@ -670,10 +565,7 @@ mod tests {
         );
     }
 
-    /// The same guard for a real `.log` that this function could not read. No
-    /// error and no warning line is not evidence of a clean run, it is evidence
-    /// that nothing was parsed, and `require_parsed` is the repo's existing
-    /// answer to that.
+    /// An unparsed `.log` is not a clean run.
     #[test]
     fn declines_a_log_it_recognised_nothing_in() {
         let content = bulky("2026-08-02T03:43:16Z request served in 12ms\n");
@@ -684,8 +576,7 @@ mod tests {
         );
     }
 
-    /// The counter-case, so the guard is not "decline every log": a log with real
-    /// error lines is still worth summarising.
+    /// A log with real errors is still summarised.
     #[test]
     fn still_summarises_a_log_that_has_errors() {
         let mut content = bulky("2026-08-02T03:43:16Z request served in 12ms\n");
@@ -700,10 +591,7 @@ mod tests {
         );
     }
 
-    /// #176 gave every language path a count of what it removed and stopped
-    /// there. `distill_config_file` keeps top-level keys and drops values and
-    /// nesting, so 13 of the 13 measured `.yaml` reads came back as a key list
-    /// with no way to tell a container spec had ever been below the fold.
+    /// A config summary says values and nesting were dropped (#246).
     #[test]
     fn states_what_a_config_skeleton_left_out() {
         let content = bulky("top:\n  nested: value\n  other: value\n");
@@ -723,10 +611,6 @@ mod tests {
         assert_eq!(omitted_note(0, 0), "");
     }
 
-    /// The section scans the whole file, including the lines it then drops, so
-    /// an empty section means absent from the file, not merely absent from
-    /// what is shown. Next to a visibly truncated body a bare `None` cannot
-    /// convey which.
     #[test]
     fn qualifies_an_empty_section_as_covering_the_whole_file() {
         let content = bulky("def f(o):\n    return o.total * 2\n");
@@ -750,14 +634,7 @@ mod tests {
         assert!(out.is_some());
     }
 
-    /// #598. The note used to end `Re-read with offset/limit for the full file.`
-    /// and that route cannot work: a re-read reaches this same distiller and
-    /// returns this same skeleton, so an agent following the instruction pays a
-    /// round trip for a byte-identical answer.
-    ///
-    /// A matrix rather than one case, because the note has three regimes and the
-    /// interesting one is the boundary: the empty string at zero omitted is what
-    /// keeps a fully rendered file from carrying a marker about nothing.
+    /// The note offers no re-read route, and says nothing at zero omitted (#598).
     #[test]
     fn the_omitted_note_names_no_route_it_cannot_honour() {
         let cases = [
@@ -777,9 +654,7 @@ mod tests {
                 !note.contains("offset") && !note.contains("Re-read"),
                 "case: {name}: the note still advertises the route that fails"
             );
-            // The count is about the file, and the ledger marker printed under it
-            // counts the reply. Saying which is what stops the two reading as a
-            // contradiction on the same Read.
+            // File lines, not reply lines.
             assert!(
                 note.contains("file lines"),
                 "case: {name}: the note does not say what it counted"

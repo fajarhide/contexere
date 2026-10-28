@@ -14,7 +14,7 @@ impl Distiller for GenericDistiller {
         let max_lines = 100;
         let mut selected_indices = HashSet::new();
 
-        // Pass 1: always prioritize Critical and Important signal.
+        // Critical and Important first.
         for (i, seg) in segments.iter().enumerate() {
             if selected_indices.len() >= max_lines {
                 break;
@@ -24,7 +24,7 @@ impl Distiller for GenericDistiller {
             }
         }
 
-        // Pass 2: fill remaining budget with Context only (strictly avoid Noise).
+        // Then Context, never Noise.
         for (i, seg) in segments.iter().enumerate() {
             if selected_indices.len() >= max_lines {
                 break;
@@ -34,14 +34,14 @@ impl Distiller for GenericDistiller {
             }
         }
 
-        // Absolute fallback: if all content is noise, keep a small sample.
+        // All noise: keep a small sample.
         if selected_indices.is_empty() {
             for i in 0..segments.len().min(20) {
                 selected_indices.insert(i);
             }
         }
 
-        // Build output maintaining original order
+        // In original order.
         let mut out = String::new();
         let mut last_idx: Option<usize> = None;
 
@@ -50,12 +50,7 @@ impl Distiller for GenericDistiller {
                 if let Some(last) = last_idx
                     && i > last + 1
                 {
-                    // A bare marker cannot be acted on: one dropped line and
-                    // forty read the same, so the caller cannot tell whether
-                    // re-running is worth it. Every other cut in this codebase
-                    // states a count (#111, #219, #188); this one did not, and
-                    // four rows of a markdown table went missing behind it while
-                    // the header and separator stayed (#229).
+                    // The gap marker states its count, like every other cut (#229, #111).
                     let dropped: usize = segments[last + 1..i]
                         .iter()
                         .map(|s| s.content.lines().count().max(1))
@@ -92,14 +87,11 @@ impl Distiller for GenericDistiller {
 mod tests {
     use super::*;
 
-    /// #229: the gap marker was a bare `... [omitted]`, so one dropped line and
-    /// forty read the same and the caller could not judge whether to re-run.
-    /// Every other cut in this codebase states a count (#111, #219, #188).
+    /// The gap marker states how many lines it dropped (#229).
     #[test]
     fn gap_marker_states_how_many_lines_went() {
         let segments: Vec<OutputSegment> = (0..10)
             .map(|i| OutputSegment {
-                // Keep the ends and drop the middle six.
                 content: format!("row {i}"),
                 tier: if !(2..=7).contains(&i) {
                     SignalTier::Important
