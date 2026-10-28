@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.13] - 2026-10-28
+
+### Changed
+- **The ledger stores each command once instead of on every line it showed (#911).** On a 30-day store that took `ledger_lines` from 420 MB to 50 MB and the whole `omni.db` from 615 MB to 262 MB, measured on a rebuilt copy. Rows written before the upgrade keep their text until they age out of the 30-day window, so the saving arrives as that window turns over; a `VACUUM` after that returns the freed pages to the disk.
+- **Pinned Rust toolchain raised from 1.97.0 to 1.99.1 (#922)**: `rust-toolchain.toml`, both CI jobs and the release build now use the current stable. `make ci` passes on 1.99.1 with no new clippy lints and no code changes. Building from source needs rustup to fetch 1.99.1 once.
+- **Eight fewer crates in the build (#926)**: `tracing-subscriber` and `hex` are gone, taking `matchers`, `nu-ansi-term`, `sharded-slab`, `thread_local`, `tracing-log` and `valuable` with them. Logging was only reachable through an undocumented `RUST_LOG`, and every hex string OMNI writes now comes from one `short_hash` helper that produces the same 16 characters as before, so ledger keys, rewind handles and project hashes already in `omni.db` still match.
+
+### Fixed
+- **A worktree-isolated Claude Code agent can run git again (#905).** Claude Code's worktree guard refuses every `omni exec ... git`, so the pre-hook now leaves git unwrapped inside a linked worktree.
+- **A Read never folds from the project scope (#906).** Two subagents launched together each got `⋮` for the lines they were sent to read, because a sibling had read the file first. A Read still folds what the same reader was already shown, and Bash output still folds from the project scope. The trade is about 12% of ledger fold bytes, measured over 7 days.
+- **A credential assigned mid-line after `export` or a shell operator, as a crontab entry or a `sh -c` one-liner carries it, is now redacted (#909).** Replayed over 10,981 recorded traces it hid 24 more values, all after `export` and all under credential names, and changed no line the old rules already handled.
+
 ## [0.7.12] - 2026-10-22
 
 ### Added
