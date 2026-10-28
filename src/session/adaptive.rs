@@ -1,13 +1,8 @@
-/// [INT-01] Adaptive Scoring Feedback Loop
-///
-/// Analyzes the `retrieval_feedback` table to surface actionable insights
-/// about OMNI's distillation effectiveness, without any LLM calls.
-/// All analysis is rule-based and runs on-demand (not in background).
+//! Rule-based insights from the `retrieval_feedback` table, no LLM calls.
 use crate::store::sqlite::Store;
 
 use serde::Serialize;
 
-/// The type of insight OMNI has detected.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum InsightType {
     /// A command is recalled frequently → distillation may be too aggressive.
@@ -16,7 +11,6 @@ pub enum InsightType {
     Underused,
 }
 
-/// A single adaptive insight produced by pattern analysis.
 #[derive(Debug, Clone, Serialize)]
 pub struct AdaptiveInsight {
     pub insight_type: InsightType,
@@ -25,15 +19,10 @@ pub struct AdaptiveInsight {
     pub suggested_action: String,
 }
 
-/// Analyze retrieval patterns and return actionable insights.
-///
-/// This is the core of [INT-01]. It runs two passes:
-/// 1. Commands recalled frequently in the last 7 days (OverFiltered signal).
-/// 2. Knowledge items never retrieved (Underused signal).
+/// Two passes: commands recalled 3+ times in 7 days, and knowledge never retrieved.
 pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
     let mut insights = Vec::new();
 
-    // Pass 1: over-filtered commands
     let frequent = store.get_frequent_recall_commands(project_hash, 3, 7);
     for (cmd, count) in frequent {
         let binary = cmd.split_whitespace().next().unwrap_or(&cmd).to_string();
@@ -44,10 +33,7 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
                 cmd, count
             ),
             affected_item: Some(cmd.clone()),
-            // `omni learn --loosen` went with the filter layer (#505), and
-            // there is no user-facing knob to suggest in its place. Naming the
-            // command and the count is the whole of what a reader can act on:
-            // the next step is an issue, not a config change.
+            // No knob replaces `omni learn --loosen`, so name the command and its count.
             suggested_action: format!(
                 "`{binary}` may be over-distilled. Open an issue at \
                  github.com/fajarhide/omni with the raw output."
@@ -55,7 +41,6 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
         });
     }
 
-    // Pass 2: underused knowledge
     let unreferenced = store.get_unreferenced_knowledge(project_hash);
     for key in unreferenced {
         insights.push(AdaptiveInsight {

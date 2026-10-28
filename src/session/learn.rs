@@ -10,18 +10,8 @@ pub struct PatternCandidate {
     pub confidence: f32,
 }
 
-/// Lines that are never noise, however often they repeat.
-///
-/// `omni_find_noise` reports these to a human deciding whether a tool is worth a
-/// distiller, so a bad candidate costs real work. Two classes have to be excluded
-/// by construction rather than by frequency (#266):
-///
-/// * **OMNI's own channel markers.** Stripping `[stderr]` hides that a command
-///   wrote to the error channel at all, which is worse than dropping output: the
-///   reader gets no signal that anything was hidden.
-/// * **Structural keys.** `spec:`, a lone brace, a markdown fence and a YAML
-///   document separator are the shape of the document, not decoration. A filter
-///   that removes them corrupts the manifest instead of tidying it.
+/// Never noise: OMNI's channel markers like `[stderr]`, since stripping one hides that stderr
+/// was written, and structural keys like `spec:`, braces, fences and `---`.
 fn is_never_noise(line: &str) -> bool {
     static BARE_KEY: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[A-Za-z_][A-Za-z0-9_.\-]*:$").expect("the bare-key regex is a literal")
@@ -43,7 +33,6 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
     let ansi_re = Regex::new(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])").unwrap();
     let num_re = Regex::new(r"\d+").unwrap();
 
-    // 1. Split ke baris
     for line in input.lines() {
         let text = ansi_re.replace_all(line, "").to_string();
         let trimmed = text.trim();
@@ -51,13 +40,10 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
             continue;
         }
 
-        // 3. Ambil prefix: take first 3 words, but strip numbers to group similar steps
+        // Digits become `#` so lines that differ only by a counter group together.
         let words: Vec<String> = trimmed
             .split_whitespace()
-            .map(|w| {
-                // If it's just #, ignore or keep as is? Let's keep it to preserve structure
-                num_re.replace_all(w, "#").to_string()
-            })
+            .map(|w| num_re.replace_all(w, "#").to_string())
             .collect();
 
         let prefix = if words.len() >= 3 {
@@ -66,14 +52,12 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
             words.join(" ")
         };
 
-        // 4. Hitung frekuensi setiap prefix
         let entry = frequency.entry(prefix).or_insert((0, trimmed.to_string()));
         entry.0 += 1;
     }
 
     let mut candidates = Vec::new();
 
-    // 5. Filter: count >= 3
     for (prefix, (count, sample)) in frequency {
         if count >= 3 {
             let confidence = if count > 10 { 0.95 } else { 0.85 };
@@ -87,7 +71,6 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
         }
     }
 
-    // 7. Sort by count desc, return max 16
     candidates.sort_by_key(|a| std::cmp::Reverse(a.count));
     candidates.into_iter().take(16).collect()
 }
@@ -96,10 +79,7 @@ pub fn detect_patterns(input: &str) -> Vec<PatternCandidate> {
 mod tests {
     use super::*;
 
-    /// The detector is what `omni_find_noise` reports, and the filter layer it
-    /// used to feed is gone (#505). A prefix with digits in it has to survive
-    /// as one candidate rather than one per number, or every log line with a
-    /// counter reads as its own pattern.
+    /// A prefix with digits stays one candidate, or every counter line reads as its own pattern.
     #[test]
     fn folds_numbers_into_one_candidate() {
         let input: String = (1..=6)
