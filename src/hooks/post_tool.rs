@@ -3636,8 +3636,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         );
     }
 
-    /// Two adjacent head markers bump `startLine` by two (#572), built from two
-    /// sources since #906.
+    /// Adjacent head markers bump `startLine` by the folded lines minus the
+    /// marker lines (#572), built from two sources since #906.
     #[test]
     fn a_head_folded_into_two_markers_bumps_by_two() {
         let line = |i: usize| format!("    let unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\";\n");
