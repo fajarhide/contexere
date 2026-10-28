@@ -4,32 +4,26 @@ use serde_json::json;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
-// Phase 6: mutating command detection for hot-file warnings
+// Commands that mutate files, for hot-file warnings.
 fn is_mutating_command(cmd: &str) -> bool {
     let lower = cmd.to_lowercase();
-    // Direct file mutations
     lower.contains("rm ")
         || lower.contains("delete ")
         || lower.contains("mv ")
         || lower.contains("cp ")
-        // Git state changes
         || lower.contains("git checkout")
         || lower.contains("git reset")
         || lower.contains("git add")
-        // Build/install (often write to target/ or node_modules/)
         || lower.contains("cargo build")
         || lower.contains("cargo install")
         || lower.contains("cargo clean")
-        // JS installs/builds
         || lower.contains("npm install")
         || lower.contains("npm run build")
         || lower.contains("rm -rf")
-        // Docker / k8s writes
         || lower.contains("docker build")
         || lower.contains("docker run")
         || lower.contains("kubectl apply")
         || lower.contains("kubectl delete")
-        // Generic edit-like keywords
         || lower.contains("write ")
         || lower.contains("edit ")
         || lower.contains("replace ")
@@ -40,31 +34,18 @@ fn is_mutating_command(cmd: &str) -> bool {
 #[derive(Deserialize)]
 struct PreHookInput {
     tool_input: ToolInput,
-    /// Present on Gemini CLI (`BeforeTool`); absent on Claude Code and Codex,
-    /// which is what tells the reply which shape the caller reads.
+    /// Present on Gemini CLI (`BeforeTool`), which decides the reply shape.
     #[serde(default)]
     hook_event_name: Option<String>,
-    /// Codex numbers each turn and sends it; Claude Code's `PreToolUse` document
-    /// is otherwise identical and carries no such field. It is the only thing in
-    /// the payload that separates the two, and the environment cannot: Codex
-    /// exports nothing of its own to a hook, so a Codex session launched from a
-    /// Claude shell inherits `CLAUDECODE=1` and would answer `claude_code`.
+    /// Codex's turn number: the only field separating its payload from Claude
+    /// Code's, since a Codex launched from a Claude shell inherits `CLAUDECODE=1`.
     #[serde(default)]
     turn_id: Option<String>,
-    /// The host's own session id. Forwarded to the rewritten child so `omni exec`
-    /// has a trustworthy ledger scope; without it that path ran no ledger stage
-    /// at all (#416). Claude Code sends it on every hook event, which is the same
-    /// field `hooks::normalize` reads for the post-hook.
+    /// The host's session id, forwarded so `omni exec` has a ledger scope (#416).
     #[serde(rename = "session_id", alias = "sessionId", default)]
     session_id: Option<String>,
-    /// The host's subagent id, unset when the main agent made the call.
-    ///
-    /// Forwarded for the same reason the session id is, and it has to be, since
-    /// the session id alone is not one reader: Claude Code hands a subagent the
-    /// parent's session id. Without this the rewritten `omni exec` child runs
-    /// the pipe ledger under the parent's scope and tells a subagent its bytes
-    /// were already shown, which is the defect this branch fixes on the
-    /// post-hook path and would have left standing on this one (#581).
+    /// The host's subagent id, unset for the main agent. Forwarded so the child's
+    /// ledger scope is this reader, not the parent (#581).
     #[serde(rename = "agent_id", alias = "agentId", default)]
     agent_id: Option<String>,
     #[serde(default)]
@@ -94,9 +75,7 @@ struct HookSpecificOutput {
     updated_input: ToolInput,
 }
 
-/// The store parameter is gone with `context_turns` (#270). It was opened here
-/// only to persist a turn nothing ever read; the in-memory turn this hook builds
-/// is what `omni stats` and `omni_context_breakdown` consume.
+/// No store: the in-memory turn is all `omni stats` reads (#270).
 pub fn run(session: Option<Arc<Mutex<crate::pipeline::SessionState>>>) -> Result<()> {
     let mut buffer = String::new();
     std::io::stdin().read_to_string(&mut buffer)?;
@@ -106,17 +85,12 @@ pub fn run(session: Option<Arc<Mutex<crate::pipeline::SessionState>>>) -> Result
         std::process::exit(0);
     }
 
-    // Exit 0 with no output tells Claude to proceed with original command
+    // Exit 0 with no output: proceed with the original command.
     Ok(())
 }
 
-/// Which host sent this pre-hook payload, from the payload alone.
-///
-/// The environment cannot answer it. Codex exports nothing identifying to a
-/// hook, so a Codex session started from a Claude Code shell inherits
-/// `CLAUDECODE=1`, and the rewritten command would file its work under
-/// `claude_code` (#360, #364). `None` means "say nothing", which leaves
-/// `omni exec` to fall back rather than record a guess.
+/// Which host sent this pre-hook payload, from the payload alone: the
+/// environment is inherited across hosts (#360, #364). `None` means say nothing.
 fn host_from_payload(hook_event_name: Option<&str>, has_turn_id: bool) -> Option<&'static str> {
     match hook_event_name {
         Some("BeforeTool") => Some("gemini"),
@@ -130,8 +104,7 @@ fn names_git(cmd: &str) -> bool {
         .any(|w| w == "git" || w.ends_with("/git"))
 }
 
-/// A linked worktree (and a submodule) has a `.git` file where a checkout has
-/// a directory.
+/// A linked worktree or submodule has a `.git` file, not a directory.
 fn in_linked_worktree(cwd: &str) -> bool {
     std::path::Path::new(cwd)
         .ancestors()
@@ -147,20 +120,16 @@ fn process_payload(
     let parsed: PreHookInput = serde_json::from_str(input_str).ok()?;
     let cmd_str = parsed.tool_input.command.as_ref()?;
 
-    // Claude Code refuses an `omni exec` with git among its operands inside a
-    // worktree-isolated agent, so the agent could not run git at all (#905).
-    // The post-hook still distills the output.
+    // Claude Code refuses `omni exec ... git` in a worktree-isolated agent (#905); the post-hook
+    // still distills.
     if names_git(cmd_str) && parsed.cwd.as_deref().is_some_and(in_linked_worktree) {
         return None;
     }
 
-    // The payload already says which host is asking; naming it in the rewrite is
-    // the only chance to tell the child, which inherits nothing else (#360).
+    // Name the host in the rewrite: the child inherits nothing else (#360).
     let host = host_from_payload(parsed.hook_event_name.as_deref(), parsed.turn_id.is_some());
 
-    // Composed here rather than in the child, so the reader is decided once and
-    // `--session` keeps meaning "the scope this run belongs to". `host_session()`
-    // feeds nothing but the ledger scope, so there is no second meaning to break.
+    // Composed here, so `--session` means one scope; `host_session()` feeds only the ledger.
     let scope = parsed
         .session_id
         .as_deref()
@@ -170,15 +139,9 @@ fn process_payload(
         let mut updated_input = parsed.tool_input.clone();
         updated_input.command = Some(rewritten);
 
-        // Gemini CLI names the event `BeforeTool` and reads the replacement
-        // arguments from `hookSpecificOutput.tool_input`, where Claude Code and
-        // Codex both name it `PreToolUse` and read `updatedInput`. The payload
-        // says which host is asking, so the reply shape is decided from the
-        // request rather than from an install-time flag that can drift out of
-        // step with the config that set it (#351).
-        // The reply echoes back the same field it read, so if a host names the
-        // shell argument something other than `command`, `cmd_str` is None above
-        // and this never runs. Failing open beats guessing an argument name.
+        // Reply in the shape the asking host reads: Gemini's `BeforeTool` and
+        // `tool_input`, or `PreToolUse` and `updatedInput` (#351). An unknown argument
+        // name leaves `cmd_str` empty, so this fails open.
         if parsed.hook_event_name.as_deref() == Some("BeforeTool") {
             return serde_json::to_string(&json!({
                 "hook_event_name": "BeforeTool",
@@ -198,10 +161,8 @@ fn process_payload(
         return serde_json::to_string(&output).ok();
     }
 
-    // Conservative Context Injection Hint for Read/Search commands
+    // Hints for read and search commands.
     if let Some(target_file) = extract_target_file(cmd_str) {
-        // Feature C: File Re-Read Guard & Hot File Mutation Warning
-        // Phase 1: Context Composition Analyzer tracking
         let hot_count = if let Some(ref lock) = session {
             if let Ok(mut state) = lock.lock() {
                 let count = state.hot_files.get(&target_file).copied().unwrap_or(0);
@@ -209,7 +170,7 @@ fn process_payload(
                 let size_bytes = std::fs::metadata(&target_file)
                     .map(|m| m.len())
                     .unwrap_or(0);
-                // #589: the metadata length, not a quarter of it.
+                // The metadata length, not a quarter of it (#589).
 
                 state.current_turn.session_id = state.session_id.clone();
                 state.current_turn.turn_number = state.command_count;
@@ -227,11 +188,6 @@ fn process_payload(
                     state.current_turn.largest_single_read = (target_file.clone(), size_bytes);
                 }
 
-                // The store was opened here only to persist `current_turn` into
-                // `context_turns`, which had no reader and is gone (#270). The
-                // in-memory turn built above is what `omni stats` and
-                // `omni_context_breakdown` actually read.
-
                 count
             } else {
                 0
@@ -240,7 +196,7 @@ fn process_payload(
             0
         };
 
-        // Phase 6: mutating command on hot file → warn
+        // A mutating command on a hot file: warn.
         if is_mutating_command(cmd_str) {
             if hot_count > 2 {
                 let updated_input = parsed.tool_input.clone();
@@ -259,8 +215,7 @@ fn process_payload(
                 return serde_json::to_string(&output).ok();
             }
         } else if is_read_command(cmd_str) && hot_count > 1 {
-            // Feature C: File Re-Read Guard
-            // If the agent reads the same file repeatedly, we warn them to use context.
+            // Repeated reads of one file get a hint.
             let updated_input = parsed.tool_input.clone();
             let reason = format!(
                 "OMNI Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
@@ -277,7 +232,7 @@ fn process_payload(
             return serde_json::to_string(&output).ok();
         }
 
-        // We only provide a hint, we don't modify the command
+        // A hint only; the command is unchanged.
         let updated_input = parsed.tool_input.clone();
         let reason = format!(
             "OMNI context available for {}; call omni_context if needed",
@@ -295,7 +250,7 @@ fn process_payload(
         return serde_json::to_string(&output).ok();
     }
 
-    // Phase 6: mutating command without specific file target, still check if any hot file is implicated
+    // A mutating command with no file target may still touch a hot file.
     if is_mutating_command(cmd_str)
         && let Some(ref lock) = session
         && let Ok(state) = lock.lock()
@@ -345,7 +300,7 @@ fn extract_target_file(cmd: &str) -> Option<String> {
     match parts[0] {
         "cat" | "head" | "tail" => parts.get(1).map(|s| s.to_string()),
         "grep" | "rg" => {
-            // Very naive extraction, just grabs the last argument if it doesn't look like a flag
+            // Naive: the last non-flag argument.
             parts
                 .last()
                 .filter(|s| !s.starts_with('-'))
@@ -359,11 +314,7 @@ fn extract_target_file(cmd: &str) -> Option<String> {
 mod context_breakdown_589 {
     use super::*;
 
-    /// #589. The display guard in `cli/stats.rs` only checks how the number is
-    /// printed, so quartering the file size again left the whole suite green.
-    /// Found by break-testing rather than by reading, which is why the
-    /// accumulation gets its own assertion: what has to be true is that the turn
-    /// holds the size the file really is.
+    /// The turn holds the file's real size (#589).
     #[test]
     fn a_read_adds_the_files_real_size_to_the_turn() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -398,11 +349,7 @@ mod context_breakdown_589 {
 mod subagent_scope_581 {
     use super::*;
 
-    /// #581, review on #588's sibling PR. The post-hook fix left the pipe path
-    /// keying on the bare session id, so a subagent running an allow-listed
-    /// command through the rewritten `omni exec` would still have been told the
-    /// parent's bytes were already shown. The two paths are one pipeline behind
-    /// two doors and this repo has shipped a one-door fix three times.
+    /// The rewrite forwards the subagent scope (#581).
     #[test]
     fn the_rewritten_child_carries_the_subagents_scope() {
         let payload = |agent: Option<&str>| {
@@ -435,18 +382,13 @@ mod subagent_scope_581 {
 #[cfg(test)]
 mod tests {
 
-    /// #364: Codex's `PreToolUse` document is byte-identical to Claude Code's
-    /// except for `turn_id`, and Codex exports nothing to the hook environment,
-    /// so a Codex run launched from a Claude shell inherited `CLAUDECODE=1` and
-    /// filed its distillations under `claude_code`.
+    /// Codex is told apart by `turn_id` (#364).
     #[test]
     fn tells_codex_apart_from_claude_by_the_payload_alone() {
         assert_eq!(host_from_payload(None, true), Some("codex_cli"));
         assert_eq!(host_from_payload(None, false), None);
     }
 
-    /// Gemini identifies itself by event name, and must keep doing so even
-    /// though it never sends `turn_id`.
     #[test]
     fn keeps_naming_gemini_from_its_event_name() {
         assert_eq!(host_from_payload(Some("BeforeTool"), false), Some("gemini"));
@@ -454,24 +396,10 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    /// #351: Codex CLI consumes the *same* pre-hook contract as Claude Code, so
-    /// command rewriting already reaches parity there and no per-host adapter is
-    /// needed. Its reference documents exactly this reply:
-    ///
-    /// ```json
-    /// {"hookSpecificOutput":{"hookEventName":"PreToolUse",
-    ///   "permissionDecision":"allow","updatedInput":{"command":"echo rewritten"}}}
-    /// ```
-    ///
-    /// Asserted here rather than assumed, because this is a host contract and
-    /// #158 is what happens when one is verified against our own field names.
-    /// Codex's `PostToolUse` deliberately is not used: its reference states
-    /// `updatedMCPToolOutput` is "parsed but not supported yet", so the *pre* hook
-    /// is the only path that changes what the model reads.
-    /// Gemini CLI reads replacement arguments from
-    /// `hookSpecificOutput.tool_input` under a `BeforeTool` event, where Claude
-    /// and Codex read `updatedInput` under `PreToolUse`. Emitting Claude's shape
-    /// to Gemini is a reply the host drops in silence, which is #158 again.
+    /// Each host gets the reply shape it reads (#351, #158): `updatedInput` under
+    /// `PreToolUse` for Claude Code and Codex, `tool_input` under `BeforeTool` for
+    /// Gemini. Codex's `PostToolUse` output is not supported, so this pre-hook is
+    /// its only path.
     #[test]
     fn emits_the_reply_gemini_documents_for_beforetool() {
         let payload = json!({
@@ -499,8 +427,7 @@ mod tests {
         );
     }
 
-    /// #905: Claude Code refused every rewritten git call in an agent isolated
-    /// in a worktree, so the agent could not branch, commit or push.
+    /// Git is left unwrapped in a worktree-isolated agent (#905).
     #[test]
     fn git_in_a_linked_worktree_is_left_unwrapped() {
         let root = tempfile::tempdir().unwrap();
@@ -540,9 +467,7 @@ mod tests {
         let rewritten = h["updatedInput"]["command"]
             .as_str()
             .expect("updatedInput.command is the field Codex reads");
-        // Asserted on shape, not on the binary's name: under `cargo test`
-        // `current_exe()` is the test harness, so matching a literal "omni exec"
-        // would only ever pass by accident of the file name.
+        // On shape: under `cargo test` the binary is the test harness.
         assert!(
             rewritten.contains(" exec ") && rewritten.ends_with("cargo test --all"),
             "the original command must survive inside the wrapper: {rewritten}"
@@ -592,9 +517,7 @@ mod tests {
         assert!(output.is_none());
     }
 
-    /// #157: wrapping the whole string put distillation upstream of the pipe the
-    /// caller wrote, so `grep`/`tail` read OMNI's markers instead of the command's
-    /// output. The pipeline is left alone; the post-hook still distills the result.
+    /// A caller's own pipeline is left alone (#157).
     #[test]
     fn pre_hook_leaves_a_command_with_its_own_pipe() {
         let input = json!({

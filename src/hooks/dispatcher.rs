@@ -39,7 +39,7 @@ pub fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow::Resu
     })) {
         Ok(res) => res,
         Err(_) => {
-            // Transcript: mark failed on panic so crash is recorded
+            // Mark the transcript failed on panic, so the crash is recorded.
             let guard = session_clone.lock().unwrap_or_else(|p| p.into_inner());
             if let Some(mut transcript) = Transcript::load(&guard.session_id) {
                 let _ = transcript.mark_last_failed("process panicked during hook dispatch");
@@ -49,15 +49,9 @@ pub fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow::Resu
     }
 }
 
-/// Maps a host's own event vocabulary onto the names the handlers below match.
-///
-/// The match is exact and case-sensitive, so Cursor's `stop`, `postToolUse` and
-/// `postToolUseFailure` fell to the wildcard and did nothing: no session
-/// summary, no error recorded, no distillation, while `omni doctor` reported
-/// them installed because the entries were present in the file (#384). Cursor
-/// has no `PreCompact`, and `stop` is its session flush; `save_session_summary`
-/// is an `INSERT OR REPLACE` keyed on the session, so firing it per turn
-/// refreshes the row rather than accumulating one per turn.
+/// Maps a host's own event vocabulary onto the names the handlers match:
+/// Cursor's `stop` and `postToolUse` did nothing while doctor said installed
+/// (#384). `stop` is Cursor's session flush; the summary upserts per session.
 pub fn canonical_event(event: &str) -> &str {
     match event {
         "stop" => "SessionEnd",
@@ -79,7 +73,7 @@ pub fn process_payload(
 
     let event_name = canonical_event(peeker.hook_event_name.as_deref().unwrap_or("PostToolUse"));
 
-    // Transcript: persist hook payload BEFORE dispatching
+    // Persist the payload before dispatching.
     {
         let guard = session.lock().unwrap_or_else(|p| p.into_inner());
         let cwd = std::env::current_dir()
@@ -108,17 +102,14 @@ pub fn process_payload(
             handle_file_changed(input_str, session.clone());
             None
         }
-        // Default: treat as PostToolUse for backward compatibility with payloads
-        // that omit `hookEventName` (peeker defaults to "PostToolUse" above) and
-        // for explicit "PostToolUse" / "ToolResult" events. Unknown explicit
-        // events fall through to the wildcard arm below and fail open.
+        // No `hookEventName` defaults to PostToolUse; unknown explicit events fall to the wildcard
+        // and fail open.
         "PostToolUse" | "ToolResult" => {
             post_tool::process_payload(input_str, Some(store), Some(session.clone()))
         }
         _ => None,
     };
 
-    // Transcript: mark completed + snapshot state after dispatch
     let guard = session.lock().unwrap_or_else(|p| p.into_inner());
     if let Some(mut transcript) = Transcript::load(&guard.session_id) {
         let output_str = result.as_deref().unwrap_or("(no output)");
@@ -129,7 +120,7 @@ pub fn process_payload(
     result
 }
 
-/// Handle FileChanged event: update hot_files in session
+/// FileChanged updates the session's hot files.
 fn handle_file_changed(input_str: &str, session: Arc<Mutex<SessionState>>) {
     #[derive(serde::Deserialize)]
     struct FileChangedInput {
@@ -175,14 +166,8 @@ mod tests {
         let (store, _dir) = get_store();
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        // Buat input PostToolUse valid. The padding is large enough that the
-        // distillation still pays after its own rewind marker: since #271 a cut
-        // carries `omni_retrieve("<hash>")`, roughly 75 bytes, and on the old
-        // 50-line fixture that marker ate the saving and the hook correctly
-        // declined, so a routing test failed for a reason that had nothing to do
-        // with routing.
-        // Not a diff: a unified diff passes through untouched since #832, and a
-        // routing test must not depend on a payload the pipeline declines.
+        // Padded past the rewind marker's cost (#271), and not a diff, which passes
+        // through untouched (#832): this test is about routing.
         let mut noisy = "build started\nERROR: disk full on node 7\nbuild finished\n".to_string();
         for _ in 0..400 {
             noisy.push_str(" \n");
@@ -204,14 +189,8 @@ mod tests {
         let (store, _dir) = get_store();
         let mut state = SessionState::new();
         state.add_command("cargo build");
-        // Both rows, so the session is continuable: continuation is scoped by
-        // project since #482, and a `sessions` row alone is a state the product
-        // never leaves behind.
-        //
-        // It has to continue for this test to mean anything. A fresh session
-        // returns output only when it found watch paths or a prompt to register,
-        // and `/tmp` has neither on Windows, so without this the assertion below
-        // passes on macOS and Linux and fails on the runner.
+        // Both rows: continuation is scoped by project (#482), and without it `/tmp`
+        // on Windows yields no output and the assertion fails only there.
         store.upsert_session(&state);
         store.sync_agent_session(
             &crate::agents::multiagent::detect_agent_id(),
@@ -240,9 +219,7 @@ mod tests {
     #[test]
     fn routes_before_agent_start_to_startup_logic() {
         let (store, _dir) = get_store();
-        // Seed a recent session so BeforeAgentStart has something to summarize.
-        // Both rows, because continuation is scoped by project since #482 and a
-        // `sessions` row on its own is a state the product never leaves behind.
+        // A recent session to summarise, both rows (#482).
         let mut state = SessionState::new();
         state.add_command("cargo build");
         store.upsert_session(&state);
@@ -255,7 +232,6 @@ mod tests {
 
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        // Force continuation so the test is deterministic regardless of clock
         unsafe {
             std::env::set_var("OMNI_CONTINUE", "1");
         }
@@ -282,9 +258,7 @@ mod tests {
         let (store, _dir) = get_store();
         let session = Arc::new(Mutex::new(SessionState::new()));
 
-        // Padded past the rewind marker's cost, for the reason in
-        // `routes_post_tool_use_to_correct_handler`.
-        // Not a diff, for the reason in `routes_post_tool_use_to_correct_handler`.
+        // Padded and not a diff, as in `routes_post_tool_use_to_correct_handler`.
         let mut noisy = "build started\nERROR: disk full on node 7\nbuild finished\n".to_string();
         for _ in 0..400 {
             noisy.push_str(" \n");
@@ -330,8 +304,7 @@ mod tests {
             "compactionReason": "context_limit_reached"
         });
 
-        // `PreCompact` replies with nothing since #371, so routing is observable
-        // only through the snapshot the handler writes.
+        // `PreCompact` replies with nothing (#371), so check the snapshot it writes.
         let _ = process_payload(&input.to_string(), store.clone(), session);
         assert_eq!(
             store.search_session_events("123", "PreCompact", 10).len(),
