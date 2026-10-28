@@ -49,7 +49,6 @@ pub(crate) fn require_parsed(parsed: bool, input: &str, summary: String) -> Stri
 /// This is the boundary that enforces the trait's `None` contract: a distiller
 /// that could not read its input, and every arm that declines to route, fail
 /// open to the raw bytes here rather than in twelve separate files.
-#[tracing::instrument(skip_all)]
 pub fn distill_with_command(
     segments: &[crate::pipeline::OutputSegment],
     input: &str,

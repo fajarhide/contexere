@@ -308,12 +308,7 @@ impl OmniServer {
         description = "Read/write persistent loop memory that survives session restarts. Use to remember patterns across loop iterations. Actions: get, set, list, forget."
     )]
     pub async fn omni_loop_memory(&self, params: Parameters<OmniLoopMemoryParams>) -> String {
-        use sha2::{Digest, Sha256};
-        let goal_hash = {
-            let mut hasher = Sha256::new();
-            hasher.update(params.0.goal.as_bytes());
-            crate::util::text::safe_slice(&hex::encode(hasher.finalize()), 16).to_string()
-        };
+        let goal_hash = crate::util::text::short_hash(&params.0.goal);
 
         match params.0.action.as_str() {
             "set" => {
@@ -535,13 +530,7 @@ impl OmniServer {
             "global".to_string()
         };
 
-        let project_hash = {
-            use sha2::{Digest, Sha256};
-            let mut h = Sha256::new();
-            h.update(project_path.as_bytes());
-            let enc = hex::encode(h.finalize());
-            crate::util::text::safe_slice(&enc, 16).to_string()
-        };
+        let project_hash = crate::agents::multiagent::project_hash(&project_path);
 
         let tags: Vec<String> = params
             .0

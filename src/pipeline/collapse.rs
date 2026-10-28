@@ -283,7 +283,6 @@ const MIN_LINES_FOR_COLLAPSE: usize = 10;
 /// Main entry: collapse repetitive lines, preserving critical-tier content.
 ///
 /// Panic-safe: any internal failure returns the input as-is.
-#[tracing::instrument(skip_all)]
 pub fn collapse(input: &str, mode: &CollapseMode) -> CollapseResult {
     let result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| collapse_inner(input, mode)));

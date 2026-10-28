@@ -155,7 +155,6 @@ fn shape_for_host_from(
 
     ToolOutput::Host(serde_json::Value::Object(echoed))
 }
-#[tracing::instrument(skip_all)]
 /// The rewind rule from #271, in one function because several paths need it and
 /// a copy of it drifts.
 ///
@@ -1310,19 +1309,9 @@ pub fn process_payload(
                     resolved_error,
                     &files,
                 ) {
-                    let project_hash = {
-                        use sha2::{Digest, Sha256};
-                        let mut h = Sha256::new();
-                        h.update(project_path.as_bytes());
-                        let enc = hex::encode(h.finalize());
-                        crate::util::text::safe_slice(&enc, 16).to_string()
-                    };
+                    let project_hash = crate::agents::multiagent::project_hash(&project_path);
                     let category = crate::session::engram::classify_engram_category(&engram);
-                    if let Err(e) =
-                        s.persist_engram(&state.session_id, &engram, category, &project_hash)
-                    {
-                        tracing::warn!("omni: failed to persist engram: {e}");
-                    }
+                    let _ = s.persist_engram(&state.session_id, &engram, category, &project_hash);
                 }
             }
         }

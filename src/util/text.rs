@@ -166,6 +166,18 @@ pub fn safe_truncate_with_ellipsis(s: &str, max_bytes: usize) -> String {
     truncated
 }
 
+/// First 8 bytes of SHA-256 as 16 hex chars. Stored as keys in `omni.db`, so the
+/// output must never change.
+pub fn short_hash(input: &str) -> String {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write;
+    let mut out = String::with_capacity(16);
+    for b in &Sha256::digest(input.as_bytes())[..8] {
+        let _ = write!(out, "{b:02x}");
+    }
+    out
+}
+
 use unicode_width::UnicodeWidthStr;
 
 /// Truncate based on display width (columns), not bytes.
@@ -205,6 +217,12 @@ pub fn safe_slice(s: &str, max_bytes: usize) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_hash_is_the_first_eight_sha256_bytes() {
+        assert_eq!(short_hash("abc"), "ba7816bf8f01cfea");
+        assert_eq!(short_hash(""), "e3b0c44298fc1c14");
+    }
 
     #[test]
     fn test_safe_truncate() {

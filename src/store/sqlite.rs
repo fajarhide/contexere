@@ -4,7 +4,6 @@ use anyhow::{Context, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, OptionalExtension, params};
-use sha2::{Digest, Sha256};
 
 use crate::paths;
 use crate::pipeline::DistillResult;
@@ -1674,14 +1673,11 @@ impl SqliteBackend {
     /// `content.len()` unconditionally, so the column duplicated the content
     /// length and could never answer that.
     pub fn store_rewind(&self, content: &str, whole_len: usize) -> Option<String> {
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
         // The reserved example handle must never name real content, or the
         // documented "an example never resolves" check would be wrong for
         // whichever payload happened to hash to it (#583).
-        let rewind_key = crate::util::text::avoid_example_handle(
-            crate::util::text::safe_slice(&hex::encode(hasher.finalize()), 16).to_string(),
-        );
+        let rewind_key =
+            crate::util::text::avoid_example_handle(crate::util::text::short_hash(content));
 
         let conn = self.pool.get().ok()?;
 

@@ -24,7 +24,6 @@ use std::io::Write;
 
 use omni::pipeline::registry;
 use omni::pipeline::scorer;
-use sha2::{Digest, Sha256};
 
 /// One candidate trace, held until its class is sorted.
 struct Candidate {
@@ -150,9 +149,7 @@ fn main() {
 /// Stable across runs and machines, which a `DefaultHasher` is not, so two
 /// samples of the same corpus grade the same blocks.
 fn spread_key(id: i64, seq: i64) -> String {
-    let mut h = Sha256::new();
-    h.update(format!("{id}:{seq}"));
-    hex::encode(&h.finalize()[..8])
+    omni::util::text::short_hash(&format!("{id}:{seq}"))
 }
 
 /// Reads the operator's sensitive-name patterns, or exits before a single row

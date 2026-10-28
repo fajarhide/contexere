@@ -11,7 +11,6 @@
 
 use crate::pipeline::SessionState;
 use crate::store::sqlite::Store;
-use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 
 /// The 16 character address of a project, and the only implementation of it.
@@ -26,9 +25,7 @@ use std::sync::{Arc, Mutex};
 /// `CONTRIBUTING.md` calls this a single source of truth; every other caller delegates
 /// here rather than re-deriving four bytes of hex.
 pub fn project_hash(path: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(path.trim_end_matches('/').as_bytes());
-    hex::encode(&hasher.finalize()[..8])
+    crate::util::text::short_hash(path.trim_end_matches('/'))
 }
 
 /// Detect the current agent from environment.
