@@ -1,18 +1,6 @@
-//! Every host whose whole integration is one entry in one JSON file.
-//!
-//! Six adapters were 889 lines that differed in three fields: where the config
-//! lives, which key holds the server map, and what to call the host (#443).
-//! `install`, `uninstall` and `doctor_check` were the same code six times, so a
-//! seventh host meant a seventh copy and the cheap path was the wrong one.
-//!
-//! It is a table now. Adding an MCP host is a row.
-//!
-//! **What deliberately stays outside it.** `cline` does more than write a server
-//! entry: it purges hook names Cline never emits, and that behaviour has its own
-//! test. `openclaw` copies a plugin directory. The Full tier hosts (`claude`,
-//! `codex`, `gemini`, `cursor`, `hermes`, `pi`) genuinely differ. Folding any of
-//! those in would mean a spec field per exception, which is the duplication back
-//! in a worse shape.
+//! Every host whose whole integration is one entry in one JSON file, as a
+//! table: adding an MCP host is a row (#443). `cline`, `openclaw` and the Full
+//! tier hosts stay out because they genuinely do more.
 
 use crate::agents::AgentIntegration;
 use colored::*;
@@ -20,7 +8,7 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 
-/// Where a host's config lives, since the six do not agree on the question.
+/// Where a host's config lives.
 #[derive(Clone, Copy)]
 pub enum ConfigHome {
     /// Under `$HOME`, e.g. `.copilot/mcp-config.json`.
@@ -29,8 +17,7 @@ pub enum ConfigHome {
     Config(&'static str),
     /// Relative to the working directory, which is what makes it per project.
     Cwd(&'static str),
-    /// The VS Code extension storage layout, which differs on all three
-    /// platforms and is shared by more than one extension.
+    /// The VS Code extension storage layout, which differs per platform.
     VsCodeExtension(&'static str),
 }
 
@@ -59,9 +46,7 @@ impl ConfigHome {
     }
 }
 
-/// One host, as data.
 pub struct McpHost {
-    /// The `--[id]` flag and the `agent_id` recorded against its rows.
     pub id: &'static str,
     pub display: &'static str,
     /// What `omni init` flag the warning should name, when it is not `--{id}`.
@@ -71,7 +56,6 @@ pub struct McpHost {
     pub key: &'static str,
 }
 
-/// The six. A seventh host is a row here, not a file.
 pub const HOSTS: &[McpHost] = &[
     McpHost {
         id: "roo-code",
@@ -124,12 +108,8 @@ impl McpHost {
         self.config.resolve()
     }
 
-    /// The `agent_id` this host's rows are filed under.
-    ///
-    /// `-` is not legal in an environment value we then match on, and
-    /// `roo-code` filed its rows as `roo_code`, so the mapping is explicit
-    /// rather than a `replace` nobody can find later (#160 is what happens when
-    /// two spellings of one agent both exist).
+    /// The `agent_id` this host's rows are filed under, mapped explicitly:
+    /// `roo-code` files as `roo_code`, and two spellings split stats (#160).
     fn agent_id(&self) -> String {
         self.id.replace('-', "_")
     }
@@ -150,9 +130,8 @@ impl AgentIntegration for &'static McpHost {
             fs::create_dir_all(parent)?;
         }
 
-        // Parse-or-empty rather than fail: a host's config is the user's file and
-        // one unreadable byte in it must not stop OMNI installing, but neither
-        // may it be silently rewritten from scratch when it parsed fine.
+        // Parse-or-empty: one bad byte in the user's file must not block install,
+        // but a file that parsed is never rewritten from scratch.
         let mut val = if path.exists() {
             serde_json::from_str(&fs::read_to_string(&path)?).unwrap_or_else(|_| json!({}))
         } else {
@@ -193,8 +172,7 @@ impl AgentIntegration for &'static McpHost {
             return Ok(());
         };
 
-        // Only our entry. The map is shared with every other server the user has
-        // registered, and taking the map would take theirs with it.
+        // Only our entry; the map is shared with the user's other servers.
         if let Some(obj) = val.as_object_mut()
             && let Some(servers) = obj.get_mut(self.key).and_then(|v| v.as_object_mut())
         {
@@ -261,8 +239,7 @@ mod tests {
         HOSTS.iter().find(|h| h.id == id).expect("known host")
     }
 
-    /// The three fields that made six files six files. If a future edit collapses
-    /// one of them by accident, two hosts start writing to the same key or path.
+    /// Two hosts sharing a key or path would overwrite each other.
     #[test]
     fn every_host_keeps_its_own_path_and_key() {
         assert_eq!(host("zed").key, "context_servers");
@@ -276,8 +253,6 @@ mod tests {
         assert_eq!(unique.len(), paths.len(), "two hosts share a config file");
     }
 
-    /// `roo-code` is the flag, `roo_code` is the agent id, and rows filed under
-    /// two spellings of one agent is what #160 was.
     #[test]
     fn files_rows_under_an_id_with_no_hyphen() {
         assert_eq!(host("roo-code").agent_id(), "roo_code");
@@ -294,9 +269,7 @@ mod tests {
         )
         .expect("seed");
 
-        // Drive the JSON surgery directly: `install` resolves its own path from
-        // the platform, and pointing HOME at a temp dir would leak into every
-        // other test in the process.
+        // Drives the JSON edit directly; setting HOME would leak into other tests.
         let mut val: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let obj = val.as_object_mut().unwrap();

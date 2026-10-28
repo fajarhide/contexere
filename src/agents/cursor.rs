@@ -20,7 +20,6 @@ impl AgentIntegration for CursorIntegration {
     }
 
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
-        // Install MCP server
         let (mcp_path, mut mcp_val) = initialize_mcp_config()?;
         install_mcp_server(&mut mcp_val, exe_path);
         fs::write(&mcp_path, serde_json::to_string_pretty(&mcp_val)?)?;
@@ -29,7 +28,6 @@ impl AgentIntegration for CursorIntegration {
             "✓".green()
         );
 
-        // Install hooks
         install_omni_hooks(exe_path)?;
         crate::agent_report!(
             "  {} Configured {} in ~/.cursor/hooks.json",
@@ -42,7 +40,6 @@ impl AgentIntegration for CursorIntegration {
     }
 
     fn uninstall(&self) -> anyhow::Result<()> {
-        // Remove MCP
         let mcp_path = get_mcp_path();
         if mcp_path.exists() {
             let content = fs::read_to_string(&mcp_path)?;
@@ -56,7 +53,6 @@ impl AgentIntegration for CursorIntegration {
             }
         }
 
-        // Remove hooks
         remove_omni_hooks()?;
         crate::agent_report!("  {} Removed Hooks from ~/.cursor/hooks.json", "✓".yellow());
 
@@ -75,7 +71,6 @@ impl AgentIntegration for CursorIntegration {
 
         crate::agent_report!("\n  {}", "Cursor AI:".cyan());
 
-        // Check MCP
         if mcp_path.exists()
             && let Ok(content) = fs::read_to_string(&mcp_path)
             && let Ok(val) = serde_json::from_str::<Value>(&content)
@@ -110,10 +105,7 @@ impl AgentIntegration for CursorIntegration {
             }
         }
 
-        // Check hooks. Grepping the whole file for `--post-hook` said "installed"
-        // however it was wired, which is how the `afterFileEdit` misregistration
-        // survived unnoticed: the check could not fail (#340). Assert the event
-        // the command sits under, per event.
+        // Asserts the event each command sits under, not a substring match (#340).
         let installed = installed_hook_events(&hooks_path);
         let missing: Vec<&str> = REQUIRED_HOOKS
             .iter()
@@ -155,11 +147,8 @@ impl AgentIntegration for CursorIntegration {
             }
         }
 
-        // The rule is not cosmetic here. `omni_run` is the only path by which a
-        // shell command is distilled on Cursor, and the agent only reaches for
-        // it when a rule says to. Hooks green plus no rule is the Cursor-shaped
-        // false green all over again: everything installed, nothing distilled
-        // (#352).
+        // The rule is what makes the agent use `omni_run`, the only path that
+        // distils on Cursor. Hooks without it distil nothing (#352).
         if in_a_project() {
             let rule = project_rule_path();
             if rule.exists() {
@@ -192,19 +181,9 @@ impl AgentIntegration for CursorIntegration {
     }
 }
 
-/// The rule text a Cursor user needs, printed rather than written.
-///
-/// Cursor cannot let a hook replace built-in tool output (#349), so the only way
-/// a command's output is distilled there is if `omni_run` is the tool that ran
-/// it (#351). That tool exists, and the agent still has to choose it, which is
-/// the difference between a lever being available and being used.
-///
-/// Printed, not installed, for two reasons. `omni init` is a per-machine action
-/// and `.cursor/rules/` is per-project, so writing one would put OMNI's file in
-/// somebody's repository uninvited. And rules are a fixed context cost that
-/// #352 tracks as its own bucket, so the user should decide whether to spend it.
-/// Deliberately two lines: a longer rule makes the bucket it is trying to help
-/// worse.
+/// The rule text a Cursor user needs. No hook can replace Cursor's tool output
+/// (#349), so `omni_run` is the only path (#351) and the agent has to be told
+/// to use it. Two lines, because rules cost context on every session (#352).
 pub const CURSOR_RULE: &str = "\
 ---
 alwaysApply: true
@@ -218,22 +197,13 @@ fn project_rule_path() -> PathBuf {
     PathBuf::from(".cursor/rules/omni.mdc")
 }
 
-/// True when the working directory looks like a checkout rather than a home
-/// directory, which is the only place a project rule belongs.
+/// True in a checkout rather than a home directory, the only place a project rule belongs.
 fn in_a_project() -> bool {
     PathBuf::from(".git").exists()
 }
 
-/// Writes the rule when run inside a project, prints it otherwise.
-///
-/// Printing alone was the cheap option and it does not work: the user has to
-/// notice a hint, copy it, and create a file, and the tool sits unused when they
-/// do not. `omni_run` is the *only* way a shell command is distilled on Cursor
-/// (#349, #351), so an unused tool is the whole feature not working.
-///
-/// Only inside a project, because `.cursor/rules/` is per-project and OMNI has
-/// no business writing into a home directory or an unrelated folder. Uninstall
-/// removes it again.
+/// Writes the rule inside a project, prints it otherwise: `.cursor/rules/` is
+/// per project, and a printed hint went unused. Uninstall removes it.
 fn install_cursor_rule() -> anyhow::Result<()> {
     if !in_a_project() {
         crate::agent_report!(
@@ -273,8 +243,7 @@ fn install_cursor_rule() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The event each hook has to sit under for Cursor to feed it anything, so
-/// `doctor` can assert the wiring rather than the presence of a substring.
+/// The event each hook must sit under, so `doctor` checks wiring, not a substring.
 const REQUIRED_HOOKS: &[(&str, &str)] = &[
     ("beforeShellExecution", "--pre-hook"),
     ("postToolUse", "--post-hook"),
@@ -387,9 +356,7 @@ pub fn install_omni_hooks(exe_path: &str) -> anyhow::Result<()> {
     install_omni_hooks_at(&get_hooks_path(), exe_path)
 }
 
-/// The path is a parameter so the tests drive this without setting `HOME`.
-/// `cargo` runs tests in parallel and a `set_var` here would decide where an
-/// unrelated test writes, which is the failure mode `CONTRIBUTING.md` calls out.
+/// The path is a parameter so tests never set `HOME` for real.
 fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result<()> {
     if let Some(parent) = hooks_path.parent() {
         fs::create_dir_all(parent)?;
@@ -420,10 +387,8 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
     let post_cmd = format!("{} --post-hook", exe_path);
     let hook_cmd = format!("{} --hook", exe_path);
 
-    // Drop every OMNI entry first, then re-add. Two things this buys: an install
-    // after the binary moved leaves one command rather than two, and the stale
-    // `afterFileEdit` registration from before #340 is purged on upgrade instead
-    // of sitting in the file forever, firing on edits that carry no output.
+    // Drop every OMNI entry first: a moved binary leaves one command, and the
+    // pre-#340 `afterFileEdit` registration is purged on upgrade.
     retain_non_omni(hooks);
 
     let ensure_hook = |arr_val: &mut Value, cmd: &str| {
@@ -436,18 +401,14 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
         arr.push(json!({ "command": cmd }));
     };
 
-    // `postToolUse` is Cursor's analogue of Claude Code's `PostToolUse`, and it
-    // is the only one of these that carries command output. `afterFileEdit`,
-    // registered here until #340, fires on a file write: the distiller was handed
-    // nothing for the entire life of the integration, which is why this
-    // installation has 9,857 `claude_code` rows and zero `cursor` ones.
+    // `postToolUse` is the only event carrying command output; `afterFileEdit`,
+    // used until #340, handed the distiller nothing.
     for (event, cmd) in [
         ("beforeShellExecution", &pre_cmd),
         ("postToolUse", &post_cmd),
-        // Failed commands carry the error payload OMNI reads for #120.
+        // Failed commands carry the error payload (#120).
         ("postToolUseFailure", &hook_cmd),
-        // Cursor has no PreCompact, and `stop` is the closest thing to
-        // SessionEnd: the flush that lets the next session start informed.
+        // No PreCompact on Cursor; `stop` is the closest to SessionEnd.
         ("stop", &hook_cmd),
     ] {
         ensure_hook(hooks.entry(event).or_insert_with(|| json!([])), cmd);
@@ -457,8 +418,7 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
     Ok(())
 }
 
-/// Strips OMNI's own hook entries from every event, leaving other tools' hooks
-/// untouched. Shared by install (so it can re-register cleanly) and uninstall.
+/// Strips OMNI's hook entries from every event, leaving other tools' hooks.
 fn retain_non_omni(hooks: &mut serde_json::Map<String, Value>) {
     for arr_val in hooks.values_mut() {
         if let Some(arr) = arr_val.as_array_mut() {
@@ -523,10 +483,7 @@ mod tests {
         assert!(servers.contains_key("other"));
     }
 
-    /// The old version of this built its own JSON and then asserted on the JSON it
-    /// had just built, so it passed while `--post-hook` sat on `afterFileEdit` and
-    /// received nothing for the life of the integration (#340). Drive the real
-    /// writer and assert the event each command lands on.
+    /// Drives the real writer and asserts each command's event (#340).
     #[test]
     fn registers_the_post_hook_on_the_event_that_carries_output() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -546,10 +503,7 @@ mod tests {
         );
     }
 
-    /// #352: the rule is the only thing that makes `omni_run` get used, and it is
-    /// charged to the Rules bucket that issue tracks, so it has to stay small and
-    /// it has to be valid. `alwaysApply` is what Cursor reads to include a rule in
-    /// every session; without it the rule sits there and never fires.
+    /// The rule needs `alwaysApply` or Cursor never loads it.
     #[test]
     fn the_printed_cursor_rule_is_valid_and_short() {
         assert!(
@@ -573,9 +527,6 @@ mod tests {
         );
     }
 
-    /// An upgrade has to remove the dead registration, not leave it beside the
-    /// working one. A user who ran an older `omni init --cursor` still has the
-    /// `afterFileEdit` entry on disk.
     #[test]
     fn purges_a_stale_registration_left_by_an_earlier_install() {
         let dir = tempfile::tempdir().expect("tempdir");

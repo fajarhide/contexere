@@ -4,12 +4,8 @@ use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
 
-/// Which tool results Claude Code hands to the PostToolUse hook.
-///
-/// Claude Code matches this as a regex, so alternation is how one registration
-/// covers several tools. It is a constant because `install_omni_hooks` writes it
-/// and the tests assert on it, and a widened matcher that only half the code
-/// knows about is worse than a narrow one (#172).
+/// Which tool results Claude Code hands to the PostToolUse hook, as a regex.
+/// One constant so the installer and the tests agree (#172).
 const POST_TOOL_MATCHER: &str = "Bash|Read|Grep|WebFetch";
 
 pub struct ClaudeIntegration;
@@ -106,11 +102,7 @@ impl AgentIntegration for ClaudeIntegration {
         crate::agent_report!("  {}", "Claude Code:".cyan());
         let path = get_settings_path();
         if path.exists() {
-            // An install that registered OMNI twice ran the pipeline twice per
-            // call and reported [OK] throughout, because this check asked
-            // whether a hook was present and never how many (#454). The
-            // installer no longer creates that state; this is what tells the
-            // machines already in it.
+            // Counts OMNI hooks, not presence: a double install ran twice per call (#454).
             if let Ok(content) = fs::read_to_string(&path)
                 && let Ok(val) = serde_json::from_str::<Value>(&content)
             {
@@ -244,17 +236,9 @@ impl AgentIntegration for ClaudeIntegration {
             }
         }
         if !mcp_found {
-            // #757. Absence is a state here, not a fault. The hooks are what
-            // shortens output on this host; the MCP server is a convenience whose
-            // two tool definitions sit in the prefix of every request, and the
-            // host discards the whole prompt cache when an MCP server connects or
-            // disconnects with its tools loaded. Someone who ran
-            // `omni init --hook`, or who removed the entry on purpose after
-            // reading that, was being told their install was broken and then
-            // having the decision undone by the next `doctor --fix`.
-            //
-            // So it reports, and says how to add it, and neither fails the check
-            // nor repairs what nobody broke.
+            // Absence is a state, not a fault (#757). The hooks do the shortening; the
+            // MCP server costs prefix bytes and a cache reset on connect, so leaving it
+            // out is a choice that `--fix` must not undo.
             let _ = fix_mode;
             crate::agent_report!(
                 "   {:<15} {}  {}",
@@ -403,10 +387,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
                     })
                 });
             if installed {
-                // Bring the path up to date as well as the matcher. Matching on
-                // the exact string meant a reinstall from a different binary
-                // matched nothing and pushed a second entry, so OMNI ran twice
-                // per call (#454).
+                // Update the path too, or a reinstall from another binary appends (#454).
                 if let Some(inner) = v
                     .get_mut("hooks")
                     .and_then(|h| h.as_array_mut())
@@ -422,10 +403,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
                 {
                     inner.insert("command".to_string(), json!(hook_cmd));
                 }
-                // Already installed, but the matcher still has to be brought up to
-                // date. Returning here unconditionally is why widening it in #172
-                // would have reached new installs only: every existing settings
-                // file names `Bash` and nothing would have rewritten it.
+                // Already installed, but an old matcher still has to be widened (#172).
                 if let Some(obj) = v.as_object_mut() {
                     obj.insert("matcher".to_string(), json!(matcher));
                 }
@@ -477,37 +455,14 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
     let compact_cmd = format!("{} --pre-compact", exe_path);
     let hook_cmd = format!("{} --hook", exe_path);
 
-    // Core hooks (blocking)
     ensure_hook(
         hooks.entry("PreToolUse").or_insert_with(|| json!([])),
         "Bash",
         &pre_cmd,
     );
-    // `Bash|Read|Grep|WebFetch`, widened on the maintainer's call (#172).
-    //
-    // The `Read`/`Grep`/`WebFetch` arms in `hooks::post_tool` had been written,
-    // gated and tested since the Rust rewrite and had **never executed on Claude
-    // Code**, because this matcher named one tool. What that widening does was
-    // measured before it was taken, and it is not free: driven through the built
-    // binary's `--post-hook` with a real payload, `src/pipeline/collapse.rs`, 878
-    // lines, comes back as **20** of them, an import list, three signatures and a
-    // marker. `readfile.rs`'s only floor is `MIN_DISTILL_TOKENS = 2000`, and 7.6%
-    // of 1,770 real `Read` calls clear it, `.rs` only 3.1%. An earlier version of
-    // this comment said "nearly every real source file", which is a
-    // generalisation from one example that the 0.6.8 changelog had already
-    // measured and withdrawn (#284). The figure that carries the decision is the
-    // other half of the same measurement: those 7.6% of calls hold 44% of all
-    // `Read` bytes, so this changes what "read a file" means on exactly the reads
-    // that matter, on the tool an agent edits from. The maintainer chose that
-    // trade with those numbers in front of them.
-    //
-    // Three prerequisites landed first, each of which would have made this fail
-    // silently rather than loudly: `normalize` could not reach a `Read` payload's
-    // text at all (`file.content` matched no arm), `tool_input.file_path` was
-    // never read (so the distiller saw `"unknown"` and could not pick a
-    // language), and `shape_for_host` had no `Read` shape. #246 stopped the
-    // `readfile` path reporting a document as a clean log, and #273 made these
-    // arms archive and mark what they cut, so nothing they drop is unrecoverable.
+    // `Bash|Read|Grep|WebFetch` (#172). Not free: the 7.6% of `Read` calls over
+    // `MIN_DISTILL_TOKENS` hold 44% of `Read` bytes, so this changes the reads
+    // that matter. Taken knowingly; everything cut is archived (#273).
     ensure_hook(
         hooks.entry("PostToolUse").or_insert_with(|| json!([])),
         POST_TOOL_MATCHER,
@@ -524,7 +479,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
         &compact_cmd,
     );
 
-    //  New hooks (async, non-blocking, no output needed)
+    // Async hooks; no output needed.
     ensure_async_hook(
         hooks.entry("SessionEnd").or_insert_with(|| json!([])),
         &hook_cmd,
@@ -546,14 +501,8 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
     );
 }
 
-/// The half of the install that does the work.
-///
-/// Separate from the MCP registration because `omni init --hook` has promised
-/// "Only install hooks" since it shipped and installed both anyway, which is the
-/// shape of #151: a flag the parser accepts and the code ignores. On this host
-/// the hooks are what shortens output and the MCP server is a convenience whose
-/// tool definitions sit in the prefix of every request, so wanting one without
-/// the other is an ordinary preference and not a broken install (#757).
+/// The half of the install that does the work. Separate from MCP registration
+/// so `omni init --hook` installs only hooks, as it always promised (#757).
 pub fn install_hooks(exe_path: &str) -> anyhow::Result<()> {
     let (path, mut val) = initialize_settings()?;
     let _ = backup_settings(&path);
@@ -649,11 +598,6 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    /// #454, found on a real machine: a working install was repointed from a
-    /// development build to the released one, and every OMNI hook ended up
-    /// registered twice, once per path. Two OMNI processes per hooked call, and
-    /// `omni doctor` reported `[OK]` throughout because it asks whether a hook is
-    /// present, never how many.
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});
@@ -686,9 +630,6 @@ mod tests {
         }
     }
 
-    /// The identity test is the binary plus the flag, and the flag is compared as
-    /// a whole token. `--pre-hook` ends with `-hook`, so a `contains` would make
-    /// the two the same hook and one would overwrite the other.
     #[test]
     fn tells_the_hook_flags_apart_even_when_one_ends_with_another() {
         assert!(crate::agents::is_our_hook(
@@ -744,9 +685,6 @@ mod tests {
         assert_eq!(get_count(&val), 1, "Should be idempotent");
     }
 
-    /// #172. The `Read`, `Grep` and `WebFetch` arms in `hooks::post_tool` had
-    /// been written, gated and tested since the Rust rewrite and had never once
-    /// executed on Claude Code, because this matcher named a single tool.
     #[test]
     fn registers_post_tool_for_the_tools_it_can_distil() {
         let mut val = json!({});
@@ -764,10 +702,6 @@ mod tests {
         }
     }
 
-    /// An install from before #172 names `Bash` and would never be rewritten,
-    /// because `ensure_hook` returned as soon as it recognised the command. Every
-    /// existing user would have kept the narrow matcher and seen no change at
-    /// all, which is the quietest way for a fix to not ship.
     #[test]
     fn brings_an_existing_narrow_matcher_up_to_date() {
         let mut val = json!({
@@ -799,11 +733,9 @@ mod tests {
         let exe = "/usr/bin/omni";
         install_omni_hooks(&mut val, exe);
 
-        // Check status with correct path
         let (post, sess, pre) = check_status(&val, exe);
         assert!(post && sess && pre);
 
-        // Check status with incorrect path
         let (post_f, sess_f, pre_f) = check_status(&val, "/different/omni");
         assert!(!post_f && !sess_f && !pre_f);
     }
