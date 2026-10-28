@@ -132,7 +132,8 @@ host reports as failed is out of reach: OMNI hands it back untouched, and Claude
 a failed Bash call to `PostToolUseFailure`, which cannot replace the output at all. A
 credential in a failed command's output is delivered as printed. A host that reports no
 failure, such as OpenCode or Continue, has its output rewritten whether the command failed
-or not.
+or not. Output of 30 KB or more is out of reach on Claude Code too: the host keeps
+the raw output, shows the agent its first 2 KB, and discards the hook's reply.
 
 The name decides, matched per underscore-separated word so `PASSED` and `AUTHORS` are not
 caught: `SECRET`, `TOKEN`, `PASSWORD`, `PASSWD`, `PASS`, `AUTH`, `CREDS`, `CREDENTIAL`,
