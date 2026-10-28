@@ -123,10 +123,14 @@ the issuer writes it: `sk-ant-`, `ghp_` and its siblings, `github_pat_`, `AKIA`,
 its siblings. A shorter string with the same prefix, such as `sk-ant-abc123` in a document,
 is left alone.
 
-Redaction runs on output OMNI rewrites. A command the host reports as failed is handed
-back untouched, and so is a payload read as structured, so a credential in either is
-delivered as printed. A host that reports no failure, such as OpenCode or Continue, has
-its output rewritten whether the command failed or not.
+Redaction runs on output OMNI rewrites. On the hook path a payload read as structured is
+redacted where it stands, with this notice in the hook's context message instead of in the
+document; `omni exec` and pipe mode pass structured output through verbatim. A command the
+host reports as failed is out of reach: OMNI hands it back untouched, and Claude Code sends
+a failed Bash call to `PostToolUseFailure`, which cannot replace the output at all. A
+credential in a failed command's output is delivered as printed. A host that reports no
+failure, such as OpenCode or Continue, has its output rewritten whether the command failed
+or not.
 
 The name decides, matched per underscore-separated word so `PASSED` and `AUTHORS` are not
 caught: `SECRET`, `TOKEN`, `PASSWORD`, `PASSWD`, `PASS`, `AUTH`, `CREDS`, `CREDENTIAL`,
