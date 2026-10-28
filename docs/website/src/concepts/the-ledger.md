@@ -155,11 +155,12 @@ Three verbs, and each one is a different table or a different trigger.
 
 ### Store
 
-Two tables, on purpose.
+Three tables, on purpose.
 
 | | holds | size |
 |---|---|---|
-| `ledger_lines` | `(scope, line_hash, ts, agent_id)` | 16 bytes of hash per line |
+| `ledger_lines` | `(scope, line_hash, ts, agent_id, source_id)` | 16 bytes of hash per line |
+| `ledger_sources` | the command that first showed a line | the command text, once per distinct command |
 | `rewind_store` | the actual bytes of a folded run, keyed by their SHA-256 | the content, once per distinct block |
 
 Recording every emitted line is cheap because the line itself is never stored, only

@@ -59,6 +59,7 @@ One SQLite file, `~/.omni/omni.db`.
 | `rewind_store` | compressed content by SHA-256, with a retrieval counter |
 | `session_events` | FTS5 full-text index |
 | `ledger_lines` | which lines a scope has been shown |
+| `ledger_sources` | the command that first showed a line, stored once per command |
 | `ledger_folds` | one row per marker issued: which scope, and which agent's bytes it drew on |
 | `passthrough_events` | telemetry for commands that bypassed the pipeline |
 | `unhandled_tools` | tools OMNI does not support natively yet |
