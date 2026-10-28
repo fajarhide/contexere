@@ -1,25 +1,10 @@
-//! The check that runs after everything else: did we delete the answer.
-//!
-//! OMNI's invariants constrain the **input** to each stage: unsure means
-//! structured, a distiller that parsed nothing returns the input, a failed
-//! command passes through. Nothing looked at the **output** and asked whether a
-//! class of content that entered had survived.
-//!
-//! #458 is what that costs. The ledger folded a `TypeError` because the line had
-//! been shown earlier in the session, and the re-run of a still-failing script
-//! reached the model as source context with no statement of what went wrong. The
-//! ledger fix stops that specific fold; this stops the whole class, including
-//! from stages that do not exist yet.
-//!
-//! Deliberately one property, not a framework. Failure lines are the class where
-//! deletion is worst: an agent that cannot see the error concludes the failure is
-//! gone, which is the fabricated-success mode this project exists to prevent.
+//! The check that runs after everything else: did we delete the answer. Every
+//! other invariant constrains a stage's input; this checks the output for one
+//! class, failure lines, since an agent that cannot see the error concludes the
+//! failure is gone (#458).
 
-/// Whether `output` still states the failure that `input` stated.
-///
-/// `true` when the input carried no failure at all, which is most payloads and
-/// is why this is cheap: the scan stops at the first failing line and most
-/// outputs never reach the second half.
+/// Whether `output` still states the failure `input` stated; `true` when there was none, and the
+/// scan stops early.
 pub fn preserves_failures(input: &str, output: &str) -> bool {
     if !input
         .lines()
@@ -41,8 +26,7 @@ mod tests {
                                  at /tmp/repro.ts:23:20\n\
                            Bun v1.3.14 (macOS arm64)\n";
 
-    /// The shape of #458: everything the agent needs to know it still fails has
-    /// been replaced by a handle.
+    /// #458: the failure replaced by a handle.
     #[test]
     fn rejects_an_output_that_lost_the_only_error_line() {
         let folded = "23 | const first = data.rows[0].id;\n\
@@ -59,8 +43,6 @@ mod tests {
         assert!(preserves_failures(FAILING, kept));
     }
 
-    /// Most payloads carry no failure, and those must not pay for this check
-    /// beyond one scan that stops early.
     #[test]
     fn says_nothing_about_output_when_the_input_was_clean() {
         let clean = "listening on 3000\nready in 412ms\n";

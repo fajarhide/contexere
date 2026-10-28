@@ -1,33 +1,14 @@
-//! The gain gate: is this reduction worth taking at all.
-//!
-//! Section 5.4 of the direction spec asks for one place that answers "skip below
-//! an input floor, discard any result not smaller than its input", wrapping every
-//! projection rather than being re-derived inside each one. Before this, three
-//! call sites each made half the decision with their own constants.
-//!
-//! It is deliberately not a new policy. `beats_guardrail` still owns "is this
-//! reduction large enough to be worth the marker", which is a different question
-//! with a measured threshold behind it (#268, #269). This owns the two answers
-//! that are true regardless of how good a distiller is:
-//!
-//! - an input too small to be worth touching
-//! - a result that is not actually smaller
-//!
-//! The second is what makes P2 safe to build against a measurement that said it
-//! would gain almost nothing: the worst case is no change, because a producer
-//! that resolves differently and does not beat its input is discarded.
+//! The gain gate: is this reduction worth taking at all. One place for the two
+//! answers that hold whatever the distiller: the input is too small to touch,
+//! or the result is not smaller. `beats_guardrail` still owns whether a
+//! reduction is large enough (#268, #269). A producer that does not beat its
+//! input is discarded, so a routing change cannot make output worse.
 
-/// Below this, a reduction cannot pay for the machinery that produced it.
-///
-/// Measured on the corpus behind #395: 30% of recorded invocations are under 200
-/// bytes, and a marker is roughly 90. Set at the point where a marker is under
-/// half the payload.
+/// Below this a reduction cannot pay for itself: 30% of invocations are under
+/// 200 bytes and a marker is about 90 (#395).
 pub const MIN_GAIN_INPUT: usize = 200;
 
-/// The reduced form, or `None` when the caller should keep what it had.
-///
-/// Takes a closure so the work is not done at all below the floor, which is the
-/// half of this that saves latency rather than bytes.
+/// The reduced form, or `None` to keep the input. A closure, so nothing runs below the floor.
 pub fn gain<F>(input: &str, produce: F) -> Option<String>
 where
     F: FnOnce(&str) -> Option<String>,
@@ -57,8 +38,7 @@ mod tests {
         );
     }
 
-    /// The property that makes a routing change safe to ship against a
-    /// measurement predicting little gain: it cannot lose.
+    /// It cannot lose.
     #[test]
     fn discards_a_result_that_is_not_smaller() {
         let input = "x".repeat(MIN_GAIN_INPUT + 10);
@@ -74,9 +54,7 @@ mod tests {
         assert_eq!(gain(&input, |_| Some("tiny".into())), Some("tiny".into()));
     }
 
-    /// A producer that declines is not the same as one that failed to gain, and
-    /// both come back as `None` on purpose: the caller keeps its own bytes either
-    /// way, which is the fail-open rule the hooks already follow.
+    /// Declining and failing to gain both return `None`: the caller keeps its bytes.
     #[test]
     fn passes_a_declining_producer_through_as_no_gain() {
         let input = "x".repeat(MIN_GAIN_INPUT + 10);

@@ -12,63 +12,41 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
-/// Maximum number of recent errors to track in session context
 pub const MAX_ACTIVE_ERRORS: usize = 5;
 
-/// Maximum number of recent commands to remember in session
 pub const MAX_COMMAND_HISTORY: usize = 20;
 
-/// Maximum number of significant distillations to track per session
 pub const MAX_DISTILLATION_HISTORY: usize = 5;
 
-/// Threshold for meaningful compression (e.g., 0.90 means at least 10% savings)
+/// Ratio below which compression counts (0.90 = at least 10% saved).
 pub const MEANINGFUL_COMPRESSION_THRESHOLD: f64 = 0.90;
 
-/// Default context window size hint (tokens). Configurable via OMNI_CONTEXT_WINDOW env.
+/// Default context window, in tokens; `OMNI_CONTEXT_WINDOW` overrides.
 pub const DEFAULT_CONTEXT_WINDOW_SIZE: u64 = 200_000;
 
-/// Threshold ratio at which pressure becomes Warning (default 0.65)
 pub const DEFAULT_PRESSURE_WARNING_THRESHOLD: f64 = 0.65;
 
-/// Threshold ratio at which pressure becomes Critical (default 0.82)
 pub const DEFAULT_PRESSURE_CRITICAL_THRESHOLD: f64 = 0.82;
 
-/// Minimum tool calls between repeated pressure warnings
 pub const PRESSURE_WARNING_COOLDOWN: u32 = 5;
 
-/// How long after a distillation a repeat of the same command still counts as a
-/// re-run caused by it (#109). Wide enough to cover an agent reading the output
-/// and reacting, narrow enough that unrelated later work is not blamed on it.
+/// How long a repeat of the same command still counts as a re-run caused by a distillation (#109).
 pub const RERUN_WINDOW_SECS: i64 = 300;
 
-/// Minimum rows required on *each* arm before a filter's re-run delta is
-/// reported. Below this the delta is noise, and publishing it would be the
-/// confident-but-unsupported number OMNI exists to stop emitting.
+/// Minimum rows on each arm before a re-run delta is reported; below it the delta is noise.
 pub const RERUN_MIN_SAMPLES: u64 = 8;
 
-/// Commit timestamp of the #158 fix, `fix(hooks): emit the key Claude Code
-/// actually reads (#162)`, 2026-07-22 21:47:55 +0700.
-///
-/// Before it, the Claude Code post-hook emitted its output under a key the host
-/// ignores, so `Keep` rows on that path were recorded as distilled while the
-/// agent read the raw bytes. They are controls mislabelled as treatment, and
-/// including them does not merely add noise, on the maintainer's store `grep`
-/// reads +9.2pp with them excluded and +0.0pp with them included, so dilution
-/// alone can hide a real finding. Any before/after comparison must drop them.
+/// When the #158 fix landed. Claude Code `Keep` rows before it were never
+/// applied: controls labelled as treatment, which can hide a real finding.
+/// Any before/after comparison must drop them.
 pub const POST_HOOK_FIX_TS: i64 = 1_784_731_675;
 
-/// How far the two arms' mean input size may diverge before the comparison is
-/// flagged as confounded.
-///
-/// Distillation only fires on large output, so "distilled" and "passed through"
-/// are not always the same population. On the maintainer's store `kubectl`
-/// averaged 244,606 B distilled against 115 B raw, a 2,127× skew that made a
-/// +48.6pp delta look like evidence when it compared `get -A` dumps against
-/// one-line config reads. `grep` (3,196 B vs 3,240 B) and `npm` (11,419 B vs
-/// 14,065 B) are matched and survive. 3× separates the two cases cleanly.
+/// How far the arms' mean input sizes may diverge before the comparison is
+/// flagged: distillation fires on large output, so `kubectl` compared 244 KB
+/// dumps with 115 B reads. 3× separates matched from skewed.
 pub const RERUN_SIZE_SKEW_LIMIT: f64 = 3.0;
 
-// 1. Segmentation Strategy, how to split tokens
+// How to split output into segments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SegmentationMode {
     Line,      // Default: line by line
@@ -76,7 +54,7 @@ pub enum SegmentationMode {
     TestGroup, // Test runners: group test cases
 }
 
-// 2. Collapse Strategy, how to group repetitive lines
+// How to group repetitive lines.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CollapseMode {
     Generic,
@@ -86,7 +64,7 @@ pub enum CollapseMode {
     Log,
 }
 
-// 2. Signal tier, how important this segment is
+// How important a segment is.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SignalTier {
     Noise,     // Progress, compiling boring deps, drop
@@ -95,7 +73,6 @@ pub enum SignalTier {
     Critical,  // Error, exception, FAILED, selalu include
 }
 
-// Loop Context Mode
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub enum LoopMode {
     #[default]
@@ -132,7 +109,6 @@ impl LoopContext {
             new_budget = val.parse().ok().or(self.budget_tokens);
         }
 
-        // Validate security constraints
         if let Err(e) = crate::guard::env::validate_loop_context(
             new_loop_id.as_deref(),
             new_goal.as_deref(),
@@ -169,7 +145,6 @@ impl LoopContext {
     }
 }
 
-// Context window pressure level
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ContextPressure {
     #[default]
@@ -188,7 +163,7 @@ impl std::fmt::Display for ContextPressure {
     }
 }
 
-// 3. Route, path distilasi
+// Which path a distillation takes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Route {
     Keep,        // score >= 0.7, full distillation
@@ -210,14 +185,12 @@ impl fmt::Display for Route {
     }
 }
 
-// Implement Display for SignalTier (optional but useful for logging)
 impl fmt::Display for SignalTier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-// 4. Output segment
 #[derive(Debug, Clone)]
 pub struct OutputSegment {
     pub content: String,
@@ -262,7 +235,6 @@ impl From<semantic::SemanticBlock> for OutputSegment {
     }
 }
 
-// 5. Distillation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DistillResult {
     pub output: String,
@@ -279,41 +251,15 @@ pub struct DistillResult {
     pub collapse_savings: Option<(usize, usize)>, // (original_lines, collapsed_to)
     pub raw_tokens: usize,
     pub filtered_tokens: usize,
-    /// Bytes that reach a model's context, as against `output_bytes`, which is
-    /// only what the distiller returned.
-    ///
-    /// The two are not the same thing and the difference is what made the
-    /// headline untrue: on Claude Code's large-output path the host discarded
-    /// OMNI's result and persisted the raw output, while `output_bytes` recorded
-    /// a 93% saving for it (#212). It is 0 where no model reads the path at all -
-    /// `omni exec` and the shell pipe write to a TTY, and those rows were 73% of
-    /// every byte OMNI claimed to have saved, in a unit where "tokens" means
-    /// nothing.
-    ///
-    /// **This is derived, not acknowledged.** No host tells a hook whether it
-    /// applied the replacement, so this records what OMNI handed over. With the
-    /// host-cap path detected above, that is the same value on every route this
-    /// table books, which is the point: the number now comes from what was
-    /// delivered rather than from what a distiller intended.
+    /// Bytes that reach a model's context, not what the distiller returned (#212).
+    /// 0 where nothing reads it (`omni exec`, the pipe). Derived, not acknowledged:
+    /// no host says whether it applied the reply.
     pub delivered_bytes: usize,
 }
 
-/// What a re-sent tool result is billed at, as a fraction of fresh input.
-///
-/// A tool result is not read once. It enters the transcript and is re-sent on
-/// every later turn of the session, so distilling 20 KB to 2 KB at turn 5 of a
-/// 40-turn session saves those bytes on turn 5 and again on every turn after it.
-/// OMNI counted the first and discarded the rest (#173).
-///
-/// The multiplier is not full price, and publishing it as though it were would
-/// be the bigger-but-not-truer number this tracker exists to fight. With prompt
-/// caching the re-sent prefix is billed at the cache-read rate, roughly a tenth
-/// of fresh input, so the compounding is real and discounted.
-///
-/// **This is an assumption, not an observation.** A hook cannot see whether a
-/// turn was a cache hit, so anything derived from it is labelled `est.` and
-/// prints this rate beside it. An unlabelled assumption here would recreate the
-/// `est_cost_usd` figure that 0.6.2 had no data to compute.
+/// What a re-sent tool result costs, as a fraction of fresh input: a result is
+/// re-sent every later turn, at the cache-read rate (#173). An assumption, so
+/// every figure using it is labelled `est.`.
 pub const CACHE_READ_RATE: f64 = 0.10;
 
 impl DistillResult {
@@ -325,33 +271,26 @@ impl DistillResult {
     }
 
     pub fn is_meaningful(&self) -> bool {
-        // Return false if there is no significant compression (e.g., < 10%)
         self.output_bytes < (self.input_bytes as f64 * MEANINGFUL_COMPRESSION_THRESHOLD) as usize
     }
 }
 
-// 6. Session state (minimal for v0.5.0)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SessionState {
     pub session_id: String,
     pub started_at: i64,
     pub last_active: i64,
 
-    // Inferred context
     pub inferred_task: Option<String>,   // "fix auth bug"
     pub inferred_domain: Option<String>, // "authentication"
 
-    // Hot files (path → access count)
     pub hot_files: BTreeMap<String, u32>,
 
-    // Recent errors to boost relevance
     pub active_errors: Vec<String>, // last MAX_ACTIVE_ERRORS error messages
 
-    // Command history
     pub command_count: u32,
     pub last_commands: Vec<String>, // last MAX_COMMAND_HISTORY commands
 
-    // Distillation Telemetry
     pub last_significant_distillations: VecDeque<DistillSummary>, // max MAX_DISTILLATION_HISTORY entries
     pub cumulative_input_bytes: u64,
     pub cumulative_output_bytes: u64,
@@ -360,7 +299,6 @@ pub struct SessionState {
     pub top_command_info: Option<(String, f32)>, // (command, savings_pct)
     pub toolchain_hints: std::collections::HashMap<String, String>,
 
-    // Context Pressure (v0.5.8-rc3)
     #[serde(default)]
     pub context_window_size_hint: Option<u64>,
     #[serde(default)]
@@ -370,42 +308,32 @@ pub struct SessionState {
     #[serde(default)]
     pub last_pressure_warning_at: Option<u32>,
 
-    // Critical file pinning (v0.5.8-rc3)
     #[serde(default)]
     pub pinned_files: Vec<String>,
     #[serde(default)]
     pub pinned_refresh_count: u32,
 
-    // Context Composition (Phase 1)
     #[serde(default)]
     pub current_turn: crate::analytics::context_composition::ContextTurn,
 
-    // Phase 2: Engram: Automatic Subtask Digest
     #[serde(default)]
     pub engrams: VecDeque<crate::session::engram::Engram>,
 
-    // Phase 2: Rolling Tool Call Log (last 50 calls)
     #[serde(default)]
     pub tool_call_log: VecDeque<crate::session::engram::ToolCallEntry>,
 
-    // Phase 2: Last command_count when pinned files were re-injected
     #[serde(default)]
     pub pinned_reinject_at: u32,
 
-    // Phase 2: Hash of last compact snapshot for delta detection
     #[serde(default)]
     pub last_compact_hash: Option<String>,
 
-    // Loop Context (Phase 3 / L1-01)
     #[serde(default)]
     pub loop_context: LoopContext,
 
-    // L3-02: Predictive Context Pressure Warning
     #[serde(default)]
     pub token_consumption_rate: TokenConsumptionRate,
 }
-
-// ─── L3-02: Predictive Context Pressure ──────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TokenConsumptionRate {
@@ -451,25 +379,10 @@ pub struct DistillSummary {
 }
 
 impl SessionState {
-    /// A session id that identifies a session.
-    ///
-    /// It was `timestamp_millis()` alone, so two sessions created in the same
-    /// millisecond were the same session, and `INSERT OR REPLACE INTO sessions`
-    /// kept one of them (#490). That is not hypothetical on a machine running
-    /// several agents: two `SessionStart` hooks landing together is exactly when
-    /// it fires.
-    ///
-    /// The millisecond stays first because four call sites slice
-    /// `session_id[..8]` for display, and it keeps ids roughly sortable by age.
-    /// The process id separates concurrent hooks, which are separate processes,
-    /// and the counter separates sessions minted inside one process. Both are
-    /// stdlib; a uuid crate for this would be a dependency to avoid a format
-    /// string.
-    ///
-    /// This does not make the id meaningful. It is still minted state rather than
-    /// an identity the host supplied, which is why the ledger scopes on
-    /// `host_session()` instead. The fuller fix is to stop minting where a host
-    /// id exists, and it is not this one.
+    /// A session id: millisecond, pid and counter, so concurrent hooks and
+    /// same-process sessions never collide (#490). Millisecond first, since display
+    /// slices `[..8]`. Still minted, not the host's id; the ledger uses
+    /// `host_session()`.
     pub fn new() -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
         static MINTED: AtomicU64 = AtomicU64::new(0);
@@ -511,16 +424,13 @@ impl SessionState {
         self.top_command_info.clone()
     }
 
-    // Score boost from session context for a text
     pub fn context_boost(&self, text: &str) -> f32 {
         let mut boost = 0.0f32;
-        // Boost if mentioning hot file
         for (path, count) in &self.hot_files {
             if text.contains(path) {
                 boost += 0.1_f32 * ((*count as f32 / 10.0_f32).min(0.3_f32));
             }
         }
-        // Boost if mentioning active error
         for err in &self.active_errors {
             let err_short = crate::util::text::safe_slice(err, 30);
             if text.contains(err_short) {
@@ -547,7 +457,7 @@ impl SessionState {
         self.last_active = chrono::Utc::now().timestamp();
     }
 
-    /// Add an engram to the session, capping at MAX_ENGRAMS
+    /// Capped at `MAX_ENGRAMS`.
     pub fn add_engram(&mut self, engram: crate::session::engram::Engram) {
         self.engrams.push_front(engram);
         if self.engrams.len() > crate::session::engram::MAX_ENGRAMS {
@@ -555,7 +465,6 @@ impl SessionState {
         }
     }
 
-    /// Add a tool call entry to the rolling log
     pub fn add_tool_call(&mut self, entry: crate::session::engram::ToolCallEntry) {
         self.tool_call_log.push_front(entry);
         if self.tool_call_log.len() > crate::session::engram::MAX_TOOL_CALL_LOG {
@@ -563,7 +472,7 @@ impl SessionState {
         }
     }
 
-    /// Get the effective context window size (env > field > default)
+    /// Env, then field, then default.
     pub fn context_window_size(&self) -> u64 {
         std::env::var("OMNI_CONTEXT_WINDOW")
             .ok()
@@ -572,7 +481,6 @@ impl SessionState {
             .unwrap_or(DEFAULT_CONTEXT_WINDOW_SIZE)
     }
 
-    /// Compute pressure thresholds from env or defaults
     fn pressure_thresholds(&self) -> (f64, f64) {
         let mut warn = std::env::var("OMNI_PRESSURE_WARN")
             .ok()
@@ -583,7 +491,7 @@ impl SessionState {
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PRESSURE_CRITICAL_THRESHOLD);
 
-        // Reduce warning threshold if running in OuterLoop mode
+        // Earlier warning in OuterLoop mode.
         if self.loop_context.mode == LoopMode::OuterLoop
             && (warn - DEFAULT_PRESSURE_WARNING_THRESHOLD).abs() < f64::EPSILON
         {
@@ -593,7 +501,6 @@ impl SessionState {
         (warn, crit)
     }
 
-    /// Recalculate context pressure from current estimated tokens
     pub fn recalculate_pressure(&mut self) {
         let window = self.context_window_size();
         let ratio = self.estimated_current_tokens as f64 / window as f64;
@@ -608,7 +515,6 @@ impl SessionState {
         };
     }
 
-    /// Generate a pressure warning message, if warranted
     pub fn pressure_warning(&self) -> Option<String> {
         let window = self.context_window_size();
         let pct = if window > 0 {
@@ -630,7 +536,7 @@ impl SessionState {
         }
     }
 
-    /// Check if a pressure warning should be emitted (respects cooldown)
+    /// Respects the cooldown, except on the first Critical.
     pub fn should_emit_pressure_warning(&self) -> bool {
         if self.context_pressure == ContextPressure::Normal {
             return false;
@@ -639,7 +545,6 @@ impl SessionState {
             None => true,
             Some(last) => {
                 let gap = self.command_count.saturating_sub(last);
-                // Always warn on first Critical, otherwise respect cooldown
                 (self.context_pressure == ContextPressure::Critical
                     || self.context_pressure == ContextPressure::Warning)
                     && gap >= PRESSURE_WARNING_COOLDOWN
@@ -652,12 +557,7 @@ impl SessionState {
 mod session_id_tests {
     use super::SessionState;
 
-    /// Two sessions are two sessions (#490).
-    ///
-    /// The id was a millisecond clock reading, so a pair minted in the same
-    /// millisecond collided and `INSERT OR REPLACE INTO sessions` kept one. Found
-    /// while writing #482's regression test, which creates two states back to
-    /// back and could not tell them apart.
+    /// Two sessions minted together are two sessions (#490).
     #[test]
     fn mints_a_distinct_id_every_time() {
         let ids: Vec<String> = (0..1000).map(|_| SessionState::new().session_id).collect();
@@ -671,16 +571,13 @@ mod session_id_tests {
         );
     }
 
-    /// Four call sites render `session_id[..8]`, and byte slicing panics off a
-    /// char boundary, so the id has to stay ASCII and long enough to survive it.
+    /// The id stays ASCII and long enough for `[..8]`.
     #[test]
     fn stays_sliceable_for_display() {
         let id = SessionState::new().session_id;
         assert!(id.len() >= 12, "too short to slice: {id}");
         assert!(id.is_ascii(), "not ascii, [..8] could panic: {id}");
-        // The assertion above is the boundary proof clippy wants, and slicing is
-        // the point of the test: it reproduces exactly what the four display call
-        // sites do.
+        // Slicing is the point: it is what the display sites do.
         #[allow(clippy::string_slice, reason = "asserted ascii on the line above")]
         let _ = &id[..8];
     }
@@ -769,7 +666,6 @@ mod tests {
             state.add_hot_file("src/main.rs");
         }
         // count is 20 => boost = 0.1 * min(20/10, 0.3) = 0.03
-        // Float precision might cause issues here, so we check with a small delta.
         assert!((state.context_boost(text) - 0.03).abs() < f32::EPSILON);
     }
 
@@ -781,7 +677,6 @@ mod tests {
         let text1 = "compiler output: expected identifier, found keyword `fn`";
         assert_eq!(state.context_boost(text1), 0.25);
 
-        // Multiple matches are not additive for errors individually within the method loop unless there are multiple different errors matched.
         let text2 = "something else";
         assert_eq!(state.context_boost(text2), 0.0);
     }
@@ -813,7 +708,7 @@ mod tests {
             context_score: 0.2,
             line_range: (0, 1),
         };
-        // Use an epsilon check due to potential binary representation artifacts of f32 addition
+        // Epsilon for f32 addition.
         assert!((seg3.final_score() - 0.6).abs() < f32::EPSILON);
     }
 
