@@ -28,14 +28,17 @@ brew install fajarhide/tap/omni && omni init
 
 ---
 
-## What it is
+## Why
 
-A small program that runs on your own machine, beside your coding agent (Claude Code,
-Codex, Gemini CLI and others). Each time the agent runs a command, OMNI looks at the output
-before the model does and takes out what the model does not need. Whatever it takes
-out stays on your machine, and one command brings it back.
+A coding agent reads everything a command prints. Progress bars, layer hashes, a file it
+already read ten minutes ago. Every one of those bytes is billed, and every one of them
+takes room the agent needs for the actual work. Long sessions fill up, slow down, and
+cost more than they should.
 
-## What it handles
+OMNI takes out what the model does not need, before the model reads it. Nothing is
+deleted: whatever it removes stays on your machine, and one command brings it back.
+
+## What it does
 
 | When your agent... | OMNI... |
 |---|---|
@@ -44,37 +47,12 @@ out stays on your machine, and one command brings it back.
 | runs `git log` or `git status` | keeps every commit, and sums up the status |
 | prints a token or password | replaces it with `[REDACTED]` before the model sees it |
 | hits a failing command | leaves it exactly as it was, so the real error reaches the agent, a secret in it included |
-| reads JSON, YAML or CSV | leaves the structure alone, so a later step can still parse it |
-
-## What you get
-
-- **A smaller bill.** The agent stops paying twice for the same file. How much you save
-  depends on how often it re-reads: 97.2% on a file read twice, far less across a whole
-  session (see [Numbers](#numbers)). `omni stats` shows it on your own history.
-- **Room in the context.** Long sessions fill up more slowly.
-- **Nothing lost.** `omni retrieve <handle>` brings the original back in full.
-- **Secrets kept out.** Tokens and passwords in command output are replaced before the
-  model reads them. A failed command's output is the exception and arrives as printed.
-- **Local only.** No proxy, no account, and the database never leaves your machine.
-
-<img src="docs/website/src/media/where-omni-sits.svg" alt="OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back." width="820" />
-
-It runs as two hooks around a tool call your agent host already makes. Nothing proxies
-your shell, and the database never leaves the machine.
-
----
-
-## The second read is free
-
-An agent re-reads the same file constantly. Without OMNI it pays for every byte
-again. With OMNI the second read is one marker carrying a handle, because those bytes
-are already in its context, and `omni retrieve <hash>` hands the file back in full if
-it is ever needed.
+| reads JSON, YAML or CSV | leaves it byte for byte, so a later step can still parse it |
 
 <table>
 <tr>
-<td align="center"><b>Without OMNI</b><br/><sub><code>cat</code> twice: the same 7.6 KB, twice</sub></td>
-<td align="center"><b>With OMNI</b><br/><sub>second read 214 B, <b>97.2%</b> smaller</sub></td>
+<td align="center"><b>Without OMNI</b><br/><sub>the same 7.6 KB file, read twice</sub></td>
+<td align="center"><b>With OMNI</b><br/><sub>the second read is 214 B, <b>97.2%</b> smaller</sub></td>
 </tr>
 <tr>
 <td valign="top"><img src="media/demo-ledger-without.gif" alt="the same file read twice with no OMNI: two identical screens of source" width="400" /></td>
@@ -82,176 +60,84 @@ it is ever needed.
 </tr>
 </table>
 
-This is the half a filter cannot reach. No pattern in that file is noise, so nothing
-in it can be dropped on its own merits. It goes because the agent has already seen it.
+## How it works
 
-**And when the file has changed since?** The parts already seen still fold, in place,
-around the parts that have not. Each fold keeps the line count of what it replaced, so
-every surviving line stays on the number your editor gives it and the agent can still act
-on those numbers.
+<img src="docs/website/src/media/where-omni-sits.svg" alt="OMNI runs as two hooks around a tool call: a pre-hook before the command, a post-hook that distills the output before the agent reads it, with everything it removes archived to a local SQLite database that omni retrieve reads back." width="820" />
 
-## The same `git log`, side by side
+OMNI is two hooks around the tool calls your agent host already makes. No proxy, no
+account, and the database never leaves your machine.
 
-Without OMNI, one commit's `Author` / `Date` / body already fills the screen. With
-OMNI, **every commit is kept**, as one `hash subject` line. Nothing is summarised away.
-
-<table>
-<tr>
-<td align="center"><b>Without OMNI</b><br/><sub>raw <code>git log -15</code></sub></td>
-<td align="center"><b>With OMNI</b><br/><sub>every commit kept, 94% smaller</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="media/demo-git-without.gif" alt="a raw verbose git log -15: one commit's Author, Date and body fill the screen" width="400" /></td>
-<td valign="top"><img src="media/demo-git-with.gif" alt="the same git log -15 through OMNI: every commit as a compact hash + subject line, 94% smaller" width="400" /></td>
-</tr>
-</table>
-
-Measured on the fixtures in `tests/fixtures/`, so you can reproduce any row:
-
-| Command | Without OMNI | With OMNI | Saved |
-|---|---|---|---|
-| `cargo test` (490 passed, 10 failed) | 16.5 KB of per-test output | the runner's own pass/fail summary | **93.0%** |
-| `git status` (dirty) | 496 B of porcelain | the branch and the changed paths | **66.7%** |
-| `docker build` (heavy cache noise) | 9.2 KB of layer hashes and progress bars | the build result, cache hits folded | **98.9%** |
-| `kubectl get pods` (35 pods, 5 crashing) | the full table | the full table | **0%**, by design |
-
-That last row is the point of the table. A pod listing is an enumeration where every
-row is a datum, so there is nothing to drop, and OMNI reports nothing rather than
-inventing a saving.
-
----
-
-## Nothing is ever lost. It never makes something up.
-
-Four guarantees, each one a link to the code or the issue that made it true rather
-than a sentence asking you to trust it.
-
-| Guarantee | How | Proof |
-|---|---|---|
-| **Get the original back, byte-for-byte** | everything cut is archived in a local SQLite RewindStore; the marker carries a handle, and `omni retrieve <handle>` prints it on any host, with the `omni_retrieve` MCP tool where MCP is wired | [#388](https://github.com/fajarhide/omni/issues/388) |
-| **Never fabricates a result** | a distiller that parsed no signal returns the raw output, never a green `no errors` / `passed` string | [#143](https://github.com/fajarhide/omni/issues/143) |
-| **Failures are never masked** | a command that exits non-zero passes through verbatim | [#120](https://github.com/fajarhide/omni/issues/120) |
-| **Structured data is never touched** | JSON / YAML / NDJSON / CSV pass through byte-for-byte | `pipeline::format` |
-
----
-
-## What OMNI remembers, and for how long
-
-Three tiers, already in the schema, never written down until now. The short answer to
-"will OMNI still know my project after a month away" is yes for the conclusions and no for
-the raw bytes.
-
-| Tier | What | Kept |
-|---|---|---|
-| **Permanent** | project knowledge, recurring error patterns, engrams, goal memory | until you delete it, except goal memory, which honours its own `ttl_days` |
-| **Working, 30 days** | sessions, distillation rows, hot files, the RewindStore, the event index, the ledger | rolling window |
-| **Verbatim, 7 days** | `execution_traces` and the session transcript | shorter on purpose: it is two orders of magnitude heavier per row |
-
-The boundary this sets is worth stating plainly, because it is the one thing a handle
-cannot promise: `omni retrieve` for content archived more than 30 days ago will not
-resolve. Hold the shortest window open while measuring with
-`OMNI_TRACE_RETENTION_DAYS=90`.
-
-`omni reset` wipes all of it, and `omni doctor` shows the live counts.
-
----
-
-## What each host lets OMNI do
-
-| Tier | Hosts | What you get |
-|---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (pipe) | The host applies OMNI's rewrite, so the model reads distilled output from its own built-in tools. |
-| **Handoff-first** | Cursor, Windsurf | The host cannot rewrite built-in tool output. `omni_run` distils anything you route through it, and `omni init --cursor` installs the rule that makes the agent reach for it. |
-| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Memory, recall and session state, plus `omni_run`. The host's own tool output is never rewritten, so `omni_run` is the only path by which the model reads less. |
-
-`omni doctor` prints the tier for every installed host. Savings are only ever counted
-where the model actually received less.
-
-Codex CLI needs one extra step. It runs only hooks it has been told to trust and skips
-the rest without a word, so after `omni init --codex` start `codex` once and approve
-them under "Hooks need review". `omni doctor` fails until you do. See
-[#359](https://github.com/fajarhide/omni/issues/359).
-
----
+- **Distillers** shorten noisy output from tools like `cargo`, `docker` and `git`.
+- **The ledger** replaces lines the agent is already holding with a marker and a handle.
+- **The RewindStore** keeps everything removed, so `omni retrieve <handle>` returns it byte
+  for byte.
 
 ## Install
 
-**macOS / Linux:**
 ```bash
 brew install fajarhide/tap/omni
-omni init      # interactive setup for Claude, Cursor, VS Code, Codex, Antigravity
-omni doctor    # verify, or `omni doctor --fix`
+omni init      # pick your agents: Claude Code, Codex, Cursor, VS Code and more
+omni doctor    # check it is wired, or `omni doctor --fix`
 ```
 
-**Universal (macOS / Linux / WSL):**
-```bash
-curl -fsSL omni.weekndlabs.com/install | bash
-```
+Other ways in:
 
-**Windows (PowerShell):**
-```powershell
-irm omni.weekndlabs.com/install.ps1 | iex
-```
+| Where | Command |
+|---|---|
+| macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
+| Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
+| inside Claude Code | `/plugin marketplace add fajarhide/omni` then `/plugin install omni@omni` |
+| any agent that reads skills | `npx skills add fajarhide/skills --skill omni` |
 
-**Claude Code, from inside the session:**
-```
-/plugin marketplace add fajarhide/omni
-/plugin install omni@omni
-```
+The last two install a skill that tells the agent how to get the binary and read OMNI's
+markers.
 
-**Any agent that reads skills**, listed at
-[skills.sh/fajarhide/skills/omni](https://www.skills.sh/fajarhide/skills/omni):
-```bash
-npx skills add fajarhide/skills --skill omni
-```
+Then work as usual. There is nothing to prefix.
 
-Both install a skill, not the binary. The skill is what tells the agent how to get
-the binary, verify it, and read the markers OMNI leaves when it shortens output.
+## Everyday commands
 
-Then run your commands normally. There is nothing to prefix and no proxy to wrap.
+| Command | What it does |
+|---|---|
+| `omni stats` | what OMNI saved on your own history |
+| `omni retrieve <handle>` | the original output behind a marker |
+| `omni doctor` | which agents are wired, and what each one lets OMNI do |
+| `omni dashboard` | the same numbers in a local, read-only web page |
 
----
+## Supported agents
+
+| Tier | Agents | What OMNI can do |
+|---|---|---|
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | rewrites tool output before the model reads it |
+| **Handoff-first** | Cursor, Windsurf | shortens what the agent runs through `omni_run` |
+| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | memory and recall, plus `omni_run` |
+
+Codex runs only hooks it trusts: after `omni init --codex`, start `codex` once and approve
+them ([#359](https://github.com/fajarhide/omni/issues/359)).
+
+## Guarantees
+
+- **Nothing is lost.** Everything removed is archived locally and comes back byte for byte
+  ([#388](https://github.com/fajarhide/omni/issues/388)).
+- **No invented results.** When OMNI cannot parse output, you get the raw output, never a
+  made-up `passed` ([#143](https://github.com/fajarhide/omni/issues/143)).
+- **Failures arrive whole.** A command that fails passes through as printed
+  ([#120](https://github.com/fajarhide/omni/issues/120)).
+- **Structured data is untouched.** JSON, YAML, NDJSON and CSV come back byte for byte.
 
 ## Numbers
 
-Every figure OMNI publishes states the corpus it came from and the week it covers,
-because `execution_traces` is pruned after seven days and a number that outlives its
-corpus cannot be checked by anyone, us included.
+How much OMNI saves depends on what your agent does. On a file read twice it is 97.2%. On
+40 [SWE-bench](https://www.swebench.com/) tasks across 10 public repos, mostly source reads, it is 30.3%. On
+a shell-heavy week of real commands it is 2.4%, and on that corpus OMNI is behind
+headroom and lean-ctx. Run `omni stats` for your own figure.
 
-On a corpus of 9,478 real command executions that reached a model, 8.42 MB over 70
-sessions, frozen and hashed as `0b63218ef78a1edb` so it survives the pruning:
+It costs about 21 ms per command, more as your history grows. In 20 paired Claude Code
+sessions, the sessions with OMNI were billed 11.0% less.
 
-* **0.8% from the filters, 2.4% with the ledger**, and the ledger took **10.3% of
-  all the repetition that was there to take**. The last figure is the one that
-  describes OMNI. The first two describe this corpus.
-* **Read the corpus before the number.** This one is shell-heavy, so it
-  *understates* the case the ledger is built for: file reads here average 2.1 KB.
-  An earlier week whose file reads averaged 12.4 KB took **twenty times** more
-  bytes off that class, on the same code, while the capture rate barely moved.
-  Twentyfold in one column, flat in the other, and only one of those two is a fact
-  about OMNI.
-* **This corpus does not expire.** It is frozen on disk and its hash is in
-  `docs/benchmarks/0.7.11.json`, so the numbers above can be checked against the
-  same bytes next release instead of against whatever the last seven days held.
-  Run the harness on your own history for a figure about your workload.
-* **It hands bytes back rather than inventing a saving.** Where there is nothing
-  safe to take, a two-line `git status` or a JSON payload a later step parses, the
-  output comes back untouched. **No call came back larger** in this measurement.
-  Two did until ([#398](https://github.com/fajarhide/omni/issues/398)), and we published them while they stood.
-* **21 ms per command**, growing with your history rather than with the payload. On a
-  205 MB database it is 61 ms.
-* **End to end, the gap favours you.** These are bytes per command, which is not the
-  same as your bill: billed input tokens track roughly turns times prefix size. Measured
-  on whole sessions the saving averages **larger** than this table, because a payload
-  shortened once is a payload every later turn stops re-reading. It is an average and
-  not a promise, and some sessions did not fall at all.
+<details>
+<summary>Full tables, and how to reproduce them</summary>
 
-Per class, with what the filters take, what the ledger adds, and how much of the
-repetition that was there it actually took. `search` captures **0.0%** and that is
-a refusal, not a failure: a `grep` reply folds whole or not at all since
-[#815](https://github.com/fajarhide/omni/issues/815), because folding 9 of 11
-matches reads as a file with two, and nothing in this corpus is an identical
-re-run. It cost 4.6 KB across 810 calls.
+A frozen corpus of 9,478 real commands from one machine:
 
 <!-- omni:corpus-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
@@ -278,13 +164,7 @@ re-run. It cost 4.6 KB across 810 calls.
 Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
 <!-- omni:corpus-table:end -->
 
-### A second corpus, and this one you can rebuild
-
-The corpus above is frozen on one machine and its payloads stay local, so the
-numbers survive a release but you cannot check them yourself. This one you can.
-40 [SWE-bench Verified](https://www.swebench.com/) instances, 10 public
-repositories pinned at their base commits, replayed with a fixed exploration
-script. No model, no API key, no container, so rebuilding it costs nothing:
+A corpus anyone can rebuild, 40 SWE-bench Verified instances across 10 public repos:
 
 ```sh
 python3 scripts/build-swebench-corpus.py --instances 40 --stride 12
@@ -313,128 +193,30 @@ CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.11.
 <!-- omni:swebench-table:end -->
 
-**Same code, same build, 25.2% here against 0.8% there.** The difference is the
-workload and nothing else. This corpus is 85% `cat` of source files, which is the
-case the ledger is built for and the case the shell-heavy corpus above says it
-understates. Read both before quoting either.
+`Available` is how much repetition there was to take; `Captured` is how much of it the
+ledger took. Method, caveats and the head-to-head in full are on the
+[benchmarks page](https://omni.weekndlabs.com/docs/develop/benchmarks).
 
-The other tools are measured on this corpus too, and the order is not ours to choose.
-lean-ctx's `compress` takes 62.3%, headroom's dedup over our filters 31.9%, and our
-ledger 30.3%. Where lean-ctx's extra bytes come from, and what they cost the reader,
-is not measured here.
-
-It is also the narrower measurement, and in two ways worth naming. The commands
-are a fixed script rather than what a model chose, and three whole files per
-instance is the generous end of what a solver reads. And whether OMNI costs an
-agent its task success is a different question, answered by running a real agent
-against both `OMNI_PASSTHROUGH` settings and scoring pass rates, which costs money
-and is not answered here.
-
-
-`available` is the ceiling. The ledger substitutes lines it has already delivered,
-so it cannot fold what was never repeated, and `captured` is the share of that it
-took. The two columns answer different questions: the saving describes this corpus,
-the capture rate describes OMNI. On a week of large repeated file reads the same
-mechanism took 20 times more bytes off the same class, and the capture rate barely
-moved.
-
-`infra` and `file read` read 0.0% from the filters on purpose. A pod listing is an
-enumeration where every row is a datum, and a source file is not ours to summarise
-(#176), so both hand the bytes back and let the ledger do the work.
-
-The head-to-head above is generated by the same `make bench` that writes the class
-table, so it cannot fall a release behind its corpus again. Every arm is handed the
-same bytes. Versions: rtk 0.45.0, lean-ctx 3.9.18, caveman `bin-v1.0.0`, headroom
-0.34.0.
-
-**On this corpus OMNI is last of the arms that carry a ledger, and both of its halves
-are behind.** headroom's cross-turn dedup takes 5.0% where our ledger takes 2.4% over
-the same filters and the same blocks, so that gap is the dedup engine and nothing else.
-At 0.8% our filter tier is the weakest of the four, against 2.1% for rtk and caveman
-and 4.8% for lean-ctx. That shortfall is what puts `rtk + omni's ledger` and
-`caveman + omni's ledger` above our own stack: the ledger is the same in all three
-rows, and only the filters underneath it differ.
-
-The ledger rows read lower than they did in 0.7.8, and no code got worse. The harness
-built its ledger without telling it which command produced the payload, so every rule
-that reads the command was switched off in the measurement while running normally in
-production (#760). 4.9% was that harness; 3.0% is the same code measured with the
-guards visible. 0.7.10 then gave up another 0.6 points, every one of them in a class
-where the saving came from handing back something wrong.
-
-The one row that is not a like-for-like: lean-ctx has no `+ our ledger` row because
-its preview reports `compressed_bytes` and never emits the text, so the row could
-only be estimated.
-
-Reproduce all of it:
-
-```bash
-OMNI_BENCH_DB=~/.omni/omni.db \
-  cargo test --release --test bench_replay -- --ignored --nocapture
-```
-
-`OMNI_BENCH_RTK=/path/to/rtk` adds the competitor arm. `OMNI_BENCH_ALL=1` replays the
-wider population including terminal output, and the harness prints which one it used.
-
----
+</details>
 
 ## FAQ
 
-**Does OMNI permanently delete my logs?**
-No. Raw logs are stored locally in the SQLite RewindStore. The agent receives a hash
-and can retrieve the full log at any time.
+**Does it break the prompt cache?** No. OMNI rewrites only the newest tool result, and
+everything before it stays byte for byte.
 
-**Will this slow down my terminal?**
-Measurably, yes, and the cost grows with your history rather than with the payload. A
-496-byte `git status` takes about 21 ms against a fresh database and 61 ms against a
-205 MB one. Budget for it. `OMNI_PASSTHROUGH=1` skips the pipeline entirely.
+**How long does OMNI keep things?** Project knowledge until you delete it. Removed output,
+sessions and the ledger for 30 days, so a handle older than that will not resolve. `omni
+reset` wipes everything.
 
-**Can I add my own filters?**
-There are no filters to add. The pattern-matching layer was retired in 0.7.4 after it
-measured at 2,018 bytes over 6,656 recorded commands, 0.031% of the corpus, while costing
-5 to 7 ms of the hook's 10 ms budget. On infrastructure commands the corpus was better
-without it. What remains is the Rust distillers and the ledger, both compiled in, so the
-set that runs is the set the tests cover. If a tool needs handling, open an issue and it
-ships in the binary for everyone.
-
-**Does it break the prompt cache?**
-OMNI rewrites only the newest tool result. Everything before it stays byte for byte, which
-is what the cache matches on. In a paired run on Claude Code with omni 0.7.10 (20 pairs,
-one six-command workload, one machine), sessions with OMNI wrote 18.1% fewer cache tokens
-and were billed 11.0% less. Output tokens rose 92.5%. The run measures that
-and not its cause. Run it yourself: `python3 scripts/ab_cache.py run --pairs 20 --model sonnet --out arms.json`, then `python3 scripts/ab_cache.py report arms.json`.
-
-**How do I get back something OMNI folded?**
-`omni retrieve <handle>`, where the handle is the 16 characters inside the marker. It works
-on every host, with or without MCP. Agents that have the MCP server wired can call
-`omni_retrieve` instead.
-
-**Can I watch the numbers instead of running a command?**
-`omni dashboard` serves them on `127.0.0.1`, read-only, from the same database `omni stats`
-reads. It binds loopback and nothing else.
-
-**How do I see my own savings?**
-`omni stats` after a few days. It leads with session lifetime, how many commands a session
-carries before the host closes it, because that is what the context window costs you. The
-distillation percentage below it is a diagnostic for one host's pipeline, not a product
-claim. `omni stats --share` prints a copy-pasteable summary, and `omni stats --card` writes
-it as an image.
-
----
+**Can I add my own filters?** No. The filter layer was retired in 0.7.4 because it saved
+almost nothing. If a tool needs handling, open an issue and it ships in the binary.
 
 ## Learn more
 
-* [Contributing](CONTRIBUTING.md): the pipeline, the standards, the gates, and how to
-  add a distiller. One document, not four.
-* [CHANGELOG.md](CHANGELOG.md): what shipped, with the evidence behind each entry
-* [SECURITY.md](SECURITY.md): reporting a vulnerability
-* [Discord](https://discord.gg/zHTuvZhF2M): ask a question, or report something OMNI got wrong
-
----
-
-```bash
-brew install fajarhide/tap/omni && omni init
-```
+- [Manual](https://omni.weekndlabs.com/docs): how each part works, in depth
+- [Contributing](CONTRIBUTING.md): the pipeline, the standards, the gates
+- [CHANGELOG.md](CHANGELOG.md) and [SECURITY.md](SECURITY.md)
+- [Discord](https://discord.gg/zHTuvZhF2M): ask a question, or report something OMNI got wrong
 
 A passion project for the era of agentic AI. Contributions welcome.
 [Apache License 2.0](LICENSE).
