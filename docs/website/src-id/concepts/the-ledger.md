@@ -173,11 +173,12 @@ Tiga kata kerja, dan masing-masing tabel yang berbeda atau pemicu yang berbeda.
 
 ### Simpan
 
-Dua tabel, disengaja.
+Tiga tabel, disengaja.
 
 | | memuat | ukuran |
 |---|---|---|
-| `ledger_lines` | `(scope, line_hash, ts, agent_id)` | 16 byte hash per baris |
+| `ledger_lines` | `(scope, line_hash, ts, agent_id, source_id)` | 16 byte hash per baris |
+| `ledger_sources` | command yang pertama kali menampilkan sebuah baris | teks command, sekali per command berbeda |
 | `rewind_store` | byte asli dari deretan yang dilipat, dikunci dengan SHA-256 miliknya | isinya, sekali per blok berbeda |
 
 Mencatat setiap baris yang dikeluarkan itu murah karena barisnya sendiri tidak

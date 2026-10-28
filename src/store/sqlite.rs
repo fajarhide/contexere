@@ -624,9 +624,20 @@ impl SqliteBackend {
                 -- bytes it is replacing (#622). Empty means unrecorded, which
                 -- suppresses the marker's source clause rather than guessing.
                 source    TEXT NOT NULL DEFAULT '',
+                -- Rows written since #911 leave `source` empty and point here.
+                source_id INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (scope, line_hash)
             ) WITHOUT ROWID;
             CREATE INDEX IF NOT EXISTS idx_ledger_ts ON ledger_lines(ts);
+
+            -- One row per distinct command (#911). Storing the text on every line
+            -- it showed made it 420 of 615 MB in one 30-day store: 539,530 rows,
+            -- 18,352 distinct commands, 435 bytes each on average.
+            CREATE TABLE IF NOT EXISTS ledger_sources (
+                id     INTEGER PRIMARY KEY,
+                source TEXT NOT NULL UNIQUE,
+                ts     INTEGER NOT NULL
+            );
 
             -- What a fold actually drew on, which nothing recorded before (#533).
             -- `ledger_lines` says a line was seen; it cannot say a marker was ever
@@ -1098,6 +1109,12 @@ impl SqliteBackend {
         // "unrecorded" and suppresses the marker clause rather than guessing.
         let _ = conn.execute(
             "ALTER TABLE ledger_lines ADD COLUMN source TEXT NOT NULL DEFAULT ''",
+            [],
+        );
+        // #911. Rows written before it keep their text in `source` and age out
+        // with the window; `ledger_seen` reads either.
+        let _ = conn.execute(
+            "ALTER TABLE ledger_lines ADD COLUMN source_id INTEGER NOT NULL DEFAULT 0",
             [],
         );
         // #212: `output_bytes` is what the distiller returned, which is not the
@@ -2334,8 +2351,9 @@ impl SqliteBackend {
                 .collect::<Vec<_>>()
                 .join(",");
             let sql = format!(
-                "SELECT line_hash, agent_id, source FROM ledger_lines \
-                  WHERE scope = ? AND ts >= ? AND line_hash IN ({placeholders})"
+                "SELECT l.line_hash, l.agent_id, COALESCE(s.source, l.source) \
+                   FROM ledger_lines l LEFT JOIN ledger_sources s ON s.id = l.source_id \
+                  WHERE l.scope = ? AND l.ts >= ? AND l.line_hash IN ({placeholders})"
             );
             let Ok(mut stmt) = conn.prepare_cached(&sql) else {
                 continue;
@@ -2381,9 +2399,24 @@ impl SqliteBackend {
         let Ok(tx) = conn.transaction() else {
             return;
         };
+        // The command is stored once and the lines point at it (#911). Its `ts`
+        // moves on every call so the prune keeps what the window still uses.
+        let source_id: i64 = if source.is_empty() {
+            0
+        } else {
+            // A failed insert records the lines as unrecorded rather than not at all.
+            tx.query_row(
+                "INSERT INTO ledger_sources (source, ts) VALUES (?1, ?2)
+                 ON CONFLICT(source) DO UPDATE SET ts = excluded.ts
+                 RETURNING id",
+                params![source, ts],
+                |r| r.get(0),
+            )
+            .unwrap_or(0)
+        };
         {
             let Ok(mut stmt) = tx.prepare_cached(
-                "INSERT INTO ledger_lines (scope, line_hash, ts, agent_id, source)
+                "INSERT INTO ledger_lines (scope, line_hash, ts, agent_id, source_id)
                  VALUES (?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT(scope, line_hash) DO UPDATE SET ts = excluded.ts",
             ) else {
@@ -2399,7 +2432,7 @@ impl SqliteBackend {
             // (#795). Only lines this call delivered in full are passed here, so a
             // line that was folded away cannot refresh its own sighting.
             for h in hashes {
-                let _ = stmt.execute(params![scope, h, ts, agent_id, source]);
+                let _ = stmt.execute(params![scope, h, ts, agent_id, source_id]);
             }
         }
         let _ = tx.commit();
@@ -2666,6 +2699,14 @@ impl SqliteBackend {
 
         let _ = conn.execute(
             "DELETE FROM ledger_lines WHERE ts < ?1",
+            params![ts_threshold],
+        );
+        // A source a surviving line still points at stays even when its own
+        // `ts` is old: a line's `ts` can be refreshed by a later command while
+        // it keeps the first one's `source_id`. `NOT IN` scans the lines once.
+        let _ = conn.execute(
+            "DELETE FROM ledger_sources WHERE ts < ?1
+               AND id NOT IN (SELECT source_id FROM ledger_lines)",
             params![ts_threshold],
         );
 
@@ -3893,6 +3934,68 @@ mod tests {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("omni.db");
         (Store::open_path(&db_path).unwrap(), dir)
+    }
+
+    /// #911. A command is stored once however many lines it showed, and a row
+    /// written before the lookup table still answers with its own text.
+    #[test]
+    fn a_source_is_stored_once_and_old_rows_still_name_theirs() {
+        let (store, _dir) = get_temp_store();
+        let hashes: Vec<String> = (0..50).map(|i| format!("h{i}")).collect();
+        store.ledger_record("/repo", &hashes, "a", "cat src/main.rs");
+        store.ledger_record("/repo", &["h99".to_string()], "a", "cat src/main.rs");
+
+        let conn = store.pool.get().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM ledger_sources"), 1);
+        assert_eq!(
+            count("SELECT COUNT(*) FROM ledger_lines WHERE source <> ''"),
+            0
+        );
+
+        conn.execute(
+            "INSERT INTO ledger_lines (scope, line_hash, ts, agent_id, source)
+             VALUES ('/repo', 'old', strftime('%s','now'), 'a', 'git diff')",
+            [],
+        )
+        .unwrap();
+        let ask: Vec<String> = ["h0", "h99", "old"].map(String::from).to_vec();
+        let seen = store.ledger_seen("/repo", &ask, 0);
+        assert_eq!(seen["h0"].source, "cat src/main.rs");
+        assert_eq!(seen["h99"].source, "cat src/main.rs");
+        assert_eq!(seen["old"].source, "git diff");
+    }
+
+    /// #911. The prune drops a source no line points at, and keeps an old one a
+    /// refreshed line still names.
+    #[test]
+    fn the_prune_keeps_a_source_a_surviving_line_still_names() {
+        let (store, _dir) = get_temp_store();
+        store.ledger_record("/repo", &["kept".to_string()], "a", "cat kept.rs");
+        store.ledger_record("/repo", &["gone".to_string()], "a", "cat gone.rs");
+        let conn = store.pool.get().unwrap();
+        let aged = 40 * 86_400;
+        conn.execute("UPDATE ledger_sources SET ts = ts - ?1", [aged])
+            .unwrap();
+        conn.execute(
+            "UPDATE ledger_lines SET ts = ts - ?1 WHERE line_hash = 'gone'",
+            [aged],
+        )
+        .unwrap();
+        drop(conn);
+
+        store.cleanup_old(30);
+
+        let conn = store.pool.get().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT source FROM ledger_sources ORDER BY source")
+            .unwrap();
+        let left: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert_eq!(left, ["cat kept.rs"]);
     }
 
     /// #631. The database holds raw command output, and it inherited the umask:
