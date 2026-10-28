@@ -18,19 +18,14 @@ fn omni_config_path() -> PathBuf {
     crate::paths::config_file()
 }
 
-/// Comprehensive startup validation for Hermes integration.
-///
-/// Checks: config.yaml (MCP + compression), plugin files, OMNI binary
-/// availability, and OMNI config presence. Returns `None` when all
-/// checks pass, or a formatted diagnostics string that gets injected
-/// into the Hermes session-start context so the agent can self-heal.
+/// Startup validation for the Hermes integration. `None` when everything
+/// passes, otherwise diagnostics injected at session start so the agent can
+/// fix them.
 pub fn validate_startup() -> Option<String> {
     let mut warnings: Vec<&str> = Vec::new();
 
-    // ── 1. Hermes config.yaml ──
     let config_path = hermes_home_dir().join("config.yaml");
     if let Ok(config_str) = fs::read_to_string(&config_path) {
-        // MCP server registration
         if !config_str.contains("mcp_servers:") || !config_str.contains("omni:") {
             warnings.push(
                 "OMNI MCP server is NOT registered in ~/.hermes/config.yaml. \
@@ -38,7 +33,6 @@ pub fn validate_startup() -> Option<String> {
                  will be unavailable. Run `omni init --hermes` to fix.",
             );
         }
-        // Compression bridge
         if !config_str.contains("compression:") || !config_str.contains("enabled: true") {
             warnings.push(
                 "Hermes compression is NOT enabled. Context Pressure warnings \
@@ -50,7 +44,6 @@ pub fn validate_startup() -> Option<String> {
         warnings.push("Could not find ~/.hermes/config.yaml. Is Hermes installed?");
     }
 
-    // ── 2. Plugin scaffold ──
     let plugin_init = plugin_dir().join("__init__.py");
     if !plugin_init.exists() {
         warnings.push(
@@ -59,7 +52,6 @@ pub fn validate_startup() -> Option<String> {
         );
     }
 
-    // ── 3. OMNI binary reachable ──
     #[allow(clippy::collapsible_if)]
     if let Ok(exe) = std::env::current_exe() {
         if !exe.exists() {
@@ -67,7 +59,6 @@ pub fn validate_startup() -> Option<String> {
         }
     }
 
-    // ── 4. OMNI config for Hermes ──
     let omni_cfg = omni_config_path();
     if omni_cfg.exists() {
         #[allow(clippy::collapsible_if)]
@@ -137,17 +128,8 @@ fn configured_omni_plugin(config_path: &Path) -> Option<&'static str> {
         .and_then(|config| config_mentions_omni_plugin(&config))
 }
 
-/// Adds a top-level YAML block without disturbing what is already there.
-///
-/// The previous version spliced the block in directly after the `plugins:` line.
-/// `mcp_servers:` is itself a top-level key, so that ended the `plugins` mapping
-/// and every plugin entry underneath became a child of `mcp_servers`. Loaded
-/// with a real YAML parser, a config with two enabled plugins came back as
-/// `plugins: None` and `mcp_servers: [omni, my-linter, my-formatter]`: the
-/// installer silently disabled every plugin the user had (#377).
-///
-/// Top-level keys are order-independent, so appending is both correct and the
-/// only placement that cannot capture someone else's entries.
+/// Appends a top-level YAML block. Splicing it after `plugins:` once ended that
+/// mapping and disabled every plugin the user had (#377).
 fn append_top_level_block(config: &str, block: &str) -> String {
     let mut out = String::with_capacity(config.len() + block.len() + 1);
     out.push_str(config);
@@ -170,11 +152,8 @@ fn configured_compression(config: &str) -> bool {
     has_compression && has_enabled
 }
 
-/// Drops one `[section]` and its keys from a TOML document.
-///
-/// Line based on purpose: `omni_config.toml` is hand-edited and round-tripping
-/// it through a parser would reformat everything a user wrote around our
-/// section. The block ends at the next `[` in column zero.
+/// Drops one `[section]` from a TOML document, line based so a hand-edited file
+/// is not reformatted. The block ends at the next `[` in column zero.
 fn strip_toml_section(config: &str, header: &str) -> String {
     let lines: Vec<&str> = config.lines().collect();
     let Some(start) = lines.iter().position(|l| l.trim_end() == header) else {
@@ -198,25 +177,16 @@ fn strip_toml_section(config: &str, header: &str) -> String {
     out
 }
 
-/// Removes only OMNI's own entry under `mcp_servers:`, and the key itself when
-/// nothing else is left under it.
-///
-/// Deliberately not a block delete. `mcp_servers:` is a mapping the user shares
-/// with every other server they have registered, so dropping the whole key to
-/// uninstall one entry would take their servers with it. That is the same class
-/// of defect as #377, where an installer that spliced a block in the wrong place
-/// silently disabled every plugin the user had.
-///
-/// Returns `None` when there was nothing of ours to remove, so the caller can
-/// tell "cleaned" from "was never there" and report the truth either way.
+/// Removes only OMNI's entry under `mcp_servers:`, and the key when nothing
+/// else is left: the mapping is shared with the user's other servers. `None`
+/// when nothing of ours was there.
 fn remove_omni_mcp_server(config: &str) -> Option<String> {
     let lines: Vec<&str> = config.lines().collect();
     let start = lines
         .iter()
         .position(|l| l.trim_end() == "mcp_servers:" || l.trim_end() == "mcp:")?;
 
-    // The block runs to the next top-level key. Blank lines belong to it, so a
-    // trailing blank does not end it early.
+    // Runs to the next top-level key; blank lines belong to the block.
     let mut end = lines.len();
     for (i, line) in lines.iter().enumerate().skip(start + 1) {
         if !line.trim().is_empty() && !line.starts_with([' ', '\t']) {
@@ -254,7 +224,6 @@ fn remove_omni_mcp_server(config: &str) -> Option<String> {
     kept.extend_from_slice(&lines[start + 1..omni_at]);
     kept.extend_from_slice(&lines[omni_end..]);
 
-    // If the mapping is now empty, the key is noise, so it goes too.
     let still_has_children = kept
         .iter()
         .skip(start + 1)
@@ -277,23 +246,16 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// The plugin source with the binary path substituted in.
-///
-/// The path goes in as a JSON string rather than raw text. JSON string syntax is
-/// a subset of Python's, so this escapes the two characters that would otherwise
-/// produce a file Python cannot read: a quote closes the literal, and a Windows
-/// path's `\U` is a unicode escape (`C:\Users\…` is a syntax error, not a path).
+/// The plugin source with the binary path substituted in as a JSON string, so a
+/// quote or a Windows `\U` cannot break the Python literal.
 fn render_plugin(exe_path: &str) -> String {
     let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
     include_str!("../../plugins/hermes/__init__.py").replace("\"{{OMNI_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {
-    /// `transform_tool_result` fires for every tool, not only the terminal, so
-    /// this is the host with the widest reach of any: it is what finally runs
-    /// the Read, Grep and WebFetch distillers that Claude Code's Bash-only
-    /// matcher never reaches (#172). #628 wired it and left the tier at the
-    /// default, so `doctor` reported "no shell distill" for it (#687).
+    /// `transform_tool_result` fires for every tool, so this host runs the Read,
+    /// Grep and WebFetch distillers too (#687).
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
     }
@@ -318,10 +280,7 @@ version: "1.0"
 description: OMNI Signal Engine integration for Hermes Agent hooks
 "#;
 
-        // The plugin is a real Python file in `plugins/hermes/`, compiled by
-        // CI, rather than a Rust string literal. The literal that used to live
-        // here opened with five quote characters, so every `__init__.py` OMNI
-        // wrote was a syntax error and the plugin never loaded once (#628).
+        // A real Python file compiled by CI; the old Rust literal never parsed (#628).
         let init_py_content = render_plugin(exe_path);
 
         fs::write(dest.join("plugin.yaml"), plugin_yaml_content)?;
@@ -480,11 +439,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
     }
 
     fn uninstall(&self) -> anyhow::Result<()> {
-        // Hermes has two installation forms and `doctor_check` twenty lines
-        // below has always known it: a plugin directory, and an entry in
-        // ~/.hermes/config.yaml. This removed the first only, so uninstalling a
-        // config-form install changed nothing, printed nothing, and let
-        // perform_reset report "All resets completed" (#445).
+        // Both install forms: plugin directory and config.yaml entry (#445).
         let mut did_something = false;
 
         let dest = plugin_dir();
@@ -522,10 +477,8 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             );
         }
 
-        // Compression is a Hermes setting, not ours. The installer only turns it
-        // on when it was off, and after the fact there is no way to tell an
-        // installation that enabled it from a user who always had it. Saying so
-        // beats guessing and beats silence.
+        // Compression is a Hermes setting; whether we enabled it is unknowable, so
+        // say so rather than guess.
         if configured_compression_in_config(&config_path) {
             crate::agent_report!(
                 "  {} Left compression: enabled in ~/.hermes/config.yaml, it is a Hermes setting",
@@ -554,7 +507,6 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
 
         crate::agent_report!("\n  {}", "Hermes Agent:".cyan());
 
-        // Plugin status
         if directory_plugin_installed {
             crate::agent_report!(
                 "   {:>15} {} {}",
@@ -578,7 +530,6 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             warnings.push("Hermes OMNI plugin is not installed.".to_string());
         }
 
-        // MCP status
         crate::agent_report!(
             "   {:>15} {}",
             "MCP Server:".bright_black(),
@@ -592,7 +543,6 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             warnings.push("OMNI MCP server is not registered in Hermes config.".to_string());
         }
 
-        // Compression status
         crate::agent_report!(
             "   {:>15} {}",
             "Compression:".bright_black(),
@@ -609,7 +559,6 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             );
         }
 
-        // OMNI config section
         crate::agent_report!(
             "   {:>15} {}",
             "OMNI Config:".bright_black(),
@@ -626,7 +575,6 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             );
         }
 
-        // Auto-fix: re-run the full init to repair all gaps
         #[allow(clippy::collapsible_if)]
         if fix_mode && (!installed || !mcp_configured || !compression_on || !has_hermes_section) {
             if let Ok(exe) = std::env::current_exe() {
@@ -669,11 +617,8 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
     }
 }
 
-/// Hermes-optimized agent config defaults.
-///
-/// Hermes agent uses pipe mode with `OMNI_CMD` env var, no PreToolUse hook.
-/// Sessions tend to be longer and Hermes benefits from more aggressive
-/// compression since it manages its own context summarization.
+/// Hermes defaults: pipe mode via `OMNI_CMD`, no PreToolUse hook, and more
+/// aggressive compression since Hermes summarises its own context.
 pub fn hermes_default_config() -> crate::guard::config::AgentConfig {
     crate::guard::config::AgentConfig {
         mode: Some(crate::guard::config::DistillationMode::Efficient),
@@ -702,8 +647,6 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    /// The defect #445 filed: an install that lives only in config.yaml was
-    /// reported as uninstalled while staying fully configured.
     #[test]
     fn removes_the_omni_server_and_leaves_the_users_own() {
         let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
@@ -757,10 +700,6 @@ mod tests {
 
     use super::append_top_level_block;
 
-    /// #377: the block was spliced in directly after the `plugins:` line, which
-    /// ended that mapping and adopted every plugin entry underneath. A real YAML
-    /// load of the result gave `plugins: None`, so `omni init --hermes`
-    /// disabled every plugin the user had.
     #[test]
     fn appending_leaves_an_existing_plugins_block_intact() {
         let config =
@@ -769,7 +708,6 @@ mod tests {
 
         let out = append_top_level_block(config, block);
 
-        // Every plugin line still sits under `plugins:`, before any new key.
         let plugins_at = out.find("plugins:").expect("plugins kept");
         let mcp_at = out.find("mcp_servers:").expect("block added");
         assert!(
@@ -784,8 +722,6 @@ mod tests {
         }
     }
 
-    /// A config without a trailing newline must not glue its last line onto the
-    /// new key, which would produce YAML that does not parse.
     #[test]
     fn separates_the_block_from_an_unterminated_last_line() {
         let out = append_top_level_block("model: gpt-5", "\nmcp_servers:\n  omni: {}\n");
@@ -897,21 +833,13 @@ plugins:
 
     #[test]
     fn validate_startup_returns_some_when_hermes_not_installed() {
-        // On CI / dev machines without Hermes, validation should surface warnings
+        // Depends on the host, so only checks it does not panic.
         let result = super::validate_startup();
-        // We can't assert None because it depends on the host environment,
-        // but we CAN assert the function doesn't panic and returns a coherent type.
         if let Some(msg) = &result {
             assert!(msg.contains("OMNI × Hermes") || msg.contains("Startup Validation"));
         }
     }
 
-    /// #628. The plugin lived in a Rust raw string that opened with five quote
-    /// characters, so every `__init__.py` OMNI wrote was a Python syntax error
-    /// and the plugin never loaded once, while `omni init --hermes` reported
-    /// success. It is a real file under `plugins/hermes/` now, compiled by the
-    /// `plugin-hermes` CI job, and these three properties are what the Rust side
-    /// can still get wrong.
     #[test]
     fn the_rendered_plugin_registers_the_hooks_that_replace_a_result() {
         let src = super::render_plugin("/usr/local/bin/omni");
@@ -932,9 +860,6 @@ plugins:
         );
     }
 
-    /// A Windows path is the case that breaks quietly: `C:\Users\…` puts `\U`
-    /// in a Python string literal, which is a unicode escape and a syntax error,
-    /// so the plugin would fail to import on exactly one platform.
     #[test]
     fn a_windows_path_is_escaped_rather_than_pasted() {
         let src = super::render_plugin(r"C:\Users\dev\.cargo\bin\omni.exe");

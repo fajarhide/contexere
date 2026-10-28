@@ -1,38 +1,22 @@
-//! Where `doctor_check` writes its human-readable report.
-//!
-//! `omni doctor --json` promises a document to a program, but each integration
-//! wrote its report straight to stdout, so the JSON began at line 59 and `jq`
-//! died on the first character (#353).
-//!
-//! The obvious fix is to thread a writer through `doctor_check`. It is worse
-//! than it looks: several integrations report from inside a closure
-//! (`let fmt_hook = |name, present| ...`), so a `&mut dyn Write` parameter would
-//! be borrowed by the closure and unusable for the rest of the function. A sink
-//! the caller redirects keeps those closures untouched and leaves one obvious
-//! place to change where the report goes.
-//!
-//! Thread-local rather than global: `capture` must not silence a report running
-//! on another thread, which a shared flag would do.
+//! Where `doctor_check` writes its human-readable report, so `doctor --json`
+//! can keep stdout clean (#353). A sink rather than a writer parameter,
+//! because several integrations report from inside closures that would borrow
+//! it. Thread-local, so capturing never silences another thread's report.
 
 use std::cell::RefCell;
 
 thread_local! {
-    /// `Some` while a caller is capturing; every emitted line goes here instead
-    /// of stdout.
     static SINK: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-/// Writes one report line to stdout, or to the active capture buffer.
-///
-/// Prefer the `agent_report!` macro; this is its implementation.
+/// The implementation behind `agent_report!`.
 pub fn emit_line(args: std::fmt::Arguments<'_>) {
     SINK.with(|sink| {
         let mut sink = sink.borrow_mut();
         match sink.as_mut() {
             Some(buf) => {
                 use std::fmt::Write;
-                // A formatting failure here would mean losing a diagnostic line,
-                // never the document being built, so it cannot fail the run.
+                // Losing one diagnostic line must never fail the run.
                 let _ = writeln!(buf, "{}", args);
             }
             None => println!("{}", args),
@@ -40,12 +24,8 @@ pub fn emit_line(args: std::fmt::Arguments<'_>) {
     });
 }
 
-/// Runs `f` with the report diverted away from stdout, returning its value and
-/// whatever it would have printed.
-///
-/// Restores the previous sink even if `f` panics, because `doctor --fix` calls
-/// into installers and a poisoned sink would silence every later report in the
-/// process.
+/// Runs `f` with the report captured, returning its value and the text. Restores
+/// the previous sink even on panic, since `doctor --fix` calls installers.
 pub fn capture<T>(f: impl FnOnce() -> T) -> (T, String) {
     let previous = SINK.with(|s| s.borrow_mut().replace(String::new()));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
@@ -69,8 +49,6 @@ macro_rules! agent_report {
 mod tests {
     use super::*;
 
-    /// #353: `omni doctor --json | jq .` failed on line 1 because the agent
-    /// reports were already on stdout by the time the document was written.
     #[test]
     fn keeps_the_report_out_of_stdout_while_capturing() {
         let (returned, captured) = capture(|| {
@@ -83,8 +61,6 @@ mod tests {
         assert_eq!(captured, "Claude Code:\n  hooks [OK]\n");
     }
 
-    /// Capturing is scoped: once it ends the report goes back to stdout, so a
-    /// later human-facing `doctor` in the same process still prints.
     #[test]
     fn stops_capturing_once_the_scope_ends() {
         let (_, first) = capture(|| agent_report!("inside"));
@@ -94,8 +70,6 @@ mod tests {
         assert!(second.is_empty(), "second capture saw {second:?}");
     }
 
-    /// A panicking integration must not leave the sink installed, or every
-    /// later report in the process disappears.
     #[test]
     fn restores_the_sink_when_the_body_panics() {
         let panicked = std::panic::catch_unwind(|| capture(|| panic!("boom")));

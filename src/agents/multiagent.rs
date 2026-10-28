@@ -1,53 +1,30 @@
-//! Multi-Agent Session Coordinator
-//!
-//! Enables different AI agents (Claude Code, Cursor, Cline, etc.) working on
-//! the same project to share OMNI session state via the shared SQLite store.
-//!
-//! Architecture:
-//!   - Each agent writes its session state on SessionEnd / periodic sync
-//!   - Peers are visible via `omni_agents` MCP tool
-//!   - Project knowledge is shared across ALL agents via project_knowledge table
-//!   - Hot files and active errors are merged from peer states on SessionStart
+//! Shares session state between agents working on one project through the
+//! shared store: peers via `omni_agents`, project knowledge for every agent,
+//! and peer hot files and errors merged at SessionStart.
 
 use crate::pipeline::SessionState;
 use crate::store::sqlite::Store;
 use std::sync::{Arc, Mutex};
 
-/// The 16 character address of a project, and the only implementation of it.
-///
-/// There were four (#437). Three hashed the path as given and this one trimmed
-/// the trailing slash first, so a project reached as `/foo/bar/` on one path and
-/// `/foo/bar` on another split its knowledge, engrams and patterns across two
-/// addresses and `omni_recall` found half of them. The trimming version is the
-/// survivor because a trailing slash names the same directory and a key that
-/// disagrees with that is wrong, not merely different.
-///
-/// `CONTRIBUTING.md` calls this a single source of truth; every other caller delegates
-/// here rather than re-deriving four bytes of hex.
+/// The 16 character address of a project, and its only implementation (#437).
+/// Trims a trailing slash, which names the same directory.
 pub fn project_hash(path: &str) -> String {
     crate::util::text::short_hash(path.trim_end_matches('/'))
 }
 
-/// Detect the current agent from environment.
-///
-/// This runs on the `omni exec` and pipe paths, where there is no JSON payload
-/// to inspect. The ids it returns **must match**
-/// `hooks::normalize::detect_agent_id`, which names the same agents from the
-/// payload shape on the hook path, otherwise one agent's work splits across two
-/// rows in `omni stats` and neither row is the true total (#160).
+/// Detect the current agent from the environment, on the paths with no JSON
+/// payload. The ids must match `hooks::normalize::detect_agent_id`, or one
+/// agent's work splits across two rows of `omni stats` (#160).
 pub fn detect_agent_id() -> String {
-    // Explicit override (set by agent-specific wrapper scripts)
+    // Explicit override, set by wrapper scripts.
     if let Ok(id) = std::env::var("OMNI_AGENT_ID") {
         return id;
     }
-    // Claude Code first: it sets `TERM_PROGRAM`/`VSCODE_PID` too when run from
-    // VS Code's integrated terminal, so checking it after the VSCode branch
-    // below would label it `vscode`, trading a vague answer for a confidently
-    // wrong one. Same reasoning as the Antigravity-before-VSCode ordering.
+    // Claude Code first: in VS Code's terminal it sets `VSCODE_PID` too, and
+    // would otherwise read as `vscode`.
     if std::env::var("CLAUDECODE").is_ok() || std::env::var("CLAUDE_CODE_ENTRYPOINT").is_ok() {
         return "claude_code".to_string();
     }
-    // Auto-detect from known env variables each agent sets
     if std::env::var("CURSOR_TRACE_ID").is_ok() || std::env::var("CURSOR_SESSION_ID").is_ok() {
         return "cursor".to_string();
     }
@@ -66,7 +43,7 @@ pub fn detect_agent_id() -> String {
     if std::env::var("AIDER_SESSION").is_ok() {
         return "aider".to_string();
     }
-    // Antigravity IDE detection (must be before VSCODE_PID: Antigravity is a VSCode fork)
+    // Antigravity is a VS Code fork, so before `VSCODE_PID`.
     if std::env::var("ANTIGRAVITY_EDITOR_APP_ROOT").is_ok()
         || std::env::var("ANTIGRAVITY_SESSION").is_ok()
         || std::env::var("__CFBundleIdentifier")
@@ -78,7 +55,6 @@ pub fn detect_agent_id() -> String {
     {
         return "antigravity".to_string();
     }
-    // VSCode Copilot detection
     if std::env::var("VSCODE_PID").is_ok()
         || std::env::var("TERM_PROGRAM")
             .map(|v| v == "vscode")
@@ -86,11 +62,9 @@ pub fn detect_agent_id() -> String {
     {
         return "vscode".to_string();
     }
-    // Default: terminal (generic shell usage)
     "terminal".to_string()
 }
 
-/// Sync current session state to the shared agent_sessions table
 pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
     let Ok(state) = session.lock() else { return };
 
@@ -105,7 +79,6 @@ pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
     store.sync_agent_session(&agent_id, &state.session_id, &proj_hash, &state_json);
 }
 
-/// Get peer agents and merge their context into the current session summary
 pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
     let proj_hash = project_hash(project_path);
     let my_agent = detect_agent_id();
@@ -156,7 +129,6 @@ pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
     Some(ctx)
 }
 
-/// Inject project-level knowledge into session start summary
 pub fn build_knowledge_context(store: &Store, project_path: &str) -> Option<String> {
     let proj_hash = project_hash(project_path);
     let knowledge = store.get_project_knowledge(&proj_hash);
@@ -174,8 +146,6 @@ pub fn build_knowledge_context(store: &Store, project_path: &str) -> Option<Stri
     Some(ctx)
 }
 
-/// Auto-learn project patterns and save to project_knowledge
-/// Called periodically during session to build up semantic memory
 pub fn auto_learn_project_patterns(
     store: &Store,
     project_path: &str,
@@ -184,7 +154,6 @@ pub fn auto_learn_project_patterns(
     let proj_hash = project_hash(project_path);
     let Ok(state) = session.lock() else { return };
 
-    // Learn: which toolchain this project uses
     for (toolchain, version) in &state.toolchain_hints {
         store.upsert_project_knowledge(
             &proj_hash,
@@ -194,7 +163,6 @@ pub fn auto_learn_project_patterns(
         );
     }
 
-    // Learn: most accessed files (high hit count → important to project)
     let mut hot: Vec<(&String, &u32)> = state.hot_files.iter().collect();
     hot.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
     for (file, count) in hot.iter().take(5) {
@@ -209,7 +177,6 @@ pub fn auto_learn_project_patterns(
         }
     }
 
-    // Learn: persistent error patterns (errors that keep recurring)
     for err in state.active_errors.iter().take(3) {
         let short = crate::util::text::safe_slice(err, 80);
         store.upsert_project_knowledge(
@@ -226,8 +193,6 @@ pub fn auto_learn_project_patterns(
 
 #[cfg(test)]
 mod tests {
-    /// #437: four implementations, and the three that did not trim split a
-    /// project's memory in two the moment a path arrived with a trailing slash.
     #[test]
     fn addresses_a_path_the_same_with_or_without_a_trailing_slash() {
         assert_eq!(project_hash("/foo/bar"), project_hash("/foo/bar/"));
@@ -235,7 +200,7 @@ mod tests {
         assert_ne!(project_hash("/foo/bar"), project_hash("/foo/baz"));
     }
 
-    /// Every other site delegates, so this is the check that they still do.
+    /// Every other site must delegate here.
     #[test]
     fn every_caller_agrees_on_one_address() {
         assert_eq!(
@@ -270,8 +235,7 @@ mod tests {
 
     #[test]
     fn test_detect_agent_id_default_and_override() {
-        // Combined into one test to avoid env var race conditions in parallel execution.
-        // Test default: Without OMNI_AGENT_ID, should default to terminal
+        // One test, because these env vars are process-global and parallel tests race.
         unsafe {
             std::env::remove_var("OMNI_AGENT_ID");
             std::env::remove_var("CURSOR_TRACE_ID");
@@ -286,16 +250,13 @@ mod tests {
             std::env::remove_var("WINDSURF_SESSION");
             std::env::remove_var("CONTINUE_SESSION_ID");
             std::env::remove_var("AIDER_SESSION");
-            // #160: without these the "default is terminal" assertion fails on
-            // any machine where OMNI's own tests run under Claude Code, which
-            // is most of them.
+            // Cleared so the default holds when the suite itself runs under Claude Code.
             std::env::remove_var("CLAUDECODE");
             std::env::remove_var("CLAUDE_CODE_ENTRYPOINT");
         }
         let id = detect_agent_id();
         assert_eq!(id, "terminal");
 
-        // Test override: OMNI_AGENT_ID takes priority
         unsafe {
             std::env::set_var("OMNI_AGENT_ID", "windsurf");
         }
@@ -305,11 +266,7 @@ mod tests {
             std::env::remove_var("OMNI_AGENT_ID");
         }
 
-        // #160: Claude Code had no branch at all and fell through to
-        // `terminal`, splitting one agent's work across two rows in
-        // `omni stats`. It must also win over the VSCode branch, because
-        // Claude Code in VS Code's integrated terminal sets `VSCODE_PID` too -
-        // ordering it after would turn a vague answer into a wrong one.
+        // Claude Code must win over the VS Code branch (#160).
         unsafe {
             std::env::set_var("CLAUDECODE", "1");
             std::env::set_var("VSCODE_PID", "12345");
@@ -326,16 +283,7 @@ mod tests {
             std::env::remove_var("TERM_PROGRAM");
         }
 
-        // The env detector and the payload detector must name the same agents.
-        // If they disagree, one agent's work lands in two rows of `omni stats`
-        // and neither is the true total (#160).
-        //
-        // Folded into this test rather than given its own, for the reason at the
-        // top: env vars are process-global, so a second test mutating them races
-        // this one. As a separate `#[test]` it passed alone and failed in the
-        // full suite, and under Claude Code the ambient `CLAUDECODE` made
-        // `CURSOR_TRACE_ID` resolve to `claude_code`, since that branch is
-        // checked first by design.
+        // Env and payload detectors must agree (#160). Here, not a separate test, for the race above.
         use crate::hooks::normalize::{AgentFormat, detect_agent_id as from_payload};
         for (env_var, format) in [
             ("CLAUDECODE", AgentFormat::ClaudeCode),
@@ -345,8 +293,7 @@ mod tests {
             ("AIDER_SESSION", AgentFormat::Aider),
         ] {
             unsafe {
-                // Ambient vars from the terminal this suite runs in would
-                // shadow the one under test.
+                // Ambient terminal vars would shadow the one under test.
                 std::env::remove_var("CLAUDECODE");
                 std::env::remove_var("CLAUDE_CODE_ENTRYPOINT");
                 std::env::set_var(env_var, "1");

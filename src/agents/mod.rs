@@ -22,15 +22,8 @@ pub use hermes::HermesIntegration;
 pub use openclaw::OpenClawIntegration;
 pub use pi::PiIntegration;
 
-/// Reports the outcome of a `doctor --fix` repair attempt, honestly.
-///
-/// Every call site did `let _ = self.install(...)` and then printed `[FIXED]`
-/// unconditionally. Against an unwritable home, `omni doctor --json --fix`
-/// answered `healthy: true`, `hooks installed`, and **zero warnings**, while
-/// nothing had been written: in fix mode the `[FIXED]` line replaced the warning
-/// that would otherwise have been pushed, so the failure had nowhere to surface
-/// (#386). Nineteen sites across eleven integrations shared the pattern and not
-/// one checked the result.
+/// Reports a `doctor --fix` repair honestly. Printing `[FIXED]` regardless let
+/// an unwritable home pass as healthy with zero warnings (#386).
 pub fn report_fix(
     field: &str,
     what: &str,
@@ -59,63 +52,41 @@ pub fn report_fix(
 }
 
 pub trait AgentIntegration {
-    /// CLI identifier used in `--[id]` (e.g. "vscode", "codex", "claude").
+    /// CLI identifier used in `--[id]`, e.g. `codex`.
     fn id(&self) -> &'static str;
 
-    /// Human-readable name for logging (e.g. "Claude Code").
     fn name(&self) -> &'static str;
 
-    /// Runs the actual setup script.
-    /// For Claude, it modifies `settings.json`. For Antigravity, it downloads the zip, etc.
     fn install(&self, exe_path: &str) -> anyhow::Result<()>;
 
-    /// Uninstalls and removes configuration injected into the agent.
     fn uninstall(&self) -> anyhow::Result<()>;
 
-    /// Runs a diagnostic check to see if the configuration is intact.
-    /// `fix_mode` determines whether the doctor should attempt auto-repair.
-    /// Returns `true` if healthy or successfully repaired.
+    /// Returns `true` if healthy, or repaired when `fix_mode` is set.
     fn doctor_check(&self, fix_mode: bool, warnings: &mut Vec<String>) -> bool;
 
-    /// What this host actually lets OMNI do to the bytes the model reads.
-    ///
-    /// Defaults to `McpOnly` so a new integration has to *claim* distillation
-    /// rather than inherit the claim. Installing hooks is not the same as the
-    /// host calling them, and three integrations shipped that gap at once:
-    /// Cursor registered `afterFileEdit`, Cline registered Claude's
-    /// `PreToolUse`, and Gemini matched on `"Bash"`. All three printed
-    /// `[OK] installed` and recorded nothing (#351).
+    /// What this host lets OMNI do to the bytes the model reads. Defaults to
+    /// `McpOnly` so an integration has to claim distillation: installed hooks are
+    /// not the host calling them (#351).
     fn tier(&self) -> Tier {
         Tier::McpOnly
     }
 }
 
-/// How much of OMNI's job a host permits, stated once so `doctor` and the README
-/// cannot drift apart.
+/// How much of OMNI's job a host permits, stated once for `doctor` and the README.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier {
-    /// The host applies OMNI's rewrite, so the model reads distilled output for
-    /// its own built-in tools.
+    /// The host applies OMNI's rewrite to its own built-in tools.
     Full,
-    /// The host cannot rewrite built-in tool output, but OMNI can still be the
-    /// tool that runs the command: `omni_run` returns distilled bytes, and the
-    /// installed rule is what makes the agent reach for it. Distinct from
-    /// `McpOnly` because the model demonstrably reads less here, which is the
-    /// unit #352 measures by.
+    /// The host cannot rewrite built-in output, but `omni_run` returns distilled
+    /// bytes and the installed rule steers the agent to it.
     HandoffFirst,
-    /// Memory, recall and session state only. No path by which OMNI changes what
-    /// the model reads for a shell command, and no claim that it does.
+    /// Memory, recall and session state only.
     McpOnly,
 }
 
 impl Tier {
-    /// One line for `doctor`, phrased as the thing a user actually wants to know.
-    /// The tier alone, for the per-host line. `label()` carries the tier plus its
-    /// explanation, and printing that in full once per host meant ten identical
-    /// sentences on a machine with ten MCP-only hosts (#426). The line itself has
-    /// to stay per host: "hooks installed" and "the model reads less" are
-    /// different claims, and three integrations shipped the first while
-    /// delivering none of the second (#351).
+    /// The tier alone, for the per-host line; `label()` once would repeat ten
+    /// times on ten MCP-only hosts (#426).
     pub fn name(self) -> &'static str {
         match self {
             Tier::Full => "Full",
@@ -124,33 +95,21 @@ impl Tier {
         }
     }
 
-    /// What the tier means, without repeating the name `name()` already prints.
-    ///
-    /// It had no caller at all until #685, while `doctor` carried its own copy of
-    /// the same three sentences and hand-wrapped the middle one across two lines.
-    /// Doctor prints these beside `name()` as a two-column legend, so a sentence
-    /// long enough to wrap defeats the alignment: keep each under 45 columns.
+    /// What the tier means, printed as a legend beside `name()`. Keep each under 45
+    /// columns or the legend wraps.
     pub fn label(self) -> &'static str {
         match self {
             Tier::Full => "model-facing distill active",
             Tier::HandoffFirst => "nothing is rewritten unless omni_run ran it",
-            // "no shell distill" until #686 put `omni_run` on this tier. The
-            // host's own tool output is still never rewritten, which is the
-            // difference that matters and the one this has to keep saying.
+            // The host's own tool output is still never rewritten (#686).
             Tier::McpOnly => "memory and session state; only omni_run distils",
         }
     }
 }
 
-/// Whether `command` is OMNI's own hook for the same entry point as `ours`.
-///
-/// Shared, because Claude Code and Gemini CLI both had their own copy of the
-/// wrong test and only one of them was reported (#454).
-///
-/// Identity is the binary name plus the flag, never the whole string. Comparing
-/// the whole string meant that reinstalling from a different path matched
-/// nothing and appended, so a machine that had been set up twice ran OMNI twice
-/// per tool call and `omni doctor` reported `[OK]` throughout (#454).
+/// Whether `command` is OMNI's own hook for the same entry point as `ours`:
+/// binary name plus flag, never the whole string, or a reinstall from another
+/// path appends a second hook (#454).
 pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
     let Some(command) = command else {
         return false;
@@ -159,18 +118,12 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
         Some((_, flag)) if flag.starts_with("--") => flag,
         _ => return false,
     };
-    // `--hook` is a prefix of nothing else here, but `--pre-hook` ends with
-    // `-hook`, so the flag is compared as the last token rather than by
-    // `contains`.
+    // Last token, not `contains`: `--pre-hook` ends with `-hook`.
     command.contains("omni") && command.rsplit(' ').next() == Some(flag)
 }
 
-/// Events that carry more than one OMNI hook, with the count.
-///
-/// `doctor` asked whether a hook was present and never how many, so an install
-/// that registered OMNI twice reported `[OK]` while running the pipeline twice
-/// per call (#454). The installer no longer creates that state; this is what
-/// notices the machines that are already in it.
+/// Events that carry more than one OMNI hook, with the count. Finds machines
+/// already holding a double install (#454).
 pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usize)> {
     let Some(hooks) = val.get("hooks").and_then(|h| h.as_object()) else {
         return Vec::new();
@@ -194,9 +147,8 @@ pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usiz
 }
 
 pub fn all_integrations() -> Vec<Box<dyn AgentIntegration>> {
-    // The hosts that do more than write one JSON entry, then the six that do
-    // exactly that, from `mcp_host::HOSTS` (#443). Order is what `omni doctor`
-    // prints, so the ones with hooks come first.
+    // Hosts with hooks first, then the plain JSON ones from `mcp_host::HOSTS`
+    // (#443). This is the order `omni doctor` prints.
     let mut all: Vec<Box<dyn AgentIntegration>> = vec![
         Box::new(claude::ClaudeIntegration),
         Box::new(cursor::CursorIntegration),
@@ -218,7 +170,6 @@ pub fn all_integrations() -> Vec<Box<dyn AgentIntegration>> {
 
 #[cfg(test)]
 mod fix_reporting_tests {
-    /// #454's silent half: the state existed and every surface said [OK].
     #[test]
     fn counts_the_hooks_an_event_would_run() {
         let val = serde_json::json!({"hooks": {
@@ -239,11 +190,6 @@ mod fix_reporting_tests {
 
     use super::report_fix;
 
-    /// #386: every site did `let _ = self.install(...)` and printed `[FIXED]`
-    /// unconditionally. Against an unwritable home, `doctor --json --fix`
-    /// answered `healthy: true`, `hooks installed` and zero warnings while
-    /// nothing had been written, because in fix mode the `[FIXED]` line replaced
-    /// the warning that would otherwise have been pushed.
     #[test]
     fn a_failed_repair_is_reported_and_warned_about() {
         let mut warnings = Vec::new();
@@ -267,8 +213,6 @@ mod fix_reporting_tests {
         );
     }
 
-    /// A repair that worked still says so, or the fix has swallowed the signal
-    /// it exists to give.
     #[test]
     fn a_successful_repair_still_reports_fixed() {
         let mut warnings = Vec::new();
@@ -288,8 +232,7 @@ mod tier_tests {
     use super::{Tier, all_integrations};
     use std::path::Path;
 
-    /// A plugin source file. Prose is excluded on purpose: a README naming
-    /// `--post-hook` documents the contract, it does not invoke it.
+    /// A plugin source file, not prose: a README naming `--post-hook` invokes nothing.
     fn is_source(path: &Path) -> bool {
         matches!(
             path.extension().and_then(|e| e.to_str()).unwrap_or(""),
@@ -297,7 +240,6 @@ mod tier_tests {
         )
     }
 
-    /// Whether anything this plugin installs spawns `omni --post-hook`.
     fn calls_the_post_hook(dir: &Path) -> bool {
         let mut stack = vec![dir.to_path_buf()];
         while let Some(d) = stack.pop() {
@@ -306,8 +248,7 @@ mod tier_tests {
             };
             for entry in entries.flatten() {
                 let path = entry.path();
-                // Vendored dependencies are not our plugins and contain enough
-                // text to match anything.
+                // Vendored dependencies are not our plugins.
                 if path.file_name().is_some_and(|n| n == "node_modules") {
                     continue;
                 }
@@ -323,22 +264,9 @@ mod tier_tests {
         false
     }
 
-    /// #687. The tier is hand-maintained beside the thing it describes, and #628
-    /// moved one without the other: OpenClaw and Hermes gained the post-hook and
-    /// kept the `McpOnly` default, so `doctor` printed "no shell distill" for two
-    /// hosts doing the full job, and `active_tools` withheld exactly the
-    /// reporting tools that had finally acquired something to report.
-    ///
-    /// Asserting "openclaw declares Full" would be the same hand-maintenance one
-    /// layer down. This derives the floor instead: a plugin that spawns
-    /// `--post-hook` is asking OMNI to replace what the model reads, so the
-    /// integration that installs it cannot be the tier whose whole meaning is
-    /// that nothing is replaced. Which of `Full` and `HandoffFirst` it is stays
-    /// a judgement, and is written down in each integration's own `tier`.
-    ///
-    /// Comments are not stripped, unlike the key scan in `post_tool.rs`. A plugin
-    /// whose only mention of the flag is prose would be asked for a tier it has
-    /// not earned, and that direction fails loudly rather than quietly.
+    /// A plugin that spawns `--post-hook` cannot belong to an `McpOnly`
+    /// integration (#687). Plugin comments count, so prose-only mentions fail
+    /// loudly rather than quietly.
     #[test]
     fn a_host_whose_plugin_calls_the_post_hook_is_not_mcp_only() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("plugins");
@@ -355,8 +283,7 @@ mod tier_tests {
             }
             let dir = entry.file_name().to_string_lossy().to_string();
 
-            // `plugins/claude-code` belongs to the integration whose id is
-            // `claude`, so a directory carries the id or the id plus a suffix.
+            // `plugins/claude-code` belongs to `claude`: the id, or the id plus a suffix.
             let hosts: Vec<_> = integrations
                 .iter()
                 .filter(|i| dir == i.id() || dir.starts_with(&format!("{}-", i.id())))

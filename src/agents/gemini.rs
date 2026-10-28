@@ -35,7 +35,6 @@ impl AgentIntegration for GeminiIntegration {
             json!({})
         };
 
-        // Install MCP server
         if let Some(obj) = val.as_object_mut() {
             let mcp_servers = obj.entry("mcpServers").or_insert_with(|| json!({}));
             if let Some(servers) = mcp_servers.as_object_mut() {
@@ -54,7 +53,6 @@ impl AgentIntegration for GeminiIntegration {
             }
         }
 
-        // Install hooks
         install_omni_hooks(&mut val, exe_path);
 
         fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
@@ -80,13 +78,12 @@ impl AgentIntegration for GeminiIntegration {
         };
 
         if let Some(obj) = val.as_object_mut() {
-            // Remove MCP server
+            // Only our server entry; the map holds the user's others.
             if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
                 servers.remove("omni");
             }
         }
 
-        // Remove hooks
         remove_omni_hooks(&mut val);
 
         fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
@@ -127,7 +124,6 @@ impl AgentIntegration for GeminiIntegration {
 
         let content = fs::read_to_string(&settings_path).unwrap_or_default();
 
-        // Check MCP
         if content.contains("\"omni\"") {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -158,7 +154,6 @@ impl AgentIntegration for GeminiIntegration {
             }
         }
 
-        // Check hooks
         let has_before = content.contains("BeforeTool");
         let has_after = content.contains("AfterTool");
 
@@ -236,9 +231,7 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
 
     let ensure_hook = |arr_val: &mut serde_json::Value, matcher: &str, hook_cmd: &str| {
         let arr = arr_val.as_array_mut().unwrap();
-        // Ours is identified by binary and flag, never by the whole command, so
-        // reinstalling from a different path moves the entry instead of adding a
-        // second one that runs OMNI twice per call (#454).
+        // Binary plus flag, never the whole command, or a reinstall appends a second hook (#454).
         for v in arr.iter_mut() {
             if let Some(inner) = v.get_mut("hooks").and_then(|h| h.as_array_mut()) {
                 for h in inner.iter_mut() {
@@ -269,11 +262,8 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
     let pre_cmd = format!("{} --pre-hook", exe_path);
     let post_cmd = format!("{} --post-hook", exe_path);
 
-    // Gemini CLI uses BeforeTool / AfterTool (analogous to Claude's PreToolUse / PostToolUse)
-    // Gemini matches on ITS OWN tool names, not Claude's. The shell tool is
-    // `run_shell_command`; a matcher of "Bash" never fires, which is why this
-    // integration recorded zero rows (#351). Same defect class as Cursor's
-    // `afterFileEdit`: config written, host ignores it, doctor reports OK.
+    // BeforeTool / AfterTool, matched on Gemini's own tool name: the shell tool is
+    // `run_shell_command`, and a `Bash` matcher never fired (#351).
     ensure_hook(
         hooks.entry("BeforeTool").or_insert_with(|| json!([])),
         "run_shell_command",
@@ -313,9 +303,6 @@ pub fn remove_omni_hooks(val: &mut Value) {
 
 #[cfg(test)]
 mod tests {
-    /// Gemini carried its own copy of the exact-string test that #454 was filed
-    /// against for Claude Code. Only one of the two was reported, so this is the
-    /// half that was found by looking rather than by being told.
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});
@@ -348,11 +335,6 @@ mod tests {
 
     use super::*;
 
-    /// #351: the matcher was `"Bash"`, which is Claude Code's tool name. Gemini
-    /// matches on its own, and its shell tool is `run_shell_command`, so the
-    /// hooks were registered against a name the host never emits. Config
-    /// written, host ignores it, doctor reports OK, zero rows: the same shape as
-    /// Cursor's `afterFileEdit`.
     #[test]
     fn hooks_match_geminis_own_shell_tool_name() {
         let mut val = json!({});
@@ -441,7 +423,6 @@ mod tests {
         let mut val = json!({});
         install_omni_hooks(&mut val, "");
 
-        // hooks key exists but no entries inside
         let hooks = val.get("hooks").unwrap().as_object().unwrap();
         assert!(
             hooks.is_empty()

@@ -4,24 +4,13 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
 
-// ---------------------------------------------------------------------------
-// Configuration defaults
-// ---------------------------------------------------------------------------
-
-/// Default git package source for `pi install`.
 const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
 
-/// Environment variable override for the package source.
 const PACKAGE_SOURCE_ENV: &str = "OMNI_PI_PACKAGE_SOURCE";
 
-/// Read the package source, checking the environment variable first.
 fn package_source() -> String {
     std::env::var(PACKAGE_SOURCE_ENV).unwrap_or_else(|_| DEFAULT_PACKAGE_SOURCE.to_string())
 }
-
-// ---------------------------------------------------------------------------
-// Pi binary detection
-// ---------------------------------------------------------------------------
 
 /// Locate the `pi` binary on `PATH`. Returns `None` if not found.
 fn find_pi_binary() -> Option<PathBuf> {
@@ -36,11 +25,6 @@ fn find_pi_binary() -> Option<PathBuf> {
     None
 }
 
-// ---------------------------------------------------------------------------
-// Pi settings helpers (read-only)
-// ---------------------------------------------------------------------------
-
-/// Return the default global Pi settings path.
 fn pi_settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -49,7 +33,7 @@ fn pi_settings_path() -> PathBuf {
         .join("settings.json")
 }
 
-/// Return the project-local Pi settings path (`.pi/settings.json` in CWD).
+/// `.pi/settings.json` in the working directory.
 fn pi_local_settings_path() -> PathBuf {
     std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
@@ -64,8 +48,7 @@ struct PiSettingsSnapshot {
 }
 
 impl PiSettingsSnapshot {
-    /// Load settings, preferring whichever path contains an OMNI package reference.
-    /// Falls back to whichever file exists.
+    /// Prefers the file that references OMNI, else whichever exists.
     fn load() -> Self {
         let global_path = pi_settings_path();
         let local_path = pi_local_settings_path();
@@ -93,7 +76,6 @@ impl PiSettingsSnapshot {
         Self { _path: path, json }
     }
 
-    /// True if settings contain a package entry referencing OMNI or pi-omni.
     fn has_omni_package(&self) -> bool {
         let Some(val) = &self.json else {
             return false;
@@ -101,7 +83,6 @@ impl PiSettingsSnapshot {
         find_omni_references(val)
     }
 
-    /// Return package/extension sources that appear to be OMNI-related duplicates.
     fn duplicate_sources(&self) -> Vec<String> {
         let Some(val) = &self.json else {
             return vec![];
@@ -110,7 +91,7 @@ impl PiSettingsSnapshot {
     }
 }
 
-/// Search a JSON value recursively for strings containing "omni" (case-insensitive).
+/// Recursive, case-insensitive search for "omni" in a JSON value.
 fn find_omni_references(val: &Value) -> bool {
     match val {
         Value::String(s) => s.to_lowercase().contains("omni"),
@@ -120,7 +101,6 @@ fn find_omni_references(val: &Value) -> bool {
     }
 }
 
-/// Collect OMNI-related source strings from Pi settings.
 fn collect_omni_sources(val: &Value) -> Vec<String> {
     let mut sources = Vec::new();
     collect_omni_sources_recursive(val, &mut sources);
@@ -146,17 +126,10 @@ fn collect_omni_sources_recursive(val: &Value, out: &mut Vec<String>) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// PiIntegration
-// ---------------------------------------------------------------------------
-
 pub struct PiIntegration;
 
 impl AgentIntegration for PiIntegration {
-    /// Pi's `tool_result` handler returns replacement content, so the model
-    /// reads distilled bytes on the turn it is on. It read the wrong key until
-    /// #688 and applied nothing, which is why the default outlived the hook.
-    /// Derived from the plugin by the test in `mod.rs` now, not remembered.
+    /// Pi's `tool_result` handler returns replacement content (#688).
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
     }
@@ -175,9 +148,7 @@ impl AgentIntegration for PiIntegration {
     }
 
     fn uninstall(&self) -> anyhow::Result<()> {
-        // Pi does not expose a reliable package-removal command.
-        // Print actionable manual cleanup instructions instead of editing
-        // Pi settings blindly.
+        // Pi has no reliable package-removal command, so print the manual steps.
         crate::agent_report!(
             "  {} Pi does not expose a package-removal command.",
             "ℹ".blue()
@@ -194,7 +165,6 @@ impl AgentIntegration for PiIntegration {
     fn doctor_check(&self, fix_mode: bool, warnings: &mut Vec<String>) -> bool {
         crate::agent_report!("\n  {}", "Pi:".cyan());
 
-        // 1. Pi binary
         if find_pi_binary().is_none() {
             crate::agent_report!(
                 "   {:<15} {}",
@@ -204,7 +174,6 @@ impl AgentIntegration for PiIntegration {
             return true;
         }
 
-        // 2. Package registration
         let snapshot = PiSettingsSnapshot::load();
         if snapshot.has_omni_package() {
             crate::agent_report!(
@@ -233,7 +202,6 @@ impl AgentIntegration for PiIntegration {
             return false;
         }
 
-        // 3. Duplicate detection
         let duplicates = snapshot.duplicate_sources();
         if duplicates.len() > 1 {
             crate::agent_report!(
@@ -250,7 +218,6 @@ impl AgentIntegration for PiIntegration {
             );
         }
 
-        // 4. Invalid settings JSON
         if snapshot.json.is_none() && pi_settings_path().exists() {
             crate::agent_report!(
                 "   {:<15} invalid JSON {}",
@@ -267,11 +234,6 @@ impl AgentIntegration for PiIntegration {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Install logic
-// ---------------------------------------------------------------------------
-
-/// Execute the Pi package install.
 fn run_install(source: &str) -> anyhow::Result<()> {
     let pi_bin = find_pi_binary().ok_or_else(|| {
         anyhow::anyhow!(
@@ -307,7 +269,6 @@ fn run_install(source: &str) -> anyhow::Result<()> {
         "✓".green().bold()
     );
 
-    // Post-install: warn about duplicates.
     let snapshot = PiSettingsSnapshot::load();
     let duplicates = snapshot.duplicate_sources();
     if duplicates.len() > 1 {
@@ -332,10 +293,6 @@ fn run_install(source: &str) -> anyhow::Result<()> {
 
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -392,19 +349,16 @@ mod tests {
 
     #[test]
     fn package_source_env_override() {
-        // Default source
         let default = package_source();
         assert!(default.contains("omni"));
 
-        // With env override (set and restore)
-        // Safety: test is single-threaded.
+        // SAFETY: tests run in parallel, but no other test reads this variable.
         unsafe {
             std::env::set_var(PACKAGE_SOURCE_ENV, "git:github.com/test/repo");
         }
         let overridden = package_source();
         assert_eq!(overridden, "git:github.com/test/repo");
 
-        // Clean up
         unsafe {
             std::env::remove_var(PACKAGE_SOURCE_ENV);
         }
@@ -412,7 +366,6 @@ mod tests {
 
     #[test]
     fn pi_settings_snapshot_handles_missing_file() {
-        // Use a temp dir with no settings, should not panic.
         let snapshot = PiSettingsSnapshot {
             _path: PathBuf::from("/tmp/omni-test-nonexistent/settings.json"),
             json: None,
@@ -428,7 +381,6 @@ mod tests {
             _path: PathBuf::from("/tmp/test"),
             json: Some(bad_json),
         };
-        // Null value should not contain OMNI references
         assert!(!snapshot.has_omni_package());
     }
 

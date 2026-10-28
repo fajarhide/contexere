@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 pub struct OpenClawIntegration;
 
-/// Returns the OpenClaw plugin install directory.
 fn plugin_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -20,19 +19,10 @@ fn config_path() -> PathBuf {
         .join(".openclaw/openclaw.json")
 }
 
-/// Add the plugin directory to `plugins.load.paths`, creating what it needs.
-///
-/// **This is what made the whole integration inert.** OpenClaw does not scan
-/// `~/.openclaw/plugins/`; a directory is only loaded when the config names it
-/// or `openclaw plugins install` put it there. Copying files in and printing a
-/// tick left a plugin the host never read, which is why `distillations` has no
-/// `openclaw` row for any of the days it has been installed (#628). Verified by
-/// removing this key from a working config: `openclaw plugins list` stops
-/// listing the plugin entirely.
-///
-/// Everything else in the file is preserved, and a path already present is not
-/// duplicated. A config that is not valid JSON is left alone rather than
-/// overwritten: the user's channels and credentials live in it.
+/// Add the plugin directory to `plugins.load.paths`. OpenClaw only loads a
+/// directory its config names, so without this the plugin never ran (#628).
+/// Everything else is preserved, and invalid JSON is left alone: the user's
+/// channels and credentials live in this file.
 fn register_plugin_path(config: &mut Value, dir: &str) -> bool {
     let Some(obj) = config.as_object_mut() else {
         return false;
@@ -61,13 +51,9 @@ fn register_plugin_path(config: &mut Value, dir: &str) -> bool {
 }
 
 impl AgentIntegration for OpenClawIntegration {
-    /// `tool_result_persist` replaces the result of every built-in tool, which
-    /// is the whole point of the plugin #628 shipped. It rewrites the message
-    /// OpenClaw persists rather than the one already in flight, so the model
-    /// reads OMNI's bytes on every turn that re-reads the transcript and the
-    /// current turn still sees the raw output. Narrower than Claude Code's
-    /// `Full`, and nowhere near the default `McpOnly` this inherited for two
-    /// releases while `doctor` told the user there was no shell distill (#687).
+    /// `tool_result_persist` rewrites the persisted result of every built-in tool,
+    /// so later turns read OMNI's bytes while the current one sees raw output
+    /// (#687).
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
     }
@@ -89,7 +75,6 @@ impl AgentIntegration for OpenClawIntegration {
             "↓".cyan()
         );
 
-        // Download key files
         for file in &[
             "openclaw.plugin.json",
             "index.ts",
@@ -110,7 +95,7 @@ impl AgentIntegration for OpenClawIntegration {
             std::io::copy(&mut response.into_reader(), &mut dest_file)?;
         }
 
-        // Try downloading package-lock.json, ignore error if missing (e.g., HTTP 404)
+        // package-lock.json is optional; a 404 is fine.
         let lock_url = "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/package-lock.json";
         if let Ok(response) = ureq::get(lock_url).call() {
             let to = dest.join("package-lock.json");
@@ -159,8 +144,7 @@ impl AgentIntegration for OpenClawIntegration {
             );
         }
 
-        // Leaving the path behind makes OpenClaw log a missing plugin on every
-        // start, which is a worse trace to leave than none.
+        // A leftover path makes OpenClaw log a missing plugin on every start.
         let cfg_path = config_path();
         if let Ok(content) = fs::read_to_string(&cfg_path)
             && let Ok(mut config) = serde_json::from_str::<Value>(&content)
@@ -197,9 +181,7 @@ impl AgentIntegration for OpenClawIntegration {
                 "[OK]".green().bold()
             );
 
-            // The files being on disk is not the question. OpenClaw only loads
-            // a directory its config names, so this is the check that decides
-            // whether any of the above does anything (#628).
+            // The check that matters: OpenClaw loads only directories its config names (#628).
             let wanted = dest.to_string_lossy().to_string();
             let registered = fs::read_to_string(config_path())
                 .ok()
@@ -230,7 +212,6 @@ impl AgentIntegration for OpenClawIntegration {
                 );
             }
 
-            // Check if node_modules exists (npm install was run)
             if dest.join("node_modules").exists() {
                 crate::agent_report!(
                     "   {:<15} {} {}",
@@ -263,9 +244,6 @@ mod tests {
 
     const DIR: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
 
-    /// The key that decides whether any of this integration runs. OpenClaw does
-    /// not scan `~/.openclaw/plugins/`, so a plugin the config does not name is
-    /// never loaded, which is the lifetime-zero half of #628.
     #[test]
     fn a_fresh_config_gains_the_plugin_path() {
         let mut config = json!({});
@@ -279,8 +257,7 @@ mod tests {
         );
     }
 
-    /// `omni init --openclaw` is re-run on every upgrade, and a list that grows
-    /// by one each time is a config the user has to clean up by hand.
+    /// Re-run on every upgrade, so the path must not be appended twice.
     #[test]
     fn re_running_the_install_does_not_duplicate_the_path() {
         let mut config = json!({});
@@ -295,8 +272,6 @@ mod tests {
         );
     }
 
-    /// This file holds the user's channels and credentials. Writing our key must
-    /// not cost them anything else in it, including another plugin's path.
     #[test]
     fn everything_else_in_the_config_survives() {
         let mut config = json!({

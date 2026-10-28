@@ -44,12 +44,8 @@ impl AgentIntegration for ClineIntegration {
             }
         }
 
-        // Purge rather than install. Earlier versions wrote `PreToolUse`,
-        // `PostToolUse` and `PreCompact` here, which are Claude Code's event
-        // names; Cline's lifecycle hooks are `TaskStart`, `UserPromptSubmit`,
-        // `TaskComplete` and `TaskCancel`, and none fires per tool call. Those
-        // three were never called, so doctor reported them installed while the
-        // agent recorded zero rows (#351). An upgrade removes them.
+        // Purge rather than install: earlier versions wrote Claude Code's event
+        // names, which Cline never emits (#351).
         remove_omni_hooks(&mut val);
         fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
@@ -113,7 +109,6 @@ impl AgentIntegration for ClineIntegration {
 
         let content = fs::read_to_string(&settings_path).unwrap_or_default();
 
-        // Check MCP
         if content.contains("\"omni\"") {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -143,16 +138,8 @@ impl AgentIntegration for ClineIntegration {
             }
         }
 
-        // No hook check, on purpose. Cline's lifecycle hooks are `TaskStart`,
-        // `UserPromptSubmit`, `TaskComplete` and `TaskCancel`, and none of them
-        // fires per tool call, so there is no event that can carry a command's
-        // output to a distiller. The `PreToolUse` / `PostToolUse` names this
-        // integration used to write are Claude Code's and Cline never emits
-        // them: config written, host ignores it, doctor prints `[OK] installed`,
-        // zero rows recorded. Exactly the shape of Cursor's `afterFileEdit`
-        // (#351).
-        //
-        // Reporting the tier is honest; reporting an installed hook is not.
+        // No hook check: none of Cline's lifecycle hooks fires per tool call, so no
+        // event can carry command output (#351). Report the tier, not a hook.
         crate::agent_report!(
             "   {:<15} {}",
             "Distill:".bright_black(),
@@ -216,10 +203,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
 mod tests {
     use super::*;
 
-    /// #351: an upgrade must remove the `PreToolUse` / `PostToolUse` /
-    /// `PreCompact` entries an earlier version wrote. Cline never emits those
-    /// names, so they were config the host ignored while doctor called them
-    /// installed. Another tool's hooks in the same file must survive.
+    /// An upgrade removes the old Claude-named entries and keeps other tools' hooks.
     #[test]
     fn install_purges_the_hook_names_cline_never_emits() {
         let mut val = json!({
