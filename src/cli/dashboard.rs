@@ -1,18 +1,6 @@
-//! A local dashboard, on loopback, over the same numbers the CLI prints.
-//!
-//! Asked for in #451. The terminal report is a snapshot and the meters that
-//! matter most since #357 are trends, which is the one shape a table in a
-//! terminal cannot show.
-//!
-//! **Every panel is a figure the CLI can also print**, read through the same
-//! `Store` methods `omni stats` reads. A dashboard that computed its own numbers
-//! would be a second source of truth, and this project has spent a release
-//! fixing one of those.
-//!
-//! Deliberately small: `std::net::TcpListener`, one thread, one page, no
-//! dependency added and no JavaScript. It binds `127.0.0.1` and nothing else,
-//! because the database holds command output and none of it should leave the
-//! machine.
+//! A local dashboard over the same `Store` methods `omni stats` reads, so it is
+//! never a second source of truth (#451). One thread, one page, std only, no
+//! JavaScript, bound to `127.0.0.1` because the data is command output.
 
 use crate::store::sqlite::Store;
 use anyhow::Result;
@@ -44,8 +32,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
     }
     super::check_flags("dashboard", args, FLAGS)?;
 
-    // `--port=8080` used to bind `DEFAULT_PORT` and say nothing: `check_flags`
-    // accepted the argument and the lookup below never matched it (#646).
+    // Reads the value half of `--port=8080` (#646).
     let port = super::flag_value(args, "--port")
         .and_then(|v| v.parse::<u16>().ok())
         .unwrap_or(DEFAULT_PORT);
@@ -59,9 +46,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
 
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
-        // One connection at a time on purpose: this is one reader looking at
-        // their own machine, and a thread pool would be machinery for a load
-        // that does not exist.
+        // One connection at a time: one reader on their own machine.
         if let Err(e) = serve(stream, store) {
             eprintln!("  {} {e}", "request failed:".bright_black());
         }
@@ -76,8 +61,7 @@ fn serve(mut stream: TcpStream, store: &Store) -> Result<()> {
 
     let (status, body) = match path.as_str() {
         "/" => ("200 OK", page(store)),
-        // Enough to tell "the server is up" from "the page is broken" without
-        // rendering anything.
+        // Tells "server up" from "page broken" without rendering.
         "/health" => ("200 OK", "ok".to_string()),
         _ => ("404 Not Found", "not found".to_string()),
     };
@@ -96,10 +80,7 @@ fn serve(mut stream: TcpStream, store: &Store) -> Result<()> {
     Ok(())
 }
 
-/// The path from a request line, or `/` when it is not one we understand.
-///
-/// Only `GET` is answered. A dashboard that reads a database has no reason to
-/// accept anything that writes.
+/// The path from a request line, or `/`. Only `GET` is answered.
 fn request_path(request_line: &str) -> String {
     let mut parts = request_line.split_whitespace();
     match (parts.next(), parts.next()) {
@@ -138,8 +119,7 @@ fn page(store: &Store) -> String {
         } else {
             0.0
         };
-        // `216444` was reaching the page raw while the CLI printed `216K` from
-        // this very function, which is public and two files away (#463).
+        // Same formatter as the CLI (#463).
         rows.push_str(&format!(
             "<tr><td>{}</td><td class=\"n\">{calls}</td><td class=\"n\">{}</td><td class=\"n\">{}</td><td class=\"n\">{pct:.1}%</td></tr>",
             escape(label),
@@ -148,8 +128,7 @@ fn page(store: &Store) -> String {
         ));
     }
 
-    // Top Commands and Agent Distribution, from the same two calls that feed the
-    // CLI tables, so the footer's "same figures as omni stats" stays true.
+    // Same two calls as the CLI tables.
     let mut commands = String::new();
     if let Ok(raw) = store.filter_breakdown(0) {
         for (name, calls, pct, _) in super::stats::group_and_calculate_stats(raw, 0)
@@ -258,8 +237,7 @@ mod tests {
         assert_eq!(escape("<script>&"), "&lt;script&gt;&amp;");
     }
 
-    /// An empty database must render the page, not a zero that reads as a
-    /// measurement. Same rule `omni stats` follows.
+    /// An empty database renders the page, not a zero that reads as a measurement.
     #[test]
     fn says_not_measurable_rather_than_zero() {
         let dir = tempfile::tempdir().expect("tempdir");

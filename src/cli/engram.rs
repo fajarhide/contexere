@@ -83,7 +83,6 @@ pub fn run_engram(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Default plain text behavior
     let state = match store.find_latest_session() {
         Some(s) => s,
         None => {
@@ -97,9 +96,7 @@ pub fn run_engram(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
         println!("  none yet");
     } else {
         for engram in &state.engrams {
-            // Bounded to the shared width. One of these reached 160 columns and
-            // wrapped into an unreadable block (#463); the marker says it was cut
-            // rather than dropping the tail silently.
+            // Bounded to the shared width, with a marker saying it was cut (#463).
             println!(
                 "  {}",
                 crate::util::text::display_truncate_with_ellipsis(

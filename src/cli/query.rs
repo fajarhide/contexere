@@ -9,7 +9,6 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
         return Ok(());
     }
 
-    // Join everything after "query" as the raw query string
     let raw_query = if args.len() > 2 {
         args[2..].join(" ")
     } else {

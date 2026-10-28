@@ -3,8 +3,7 @@ use colored::*;
 use std::env;
 use std::io::Write;
 
-/// Read by both `print_help` and `super::check_flags`, so this list is what
-/// `omni reset` documents *and* what it accepts (#151, #444).
+/// What `omni reset` documents and accepts (#151, #444).
 const FLAGS: super::Flags = &[
     (
         "--all",
@@ -26,8 +25,8 @@ const FLAGS: super::Flags = &[
     ("--vscode", "Uninstall VS Code"),
 ];
 
-/// The integration a flag entry names: its last alias with the dashes off, so
-/// `"--roo, --roo-code"` is `roo-code`.
+/// The integration a flag names: its last alias without dashes, so `--roo, --roo-code` is
+/// `roo-code`.
 fn target_of(flags: &'static str) -> &'static str {
     flags
         .rsplit(',')
@@ -37,19 +36,8 @@ fn target_of(flags: &'static str) -> &'static str {
         .trim_start_matches("--")
 }
 
-/// The integrations named on the command line, in `FLAGS` order.
-///
-/// One table rather than a boolean per host. The list used to be repeated four
-/// times in this file, as a `let mut is_x`, a term of a fourteen-way `no_flags`
-/// chain, a menu arm and an `if is_x { push }`, and #640 is what that costs:
-/// OpenClaw and VS Code were in the registry with no flag at all, and the second
-/// one went unnoticed even in the report.
-///
-/// Deriving the id from `FLAGS` is also what lets the test below check routing
-/// instead of spelling. Greptile's review of the first draft was right that a
-/// test comparing registry ids to flag *names* passes while a flag selects
-/// nothing, which is #143's guard answering a question nobody asked all over
-/// again.
+/// The integrations named on the command line, in `FLAGS` order. One table:
+/// four hand-kept copies of the host list fell behind (#640).
 fn targets_from_args(args: &[String]) -> Vec<&'static str> {
     FLAGS
         .iter()
@@ -86,9 +74,7 @@ pub fn handle_reset() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Without this an unknown flag falls through to the interactive menu, which
-    // is the #151 defect: a command that was asked for something it did not
-    // understand, doing something else, and exiting 0.
+    // Otherwise an unknown flag falls into the interactive menu and exits 0 (#151).
     super::check_flags("reset", &args, FLAGS)?;
 
     let is_all = super::has_flag(&args, "--all");
@@ -164,7 +150,6 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
             }
         }
 
-        // Wipe Database Optional behavior
         println!(
             "\n{} Would you like to wipe the SQLite database (~/.omni/omni.db)? [y/N]",
             "?".yellow()
@@ -175,11 +160,8 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
             let db_path = crate::paths::database_path();
             if db_path.exists() {
                 std::fs::remove_file(&db_path).ok();
-                // SQLite runs in WAL mode, so the database is three files and
-                // removing one of them leaves the other two holding its
-                // content: 4.2 MB of -wal survived a wipe that reported success
-                // (#446). A stale -wal beside a fresh database is also the one
-                // way this can corrupt rather than merely mislead.
+                // WAL mode: three files, and a leftover `-wal` keeps the data or corrupts a
+                // fresh database (#446).
                 for sidecar in ["-wal", "-shm"] {
                     let mut path = db_path.clone().into_os_string();
                     path.push(sidecar);
@@ -219,22 +201,10 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    /// #640. `omni reset` kept its own hand-written list of hosts beside the
-    /// registry, and the list fell behind: OpenClaw shipped with no flag, so its
-    /// `uninstall` was reachable only through `--all`. Checking the registry
-    /// against `FLAGS` while writing that fix found `vscode` missing too, which
-    /// the issue had not noticed because it compared only the first-party ids.
-    ///
-    /// A list that has to be edited in seven places when a host is added will
-    /// fall behind again. This is the check that says so at `cargo test` time
-    /// rather than when a user tries the flag.
+    /// Every registry host has a flag that routes to it (#640).
     #[test]
     fn every_integration_can_be_uninstalled_by_its_own_flag() {
-        // Driven through the real routing, not through the flag names. The first
-        // draft compared registry ids against strings parsed out of `FLAGS`,
-        // which Greptile pointed out passes while a flag selects nothing: the
-        // same shape as #143's guard, which reported "parsed" for a payload that
-        // had matched the wrong tool.
+        // Through the real routing: comparing names passes while a flag selects nothing.
         let missing: Vec<&str> = crate::agents::all_integrations()
             .iter()
             .map(|a| a.id())
@@ -251,9 +221,7 @@ mod tests {
         );
     }
 
-    /// `--roo` is an alias for `--roo-code` and has been since before the table
-    /// existed. Deriving the id from the *last* alias is what keeps it working,
-    /// and getting that backwards would silently rename the target to `roo`.
+    /// `--roo` must keep routing to `roo-code`.
     #[test]
     fn an_alias_selects_the_same_integration_as_its_canonical_flag() {
         assert_eq!(
@@ -266,19 +234,12 @@ mod tests {
         );
     }
 
-    /// `--all` is not an integration, and routing it as one would ask the
-    /// registry for a host called `all`.
     #[test]
     fn all_is_not_a_target() {
         assert!(super::targets_from_args(&["--all".to_string()]).is_empty());
     }
 
-    /// `check_flags` accepts `--flag=value` and validates the name alone, so a
-    /// consumer comparing the whole argument accepts the input and then routes
-    /// nothing. `omni reset --openclaw=1` passed validation, selected no
-    /// integration, and fell into the interactive menu with the plugin still on
-    /// disk. Confident behaviour over an argument that was never really parsed is
-    /// #151 wearing a different flag.
+    /// `--openclaw=1` must route, not fall into the menu.
     #[test]
     fn a_flag_carrying_a_value_still_selects_its_integration() {
         assert_eq!(

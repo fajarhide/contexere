@@ -66,12 +66,8 @@ pub struct DoctorJson {
     pub healthy: bool,
     pub checks: Vec<DoctorCheck>,
     pub fix_available: bool,
-    /// What the per-agent reports said that a check name cannot carry.
-    ///
-    /// These were collected and dropped. A Codex install whose hooks are
-    /// installed but awaiting review (#367) pushes its warning here and nowhere
-    /// else, so `--json` reported `hooks: installed`, `healthy: true`, and gave a
-    /// program no way to learn the hooks were being skipped.
+    /// Per-agent findings a check name cannot carry, such as Codex hooks awaiting
+    /// review (#367); dropped, `--json` reported them healthy.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
 }
@@ -83,26 +79,16 @@ pub struct DoctorCheck {
     pub message: String,
 }
 
-/// Changelog entries this build carries that no release contains (#137).
-///
-/// Counted by `build.rs` from the `## [Unreleased]` section of the tree the
-/// binary was compiled from, so a properly cut release reports 0 and says
-/// nothing. Parsing cannot fail into a false alarm: an unreadable or malformed
-/// value means "nothing to report", never "something is wrong".
+/// Changelog entries this build carries that no release contains (#137),
+/// counted by `build.rs`. Unparseable means nothing to report.
 fn unreleased_entries() -> usize {
     option_env!("OMNI_UNRELEASED_ENTRIES")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0)
 }
 
-/// One line for the MCP section, phrased so a missing tool is a setting rather
-/// than a mystery.
-///
-/// It names the id it resolved because the caller passes whatever
-/// `detect_agent_id` returned, which in a plain terminal is `terminal` and not
-/// the host the reader is thinking of. `keep_everything` comes from
-/// `policy::override_is_on`, the same read the served router makes, so the line
-/// cannot offer the override as a remedy while the override is already on.
+/// The MCP line, naming the resolved id (often `terminal`) and offering the
+/// override only when it is not already on.
 pub(crate) fn mcp_tool_line(agent_id: &str, keep_everything: bool) -> String {
     let total = crate::mcp::policy::ALL_TOOL_COUNT;
     let (active, note) = if keep_everything {
@@ -122,14 +108,12 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     let mut all_ok = true;
     let mut fix_available = false;
 
-    // 1. Binary
     checks.push(DoctorCheck {
         name: "binary".to_string(),
         ok: true,
         message: format!("omni v{}", env!("CARGO_PKG_VERSION")),
     });
 
-    // 2. Config Dir
     let conf_dir = crate::paths::config_home();
     if conf_dir.exists() {
         let test_file = conf_dir.join(".write_test");
@@ -166,7 +150,6 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
-    // 3. Database
     match Store::open() {
         Ok(store) => {
             let (sessions, _) = store.stats().unwrap_or_default();
@@ -203,15 +186,11 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
-    // 4. Agents
     let integrations = crate::agents::all_integrations();
     let mut any_agent_ok = false;
     let mut warnings = Vec::new();
     for agent in integrations {
-        // The report is human-readable and this path owes stdout a single JSON
-        // document, so it is captured and dropped rather than printed (#353).
-        // The report is dropped; its findings travel in `warnings`, which is
-        // serialised below.
+        // Captured: stdout owes one JSON document; findings travel in `warnings` (#353).
         let (ok, _report) =
             crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut warnings));
         if ok {
@@ -246,37 +225,18 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Columns for the host list, so name, tier and count line up down the page
-/// without anyone measuring the terminal.
-///
-/// `Antigravity IDE` is the longest name at 15 and `Handoff-first` the longest
-/// tier at 13, both left two clear spaces at their widest. 16 was tried and
-/// aligns the whole page on one column stop, since the blocks above use a
-/// 15-wide label and a space, but it leaves `Antigravity IDE MCP-only` with a
-/// single space and the two read as one token. A list that scans beats a page
-/// that shares a column stop across a blank line and a heading.
+/// Columns for the host list. `Antigravity IDE` (15) and `Handoff-first` (13)
+/// are the widest; 16 left those two reading as one token.
 const HOST_NAME_W: usize = 17;
 const HOST_TIER_W: usize = 15;
 
-/// One host's report, trimmed to what a diagnostic is read for.
-///
-/// #426: doctor answered one question in a hundred lines, 34 of which said
-/// `[OK]`. A row confirming that something is fine is not what a diagnostic is
-/// read for. A host with nothing wrong is one line; a host with something to say
-/// keeps every row that is not `[OK]` under that same line. `--detail` returns
-/// the whole report, and a row that is not `[OK]` is never hidden in either mode.
-///
-/// #685 made the line a fixed three columns and took the name from
-/// `AgentIntegration::name()` rather than from the report's own heading, which
-/// carries colour escapes that no padding can measure. That also settles two
-/// hosts that printed one name here and another in `init` and `reset`.
-///
-/// Returns the block and how many `[OK]` rows it swallowed, because the offer to
-/// see them belongs once under the whole list and not once per host.
+/// One host's report: one line when nothing is wrong, plus every row that is not
+/// `[OK]`; `--detail` keeps all (#426). Fixed columns, named from
+/// `AgentIntegration::name()` since the heading carries escapes (#685).
+/// Returns the block and how many `[OK]` rows it hid.
 fn condense_agent_report(name: &str, tier: &str, report: &str, detail: bool) -> (String, usize) {
     if detail {
-        // Nothing is being lined up in this mode, so the integration's own
-        // heading and row widths are left exactly as it wrote them.
+        // Not aligned in this mode, so left exactly as written.
         let tier_row = format!("   {:<15} {}\n", "Distill tier:", tier);
         return (format!("{report}{tier_row}"), 0);
     }
@@ -291,8 +251,7 @@ fn condense_agent_report(name: &str, tier: &str, report: &str, detail: bool) -> 
         .iter()
         .filter(|l| !l.contains("[OK]") && !l.trim().is_empty());
 
-    // A host with no passing checks is not the same as one with none to run, and
-    // "0 checks [OK]" reads like a failure. `Pi` with no config is the case.
+    // "0 checks [OK]" reads like a failure, so no count.
     let count = if hidden == 0 {
         String::new()
     } else {
@@ -300,16 +259,11 @@ fn condense_agent_report(name: &str, tier: &str, report: &str, detail: bool) -> 
         format!("{:<9}{}", format!("{hidden} {checks}"), "[OK]".green())
     };
 
-    // Padded before colouring: `{:<17}` counts the escape bytes otherwise, and
-    // every coloured name would sit at its own column.
+    // Padded before colouring, or escape bytes count as width.
     let padded = format!("{name:<HOST_NAME_W$}");
     let row = format!("  {}{tier:<HOST_TIER_W$}{count}", padded.cyan());
-    // A host with no count would otherwise end in the tier column's padding.
     let mut out = format!("{}\n", row.trim_end());
-    // Shifted by one space rather than re-indented from the left, because a
-    // report can nest: Pi prints `Duplicates:` at three and a bullet per source
-    // at five, and trimming both to a fixed indent made the sources look like
-    // siblings of the row that counts them.
+    // Shifted, not re-indented, so nested rows stay nested.
     for line in kept {
         out.push_str(&format!(" {line}\n"));
     }
@@ -337,7 +291,6 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     println!(" {}: Installation Diagnostics", "OMNI Doctor".bold().cyan());
     super::print_rule();
 
-    // 1. Binary Version
     let status = crate::guard::update::get_status();
     let version_info = match status {
         crate::guard::update::Status::Latest => {
@@ -358,12 +311,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     println!("  {:<15} {}", "Binary:".bright_black(), version_info);
 
-    // #137: `[LATEST]` above answers "is there a newer release than mine". It
-    // cannot see fixes that were never released, because then the newest
-    // release *is* the running version, exactly the state #127 filed, where
-    // six correctness fixes sat merged and unshipped while doctor said
-    // `[LATEST]`. This is the other question, answered from the tree the binary
-    // was built from.
+    // `[LATEST]` cannot see merged but unreleased fixes (#127); this reads them
+    // from the tree the binary was built from (#137).
     if unreleased_entries() > 0 {
         println!(
             "  {} {}",
@@ -374,12 +323,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         );
     }
 
-    // 2. Config Dir (with actual write test for sandbox detection)
     let conf_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".omni");
     if conf_dir.exists() {
-        // Actual write test catches sandbox restrictions
+        // A real write catches sandbox restrictions.
         let test_file = conf_dir.join(".write_test");
         match fs::write(&test_file, "ok") {
             Ok(_) => {
@@ -420,12 +368,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         all_ok = false;
     }
 
-    // 3. Database
     match Store::open() {
         Ok(store) => {
             let (sessions, rewinds) = store.stats().unwrap_or_default();
-            // Name both numbers. "{sessions} records" read as a row count, so a
-            // 112 MB database holding 5,730 distillations reported 17 (#118).
+            // Both numbers: "records" once meant sessions (#118).
             println!(
                 "  {:<15} ~/.omni/omni.db ({} distillations, {} sessions) {}",
                 "Database:".bright_black(),
@@ -434,7 +380,6 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "[OK]".green().bold()
             );
 
-            // DB write test (catches sandbox restrictions on the database itself)
             if store.test_write() {
                 println!(
                     "  {:<15} writable {}",
@@ -453,11 +398,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 all_ok = false;
             }
 
-            // Dead pages. Deleting rows does not shrink the file: SQLite keeps
-            // the pages on a freelist for reuse, and with `auto_vacuum = 0` they
-            // are never handed back. One prune left 142 MB of a 196 MB file
-            // holding 54 MB of data (#393). Reported always, reclaimed only when
-            // asked, because `VACUUM` rewrites the whole file.
+            // Freelist pages: pruning does not shrink the file (#393). Reported always,
+            // reclaimed only on request, since `VACUUM` rewrites the file.
             if let Some((pages, free)) = store.page_stats() {
                 let share = 100 * free / pages.max(1);
                 if share < 40 {
@@ -517,7 +459,6 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 all_ok = false;
             }
 
-            // 9. RewindStore
             println!(
                 "  {:<15} {} items tracked",
                 "RewindStore:".bright_black(),
@@ -526,7 +467,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
             let (_s_ts, d_ts) = store.latest_activity_timestamps().unwrap_or_default();
 
-            // Last distillation check: warn if no distillation in last 10 min
+            // Warn when nothing was distilled in the last 10 minutes.
             if let Some(rt) = d_ts {
                 let now = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -572,34 +513,24 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
-    // 4. Agent Integrations
     println!("\n {}", "Agent Integrations:".bold().bright_white());
     let integrations = crate::agents::all_integrations();
     let mut any_agent_ok = false;
     let mut hidden_total = 0usize;
     for agent in integrations {
-        // #426. doctor answered one question in a hundred lines, 34 of which
-        // said [OK]. A row that says a thing is fine is not what a diagnostic is
-        // read for, so by default each host keeps only the rows that need
-        // attention plus a count of the rest. `--detail` prints all of them, and
-        // anything that is not [OK] always prints, in either mode.
         let (ok, report) =
             crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut warnings));
         if ok {
             any_agent_ok = true;
         }
-        // The tier is printed for every host, configured or not. "Hooks
-        // installed" and "the model reads less" are different claims, and three
-        // integrations shipped the first while delivering none of the second
-        // (#351). It survives the condensing for that reason.
+        // The tier always prints: hooks installed is not the model reading less (#351).
         let (block, hidden) =
             condense_agent_report(agent.name(), agent.tier().name(), &report, detail);
         print!("{block}");
         hidden_total += hidden;
-        // Note: integrations are optional; "not configured" should not fail doctor
+        // Integrations are optional; "not configured" does not fail doctor.
     }
-    // Once, under the list. It used to print under every host that hid a row,
-    // which on this machine was the same 32 characters three times (#685).
+    // Once under the list, not per host (#685).
     if hidden_total > 0 && !detail {
         println!(
             "   {}",
@@ -607,14 +538,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 .bright_black()
         );
     }
-    // The three tier sentences, once. They used to arrive in full on every host
-    // line, which on this machine meant the MCP-only explanation ten times in a
-    // block of a hundred lines (#426). The per-host line above still names the
-    // tier, so nothing #351 asked for is lost.
-    // One row per tier, in the same two columns as the list above it. The
-    // sentences were hardcoded here and hand-wrapped, which is how the middle one
-    // ended up as a continuation line indented to nothing (#463, then #685). They
-    // live on `Tier` now, beside the names, so there is one copy of each.
+    // The tier legend, once, from `Tier` (#426, #685).
     for tier in [
         crate::agents::Tier::Full,
         crate::agents::Tier::HandoffFirst,
@@ -626,9 +550,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         );
     }
 
-    // The tools this host is told about, not the host's own agent list above:
-    // #577 cut the advertised surface from 25 to 9 on the evidence of one
-    // machine, so the line has to name the setting that undoes it.
+    // The advertised tools, naming the setting that undoes the cut (#577).
     println!(
         "{}",
         mcp_tool_line(
@@ -649,7 +571,6 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         crate::guard::update::print_notification(&latest);
     }
 
-    // Status Footer
     println!("\n {}", "Status:".bold().bright_white());
     let status_msg = if all_ok {
         "ALL OK".green().bold()
@@ -682,9 +603,7 @@ mod tests {
 
     const REPORT: &str = "  Claude Code:\n   PreToolUse      [OK] installed\n   MCP Server:     ~/.claude.json [OK]\n";
 
-    /// Colour is decided by whether stdout is a terminal, which it is not under
-    /// the test harness and is under a user's shell. Asserting on columns means
-    /// asserting on what is left when the escapes are gone, in both worlds.
+    /// Asserts on text with escapes stripped, since colour depends on the terminal.
     fn plain(s: &str) -> String {
         let mut out = String::new();
         let mut chars = s.chars();
@@ -702,8 +621,6 @@ mod tests {
         out
     }
 
-    /// #426: 34 of doctor's hundred lines said [OK]. A host with nothing to
-    /// report is one line now, and the tier #351 asked for is still on it.
     #[test]
     fn collapses_a_healthy_host_to_one_line() {
         let (out, hidden) = condense_agent_report("Claude Code", "Full", REPORT, false);
@@ -715,10 +632,7 @@ mod tests {
         assert_eq!(hidden, 2);
     }
 
-    /// The point of the columns: the tier and the count start where the eye
-    /// expects them whatever the name is. `Antigravity IDE` is the longest name
-    /// shipped and `Pi Agent` among the shortest, so if these two agree the list
-    /// agrees (#685).
+    /// The longest and a short name agree on columns (#685).
     #[test]
     fn every_name_puts_the_tier_at_the_same_column() {
         let short = plain(&condense_agent_report("Pi Agent", "MCP-only", REPORT, false).0);
@@ -736,9 +650,7 @@ mod tests {
         );
     }
 
-    /// A report can nest, and the condenser must not flatten it: Pi prints
-    /// `Duplicates:` and then one bullet per source under it, so a fixed indent
-    /// for every kept row turns the sources into siblings of the count.
+    /// Nested rows stay nested.
     #[test]
     fn a_nested_row_stays_under_the_row_it_belongs_to() {
         let report = "  Pi Agent:\n   Duplicates:     2 OMNI sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
@@ -754,8 +666,6 @@ mod tests {
         );
     }
 
-    /// A host that ran no passing check gets no count rather than `0 checks
-    /// [OK]`, which reads as a failure. `Pi` with no config is the live case.
     #[test]
     fn a_host_with_nothing_to_count_says_nothing() {
         let report = "  Pi Agent:\n   Config:         not configured\n";
@@ -775,7 +685,6 @@ mod tests {
         );
     }
 
-    /// The rows that matter are never the ones hidden.
     #[test]
     fn keeps_every_row_that_is_not_ok() {
         let report = format!("{REPORT}   Plugin:         not installed\n");
@@ -783,8 +692,6 @@ mod tests {
         let (out, hidden) = condense_agent_report("Claude Code", "MCP-only", &report, false);
 
         assert!(out.contains("Plugin:         not installed"), "{out}");
-        // The offer to see the passing ones is the caller's line now, printed
-        // once under the whole list instead of once per host (#685).
         assert_eq!(hidden, 2);
         assert!(!out.contains("--detail"), "{out}");
         assert!(!out.contains("Distill tier:"), "{out}");
@@ -797,13 +704,10 @@ mod tests {
         assert!(out.contains("PreToolUse"), "{out}");
         assert!(out.contains("MCP Server:"), "{out}");
         assert!(out.contains("Distill tier:"), "{out}");
-        // Nothing is hidden here, so the caller must not offer to unhide it.
         assert_eq!(hidden, 0);
     }
 
-    /// The cut has to be visible and reversible from the same line, because the
-    /// evidence behind it is n=1 and the failure mode is a user finding a tool
-    /// missing with nothing telling them why.
+    /// The cut is named, with its undo, on one line.
     #[test]
     fn doctor_says_how_many_tools_are_advertised_and_how_to_restore_them() {
         let line = super::mcp_tool_line("claude_code", false);
@@ -814,8 +718,7 @@ mod tests {
         );
     }
 
-    /// With the override in force nothing is cut, so naming it as a remedy is a
-    /// false claim about the process the reader is looking at.
+    /// With the override on, it is not offered as a remedy.
     #[test]
     fn doctor_reports_the_override_instead_of_offering_it() {
         let line = super::mcp_tool_line("claude_code", true);

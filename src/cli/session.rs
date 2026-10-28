@@ -1,6 +1,3 @@
-// Safety: String indexing uses session IDs (hex/ASCII) and ASCII delimiter
-// positions from find()/rfind() which are always valid char boundaries.
-
 use crate::store::sqlite::Store;
 use crate::store::transcript;
 use chrono::{Local, TimeZone, Utc};
@@ -68,7 +65,6 @@ pub fn run_session(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
     let is_health = super::has_flag(args, "--health");
     let is_json = super::has_flag(args, "--json");
 
-    // If no flags, show help
     if !is_history
         && !is_clear
         && !is_continue
@@ -83,17 +79,14 @@ pub fn run_session(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // --resume: detect and show interrupted sessions
     if is_resume {
         return run_resume();
     }
 
-    // --transcript: view transcript of most recent session
     if is_transcript {
         return run_transcript();
     }
 
-    // --health: visual session health dashboard
     if is_health {
         return run_health(&store);
     }
@@ -268,8 +261,6 @@ pub fn run_session(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
     }
 }
 
-// ─── Resume: Detect interrupted sessions ─────────────
-
 fn run_resume() -> anyhow::Result<()> {
     match transcript::find_pending() {
         Some(t) => {
@@ -352,8 +343,6 @@ fn run_resume() -> anyhow::Result<()> {
     Ok(())
 }
 
-// ─── Transcript: View session transcript ─────────────
-
 fn run_transcript() -> anyhow::Result<()> {
     let recent = transcript::list_recent(1);
     if recent.is_empty() {
@@ -434,8 +423,6 @@ fn run_transcript() -> anyhow::Result<()> {
     Ok(())
 }
 
-// ── Health: Visual session health dashboard ───────────
-
 fn run_health(store: &Store) -> anyhow::Result<()> {
     let state = match store.find_latest_session() {
         Some(s) => s,
@@ -459,7 +446,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
             .bold()
     );
 
-    // ── Context Pressure Indicator ──
     let window = state.context_window_size();
     let pct = if window > 0 {
         (state.estimated_current_tokens as f64 / window as f64 * 100.0) as u32
@@ -495,7 +481,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
     };
     println!("  {: <15} {}", "Status:".bright_black(), pressure_label);
 
-    // ── Tokens Saved ──
     let tokens_saved = state.estimated_tokens_saved();
     println!(
         "  {: <15} {} tokens",
@@ -508,7 +493,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
         state.command_count.to_string().yellow()
     );
 
-    // ── Engrams ──
     println!(
         "\n  {} ({} recorded)",
         "Engrams:".bold().bright_white(),
@@ -522,7 +506,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
         }
     }
 
-    // ── Tool Activity ──
     let summaries = crate::session::engram::summarize_tool_calls(&state.tool_call_log);
     println!(
         "\n  {} ({} families)",
@@ -550,7 +533,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
         }
     }
 
-    // ── Hot Files ──
     let mut hot_vec: Vec<(&String, &u32)> = state.hot_files.iter().collect();
     hot_vec.sort_by_key(|a| std::cmp::Reverse(a.1));
     println!("\n  {}", "Hot Files:".bold().bright_white());
@@ -567,7 +549,6 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
         }
     }
 
-    // ── Recent Commands ──
     println!("\n  {}", "Recent Commands:".bold().bright_white());
     if state.last_commands.is_empty() {
         println!("  {} none", "•".bright_black());
@@ -591,24 +572,12 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ─── JSON Mode: Machine-Readable ────────────────────────
-
-/// Largest context block `--inject` will emit, in bytes.
-///
-/// It is a budget, not a guess. The session this was tuned on had run 667
-/// commands producing 539,795 bytes of tool output, so replaying it into a fresh
-/// chat costs that much again; 1 KB is 0.2% of it. The previous cap was 200
-/// bytes, which fit the task line and one truncated error and left the new chat
-/// re-discovering the files and the failure by itself, so it bought its cheapness
-/// by not working (#352).
+/// Largest context block `--inject` will emit, in bytes. 200 bytes left the new
+/// chat rediscovering files and failures (#352); 1 KB is 0.2% of replaying it.
 const INJECT_MAX_BYTES: usize = 1000;
 
-/// The state a new chat needs to pick up where the last one stopped.
-///
-/// Ordered by what a fresh agent asks first: what am I doing, what did the last
-/// one just run, which files are involved, what is currently broken. Errors go
-/// last because they are the most likely to be cut by the budget and the least
-/// useful half-written.
+/// The state a new chat needs, in the order it asks: task, last commands, files,
+/// errors. Errors go last as the likeliest to be cut.
 pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
     let mut out = String::with_capacity(INJECT_MAX_BYTES);
     out.push_str("[OMNI Context] resuming a session that ran ");
@@ -626,9 +595,7 @@ pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
         out.push('\n');
     }
 
-    // `add_command` inserts at 0, so index 0 is the newest. Reversing here served
-    // the three oldest commands in the window, telling a resuming chat what the
-    // session opened with instead of what it had just been doing.
+    // `add_command` inserts at 0: index 0 is newest, so no reversing.
     let recent = distinct(
         state
             .last_commands
@@ -677,11 +644,7 @@ pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
     msg
 }
 
-/// The first `want` distinct items, preserving order.
-///
-/// The same failing command tends to be recorded repeatedly while it is being
-/// fixed, so a plain `take(n)` spent the whole error section restating one
-/// message. Seen in the real block, not in a fixture (#352).
+/// The first `want` distinct items, in order: one failure repeats while being fixed (#352).
 fn distinct(items: impl Iterator<Item = String>, want: usize) -> Vec<String> {
     let mut out: Vec<String> = Vec::with_capacity(want);
     for item in items {
@@ -696,12 +659,7 @@ fn distinct(items: impl Iterator<Item = String>, want: usize) -> Vec<String> {
     out
 }
 
-/// The part of a shell command worth showing: what it ran, not where it ran.
-///
-/// Recorded commands routinely start with a `cd` and a run of `VAR=value`
-/// assignments. Those are identical across entries and ate the per-item budget
-/// before the actual program appeared, so three different commands rendered as
-/// three identical lines.
+/// What a command ran, without the leading `cd` and `VAR=value` that every entry shares.
 fn command_gist(cmd: &str) -> String {
     let mut rest = cmd.trim();
     loop {
@@ -720,16 +678,10 @@ fn command_gist(cmd: &str) -> String {
     }
 }
 
-/// Per-item budget, so one enormous entry cannot starve the rest.
-///
-/// A recorded command can be a whole heredoc. One of them filled the entire
-/// block and the truncation then removed the hot files and the errors, which are
-/// the parts a resuming chat cannot re-derive cheaply. Found by reading the real
-/// output rather than the test fixture (#352).
+/// Per-item budget, so one heredoc cannot push out the files and errors (#352).
 const INJECT_MAX_ITEM_BYTES: usize = 120;
 
-/// One line, bounded. Newlines would break the one-item-per-line shape, and an
-/// unbounded item would break the budget.
+/// One line, bounded.
 fn one_line(s: &str) -> String {
     let mut flat = s.replace(['\n', '\r', '\t'], " ");
     while flat.contains("  ") {
@@ -813,11 +765,7 @@ pub struct HotFileJson {
 #[cfg(test)]
 mod tests {
 
-    /// Review finding: `add_command` inserts at 0, so `.rev()` served the three
-    /// oldest commands in the window. A resuming chat was told what the session
-    /// opened with instead of what it had just been doing, which is the opposite
-    /// of the block's purpose. The earlier test added one command, so it could
-    /// not see the order at all.
+    /// Newest commands first.
     #[test]
     fn recent_commands_are_the_newest_not_the_oldest() {
         let mut state = SessionState::new();
@@ -835,14 +783,10 @@ mod tests {
         );
     }
 
-    /// Review finding: the truncation marker was appended after cutting to
-    /// `MAX - 30`, and the marker is 35 bytes, so a truncated block came out at
-    /// 1005. The budget test never reached the branch because its fixture stayed
-    /// under the cap.
+    /// A truncated block, marker included, stays within the budget.
     #[test]
     fn the_truncation_marker_fits_inside_the_budget() {
-        // Commands and errors are capped per item and by count, so the only
-        // unbounded contributor is a file path. Five deep ones clear the budget.
+        // Only file paths are unbounded, so five deep ones clear the budget.
         let mut state = SessionState::new();
         for i in 0..5 {
             state.add_hot_file(&format!(
@@ -902,10 +846,7 @@ mod tests {
         );
     }
 
-    /// #352: the block is what a new Cursor chat resumes from, and at 200 bytes
-    /// it held the task line and one truncated error, so the chat still had to
-    /// rediscover the files and the failure. The parts it cannot cheaply
-    /// re-derive have to survive.
+    /// Files and the failure survive the budget (#352).
     #[test]
     fn inject_carries_the_state_a_new_chat_cannot_re_derive() {
         let mut state = SessionState::new();
@@ -922,8 +863,6 @@ mod tests {
         assert!(out.contains("expected `;`"), "{out}");
     }
 
-    /// One recorded heredoc filled the whole block and the truncation then took
-    /// the hot files and errors with it.
     #[test]
     fn one_huge_command_cannot_starve_the_other_sections() {
         let mut state = SessionState::new();
@@ -940,13 +879,9 @@ mod tests {
         assert!(out.contains("boom"), "errors were starved:\n{out}");
     }
 
-    /// The same failure is recorded repeatedly while it is being fixed, and the
-    /// error section spent its budget restating one message.
     #[test]
     fn repeats_do_not_consume_the_budget() {
-        // `add_error` pushes to the front, so the repeat has to be added last or
-        // it lands behind the distinct one and both slots fill anyway. An earlier
-        // version of this fixture passed with the dedupe removed.
+        // `add_error` pushes to the front, so the repeat goes last or the dedupe is untested.
         let mut state = SessionState::new();
         state.add_error("the other failure");
         state.add_error("same failure");
@@ -958,8 +893,6 @@ mod tests {
         assert!(out.contains("the other failure"), "{out}");
     }
 
-    /// `cd` plus a run of assignments is identical across entries and ate the
-    /// per-item budget before the actual program appeared.
     #[test]
     fn shows_the_program_rather_than_the_directory_it_ran_in() {
         let gist = command_gist("cd /very/long/path/somewhere D=/tmp/x cargo test --lib");
@@ -999,7 +932,6 @@ mod tests {
         state.add_error("E0499: cannot borrow as mutable");
         state.inferred_task = Some("fix auth bug".to_string());
 
-        // Simulasi logic dari omni_session "context"
         let task = state
             .inferred_task
             .as_deref()

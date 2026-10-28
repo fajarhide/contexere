@@ -1,30 +1,14 @@
 //! `omni context <file>`: which files this one imports, and which import it.
-//!
-//! Was an MCP tool and nothing else. It sat in the prefix of every request on a
-//! Full-tier host at 189 bytes, and `mcp::policy::FULL` admits a tool on one
-//! stated rule, "called at least once in the corpus": across 253 recorded
-//! sessions `omni_context` is the only advertised tool with **zero** calls ever,
-//! and the three places OMNI recommended it appear zero times in 10,578 traces
-//! (#609).
-//!
-//! Moving it here rather than deleting it keeps the capability and stops charging
-//! for it. A CLI subcommand costs nothing per request, and an agent that wants it
-//! runs it in the shell OMNI already hooks. `omni_run` was the door named here
-//! until it was priced off the Full tier too (#609); it still is on a
-//! Handoff-first host, which is the tier that has no shell of its own.
+//! Was an MCP tool with zero calls in 253 sessions; as a subcommand it costs
+//! nothing per request (#609).
 
 use crate::graph;
 use crate::pipeline::SessionState;
 use anyhow::Result;
 use colored::*;
 
-/// Read by both `print_help` and `super::check_flags` (#151).
-///
-/// `--since` is here because `run_tokens` calls `stats::scope`, which reads it.
-/// A flag the command acts on and the flag list does not name is rejected before
-/// it ever reaches the parser, so every window except the default was
-/// unreachable. Only the `--since` spelling is accepted: `omni stats` also takes
-/// `--week` and friends, and one documented way to name a window is enough here.
+/// Read by both `print_help` and `super::check_flags` (#151). `--since` is
+/// listed because `run_tokens` reads it through `stats::scope`.
 const FLAGS: super::Flags = &[
     (
         "--tokens",
@@ -57,12 +41,8 @@ pub fn run_context(args: &[String], session: Option<&SessionState>) -> Result<()
     Ok(())
 }
 
-/// The report itself, so the CLI and any future caller cannot render it two ways.
-///
-/// The session is read here rather than by the caller because the hot-file lookup
-/// has to use the path the graph resolved, not the one that was typed. `omni
-/// context ./src/main.rs` and `omni context src/main.rs` name the same file, and
-/// looking up the raw argument answers "Hot in session: no" for one of them.
+/// The report. The session is looked up by the path the graph resolved, so
+/// `./src/main.rs` and `src/main.rs` agree.
 pub fn report(
     cwd: &std::path::Path,
     file_path: &str,
@@ -95,22 +75,9 @@ pub fn report(
     ))
 }
 
-/// `omni context --tokens`: what OMNI saw, what it removed, and what it declined.
-///
-/// #612 came from someone saying "I thought it was just me, because of polluted
-/// context". That is a guess they cannot check, and OMNI is the one thing in the
-/// stack already holding the answer for the part it can see.
-///
-/// **What it deliberately does not report.** #612 asks first for the share of
-/// context that is tool output against everything else. OMNI cannot answer that and
-/// must not appear to: it records what passed through its hook, and never sees the
-/// prompts, the system block, the tool definitions or the assistant's own text. A
-/// denominator built from what OMNI happens to hold would read as "share of your
-/// context" while meaning "share of the part OMNI touched", which is the kind of
-/// figure this project exists to refuse. The closing line says so instead.
-///
-/// Read only, and no new store query: `engine_totals`, `passthrough_reasons` and
-/// `filter_breakdown` already existed, the first two built for #665 and #672.
+/// `omni context --tokens`: what OMNI saw, removed and declined (#612). Not the
+/// share of the whole context: OMNI never sees prompts, system or tool
+/// definitions, and says so rather than invent a denominator.
 fn run_tokens(args: &[String]) -> Result<()> {
     let store = match crate::store::sqlite::Store::open() {
         Ok(s) => s,
@@ -124,8 +91,6 @@ fn run_tokens(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// "1 call", not "1 calls". Six lines of this report end in a count and a noun,
-/// and a window holding one of something is the common case on the short windows.
 fn counted(n: u64, noun: &str) -> String {
     let n = crate::cli::stats::format_number(n);
     if n == "1" {
@@ -135,9 +100,7 @@ fn counted(n: u64, noun: &str) -> String {
     }
 }
 
-/// Split from the printing so the arithmetic can be driven directly. The defect
-/// this whole area keeps producing is a ratio taken over the wrong population, and
-/// a test that has to reach through a terminal cannot see one.
+/// Split from printing so the ratios can be tested directly.
 pub(crate) fn tokens_report(
     store: &crate::store::sqlite::Store,
     label: &str,
@@ -147,10 +110,7 @@ pub(crate) fn tokens_report(
     use std::fmt::Write as _;
 
     let t = store.engine_totals(since)?;
-    // What reached OMNI: what the distiller was given, plus what it declined to
-    // touch. Not `distilled_output`, which is what survived distillation rather
-    // than what was handed back, and reading it as the second is how the first
-    // draft of this report mislabelled 3.7 MB.
+    // What reached OMNI: distiller input plus declined bytes, not `distilled_output`.
     let seen = t.distilled_input + t.declined_bytes;
     let mut out = String::new();
 
@@ -168,11 +128,7 @@ pub(crate) fn tokens_report(
         format_bytes(seen),
         counted(t.distilled_calls + t.declined_calls, "call")
     )?;
-    // One line per engine, each percentage against its own base, exactly as #665
-    // settled it for `omni stats`. A single "removed" figure under the total was
-    // the first draft and it subtracts across populations: the ledger folds
-    // payloads whose bytes are not inside `distilled_input`, so the two may be
-    // summed and may never share a denominator.
+    // One line per engine, each against its own base (#665).
     let distilled_pct = t
         .distilled_pct()
         .map(|p| format!("{p:.0}% of what it was given"))
@@ -206,9 +162,7 @@ pub(crate) fn tokens_report(
         counted(t.declined_calls, "call")
     )?;
 
-    // Why, not just how much. "OMNI did nothing" is the second thing a reader
-    // misreads as pollution, and `passthrough_events.reason` has recorded the
-    // answer since #533 while nothing outside `--detail` printed it.
+    // Why OMNI declined, from `passthrough_events.reason`.
     let reasons = store.passthrough_reasons(since);
     if !reasons.is_empty() {
         writeln!(out)?;
@@ -218,14 +172,8 @@ pub(crate) fn tokens_report(
         }
     }
 
-    // Actionable rather than a verdict: which classes carry the bytes.
-    //
-    // `get_top_commands` ranks by percentage removed, which is not what heaviest
-    // means: a small class that halves is not where the bytes went. Re-ranked
-    // here rather than in the shared function, which `omni stats` orders by
-    // percentage on purpose. Every class, not a slice: the store's cap is by call
-    // count, so a class that removed 40 MB in three calls sits below 300 chatty
-    // ones and never reaches this sort at all.
+    // The classes carrying the bytes, ranked by bytes rather than percentage, over
+    // every class: the store caps by call count.
     let mut classes = super::stats::get_top_commands(store, since, 0);
     classes.sort_by_key(|c| std::cmp::Reverse(c.3));
     classes.truncate(5);
@@ -282,9 +230,7 @@ mod tests {
     use super::report;
     use crate::pipeline::SessionState;
 
-    /// Greptile on #609. The graph resolves `./src/x.rs` and `src/x.rs` to one
-    /// path; looking the session up by the argument as typed answers "Hot in
-    /// session: no" for one spelling of the same file.
+    /// Two spellings of one file give one hot-file answer.
     #[test]
     fn the_hot_lookup_uses_the_path_the_graph_resolved() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -293,7 +239,7 @@ mod tests {
         std::fs::write(src.join("thing.rs"), "// nothing to import\n").expect("write");
 
         let mut session = SessionState::new();
-        // Recorded the way the tracker records it, resolved rather than as typed.
+        // Recorded resolved, as the tracker does.
         let resolved = report(dir.path(), "src/thing.rs", None).expect("report");
         let name = resolved
             .lines()
@@ -318,9 +264,7 @@ mod tokens_tests {
     use crate::pipeline::{DistillResult, Route};
     use crate::store::sqlite::Store;
 
-    /// A store holding one distilled call and one declined call, with sizes that
-    /// cannot be confused: what survived distillation and what was handed back are
-    /// deliberately different numbers.
+    /// One distilled and one declined call, with sizes that cannot be confused.
     fn seeded() -> (Store, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open_path(&dir.path().join("omni.db")).unwrap();
@@ -358,14 +302,7 @@ mod tokens_tests {
         (store, dir)
     }
 
-    /// #612. The first draft printed `distilled_output` as "handed back untouched".
-    /// That field is what survived distillation, not what OMNI declined to touch,
-    /// so the line read 200 bytes where the answer was 9,000 and the totals did not
-    /// add up.
-    ///
-    /// Asserted on the rendered report. The first version of this test compared two
-    /// fields of `EngineTotals` and passed with the report printing either one,
-    /// which is the same mistake one level up.
+    /// Declined bytes are reported as declined, asserted on the rendered report (#612).
     #[test]
     fn the_report_says_what_was_handed_back_not_what_survived() {
         let (store, _d) = seeded();
@@ -385,9 +322,7 @@ mod tokens_tests {
         );
     }
 
-    /// The two engines fold different payloads, so their bytes may be summed and
-    /// their ratios may never share a denominator. One "removed" figure under one
-    /// total was the first draft, and it subtracts across populations.
+    /// The engines never share a denominator.
     #[test]
     fn the_report_gives_each_engine_its_own_base() {
         let (store, _d) = seeded();
@@ -401,8 +336,7 @@ mod tokens_tests {
         );
     }
 
-    /// An empty database must say so rather than print a frame of zeroes that reads
-    /// as "OMNI did nothing for you".
+    /// An empty database says so instead of printing zeroes.
     #[test]
     fn an_empty_window_says_so() {
         let dir = tempfile::tempdir().unwrap();
@@ -412,14 +346,7 @@ mod tokens_tests {
         assert!(!out.contains("0 B"), "printed a frame of zeroes: {out}");
     }
 
-    /// #612 asks first for the share of context that is tool output against
-    /// everything else. OMNI cannot see the rest, so the report has to say so
-    /// rather than build a denominator out of what it happens to hold.
-    ///
-    /// Asserted on the rendered output, not on this file. Scanning the source for
-    /// the sentence passes on the doc comment describing it, which is how the first
-    /// version of this stayed green with the line deleted. Third time this trap has
-    /// been hit in one repository.
+    /// The report says it cannot see the rest of the context. Checked on output, not source.
     #[test]
     fn the_report_states_its_own_blind_spot() {
         let (store, _d) = seeded();
@@ -430,9 +357,7 @@ mod tokens_tests {
         );
     }
 
-    /// Greptile on #612. `get_top_commands` sorts by percentage removed, so a
-    /// class that halved 2 KB outranked one that removed 40 KB, under a heading
-    /// that says heaviest. The two classes here disagree in exactly that way.
+    /// "Heaviest" ranks by bytes, not percentage.
     #[test]
     fn heaviest_classes_are_ranked_by_bytes_not_percentage() {
         let dir = tempfile::tempdir().unwrap();
@@ -454,9 +379,7 @@ mod tokens_tests {
             filtered_tokens: 0,
             delivered_bytes: output,
         };
-        // 90% removed, 1,800 bytes.
         store.record_distillation("s1", &row(2_000, 200), "git diff", "", "claude_code");
-        // 40% removed, 40,000 bytes.
         store.record_distillation(
             "s1",
             &row(100_000, 60_000),
@@ -478,10 +401,7 @@ mod tokens_tests {
         );
     }
 
-    /// #702. The class key can reach `CMD_KEY_WIDTH`, the report padded to 16, so
-    /// an overflowing name pushed every later column right on that row alone. Two
-    /// of five rows were wrong on the machine that found it. The singular is here
-    /// too: the same block read "1 calls".
+    /// A long class key does not shift its row, and one call reads "1 call" (#702).
     #[test]
     fn every_heaviest_row_lines_up_and_one_call_is_singular() {
         let dir = tempfile::tempdir().unwrap();
@@ -503,7 +423,6 @@ mod tokens_tests {
             filtered_tokens: 0,
             delivered_bytes: output,
         };
-        // Longer than the column, so it is the row that used to shove the rest right.
         store.record_distillation(
             "s1",
             &row(90_000, 1_000),
@@ -512,7 +431,6 @@ mod tokens_tests {
             "claude_code",
         );
         store.record_distillation("s1", &row(50_000, 1_000), "sed -n", "", "claude_code");
-        // One call, so the noun has to lose its s.
         store.record_distillation("s1", &row(9_000, 100), "journalctl -u", "", "claude_code");
 
         let out = super::tokens_report(&store, "all time", 0).unwrap();
@@ -532,10 +450,7 @@ mod tokens_tests {
         );
     }
 
-    /// Greptile on #612, second round. The store caps by call count, so a class
-    /// that removed the most bytes in the fewest calls was dropped before the
-    /// byte sort ever saw it. 310 chatty classes here, all ahead of the heavy one
-    /// on calls, which puts it past the old 300-row cap.
+    /// The heaviest class is not cut by a call-count cap.
     #[test]
     fn a_heavy_class_survives_a_window_full_of_chatty_ones() {
         let dir = tempfile::tempdir().unwrap();
@@ -563,7 +478,6 @@ mod tokens_tests {
                 store.record_distillation("s1", &row(200, 100), &cmd, "", "claude_code");
             }
         }
-        // One call, and more bytes than all 310 together.
         store.record_distillation("s1", &row(900_000, 100), "heavy thing", "", "claude_code");
 
         let out = super::tokens_report(&store, "all time", 0).unwrap();
@@ -577,9 +491,7 @@ mod tokens_tests {
         );
     }
 
-    /// Greptile on #612. `run_tokens` hands its args to `stats::scope`, which
-    /// reads `--since`, but `check_flags` runs first and rejects any flag the
-    /// list does not name. Every window except the default was unreachable.
+    /// `--since` is accepted.
     #[test]
     fn the_window_flag_reaches_the_parser() {
         let args: Vec<String> = ["omni", "context", "--tokens", "--since", "all"]

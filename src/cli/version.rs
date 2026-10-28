@@ -18,8 +18,7 @@ pub fn run_version(args: &[String]) {
         crate::cli::print_flags(FLAGS);
         return;
     }
-    // `run_version` returns `()`, so an unknown flag is reported and the process
-    // stops here rather than printing a version nobody asked for (#151).
+    // An unknown flag is reported and nothing else is printed (#151).
     if let Err(e) = crate::cli::check_flags("version", args, FLAGS) {
         eprintln!("[omni] {e}");
         std::process::exit(1);

@@ -18,8 +18,7 @@ pub fn print_help() {
     println!();
 }
 
-/// `omni update` takes no flags of its own; the guard is what stops a typo from
-/// running the real update anyway and reporting success (#151).
+/// No flags of its own; the guard stops a typo from running the update anyway (#151).
 const FLAGS: super::Flags = &[];
 
 pub fn run(args: &[String]) -> Result<(), String> {
@@ -73,7 +72,6 @@ pub fn run(args: &[String]) -> Result<(), String> {
             {
                 println!("{} Updating OMNI via Homebrew...", "🚀".cyan());
 
-                // Run brew upgrade
                 let status = Command::new("brew")
                     .args(["upgrade", "fajarhide/tap/omni"])
                     .status();
