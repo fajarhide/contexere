@@ -1,10 +1,6 @@
-/// True for a leading shell variable assignment, `KEY=value`.
-///
-/// The key has to look like an environment name, so `--out=file` and a path
-/// carrying an `=` are not mistaken for one. Without this the family of
-/// `OMNI_DB_PATH=/tmp/x/d.db cargo test` was the path itself: a per-invocation
-/// string that can never match a later command, which is how `retrieve_events`
-/// filled with rows nothing could ever read back (#512).
+/// True for a leading shell variable assignment, `KEY=value`. The key must look
+/// like an environment name, so `--out=file` and paths with `=` do not match
+/// (#512).
 fn is_env_assignment(token: &str) -> bool {
     match token.split_once('=') {
         Some((key, _)) => {
@@ -76,8 +72,6 @@ mod tests {
         assert_eq!(command_family(""), "unknown");
     }
 
-    /// #512. The family is a key other commands have to match, so a leading
-    /// assignment carrying a per-invocation path made the row unreadable.
     #[test]
     fn skips_leading_environment_assignments() {
         assert_eq!(
