@@ -78,6 +78,12 @@ the project scope answers for. Refusing the class costs 10 folds and 32,104 byte
 1.51% of every byte this store has folded, against the 678,585 bytes the partial arm
 keeps earning.
 
+**A file read never folds from the project scope.** A Read is the agent asking for a
+file it does not hold. Two subagents launched together each read a file a sibling had
+read, and each got `⋮` for the lines it was sent to rate its work against (#906). A Read
+still folds what this reader was already shown; Bash output still folds from the project
+scope.
+
 ## The two floors that decide nothing folds at all
 
 Both bars above ask whether a run outgrows the marker replacing it. Two floors are

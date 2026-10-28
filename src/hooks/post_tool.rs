@@ -4541,7 +4541,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     }
 
     /// #657's guard, on the one path #658 leaves it standing. The head is planned
-    /// as two runs of different origin, and a run whose handle was just pulled has
+    /// as two runs of different source, and a run whose handle was just pulled has
     /// to be delivered verbatim (#581). The second run still folds, so the emitted
     /// survivors are the first run and everything below the fold: two blocks
     /// again, and the view is dropped. Nothing may be recorded for it.
@@ -4567,13 +4567,13 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             })
             .to_string()
         };
-        let payload = |sid: &str, from: usize, to: usize| {
+        let payload = |path: &str, from: usize, to: usize| {
             json!({
-                "session_id": sid,
+                "session_id": "current",
                 "tool_name": "Read",
-                "tool_input": {"path": "probe.rs"},
+                "tool_input": {"path": path},
                 "tool_response": {"file": {
-                    "filePath": "probe.rs",
+                    "filePath": path,
                     "content": range(from, to),
                     "startLine": from,
                     "numLines": to - from,
@@ -4594,8 +4594,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
-        let _ = process_payload(&payload("earlier", 100, 115), Some(store.clone()), None);
-        let _ = process_payload(&payload("current", 115, 130), Some(store.clone()), None);
+        let _ = process_payload(&payload("copy.rs", 100, 115), Some(store.clone()), None);
+        let _ = process_payload(&payload("probe.rs", 115, 130), Some(store.clone()), None);
         let out = process_payload(&body(split("fresh_one"), 100), Some(store.clone()), None)
             .expect("the whole head repeats, so this folds");
         let content = serde_json::from_str::<serde_json::Value>(&out).expect("hook json")
@@ -4637,19 +4637,20 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// number of lines above the survivors, not the number of lines folded minus
     /// one, and the earlier arithmetic put every survivor a line too high.
     ///
-    /// Built by giving the project scope one half of the head and this session
-    /// the other, which is what makes the two runs differ in origin.
+    /// Built by reading one half of the head from another path, so the two runs
+    /// name different sources. Two origins built it until #906 took the project
+    /// scope away from Read.
     #[test]
     fn a_head_folded_into_two_markers_bumps_by_two() {
         let line = |i: usize| format!("    let unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\";\n");
         let range = |from: usize, to: usize| (from..to).map(line).collect::<String>();
-        let payload = |sid: &str, from: usize, to: usize| {
+        let payload = |path: &str, from: usize, to: usize| {
             json!({
-                "session_id": sid,
+                "session_id": "current",
                 "tool_name": "Read",
-                "tool_input": {"path": "probe.rs"},
+                "tool_input": {"path": path},
                 "tool_response": {"file": {
-                    "filePath": "probe.rs",
+                    "filePath": path,
                     "content": range(from, to),
                     "startLine": from,
                     "numLines": to - from,
@@ -4661,11 +4662,11 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
-        // An earlier session saw the first half of the head, this one saw the
-        // second, so the two runs are adjacent and differently attributed.
-        let _ = process_payload(&payload("earlier", 100, 115), Some(store.clone()), None);
-        let _ = process_payload(&payload("current", 115, 130), Some(store.clone()), None);
-        let out = process_payload(&payload("current", 100, 200), Some(store.clone()), None)
+        // Another file showed the first half of the head, this one the second,
+        // so the two runs are adjacent and differently attributed.
+        let _ = process_payload(&payload("copy.rs", 100, 115), Some(store.clone()), None);
+        let _ = process_payload(&payload("probe.rs", 115, 130), Some(store.clone()), None);
+        let out = process_payload(&payload("probe.rs", 100, 200), Some(store.clone()), None)
             .expect("the whole head repeats, so this folds");
 
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
@@ -4746,10 +4747,9 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// as `identical to the 200 lines already shown`, about bytes that context
     /// had never received.
     ///
-    /// The fold itself is not the defect and is kept: the subagent still gets a
-    /// marker and a handle, now through the project scope, whose wording says
-    /// plainly that nothing was shown here (#567, #575). What changes is the
-    /// claim, not the saving.
+    /// Since #906 a Read never folds from the project scope either, so the
+    /// subagent gets the file whole: the lines it asked for are the point of
+    /// the read.
     #[test]
     fn a_subagent_is_not_told_the_parents_bytes_were_already_shown() {
         let (parent, sub) = two_reads_of_one_file("parent-session-581", Some("aca4e7ff"));
@@ -4763,8 +4763,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "a subagent was told bytes it never received were already shown: {sub}"
         );
         assert!(
-            sub.contains("none shown here") || sub.contains("not shown here"),
-            "the subagent's fold must say the lines were not delivered here: {sub}"
+            !sub.contains("[OMNI:"),
+            "a subagent's first Read was folded from the project scope: {sub}"
         );
     }
 

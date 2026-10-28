@@ -85,6 +85,12 @@ dijawab scope proyek. Menolak kelas ini memakan 10 lipatan dan 32.104 byte, 1,51
 dari setiap byte yang pernah dilipat penyimpanan ini, berbanding 678.585 byte yang
 terus dihasilkan lengan parsial.
 
+**Pembacaan berkas tidak pernah dilipat dari scope proyek.** Read berarti agent
+meminta berkas yang belum ia pegang. Dua subagent yang diluncurkan bersamaan
+masing-masing membaca berkas yang sudah dibaca saudaranya, dan masing-masing menerima
+`⋮` untuk baris yang justru menjadi patokan kerjanya (#906). Read tetap melipat apa
+yang sudah ditunjukkan ke pembaca ini; keluaran Bash tetap dilipat dari scope proyek.
+
 ## Dua lantai yang memutuskan tidak ada yang dilipat sama sekali
 
 Kedua ambang di atas menanyakan apakah sebuah deretan lebih besar daripada penanda
