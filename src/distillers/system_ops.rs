@@ -861,37 +861,77 @@ fn redact_line(line: &str) -> Option<(String, u32)> {
 ///
 /// A crontab entry such as `* * * * * cd /app && export DB_PASSWORD="x"` opens
 /// with neither an assignment nor a key, so every rule above handed it back
-/// whole. The word before the assignment is what says shell rather than log:
-/// `INFO done token=abc` has none of these in front of `token`.
+/// whole. What says shell rather than log is the context: an assignment after
+/// `export`, after `;`, `&`, `|`, `&&` or `||`, or after another assignment in
+/// that same run (`export A=1 B=2`). `INFO done token=abc` has none of it.
+///
+/// Operators are split off even when glued to a word (`cd /app;KEY=x`), and a
+/// quoted value is judged whole, since the word before the first space can be
+/// just its opening quote (review of #913).
 ///
 /// Hidden from its `=` to the end of the line, as `redact_later_credential`
 /// does, so a quoted value keeps its quotes and only a tail that could hold
 /// another credential is dropped.
 #[allow(clippy::string_slice)]
 fn redact_after_operator(line: &str) -> Option<(String, u32)> {
-    let mut offset = 0;
-    let mut prev = "";
-    for piece in line.split_inclusive(char::is_whitespace) {
-        let word = piece.trim_end();
-        let after_shell = matches!(
-            prev.trim_start_matches(['"', '\'']),
-            "export" | "&&" | "||" | ";" | "|"
-        ) || prev.ends_with(';');
-        if after_shell
-            && let Some((key, value)) = shell_assignment(word)
-            && redact_assignment(key, value).is_some()
+    let mut in_shell = false;
+    for (at, token) in shell_tokens(line) {
+        if matches!(token, ";" | "&" | "|" | "&&" | "||")
+            || token.trim_start_matches(['"', '\'']) == "export"
         {
-            let value_at = offset + key.len() + 1;
+            in_shell = true;
+            continue;
+        }
+        let Some((key, value)) = shell_assignment(token) else {
+            in_shell = false;
+            continue;
+        };
+        if !in_shell || is_status_like(key, value) {
+            continue;
+        }
+        let value_at = at + key.len() + 1;
+        let judged = if value.starts_with(['"', '\'']) {
+            &line[value_at..]
+        } else {
+            value
+        };
+        if redact_assignment(key, judged).is_some() {
             let hidden = redact_assignment(key, &line[value_at..])
                 .unwrap_or_else(|| "[REDACTED]".to_string());
             return Some((format!("{}{hidden}", &line[..value_at]), 1));
         }
-        if !word.is_empty() {
-            prev = word;
-        }
-        offset += piece.len();
     }
     None
+}
+
+/// Words with their byte offsets, splitting `;`, `&` and `|` (and their
+/// doubled forms) into tokens of their own wherever they sit.
+///
+/// Every cut is at an ASCII byte from `char_indices`, so each slice sits on a
+/// char boundary.
+#[allow(clippy::string_slice)]
+fn shell_tokens(line: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut start = None;
+    let mut chars = line.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c.is_whitespace() || matches!(c, ';' | '&' | '|') {
+            if let Some(s) = start.take() {
+                out.push((s, &line[s..i]));
+            }
+            if matches!(c, ';' | '&' | '|') {
+                let doubled = c != ';' && chars.next_if(|&(_, n)| n == c).is_some();
+                let end = if doubled { i + 2 } else { i + 1 };
+                out.push((i, &line[i..end]));
+            }
+        } else if start.is_none() {
+            start = Some(i);
+        }
+    }
+    if let Some(s) = start {
+        out.push((s, &line[s..]));
+    }
+    out
 }
 
 /// A credential behind an ordinary assignment, on a line the word rule would
@@ -1374,6 +1414,17 @@ mod tests {
             (
                 "bash -c 'export DB_PASSWORD=h3fake12345; ./x'",
                 "bash -c 'export DB_PASSWORD=",
+            ),
+            // Review of #913: an operator glued to the word, an ordinary
+            // assignment first, and a quoted value that opens with a space.
+            ("cd /app;DB_PASSWORD=h3fake12345", "cd /app;DB_PASSWORD="),
+            (
+                "cd /app && export RAILS_ENV=production DB_PASSWORD=h3fake12345",
+                "export RAILS_ENV=production DB_PASSWORD=",
+            ),
+            (
+                "cd /app && export DB_PASSWORD=\" h3fake12345\"",
+                "cd /app && export DB_PASSWORD=\"",
             ),
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
