@@ -1,5 +1,3 @@
-// Safety: String slicing uses ASCII delimiter positions or boundary-checked safe utilities.
-
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -7,8 +5,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::pipeline::SessionState;
-
-// ─── Entry Types ────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EntryKind {
@@ -26,8 +22,6 @@ pub enum EntryStatus {
     Completed,  // Processing finished successfully
     Failed,     // Processing failed
 }
-
-// ─── TranscriptEntry ────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptEntry {
@@ -80,8 +74,6 @@ impl TranscriptEntry {
     }
 }
 
-// ─── Transcript ─────────────────────────────────────────
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transcript {
     pub session_id: String,
@@ -93,7 +85,6 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    /// Create a new empty transcript
     pub fn new(session_id: &str, working_dir: &str) -> Self {
         let now = Utc::now().timestamp();
         Self {
@@ -106,7 +97,7 @@ impl Transcript {
         }
     }
 
-    /// Load transcript from disk, returns None if not found or corrupt
+    /// `None` when missing or corrupt.
     pub fn load(session_id: &str) -> Option<Self> {
         let path = transcript_path(session_id);
         if !path.exists() {
@@ -117,12 +108,11 @@ impl Transcript {
         serde_json::from_str(&content).ok()
     }
 
-    /// Load existing transcript or create a new one
     pub fn load_or_new(session_id: &str, working_dir: &str) -> Self {
         Self::load(session_id).unwrap_or_else(|| Self::new(session_id, working_dir))
     }
 
-    /// Save transcript to disk using atomic write (tmp + rename)
+    /// Atomic: tmp file, then rename.
     pub fn save(&self) -> Result<()> {
         let dir = transcripts_dir();
         fs::create_dir_all(&dir).context("Failed to create transcripts directory")?;
@@ -132,21 +122,18 @@ impl Transcript {
 
         let json = serde_json::to_string_pretty(self).context("Failed to serialize transcript")?;
 
-        // Atomic write: write to tmp file first, then rename
         fs::write(&tmp_path, &json).context("Failed to write transcript tmp file")?;
         fs::rename(&tmp_path, &path).context("Failed to rename transcript file")?;
 
         Ok(())
     }
 
-    /// Append a new entry and auto-save
     pub fn append_entry(&mut self, entry: TranscriptEntry) -> Result<()> {
         self.updated_at = Utc::now().timestamp();
         self.entries.push(entry);
         self.save()
     }
 
-    /// Mark the last pending entry as completed with result
     pub fn mark_last_completed(&mut self, result: &str) -> Result<()> {
         if let Some(entry) = self.entries.iter_mut().rev().find(|e| e.is_pending()) {
             entry.status = EntryStatus::Completed;
@@ -156,7 +143,6 @@ impl Transcript {
         self.save()
     }
 
-    /// Mark the last pending entry as failed with error
     pub fn mark_last_failed(&mut self, error: &str) -> Result<()> {
         if let Some(entry) = self.entries.iter_mut().rev().find(|e| e.is_pending()) {
             entry.status = EntryStatus::Failed;
@@ -166,19 +152,16 @@ impl Transcript {
         self.save()
     }
 
-    /// Count of entries that are still pending
     pub fn pending_count(&self) -> usize {
         self.entries.iter().filter(|e| e.is_pending()).count()
     }
 
-    /// Update session state snapshot and save
     pub fn snapshot_state(&mut self, state: &SessionState) -> Result<()> {
         self.session_state = Some(state.clone());
         self.updated_at = Utc::now().timestamp();
         self.save()
     }
 
-    /// Human-readable summary for interrupted session
     pub fn interrupted_summary(&self) -> String {
         let pending = self.pending_count();
         let last_input = self
@@ -212,9 +195,7 @@ impl Transcript {
     }
 }
 
-// ─── Global Operations ──────────────────────────────────
-
-/// Find any transcript that has pending/in-progress entries (most recent first)
+/// Transcripts with pending entries, most recent first.
 pub fn find_pending() -> Option<Transcript> {
     let dir = transcripts_dir();
     if !dir.exists() {
@@ -229,7 +210,6 @@ pub fn find_pending() -> Option<Transcript> {
             if path.extension().is_some_and(|e| e == "json")
                 && !path.to_string_lossy().ends_with(".tmp")
             {
-                // Quick check: read modified time for sorting
                 let modified = fs::metadata(&path)
                     .and_then(|m| m.modified())
                     .map(|t| {
@@ -243,7 +223,6 @@ pub fn find_pending() -> Option<Transcript> {
         }
     }
 
-    // Sort: most recent first
     candidates.sort_by_key(|a| std::cmp::Reverse(a.0));
 
     for (_, path) in candidates {
@@ -258,7 +237,6 @@ pub fn find_pending() -> Option<Transcript> {
     None
 }
 
-/// List recent transcripts (most recent first)
 pub fn list_recent(limit: usize) -> Vec<Transcript> {
     let dir = transcripts_dir();
     if !dir.exists() {
@@ -299,7 +277,6 @@ pub fn list_recent(limit: usize) -> Vec<Transcript> {
     out
 }
 
-/// Cleanup transcript files older than N days
 pub fn cleanup_old(days: u32) {
     let dir = transcripts_dir();
     if !dir.exists() {
@@ -312,13 +289,12 @@ pub fn cleanup_old(days: u32) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().is_some_and(|e| e == "json" || e == "tmp") {
-                // Try to read and check timestamp, or fall back to file mtime
+                // The recorded timestamp, else the file mtime.
                 let should_delete = if let Ok(content) = fs::read_to_string(&path) {
                     serde_json::from_str::<Transcript>(&content)
                         .map(|t| t.updated_at < threshold)
                         .unwrap_or(true) // corrupt file, delete
                 } else {
-                    // Can't read file, check mtime
                     fs::metadata(&path)
                         .and_then(|m| m.modified())
                         .map(|t| {
@@ -336,8 +312,6 @@ pub fn cleanup_old(days: u32) {
         }
     }
 }
-
-// ─── Helpers ────────────────────────────────────────────
 
 #[cfg(test)]
 thread_local! {
@@ -371,8 +345,6 @@ fn truncate_payload(payload: &str, max_bytes: usize) -> String {
         )
     }
 }
-
-// ─── Tests ──────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -435,11 +407,9 @@ mod tests {
         let t = Transcript::new("atomic_1", "/project");
         t.save().unwrap();
 
-        // Tmp file should not exist after successful save
         let tmp_path = transcripts_dir().join("atomic_1.json.tmp");
         assert!(!tmp_path.exists());
 
-        // Main file should exist
         let main_path = transcripts_dir().join("atomic_1.json");
         assert!(main_path.exists());
     }
@@ -555,12 +525,10 @@ mod tests {
     fn cleanup_removes_stale_transcripts() {
         let _dir = setup_test_dir();
 
-        // Create a transcript with very old updated_at
         let mut t = Transcript::new("old_1", "/project");
         t.updated_at = Utc::now().timestamp() - (10 * 86400); // 10 days ago
         t.save().unwrap();
 
-        // Create a fresh one
         let fresh = Transcript::new("fresh_1", "/project");
         fresh.save().unwrap();
 
@@ -582,7 +550,6 @@ mod tests {
 
         let recent = list_recent(10);
         assert_eq!(recent.len(), 2);
-        // Both transcripts should be found
         let ids: Vec<&str> = recent.iter().map(|t| t.session_id.as_str()).collect();
         assert!(ids.contains(&"list_a"));
         assert!(ids.contains(&"list_b"));
