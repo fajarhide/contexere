@@ -140,7 +140,8 @@ mengembalikannya tanpa disentuh, dan Claude Code mengirim panggilan Bash yang ga
 `PostToolUseFailure`, yang sama sekali tidak bisa mengganti keluarannya. Kredensial di
 keluaran perintah yang gagal terkirim apa adanya. Host yang tidak melaporkan kegagalan,
 seperti OpenCode atau Continue, keluarannya ditulis ulang baik perintahnya gagal maupun
-tidak.
+tidak. Keluaran 30 KB atau lebih juga di luar jangkauan di Claude Code: host menyimpan
+keluaran mentahnya, menampilkan 2 KB pertamanya ke agen, dan membuang balasan hook.
 
 Namanya yang menentukan, dicocokkan per kata yang dipisah garis bawah sehingga `PASSED` dan
 `AUTHORS` tidak ikut: `SECRET`, `TOKEN`, `PASSWORD`, `PASSWD`, `PASS`, `AUTH`, `CREDS`,
