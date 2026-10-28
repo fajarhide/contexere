@@ -207,15 +207,8 @@ fn resolve_candidate(root: &Path, candidate: &Path) -> Option<String> {
         candidate.join("index.tsx"),
         candidate.join("index.js"),
     ];
-    // `is_file`, not `exists`: a directory is not a module. `use
-    // crate::pipeline::{CollapseMode, SegmentationMode}` leaves the extractor
-    // holding `crate::pipeline::`, which joined to a candidate is the directory
-    // `src/pipeline`. That directory exists, so it won the lookup and became a
-    // node. Two such nodes, `src` and `src/pipeline`, held 143 of the graph's
-    // edges, while the module files that the imports actually name held none of
-    // them. `mod.rs` and `index.*` are already later in this list, so rejecting
-    // the bare directory sends brace-grouped imports to the module file they mean
-    // (#258).
+    // `is_file`, not `exists`: a brace-grouped `use` resolves to the bare
+    // directory, which would win here instead of its `mod.rs` below.
     candidates
         .iter()
         .find(|p| p.is_file())
@@ -230,15 +223,7 @@ fn normalize_relative(root: &Path, path: &Path) -> String {
 }
 
 /// One spelling per file, so the graph and anything keyed off it agree.
-///
-/// This only swapped backslashes for slashes, so `./src/x.rs` and `src/x.rs` were
-/// two different keys: the graph answered "imports: none detected" for one of
-/// them, and a hot-file lookup keyed on the result said "no" for a file the
-/// session had touched four times. Found by review on #609 when the tool became
-/// `omni context`, and it was there for as long as the MCP tool was.
-///
-/// `..` is kept. Dropping it would change which file is named, and this function
-/// decides a key rather than resolving a path against the filesystem.
+/// `..` is kept: dropping it would name a different file.
 fn normalize_path_string(path: &str) -> String {
     use std::path::Component;
 
@@ -263,8 +248,6 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    /// #609. Two spellings of one file were two keys, so the graph and every
-    /// lookup keyed off its answer disagreed with each other.
     #[test]
     fn one_file_has_one_spelling() {
         for (given, want) in [
@@ -277,7 +260,6 @@ mod tests {
         }
         // `..` names a different file, so it survives.
         assert_eq!(normalize_path_string("../src/x.rs"), "../src/x.rs");
-        // And nothing becomes empty.
         assert_eq!(normalize_path_string("."), ".");
     }
 
@@ -312,16 +294,8 @@ mod tests {
         assert!(ctx.imported_by.contains(&"a.ts".to_string()));
     }
 
-    /// #258. A brace-grouped `use` leaves the extractor holding the module path
-    /// with an empty tail, and the candidate built from that is the directory.
-    /// `exists()` accepted it, so `src/pipeline` became a node with 30 dependents
-    /// while `src/pipeline/mod.rs`, the file every one of those imports names,
-    /// had none. Two directory nodes held 143 of this repo's edges.
-    ///
-    /// The edge has to land on the module file, and a directory has to resolve to
-    /// nothing when it holds no module file, which is what the second half checks:
-    /// `use crate::{a, b}` names no single file and must not become an edge to
-    /// `src`, which is where 113 of the 143 went.
+    /// A directory with no module file resolves to nothing, so
+    /// `use crate::{a, b}` never becomes an edge to `src`.
     #[test]
     fn resolves_a_brace_grouped_use_to_the_module_file_not_its_directory() {
         let dir = tempdir().unwrap();
