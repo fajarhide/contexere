@@ -123,7 +123,9 @@ tanpa handle pun penandanya tetap menyebut apa yang dibuang.
 
 Redaksi kredensial pada keluaran perintah. Baris yang memberi nilai ke nama yang sensitif
 nilainya diganti `[REDACTED]`, dan penanda ini menghitung nilainya. Tanda kutip dan tanda
-baca di sekitar nilai tetap ada, jadi baris yang diredaksi masih bisa di-parse.
+baca di sekitar nilai tetap ada, jadi baris yang diredaksi masih bisa di-parse. Assignment-nya
+boleh berada di tengah baris setelah `export` atau operator shell, seperti pada entri crontab
+`cd /app && export DB_PASSWORD="..."`.
 
 Token yang membawa prefiks penerbitnya disembunyikan tanpa perlu nama di sebelahnya, pada
 panjang yang ditulis penerbitnya: `sk-ant-`, `ghp_` dan kerabatnya, `github_pat_`, `AKIA`,

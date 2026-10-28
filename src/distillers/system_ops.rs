@@ -851,8 +851,96 @@ fn quoted_value(value: &str) -> Option<(char, &str, &str)> {
 fn redact_line(line: &str) -> Option<(String, u32)> {
     match redact_shell_words(line) {
         Some(words) => words,
-        None => redact_whole_value(line).or_else(|| redact_later_credential(line)),
+        None => redact_whole_value(line)
+            .or_else(|| redact_later_credential(line))
+            .or_else(|| redact_after_operator(line)),
     }
+}
+
+/// A credential assigned mid-line, after `export` or a shell operator (#909).
+///
+/// A crontab entry such as `* * * * * cd /app && export DB_PASSWORD="x"` opens
+/// with neither an assignment nor a key, so every rule above handed it back
+/// whole. What says shell rather than log is the context: an assignment after
+/// `export`, after `;`, `&`, `|`, `&&` or `||`, or after another assignment in
+/// that same run (`export A=1 B=2`). `INFO done token=abc` has none of it.
+///
+/// Operators are split off even when glued to a word (`cd /app;KEY=x`), and a
+/// quoted value is judged whole, since the word before the first space can be
+/// just its opening quote (review of #913).
+///
+/// Hidden from its `=` to the end of the line, as `redact_later_credential`
+/// does, so a quoted value keeps its quotes and only a tail that could hold
+/// another credential is dropped.
+#[allow(clippy::string_slice)]
+fn redact_after_operator(line: &str) -> Option<(String, u32)> {
+    let mut in_shell = false;
+    for (at, token) in shell_tokens(line) {
+        if matches!(token, ";" | "&" | "|" | "&&" | "||")
+            || token.trim_start_matches(['"', '\'']) == "export"
+        {
+            in_shell = true;
+            continue;
+        }
+        let Some((key, value)) = shell_assignment(token) else {
+            in_shell = false;
+            continue;
+        };
+        if !in_shell || is_status_like(key, value) {
+            continue;
+        }
+        let value_at = at + key.len() + 1;
+        // A quoted value is judged to the end of its shell word: the word
+        // before a space can be only the opening quote, a command after the
+        // closing quote is not the value, and text glued on (`""secret`) is.
+        let rest = &line[value_at..];
+        let judged = match quoted_value(rest) {
+            Some((_, inner, _)) if value.starts_with(['"', '\'']) => {
+                let closed = (inner.len() + 2).min(rest.len());
+                let glued = rest[closed..]
+                    .find(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|'))
+                    .unwrap_or(rest.len() - closed);
+                &rest[..closed + glued]
+            }
+            _ => value,
+        };
+        if redact_assignment(key, judged).is_some() {
+            let hidden = redact_assignment(key, &line[value_at..])
+                .unwrap_or_else(|| "[REDACTED]".to_string());
+            return Some((format!("{}{hidden}", &line[..value_at]), 1));
+        }
+    }
+    None
+}
+
+/// Words with their byte offsets, splitting `;`, `&` and `|` (and their
+/// doubled forms) into tokens of their own wherever they sit.
+///
+/// Every cut is at an ASCII byte from `char_indices`, so each slice sits on a
+/// char boundary.
+#[allow(clippy::string_slice)]
+fn shell_tokens(line: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut start = None;
+    let mut chars = line.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c.is_whitespace() || matches!(c, ';' | '&' | '|') {
+            if let Some(s) = start.take() {
+                out.push((s, &line[s..i]));
+            }
+            if matches!(c, ';' | '&' | '|') {
+                let doubled = c != ';' && chars.next_if(|&(_, n)| n == c).is_some();
+                let end = if doubled { i + 2 } else { i + 1 };
+                out.push((i, &line[i..end]));
+            }
+        } else if start.is_none() {
+            start = Some(i);
+        }
+    }
+    if let Some(s) = start {
+        out.push((s, &line[s..]));
+    }
+    out
 }
 
 /// A credential behind an ordinary assignment, on a line the word rule would
@@ -1315,6 +1403,62 @@ mod tests {
         // A log line does not open with an assignment and is not this rule's.
         assert_eq!(
             redact_sensitive_assignments("INFO done token=abc12345 user=bob"),
+            None
+        );
+    }
+
+    /// #909. A crontab entry or a one-liner assigns its credential mid-line, and
+    /// no rule that wants the line to open with an assignment can see it.
+    #[test]
+    fn a_credential_assigned_after_a_shell_operator_is_hidden() {
+        for (line, kept) in [
+            (
+                "* * * * * cd /home/app && export DATABASE_PASSWORD=\"h3fake12345\" && export RAILS_ENV=production",
+                "* * * * * cd /home/app && export DATABASE_PASSWORD=\"",
+            ),
+            (
+                "cd /srv; API_TOKEN=h3fake12345 ./run",
+                "cd /srv; API_TOKEN=",
+            ),
+            (
+                "bash -c 'export DB_PASSWORD=h3fake12345; ./x'",
+                "bash -c 'export DB_PASSWORD=",
+            ),
+            // Review of #913: an operator glued to the word, an ordinary
+            // assignment first, and a quoted value that opens with a space.
+            ("cd /app;DB_PASSWORD=h3fake12345", "cd /app;DB_PASSWORD="),
+            (
+                "cd /app && export RAILS_ENV=production DB_PASSWORD=h3fake12345",
+                "export RAILS_ENV=production DB_PASSWORD=",
+            ),
+            (
+                "cd /app && export DB_PASSWORD=\" h3fake12345\"",
+                "cd /app && export DB_PASSWORD=\"",
+            ),
+            // An empty quoted prefix glued to the password is one word.
+            (
+                "cd /app && export DB_PASSWORD=\"\"h3fake12345",
+                "cd /app && export DB_PASSWORD=",
+            ),
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(!out.contains("h3fake12345"), "{line} came back as {out}");
+            assert!(out.contains(kept), "{out}");
+        }
+        // Nothing shell-like in front of the key, so a log line is still not ours.
+        assert_eq!(
+            redact_sensitive_assignments("INFO cron ok token=abc12345 user=bob"),
+            None
+        );
+        // Review of #913: a harmless quoted value is judged without the command
+        // that follows it.
+        assert_eq!(
+            redact_sensitive_assignments("cd /app && export ssh_key=\"deploy.pub\" && ./run"),
+            None
+        );
+        // An ordinary name after an operator is delivered.
+        assert_eq!(
+            redact_sensitive_assignments("cd /app && export RAILS_ENV=production"),
             None
         );
     }
