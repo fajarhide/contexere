@@ -1,4 +1,4 @@
-// OMNI Library, re-exports for integration tests and external usage.
+// Re-exports for the integration tests.
 
 #![deny(clippy::string_slice)]
 
