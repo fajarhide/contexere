@@ -890,10 +890,14 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
             continue;
         }
         let value_at = at + key.len() + 1;
-        let judged = if value.starts_with(['"', '\'']) {
-            &line[value_at..]
-        } else {
-            value
+        // A quoted value is judged up to its closing quote: the word alone can
+        // be only the opening quote, and the tail after it is not the value.
+        let rest = &line[value_at..];
+        let judged = match quoted_value(rest) {
+            Some((_, inner, _)) if value.starts_with(['"', '\'']) => {
+                &rest[..(inner.len() + 2).min(rest.len())]
+            }
+            _ => value,
         };
         if redact_assignment(key, judged).is_some() {
             let hidden = redact_assignment(key, &line[value_at..])
@@ -1434,6 +1438,12 @@ mod tests {
         // Nothing shell-like in front of the key, so a log line is still not ours.
         assert_eq!(
             redact_sensitive_assignments("INFO cron ok token=abc12345 user=bob"),
+            None
+        );
+        // Review of #913: a harmless quoted value is judged without the command
+        // that follows it.
+        assert_eq!(
+            redact_sensitive_assignments("cd /app && export ssh_key=\"deploy.pub\" && ./run"),
             None
         );
         // An ordinary name after an operator is delivered.
