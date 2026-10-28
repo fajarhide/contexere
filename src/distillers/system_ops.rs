@@ -502,21 +502,32 @@ fn looks_like_code_expression(value: &str) -> bool {
     let value = value.trim_start();
     value.starts_with('{')
         || value
+            .trim_start_matches('(')
             .strip_prefix("lambda")
-            .is_some_and(|rest| rest.starts_with([' ', ':']))
+            .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == ':'))
 }
+
+/// Database and cache schemes, whose path names a database, never a secret.
+/// An `https` path can be the secret itself, as in a Slack webhook (#946 review).
+const CONNECTION_SCHEMES: &[&str] = &[
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mariadb",
+    "redis",
+    "rediss",
+    "mongodb",
+    "mongodb+srv",
+];
 
 /// A connection URL with no userinfo, query or fragment names a location and
 /// holds no secret (#894). `postgres://app:pw@db/x` and `?token=` stay
-/// redacted. Only for `*_URL` keys.
+/// redacted. Only for `*_URL` keys and `CONNECTION_SCHEMES`.
 fn is_a_url_without_credentials(key: &str, literal: &str) -> bool {
     let url = literal.trim().trim_end_matches([',', ';']);
     key.trim().to_uppercase().ends_with("_URL")
         && url.split_once("://").is_some_and(|(scheme, rest)| {
-            !scheme.is_empty()
-                && scheme
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
+            CONNECTION_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
                 && !rest.is_empty()
                 && !rest.contains(['@', '?', '#'])
                 && !rest.contains(char::is_whitespace)
@@ -579,7 +590,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
-        || is_a_url_without_credentials(key, literal)
+        || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
     {
         return None;
     }
@@ -1460,6 +1471,8 @@ mod tests {
             redact_sensitive_assignments(py).is_none(),
             "a comparator is code, so the file is delivered as written"
         );
+        assert!(redact_assignment("key", "(lambda t: t[0]),").is_none());
+        assert!(redact_assignment("key", "lambda\tt: t[0],").is_none());
         assert!(redact_assignment("TOKEN", "=lambda").is_some());
         assert!(redact_assignment("PASSWORD", "lambda x: x").is_some());
         assert!(redact_assignment("api_key", "lambdas3cr3t").is_some());
@@ -1468,7 +1481,8 @@ mod tests {
     /// A URL without credentials is delivered; one carrying them is not (#894).
     #[test]
     fn keeps_a_url_without_credentials_and_redacts_one_with_them() {
-        let env = "DATABASE_URL=postgres://localhost:5432/appdb\nREDIS_URL=\"redis://cache:6379/0\"\n";
+        let env =
+            "DATABASE_URL=postgres://localhost:5432/appdb\nREDIS_URL=\"redis://cache:6379/0\"\n";
         assert!(
             redact_sensitive_assignments(env).is_none(),
             "host, port and database are what the line is read for"
@@ -1478,6 +1492,11 @@ mod tests {
             ("MONGO_URL", "mongodb://db/x?authSource=admin&password=pw"),
             ("REDIS_URL", "redis://:pw@cache:6379"),
             ("DATABASE_URL", "localhost:5432"),
+            (
+                "API_WEBHOOK_URL",
+                "https://hooks.slack.com/services/T1/B2/secret",
+            ),
+            ("DATABASE_URL", "\"postgres://app:\"\"pw@db/x\""),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
