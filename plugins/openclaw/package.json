@@ -25,5 +25,9 @@
     "build": {
       "openclawVersion": "2026.4.11"
     }
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "hono": "4.13.13"
   }
 }
