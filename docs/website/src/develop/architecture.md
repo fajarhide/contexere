@@ -92,7 +92,7 @@ cargo test --all
 make ci
 ```
 
-The toolchain is pinned in `rust-toolchain.toml`, currently 1.97.0, and the pin is
+The toolchain is pinned in `rust-toolchain.toml`, currently 1.99.1, and the pin is
 load-bearing. A release once produced no binaries at all because `release.yml` asked
 for `stable` per cross target while the pin said otherwise, and every cross-compile
 died with `can't find crate for core` before compiling a line. `ci.yml` stayed green
