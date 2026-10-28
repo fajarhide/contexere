@@ -45,7 +45,7 @@ OMNI 在模型读取之前，先去掉模型不需要的部分。什么都不会
 | 运行嘈杂的构建或测试 | 保留结果和失败信息，丢掉进度噪音 |
 | 运行 `git log` 或 `git status` | 保留每一条提交，并对状态做汇总 |
 | 打印 token 或密码 | 在模型看到之前替换成 `[REDACTED]` |
-| 遇到失败的命令 | 原样放行，让真正的错误传到智能体手中 |
+| 遇到失败的命令 | 原样放行，让真正的错误传到智能体手中，其中的密钥也一并保留 |
 | 读取 JSON、YAML 或 CSV | 逐字节保持不变，后续步骤仍然可以解析 |
 
 <table>
@@ -106,7 +106,7 @@ omni doctor    # 检查是否接好，或使用 `omni doctor --fix`
 
 | 层级 | 智能体 | OMNI 能做什么 |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | 在模型读取之前重写工具输出 |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | 在模型读取之前重写工具输出 |
 | **Handoff-first** | Cursor, Windsurf | 缩短智能体经由 `omni_run` 执行的内容 |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | 记忆与召回，外加 `omni_run` |
 
@@ -125,8 +125,8 @@ Codex 只运行它信任的 Hook：执行 `omni init --codex` 之后，启动一
 
 ## 数字
 
-OMNI 能节省多少，取决于你的智能体做什么。读两遍的文件是 97.2%。在 40 个公开的
-[SWE-bench](https://www.swebench.com/) 仓库上，主要是源码读取，是 30.3%。在一周以
+OMNI 能节省多少，取决于你的智能体做什么。读两遍的文件是 97.2%。在 10 个公开仓库的 40 个
+[SWE-bench](https://www.swebench.com/) 任务上，主要是源码读取，是 30.3%。在一周以
 shell 为主的真实命令上是 2.4%，而在这份语料上 OMNI 落后于 headroom 和 lean-ctx。运行
 `omni stats` 查看你自己的数字。
 

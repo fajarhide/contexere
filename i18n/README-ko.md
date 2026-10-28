@@ -45,7 +45,7 @@ OMNI는 모델이 읽기 전에 모델에 필요 없는 부분을 걷어냅니�
 | 시끄러운 빌드나 테스트를 실행하면 | 결과와 실패는 남기고 진행 노이즈는 버립니다 |
 | `git log`나 `git status`를 실행하면 | 모든 커밋은 남기고, status는 요약합니다 |
 | 토큰이나 비밀번호를 출력하면 | 모델이 보기 전에 `[REDACTED]`로 바꿉니다 |
-| 실패한 명령을 만나면 | 있는 그대로 두어 진짜 오류가 에이전트에 닿게 합니다 |
+| 실패한 명령을 만나면 | 있는 그대로 두어 진짜 오류가 에이전트에 닿게 합니다. 그 안의 비밀 값도 포함됩니다 |
 | JSON, YAML, CSV를 읽으면 | 바이트 단위로 그대로 두어 이후 단계가 계속 파싱할 수 있게 합니다 |
 
 <table>
@@ -106,7 +106,7 @@ omni doctor    # 연결 상태를 확인합니다. `omni doctor --fix`도 가능
 
 | 티어 | 에이전트 | OMNI가 할 수 있는 일 |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | 모델이 읽기 전에 도구 출력을 재작성합니다 |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | 모델이 읽기 전에 도구 출력을 재작성합니다 |
 | **Handoff-first** | Cursor, Windsurf | 에이전트가 `omni_run`을 통해 실행하는 것을 줄입니다 |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | 메모리와 리콜, 그리고 `omni_run` |
 
@@ -127,7 +127,7 @@ Codex는 신뢰하는 Hook만 실행합니다. `omni init --codex` 후 `codex`�
 ## 숫자
 
 OMNI가 얼마나 절감하는지는 에이전트가 무엇을 하느냐에 달려 있습니다. 두 번 읽는 파일에서는
-97.2%입니다. 주로 소스를 읽는 공개 [SWE-bench](https://www.swebench.com/) 저장소 40개에서는
+97.2%입니다. 주로 소스를 읽는 공개 저장소 10개에 걸친 [SWE-bench](https://www.swebench.com/) 과제 40개에서는
 30.3%입니다. 셸 명령 위주였던 실제 한 주에서는 2.4%이며, 그 코퍼스에서는 OMNI가 headroom과
 lean-ctx에 뒤처집니다. 당신의 수치는 `omni stats`로 확인하세요.
 

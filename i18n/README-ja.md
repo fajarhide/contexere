@@ -46,7 +46,7 @@ OMNI は、モデルが読む前に、モデルに不要なものを取り除き
 | ノイズの多いビルドやテストを実行する | 結果と失敗は残し、進捗のノイズを落とす |
 | `git log` や `git status` を実行する | すべてのコミットを残し、status は要約する |
 | トークンやパスワードを出力する | モデルが見る前に `[REDACTED]` に置き換える |
-| 失敗するコマンドを実行する | そのまま通すので、本当のエラーがエージェントに届く |
+| 失敗するコマンドを実行する | そのまま通すので、本当のエラーがエージェントに届く。中のシークレットも含めて |
 | JSON、YAML、CSV を読む | バイト単位でそのまま通すので、後段でもパースできる |
 
 <table>
@@ -108,7 +108,7 @@ omni doctor    # 設定を確認。または `omni doctor --fix`
 
 | ティア | エージェント | OMNI にできること |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | モデルが読む前にツール出力を書き換える |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | モデルが読む前にツール出力を書き換える |
 | **Handoff-first** | Cursor, Windsurf | `omni_run` を通してエージェントが実行するものを短くする |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | メモリとリコール、加えて `omni_run` |
 
@@ -128,7 +128,7 @@ Codex は信頼したフックしか実行しません。`omni init --codex` の
 ## 数字
 
 OMNI がどれだけ節約するかは、エージェントが何をするかで決まります。2 回読んだファイルでは 97.2% です。
-公開されている 40 個の [SWE-bench](https://www.swebench.com/) リポジトリ、つまりほとんどがソースの読み取りでは
+10 個の公開リポジトリにまたがる 40 件の [SWE-bench](https://www.swebench.com/) タスク、つまりほとんどがソースの読み取りでは
 30.3% です。実際のコマンドを中心とした、シェル作業の多い 1 週間では 2.4% で、そのコーパスでは OMNI は
 headroom と lean-ctx に負けています。ご自身の数字は `omni stats` で確認してください。
 

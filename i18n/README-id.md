@@ -47,7 +47,7 @@ mengembalikannya.
 | menjalankan build atau test yang bising | menyimpan hasil dan kegagalannya, membuang noise progress |
 | menjalankan `git log` atau `git status` | menyimpan setiap commit, dan meringkas statusnya |
 | mencetak token atau password | menggantinya dengan `[REDACTED]` sebelum model melihatnya |
-| menemui perintah yang gagal | membiarkannya persis apa adanya, supaya error yang sebenarnya sampai ke agent |
+| menemui perintah yang gagal | membiarkannya persis apa adanya, supaya error yang sebenarnya sampai ke agent, termasuk secret di dalamnya |
 | membaca JSON, YAML atau CSV | membiarkannya byte demi byte, supaya langkah berikutnya tetap bisa mem-parse-nya |
 
 <table>
@@ -108,7 +108,7 @@ Setelah itu bekerjalah seperti biasa. Tidak ada yang perlu diberi awalan.
 
 | Tier | Agent | Yang bisa dilakukan OMNI |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | menulis ulang output tool sebelum model membacanya |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | menulis ulang output tool sebelum model membacanya |
 | **Handoff-first** | Cursor, Windsurf | memendekkan apa yang dijalankan agent lewat `omni_run` |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | memori dan recall, plus `omni_run` |
 
@@ -128,7 +128,7 @@ Codex hanya menjalankan hook yang dipercayainya: setelah `omni init --codex`, ja
 ## Angka
 
 Seberapa besar penghematan OMNI tergantung pada apa yang dikerjakan agent kamu. Pada file
-yang dibaca dua kali, hasilnya 97,2%. Pada 40 repo publik [SWE-bench](https://www.swebench.com/),
+yang dibaca dua kali, hasilnya 97,2%. Pada 40 tugas [SWE-bench](https://www.swebench.com/) dari 10 repo publik,
 yang sebagian besar pembacaan source, hasilnya 30,3%. Pada seminggu penuh perintah nyata
 yang didominasi shell, hasilnya 2,4%, dan pada korpus itu OMNI berada di belakang
 headroom dan lean-ctx. Jalankan `omni stats` untuk angka kamu sendiri.

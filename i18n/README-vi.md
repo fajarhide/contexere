@@ -46,7 +46,7 @@ loại bỏ vẫn nằm trên máy của bạn, và một lệnh là lấy lại
 | chạy một build hoặc test nhiều nhiễu | giữ kết quả và các lỗi, bỏ phần nhiễu tiến trình |
 | chạy `git log` hoặc `git status` | giữ mọi commit, và tóm tắt trạng thái |
 | in ra một token hoặc mật khẩu | thay bằng `[REDACTED]` trước khi mô hình nhìn thấy |
-| gặp một lệnh thất bại | để nguyên như nó vốn có, để lỗi thật tới được agent |
+| gặp một lệnh thất bại | để nguyên như nó vốn có, để lỗi thật tới được agent, kể cả secret trong đó |
 | đọc JSON, YAML hoặc CSV | để nguyên từng byte, để bước sau vẫn phân tích được |
 
 <table>
@@ -106,7 +106,7 @@ Sau đó cứ làm việc như bình thường. Không có gì để gõ thêm p
 
 | Tier | Agent | OMNI làm được gì |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | viết lại đầu ra công cụ trước khi mô hình đọc |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | viết lại đầu ra công cụ trước khi mô hình đọc |
 | **Handoff-first** | Cursor, Windsurf | rút gọn những gì agent chạy qua `omni_run` |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | bộ nhớ và recall, cùng `omni_run` |
 
@@ -126,7 +126,7 @@ và phê duyệt chúng ([#359](https://github.com/fajarhide/omni/issues/359)).
 ## Con số
 
 Mức OMNI tiết kiệm được phụ thuộc vào việc agent của bạn làm gì. Với một tệp đọc hai lần
-là 97,2%. Trên 40 repo [SWE-bench](https://www.swebench.com/) công khai, chủ yếu là đọc
+là 97,2%. Trên 40 tác vụ [SWE-bench](https://www.swebench.com/) từ 10 repo công khai, chủ yếu là đọc
 mã nguồn, là 30,3%. Trên một tuần toàn lệnh shell thật là 2,4%, và trên tập đó OMNI thua
 headroom và lean-ctx. Chạy `omni stats` để có con số của riêng bạn.
 

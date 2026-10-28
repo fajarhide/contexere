@@ -46,7 +46,7 @@ deleted: whatever it removes stays on your machine, and one command brings it ba
 | runs a noisy build or test | keeps the result and the failures, drops the progress noise |
 | runs `git log` or `git status` | keeps every commit, and sums up the status |
 | prints a token or password | replaces it with `[REDACTED]` before the model sees it |
-| hits a failing command | leaves it exactly as it was, so the real error reaches the agent |
+| hits a failing command | leaves it exactly as it was, so the real error reaches the agent, a secret in it included |
 | reads JSON, YAML or CSV | leaves it byte for byte, so a later step can still parse it |
 
 <table>
@@ -107,7 +107,7 @@ Then work as usual. There is nothing to prefix.
 
 | Tier | Agents | What OMNI can do |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | rewrites tool output before the model reads it |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | rewrites tool output before the model reads it |
 | **Handoff-first** | Cursor, Windsurf | shortens what the agent runs through `omni_run` |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | memory and recall, plus `omni_run` |
 
@@ -127,7 +127,7 @@ them ([#359](https://github.com/fajarhide/omni/issues/359)).
 ## Numbers
 
 How much OMNI saves depends on what your agent does. On a file read twice it is 97.2%. On
-40 public [SWE-bench](https://www.swebench.com/) repos, mostly source reads, it is 30.3%. On
+40 [SWE-bench](https://www.swebench.com/) tasks across 10 public repos, mostly source reads, it is 30.3%. On
 a shell-heavy week of real commands it is 2.4%, and on that corpus OMNI is behind
 headroom and lean-ctx. Run `omni stats` for your own figure.
 

@@ -49,7 +49,7 @@ brew install fajarhide/tap/omni && omni init
 | تشغيل بناء أو اختبار مزدحم بالضوضاء | يحتفظ بالنتيجة والإخفاقات، ويُسقط ضجيج التقدم |
 | تشغيل `git log` أو `git status` | يحتفظ بكل كوميت، ويلخّص الحالة |
 | طباعة توكن أو كلمة مرور | يستبدلها بـ `[REDACTED]` قبل أن يراها النموذج |
-| الوقوع في أمر فاشل | يتركه كما هو تمامًا، فيصل الخطأ الحقيقي إلى الوكيل |
+| الوقوع في أمر فاشل | يتركه كما هو تمامًا، فيصل الخطأ الحقيقي إلى الوكيل، بما في ذلك أي سر داخله |
 | قراءة JSON أو YAML أو CSV | يتركها بايتًا ببايت، فتبقى الخطوة التالية قادرة على تحليلها |
 
 <table>
@@ -121,7 +121,7 @@ omni doctor    # check it is wired, or `omni doctor --fix`
 
 | المستوى | الوكلاء | ما يستطيع OMNI فعله |
 |---|---|---|
-| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider | يعيد كتابة مخرجات الأدوات قبل أن يقرأها النموذج |
+| **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| omni`) | يعيد كتابة مخرجات الأدوات قبل أن يقرأها النموذج |
 | **Handoff-first** | Cursor, Windsurf | يختصر ما يشغّله الوكيل عبر `omni_run` |
 | **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | الذاكرة والاسترجاع، إضافةً إلى `omni_run` |
 
@@ -150,8 +150,8 @@ omni doctor    # check it is wired, or `omni doctor --fix`
 
 <div dir="rtl">
 
-يعتمد مقدار ما يوفّره OMNI على ما يفعله وكيلك. في ملف يُقرأ مرتين يبلغ 97.2%. وعلى 40
-مستودعًا عامًا من [SWE-bench](https://www.swebench.com/)، معظمها قراءات مصدرية، يبلغ
+يعتمد مقدار ما يوفّره OMNI على ما يفعله وكيلك. في ملف يُقرأ مرتين يبلغ 97.2%. وعلى 40 مهمة من
+[SWE-bench](https://www.swebench.com/) عبر 10 مستودعات عامة، معظمها قراءات مصدرية، يبلغ
 30.3%. وفي أسبوع كثيف بأوامر الصدفة من أوامر حقيقية يبلغ 2.4%، وفي تلك المجموعة يتأخر
 OMNI عن headroom وlean-ctx. شغّل `omni stats` لتعرف رقمك أنت.
 
