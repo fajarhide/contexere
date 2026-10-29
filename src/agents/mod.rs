@@ -12,6 +12,7 @@ pub mod multiagent;
 pub mod openclaw;
 pub mod output;
 pub mod pi;
+pub(crate) mod probe;
 
 pub use claude::ClaudeIntegration;
 pub use cline::ClineIntegration;

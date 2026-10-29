@@ -193,6 +193,17 @@ impl AgentIntegration for CodexIntegration {
                     "Trust:".bright_black(),
                     "recorded; re-approve after any upgrade (hash re-checked)".bright_black()
                 );
+
+                // Only once trusted: doctor must not run a hook the user has not approved.
+                // Codex parses replaced tool output but does not apply it yet, so this
+                // proves the hook runs, not that the model is protected.
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&hooks_content)
+                    && let Some(hook) =
+                        crate::agents::probe::registered_post_hook(&val, "PostToolUse")
+                    && !crate::agents::probe::report(&hook, false, warnings)
+                {
+                    all_ok = false;
+                }
             }
         } else {
             all_ok = false;
