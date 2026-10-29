@@ -494,11 +494,44 @@ fn is_bare_pass(key: &str) -> bool {
     k.eq_ignore_ascii_case("pass")
 }
 
-/// A brace expression is code, not a value: React's `key={item}` came back as
-/// invalid TSX (#530). Only for the weak `KEY` pattern, so a JSON credential
-/// stays redacted.
+/// A brace expression or a Python lambda is code, not a value: React's
+/// `key={item}` came back as invalid TSX (#530), and `key=lambda t: t[0]` lost
+/// the comparator of a sort (#908). Only for the weak `KEY` pattern, so a JSON
+/// credential stays redacted.
 fn looks_like_code_expression(value: &str) -> bool {
-    value.trim_start().starts_with('{')
+    let value = value.trim_start();
+    value.starts_with('{')
+        || value
+            .trim_start_matches('(')
+            .strip_prefix("lambda")
+            .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == ':'))
+}
+
+/// Database and cache schemes, whose path names a database, never a secret.
+/// An `https` path can be the secret itself, as in a Slack webhook (#946 review).
+const CONNECTION_SCHEMES: &[&str] = &[
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mariadb",
+    "redis",
+    "rediss",
+    "mongodb",
+    "mongodb+srv",
+];
+
+/// A connection URL with no userinfo, query or fragment names a location and
+/// holds no secret (#894). `postgres://app:pw@db/x` and `?token=` stay
+/// redacted. Only for `*_URL` keys and `CONNECTION_SCHEMES`.
+fn is_a_url_without_credentials(key: &str, literal: &str) -> bool {
+    let url = literal.trim().trim_end_matches([',', ';']);
+    key.trim().to_uppercase().ends_with("_URL")
+        && url.split_once("://").is_some_and(|(scheme, rest)| {
+            CONNECTION_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
+                && !rest.is_empty()
+                && !rest.contains(['@', '?', '#'])
+                && !rest.contains(char::is_whitespace)
+        })
 }
 
 /// A shell expansion names a value instead of holding one, so it applies to
@@ -557,6 +590,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
+        || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
     {
         return None;
     }
@@ -1428,6 +1462,49 @@ mod tests {
         assert!(!out.contains("service_account"), "secret delivered:\n{out}");
     }
 
+    /// A Python `key=lambda` comparator survives; a strong key holding the same
+    /// shape is still a secret (#908).
+    #[test]
+    fn keeps_a_lambda_key_and_still_redacts_a_strong_key() {
+        let py = "ordered = sorted(\n    pairs,\n    key=lambda t: (t[0], t[1]),\n    sort_key=lambda t: t[1],\n)\n";
+        assert!(
+            redact_sensitive_assignments(py).is_none(),
+            "a comparator is code, so the file is delivered as written"
+        );
+        assert!(redact_assignment("key", "(lambda t: t[0]),").is_none());
+        assert!(redact_assignment("key", "lambda\tt: t[0],").is_none());
+        assert!(redact_assignment("TOKEN", "=lambda").is_some());
+        assert!(redact_assignment("PASSWORD", "lambda x: x").is_some());
+        assert!(redact_assignment("api_key", "lambdas3cr3t").is_some());
+    }
+
+    /// A URL without credentials is delivered; one carrying them is not (#894).
+    #[test]
+    fn keeps_a_url_without_credentials_and_redacts_one_with_them() {
+        let env =
+            "DATABASE_URL=postgres://localhost:5432/appdb\nREDIS_URL=\"redis://cache:6379/0\"\n";
+        assert!(
+            redact_sensitive_assignments(env).is_none(),
+            "host, port and database are what the line is read for"
+        );
+        for (key, value) in [
+            ("DATABASE_URL", "postgres://app:pw@db:5432/x"),
+            ("MONGO_URL", "mongodb://db/x?authSource=admin&password=pw"),
+            ("REDIS_URL", "redis://:pw@cache:6379"),
+            ("DATABASE_URL", "localhost:5432"),
+            (
+                "API_WEBHOOK_URL",
+                "https://hooks.slack.com/services/T1/B2/secret",
+            ),
+            ("DATABASE_URL", "\"postgres://app:\"\"pw@db/x\""),
+        ] {
+            assert!(
+                redact_assignment(key, value).is_some(),
+                "{key}={value} delivered"
+            );
+        }
+    }
+
     /// `apiKey = ""` is empty, and a redacted value keeps its comma (#726).
     #[test]
     fn keeps_empty_defaults_and_the_punctuation_after_a_secret() {
@@ -1661,7 +1738,7 @@ mod tests {
             "API_KEY=myapikey",
             "PASSWORD=mypassword",
             "AUTH_TOKEN=myauth",
-            "DATABASE_URL=postgres://secret",
+            "DATABASE_URL=postgres://app:secret@db:5432/x",
             "AWS_SECRET_ACCESS_KEY=awssecret",
             "OPENAI_API_KEY=sk-abc",
             "GEMINI_API_KEY=gem-abc",
@@ -1679,7 +1756,7 @@ mod tests {
         assert!(!result.contains("myapikey"));
         assert!(!result.contains("mypassword"));
         assert!(!result.contains("myauth"));
-        assert!(!result.contains("postgres://secret"));
+        assert!(!result.contains("app:secret"));
         assert!(!result.contains("awssecret"));
         assert!(!result.contains("sk-abc"));
         assert!(!result.contains("gem-abc"));
