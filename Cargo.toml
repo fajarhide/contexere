@@ -1,6 +1,6 @@
 [package]
 name = "contexere"
-version = "0.7.13"
+version = "0.8.0"
 edition = "2024"
 authors = ["Fajar Hidayat"]
 # No ratio here on purpose. A crates.io description cannot carry the window and the
