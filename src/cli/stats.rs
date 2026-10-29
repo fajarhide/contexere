@@ -670,7 +670,7 @@ fn card_svg(f: &ShareFigures, w: u32, h: u32) -> String {
 <rect width="{w}" height="{h}" fill="#0b0f14"/>
 <rect x="0" y="0" width="{bar}" height="{h}" fill="#22d3a6"/>
 <g font-family="DejaVu Sans Mono, Menlo, Consolas, monospace" font-style="normal" fill="#e6edf3">
-<text x="{x}" y="{ty}" font-size="{wm}" font-weight="700" fill="#22d3a6">OMNI</text>
+<text x="{x}" y="{ty}" font-size="{wm}" font-weight="700" fill="#22d3a6">Contexere</text>
 "##,
         bar = px(10.0).round(),
         x = pad.round(),

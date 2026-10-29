@@ -190,7 +190,7 @@ fn page(store: &Store) -> String {
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OMNI</title>
+<title>Contexere</title>
 <style>
 :root {{ color-scheme: light dark; }}
 body {{ font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 auto; max-width: 46rem; padding: 2rem 1rem; }}
@@ -203,7 +203,7 @@ td, th {{ padding: .35rem .5rem; text-align: left; border-bottom: 1px solid rgba
 .n {{ text-align: right; font-variant-numeric: tabular-nums; }}
 footer {{ margin-top: 3rem; font-size: .8rem; opacity: .6; }}
 </style></head><body>
-<h1>OMNI</h1>
+<h1>Contexere</h1>
 <h2>Session lifetime</h2>
 {lifetime}
 <h2>Pipeline diagnostic</h2>

@@ -1,4 +1,4 @@
-# Contributing to OMNI
+# Contributing to Contexere
 
 One document. Standards, architecture and workflow, for humans and for AI assistants
 alike, because there is no useful version of this that differs between the two.
@@ -6,8 +6,8 @@ alike, because there is no useful version of this that differs between the two.
 ## Get it building
 
 ```bash
-git clone https://github.com/fajarhide/omni
-cd omni
+git clone https://github.com/fajarhide/contexere
+cd contexere
 cargo build
 OMNI_DB_PATH=/tmp/omni-test.db cargo test
 ```
@@ -22,11 +22,28 @@ so run `source "$HOME/.cargo/env"` first if you have both.
 `~/.omni/omni.db` cause SQLite locks: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one.
 
-## What OMNI is trying to be
+## Naming: Contexere, not OMNI
+
+The project was called OMNI until 0.8.0 (#876). Write **Contexere** in anything a
+person reads: docs, help text, output titles, issues, PRs and commit messages. The
+binary is `contexere`.
+
+Some old names stay on purpose, because something reads them. Do not rename these
+without the migration plan in #876:
+
+| Kept | Why |
+| --- | --- |
+| the `omni` command | existing hooks and MCP entries call it; it is the same program |
+| `[OMNI` markers and the `omni retrieve` hint | agents and skills parse them |
+| `OMNI_*` variables, `~/.omni`, `omni.db` | the code reads them; `CONTEXERE_*` is folded onto `OMNI_*` at startup and wins |
+| `omni_*` MCP tools when run as `omni` | a host registered against `omni --mcp` keeps calling them |
+| `fajarhide/tap/omni` | `brew upgrade` cannot cross a formula rename; `fajarhide/tap/contexere` is an alias |
+
+## What Contexere is trying to be
 
 Read this before writing code. It decides what a good change looks like here.
 
-OMNI removes noise from what an agent reads, **without removing the answer and without
+Contexere removes noise from what an agent reads, **without removing the answer and without
 overstating what it removed.** Compression is the easy half. A distiller that deletes
 a whole `kubectl` table and reports 99% saved compressed perfectly and did the job
 wrongly.
@@ -174,7 +191,7 @@ is correct before pricing what it is worth, too: an import-graph feature sized a
 traces until the graph itself turned out to be wrong, then sized at 26.
 
 Read the rows before quoting an aggregate over them, and never read `sqlite3` output
-through the Bash hook while investigating OMNI, because the pipeline can fold the rows
+through the Bash hook while investigating Contexere, because the pipeline can fold the rows
 you are counting.
 
 ## Rust standards
@@ -211,7 +228,7 @@ The CI matrix includes `windows-latest`. Four rules keep it green.
    The ledger splits with `split_inclusive('\n')` rather than `lines()` for exactly
    this reason: `lines()` drops the terminator, so rebuilding would silently rewrite
    every CRLF payload on Windows.
-3. **The binary is not always `./omni`.** Use `std::env::consts::EXE_SUFFIX`.
+3. **The binary is not always `./contexere`.** Use `std::env::consts::EXE_SUFFIX`.
 4. **Windows environment variables are case-insensitive.** Use `eq_ignore_ascii_case`
    when reading `std::env::vars()`.
 
@@ -311,20 +328,20 @@ and fix or reply before merging.
 The bar is higher than "describe the problem", because a distiller bug is only
 believable with both outputs side by side.
 
-1. **A runnable reproduction using `omni exec`.** The form is exact:
-   `omni exec npm run dev`, not `omni exec -- npm run dev`.
+1. **A runnable reproduction using `contexere exec`.** The form is exact:
+   `contexere exec npm run dev`, not `contexere exec -- npm run dev`.
 2. **Raw against distilled, quoted verbatim**, including the `[OMNI Active]` footer.
    The footer is often the point: the worst bugs here report the highest reductions.
 3. **The line in `src/` that decides it**, if you traced it. Say plainly when you did
    not; an issue that overstates a mechanism gets fixed in the wrong place.
-4. **Environment**: `omni --version`, OS, and the real toolchain versions.
+4. **Environment**: `contexere --version`, OS, and the real toolchain versions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real
 terminal output carries hostnames, account ids and internal addresses more often than
 people expect.
 
 Read the **whole** distilled output before filing. Grepping it hides the group headers
-that often make the output lossless after all, and OMNI is non-deterministic against a
+that often make the output lossless after all, and Contexere is non-deterministic against a
 warm database, so isolate `OMNI_DB_PATH` per run.
 
 Three classes, and they are not equally urgent:
@@ -339,7 +356,7 @@ Three classes, and they are not equally urgent:
 
 - A distiller for a tool not covered
 - A signal for a tool whose noise is line-shaped
-- **A reproduction of any case where OMNI's output claims more than its input
+- **A reproduction of any case where Contexere's output claims more than its input
   supports.** Worth more than it sounds, and the reason this project keeps its
   standards where it does.
 - Performance work, with a before and after measured by removal rather than by
@@ -351,7 +368,7 @@ Three classes, and they are not equally urgent:
 `README.md` changes must reach `i18n/README-{ja,zh,ar,id,vi,ko}.md`. Those files sit
 one level deeper, so assets are `../media/…` and root links are `../CONTRIBUTING.md`.
 
-Keep **OMNI**, **RewindStore**, **MCP** and **Hook** as they are. Translate
+Keep **Contexere**, the `[OMNI` markers, **RewindStore**, **MCP** and **Hook** as they are. Translate
 "distillation" and "Semantic Signal Engine" with local technical terms.
 
 ## Licence
