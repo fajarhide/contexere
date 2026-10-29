@@ -141,8 +141,9 @@ impl AgentIntegration for &'static McpHost {
         if let Some(obj) = val.as_object_mut() {
             let servers = obj.entry(self.key).or_insert_with(|| json!({}));
             if let Some(servers) = servers.as_object_mut() {
+                super::drop_omni_server(servers);
                 servers.insert(
-                    "omni".to_string(),
+                    super::SERVER_KEY.to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
@@ -176,7 +177,7 @@ impl AgentIntegration for &'static McpHost {
         if let Some(obj) = val.as_object_mut()
             && let Some(servers) = obj.get_mut(self.key).and_then(|v| v.as_object_mut())
         {
-            servers.remove("omni");
+            super::drop_server(servers);
         }
 
         fs::write(&path, serde_json::to_string_pretty(&val)?)?;

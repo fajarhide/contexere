@@ -30,14 +30,22 @@ impl AgentIntegration for CodexIntegration {
             String::new()
         };
 
-        // A sub-table alone declares `mcp_servers.omni` with no transport, and Codex
-        // then refuses to start ("invalid transport"). Checked by transport, not by
-        // name, so install repairs what an old uninstall left (#351).
+        // The server an omni install wrote is replaced, not kept beside ours (#876).
+        let legacy = strip_legacy_server(&content);
+        let replaced = legacy.is_some();
+        if let Some(stripped) = legacy {
+            content = stripped;
+        }
+        // A sub-table alone declares `mcp_servers.contexere` with no transport, and
+        // Codex then refuses to start ("invalid transport"). Checked by transport,
+        // not by name, so install repairs what an old uninstall left (#351).
         if !declares_transport(&content) {
             content.push_str(&format!(
-                "\n[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
+                "\n[mcp_servers.contexere]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
                 exe_path
             ));
+            fs::write(&config_path, content)?;
+        } else if replaced {
             fs::write(&config_path, content)?;
         }
 
@@ -81,9 +89,12 @@ impl AgentIntegration for CodexIntegration {
 
         let config_path = codex_dir.join("config.toml");
         if config_path.exists() {
-            let content = fs::read_to_string(&config_path)?;
-            if content.contains("[mcp_servers.omni") {
-                let new_content = strip_omni_server(&content);
+            let read = fs::read_to_string(&config_path)?;
+            let legacy = strip_legacy_server(&read);
+            let had_legacy = legacy.is_some();
+            let content = legacy.unwrap_or(read);
+            if had_legacy || content.contains("[mcp_servers.contexere") {
+                let new_content = strip_server(&content, "contexere");
                 fs::write(&config_path, new_content.trim_end().to_string() + "\n")?;
                 crate::agent_report!(
                     "  {} Removed MCP Server from {}",
@@ -113,8 +124,8 @@ impl AgentIntegration for CodexIntegration {
 
         if config_path.exists()
             && fs::read_to_string(&config_path)
-                .unwrap_or_default()
-                .contains("omni")
+                .map(|c| super::names_us(&c))
+                .unwrap_or(false)
         {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -247,14 +258,14 @@ impl AgentIntegration for CodexIntegration {
     }
 }
 
-/// True when `mcp_servers.omni` is declared with a transport, the only state
+/// True when `mcp_servers.contexere` is declared with a transport, the only state
 /// Codex starts from. A bare sub-table also declares the name.
 fn declares_transport(config: &str) -> bool {
     let mut in_parent = false;
     for line in config.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            in_parent = t == "[mcp_servers.omni]";
+            in_parent = t == "[mcp_servers.contexere]";
             continue;
         }
         if in_parent && t.starts_with("command") {
@@ -264,15 +275,36 @@ fn declares_transport(config: &str) -> bool {
     false
 }
 
-/// Removes `[mcp_servers.omni]` and every `[mcp_servers.omni.*]` sub-table; a
+/// The `[mcp_servers.omni]` block an omni install wrote, gone. `None` when there
+/// is no such block or its command is not the omni binary: then it is someone
+/// else's (#876).
+fn strip_legacy_server(config: &str) -> Option<String> {
+    let mut in_block = false;
+    let ours = config.lines().any(|line| {
+        let t = line.trim();
+        if t.starts_with('[') {
+            in_block = t == "[mcp_servers.omni]";
+            return false;
+        }
+        in_block
+            && t.split_once('=').is_some_and(|(k, v)| {
+                k.trim() == "command" && super::runs_omni_binary(v.trim().trim_matches('"'))
+            })
+    });
+    ours.then(|| strip_server(config, "omni"))
+}
+
+/// Removes `[mcp_servers.<name>]` and every `[mcp_servers.<name>.*]` sub-table; a
 /// surviving sub-table leaves a server Codex cannot start (#351).
-fn strip_omni_server(config: &str) -> String {
+fn strip_server(config: &str, name: &str) -> String {
+    let parent = format!("[mcp_servers.{name}]");
+    let child = format!("[mcp_servers.{name}.");
     let mut out = String::with_capacity(config.len());
     let mut skip = false;
     for line in config.lines() {
         let t = line.trim();
         if t.starts_with('[') {
-            skip = t == "[mcp_servers.omni]" || t.starts_with("[mcp_servers.omni.");
+            skip = t == parent || t.starts_with(&child);
         }
         if !skip {
             out.push_str(line);
@@ -398,7 +430,7 @@ fn ensure_hook_entry(arr_val: &mut Value, cmd: &str) {
 
 /// True for a hook command this tool installed, in either shape it has written.
 fn is_omni_hook_command(cmd: &str) -> bool {
-    cmd.contains("omni")
+    super::names_us(cmd)
         && (cmd.contains("--pre-hook")
             || cmd.contains("--post-hook")
             || cmd.contains("--session-start"))
@@ -446,6 +478,21 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    /// #876: a hook an omni install wrote is replaced by contexere's, not kept beside it.
+    #[test]
+    fn an_omni_hook_is_replaced_by_the_contexere_one() {
+        let mut arr = json!([{
+            "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/omni --pre-hook" }]
+        }]);
+        ensure_hook_entry(&mut arr, "/opt/homebrew/bin/contexere --pre-hook");
+        let arr = arr.as_array().unwrap();
+        assert_eq!(arr.len(), 1, "{arr:?}");
+        assert_eq!(
+            arr[0]["hooks"][0]["command"],
+            "/opt/homebrew/bin/contexere --pre-hook"
+        );
+    }
 
     #[test]
     fn replaces_an_entry_that_points_at_an_older_binary_path() {
@@ -577,20 +624,20 @@ mod tests {
         let config = "\
 model = \"x\"
 
-[mcp_servers.omni]
+[mcp_servers.contexere]
 type = \"stdio\"
-command = \"/usr/local/bin/omni\"
+command = \"/usr/local/bin/contexere\"
 args = [\"--mcp\"]
 
-[mcp_servers.omni.tools.omni_session]
+[mcp_servers.contexere.tools.contexere_session]
 approval_mode = \"approve\"
 
 [model_providers.other]
 name = \"Other\"
 ";
-        let out = strip_omni_server(config);
+        let out = strip_server(config, "contexere");
         assert!(
-            !out.contains("mcp_servers.omni"),
+            !out.contains("mcp_servers.contexere"),
             "an orphaned sub-table bricks Codex:\n{out}"
         );
         assert!(
@@ -599,17 +646,31 @@ name = \"Other\"
         );
     }
 
+    /// #876: the server an omni install registered goes; one someone else named
+    /// omni stays.
+    #[test]
+    fn strips_only_the_omni_server_omni_wrote() {
+        let ours = "[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"/opt/homebrew/bin/omni\"\nargs = [\"--mcp\"]\n\n[mcp_servers.other]\ncommand = \"x\"\n";
+        let out = strip_legacy_server(ours).expect("ours");
+        assert!(
+            !out.contains("mcp_servers.omni") && out.contains("mcp_servers.other"),
+            "{out}"
+        );
+        let theirs = "[mcp_servers.omni]\ncommand = \"/opt/their/tool\"\n";
+        assert!(strip_legacy_server(theirs).is_none());
+    }
+
     #[test]
     fn an_orphaned_sub_table_counts_as_missing_a_transport() {
-        let orphan = "[mcp_servers.omni.tools.omni_session]\napproval_mode = \"approve\"\n";
+        let orphan =
+            "[mcp_servers.contexere.tools.contexere_session]\napproval_mode = \"approve\"\n";
         assert!(!declares_transport(orphan));
 
-        let complete = "[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"/usr/local/bin/omni\"\nargs = [\"--mcp\"]\n";
+        let complete = "[mcp_servers.contexere]\ntype = \"stdio\"\ncommand = \"/usr/local/bin/contexere\"\nargs = [\"--mcp\"]\n";
         assert!(declares_transport(complete));
 
         // Another server's `command` is not ours.
-        let other =
-            "[mcp_servers.other]\ncommand = \"/bin/other\"\n\n[mcp_servers.omni.tools.x]\na = 1\n";
+        let other = "[mcp_servers.other]\ncommand = \"/bin/other\"\n\n[mcp_servers.contexere.tools.x]\na = 1\n";
         assert!(!declares_transport(other));
     }
 

@@ -1499,7 +1499,34 @@ impl OmniServer {
 
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
-        Self::router_for(&agent_id)
+        let router = Self::router_for(&agent_id);
+        if crate::legacy::invoked_as_omni() {
+            router
+        } else {
+            Self::with_prefix(router, "contexere")
+        }
+    }
+
+    /// Serve every `omni_*` tool as `<prefix>_*`. The tools keep their `omni_`
+    /// names inside, as policy and analytics key on them; `contexere` presents
+    /// them under its own name and `omni` as before, so a host registered
+    /// against `omni --mcp` sees what it saw (#876). Renamed rather than doubled,
+    /// so the advertised surface costs the same bytes.
+    fn with_prefix(
+        mut router: rmcp::handler::server::router::tool::ToolRouter<Self>,
+        prefix: &str,
+    ) -> rmcp::handler::server::router::tool::ToolRouter<Self> {
+        let names: Vec<String> = router.map.keys().map(|k| k.to_string()).collect();
+        for name in names {
+            let Some(new) = name.strip_prefix("omni_").map(|r| format!("{prefix}_{r}")) else {
+                continue;
+            };
+            if let Some(mut route) = router.map.remove(name.as_str()) {
+                route.attr.name = new.clone().into();
+                router.map.insert(new.into(), route);
+            }
+        }
+        router
     }
 }
 
@@ -1540,6 +1567,24 @@ pub async fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    /// #876: under the new name every tool is served as `contexere_*`, none is
+    /// lost, and each route answers to the name it advertises.
+    #[test]
+    fn the_new_name_serves_every_tool_as_contexere() {
+        let omni = OmniServer::router_from("claude_code", true);
+        let renamed =
+            OmniServer::with_prefix(OmniServer::router_from("claude_code", true), "contexere");
+        assert_eq!(omni.list_all().len(), renamed.list_all().len());
+        for tool in renamed.list_all() {
+            assert!(tool.name.starts_with("contexere_"), "{}", tool.name);
+            assert!(
+                renamed.map.contains_key(tool.name.as_ref()),
+                "{}",
+                tool.name
+            );
+        }
+    }
 
     /// On Cursor this is the only path that distils a command, so it must shorten (#351).
     #[cfg(unix)]

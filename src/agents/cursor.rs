@@ -57,7 +57,12 @@ impl AgentIntegration for CursorIntegration {
         crate::agent_report!("  {} Removed Hooks from ~/.cursor/hooks.json", "✓".yellow());
 
         let rule = project_rule_path();
-        if rule.exists() && fs::read_to_string(&rule).unwrap_or_default() == CURSOR_RULE {
+        let written = fs::read_to_string(&rule).unwrap_or_default();
+        if rule.exists()
+            && ["omni", "contexere"]
+                .iter()
+                .any(|n| written == cursor_rule(n))
+        {
             let _ = fs::remove_file(&rule);
             crate::agent_report!("  {} Removed .cursor/rules/omni.mdc", "✓".yellow());
         }
@@ -184,13 +189,20 @@ impl AgentIntegration for CursorIntegration {
 /// The rule text a Cursor user needs. No hook can replace Cursor's tool output
 /// (#349), so `omni_run` is the only path (#351) and the agent has to be told
 /// to use it. Two lines, because rules cost context on every session (#352).
-pub const CURSOR_RULE: &str = "\
+///
+/// Names the tool by the name this process serves it under: `omni` still serves
+/// `omni_run`, `contexere` serves `contexere_run` (#876).
+pub fn cursor_rule(server: &str) -> String {
+    format!(
+        "\
 ---
 alwaysApply: true
 ---
-Run shell commands with the `omni_run` MCP tool instead of the built-in shell tool.
+Run shell commands with the `{server}_run` MCP tool instead of the built-in shell tool.
 Its output is filtered to signal before it reaches you, which the built-in tool cannot do on this host.
-";
+"
+    )
+}
 
 /// Where a project's Cursor rules live, relative to its root.
 fn project_rule_path() -> PathBuf {
@@ -218,7 +230,7 @@ fn install_cursor_rule() -> anyhow::Result<()> {
             "    from a repository, or save this as {}:\n",
             ".cursor/rules/omni.mdc".bold()
         );
-        for line in CURSOR_RULE.lines() {
+        for line in cursor_rule(crate::legacy::mcp_name()).lines() {
             crate::agent_report!("      {}", line.bright_black());
         }
         return Ok(());
@@ -228,7 +240,7 @@ fn install_cursor_rule() -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&path, CURSOR_RULE)?;
+    fs::write(&path, cursor_rule(crate::legacy::mcp_name()))?;
     crate::agent_report!(
         "  {} Wrote {} so the agent reaches for {}",
         "✓".green(),
@@ -268,7 +280,7 @@ fn installed_hook_events(hooks_path: &PathBuf) -> Vec<(String, String)> {
             let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) else {
                 continue;
             };
-            if !cmd.contains("omni") {
+            if !super::names_us(cmd) {
                 continue;
             }
             // Longest flag first: `--post-hook` also contains `--hook`.
@@ -322,8 +334,9 @@ fn install_mcp_server(val: &mut Value, exe_path: &str) {
         .or_insert_with(|| json!({}))
         .as_object_mut()
         .unwrap();
+    super::drop_omni_server(servers);
     servers.insert(
-        "omni".to_string(),
+        super::SERVER_KEY.to_string(),
         json!({
             "type": "stdio", "command": exe_path, "args": ["--mcp"],
             "env": { "OMNI_AGENT_ID": "cursor" }
@@ -335,14 +348,18 @@ fn remove_mcp_server(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
     {
-        servers.remove("omni");
+        super::drop_server(servers);
     }
 }
 
 fn has_valid_omni_server(val: &Value) -> bool {
     val.get("mcpServers")
         .and_then(|v| v.as_object())
-        .and_then(|servers| servers.get("omni"))
+        .and_then(|servers| {
+            servers
+                .get(super::SERVER_KEY)
+                .or_else(|| servers.get("omni"))
+        })
         .is_some_and(|omni| {
             omni.get("command").and_then(|v| v.as_str()).is_some()
                 && omni
@@ -424,7 +441,7 @@ fn retain_non_omni(hooks: &mut serde_json::Map<String, Value>) {
         if let Some(arr) = arr_val.as_array_mut() {
             arr.retain(|v| {
                 v.get("command").and_then(|c| c.as_str()).is_none_or(|c| {
-                    !(c.contains("omni")
+                    !(super::names_us(c)
                         && (c.contains("--pre-hook")
                             || c.contains("--post-hook")
                             || c.contains("--hook")))
@@ -458,6 +475,26 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
 mod tests {
     use super::*;
 
+    /// #876: omni's hooks and server are replaced, not doubled.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks_and_server() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("hooks.json");
+        install_omni_hooks_at(&path, "/opt/homebrew/bin/omni").expect("omni");
+        install_omni_hooks_at(&path, "/opt/homebrew/bin/contexere").expect("contexere");
+        let text = fs::read_to_string(&path).expect("read");
+        assert!(!text.contains("bin/omni"), "{text}");
+        assert!(text.contains("bin/contexere"), "{text}");
+
+        let mut val = json!({ "mcpServers": { "omni": {"command": "/opt/homebrew/bin/omni"} } });
+        install_mcp_server(&mut val, "/opt/homebrew/bin/contexere");
+        let servers = val["mcpServers"].as_object().expect("servers");
+        assert!(
+            servers.contains_key("contexere") && !servers.contains_key("omni"),
+            "{val}"
+        );
+    }
+
     #[test]
     fn install_mcp_server_is_idempotent() {
         let mut val = json!({});
@@ -468,7 +505,7 @@ mod tests {
             .and_then(|v| v.as_object())
             .expect("mcpServers exists");
         assert_eq!(servers.len(), 1);
-        assert!(servers.contains_key("omni"));
+        assert!(servers.contains_key("contexere"));
     }
 
     #[test]
@@ -506,16 +543,17 @@ mod tests {
     /// The rule needs `alwaysApply` or Cursor never loads it.
     #[test]
     fn the_printed_cursor_rule_is_valid_and_short() {
+        let rule = cursor_rule("contexere");
         assert!(
-            CURSOR_RULE.starts_with("---\nalwaysApply: true\n---\n"),
-            "a rule without alwaysApply is never included:\n{CURSOR_RULE}"
+            rule.starts_with("---\nalwaysApply: true\n---\n"),
+            "a rule without alwaysApply is never included:\n{rule}"
         );
         assert!(
-            CURSOR_RULE.contains("omni_run"),
-            "the rule must name the tool it exists to steer toward"
+            rule.contains("contexere_run") && cursor_rule("omni").contains("omni_run"),
+            "the rule must name the tool the server is serving"
         );
 
-        let body: Vec<&str> = CURSOR_RULE
+        let body: Vec<&str> = rule
             .lines()
             .skip_while(|l| *l == "---" || l.starts_with("alwaysApply"))
             .filter(|l| !l.trim().is_empty() && *l != "---")

@@ -38,8 +38,9 @@ impl AgentIntegration for GeminiIntegration {
         if let Some(obj) = val.as_object_mut() {
             let mcp_servers = obj.entry("mcpServers").or_insert_with(|| json!({}));
             if let Some(servers) = mcp_servers.as_object_mut() {
+                super::drop_omni_server(servers);
                 servers.insert(
-                    "omni".to_string(),
+                    super::SERVER_KEY.to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
@@ -80,7 +81,7 @@ impl AgentIntegration for GeminiIntegration {
         if let Some(obj) = val.as_object_mut() {
             // Only our server entry; the map holds the user's others.
             if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
-                servers.remove("omni");
+                super::drop_server(servers);
             }
         }
 
@@ -286,7 +287,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("omni")
+                                super::names_us(c)
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook"))
@@ -303,6 +304,21 @@ pub fn remove_omni_hooks(val: &mut Value) {
 
 #[cfg(test)]
 mod tests {
+    /// #876: omni's hooks are replaced, not doubled, and uninstall takes ours.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks() {
+        let mut val = json!({});
+        install_omni_hooks(&mut val, "/opt/homebrew/bin/omni");
+        install_omni_hooks(&mut val, "/opt/homebrew/bin/contexere");
+        let text = val.to_string();
+        assert!(!text.contains("bin/omni"), "{text}");
+        remove_omni_hooks(&mut val);
+        assert!(
+            !val.to_string().contains("bin/contexere"),
+            "uninstall leaves ours behind"
+        );
+    }
+
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});
@@ -318,7 +334,7 @@ mod tests {
                 .iter()
                 .flat_map(|m| m["hooks"].as_array().cloned().unwrap_or_default())
                 .filter_map(|h| h["command"].as_str().map(str::to_string))
-                .filter(|c| c.contains("omni"))
+                .filter(|c| crate::agents::names_us(c))
                 .collect();
             assert_eq!(
                 ours.len(),
