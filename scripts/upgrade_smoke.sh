@@ -91,6 +91,13 @@ run_calls() { # run_calls <old|new> <home> <out dir>
 }
 run_calls old "$ROOT/home-old" "$ROOT/out-old"
 run_calls new "$ROOT/home-new" "$ROOT/out-new"
+# The footer's running session total depends on when the previous call's
+# write landed, and was seen to differ in 1 of 3 local runs with the same
+# binaries. Everything the agent reads, the per-call figure included, must match.
+for d in out-old out-new; do
+    sed -i.bak -E 's/\| -?[0-9.]+ [KM]?B session \|/| N session |/' "$ROOT/$d"/*.json
+    rm -f "$ROOT/$d"/*.bak
+done
 diff -r "$ROOT/out-old" "$ROOT/out-new" || fail "hook replies differ after the upgrade"
 grep -q 'REDACTED' "$ROOT/out-new/3.json" || fail "the credential was not redacted"
 HANDLE=$(grep -o 'retrieve [0-9a-f]\{16\}' "$ROOT/out-new/1.json" | head -1 | cut -d' ' -f2)
