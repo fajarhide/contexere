@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-29
+
+### Changed
+- The Homebrew caveats, description and homepage, the share card, the dashboard and two manual diagrams now say Contexere; `fajarhide/tap/contexere` installs the same formula as `fajarhide/tap/omni`, and CONTRIBUTING.md plus a new AGENTS.md set out which old names stay (#960).
+
+### Fixed
+- `contexere --version` prints `contexere`, and `omni --version` through the old link still prints `omni` (#958).
+
 ## [0.8.0] - 2026-10-29
 
 ### Changed
