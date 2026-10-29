@@ -40,12 +40,8 @@ pub fn strip_exec_wrapper(command: &str) -> &str {
     let Some((program, after_program)) = split_token(rest) else {
         return command;
     };
-    let file_name = program
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(program)
-        .trim_end_matches(".exe");
-    if file_name != "omni" {
+    let file_name = program.rsplit(['/', '\\']).next().unwrap_or(program);
+    if !crate::legacy::is_our_program(file_name) {
         return command;
     }
 
@@ -146,6 +142,11 @@ mod tests {
         assert_eq!(
             strip_exec_wrapper("C:/Users/u/omni.exe exec --agent codex_cli cargo test"),
             "cargo test"
+        );
+        assert_eq!(
+            strip_exec_wrapper("/opt/homebrew/bin/contexere exec cargo test"),
+            "cargo test",
+            "the pre-hook writes the new name, and must not wrap it twice"
         );
     }
 

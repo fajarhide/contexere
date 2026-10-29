@@ -6,6 +6,7 @@ mod graph;
 mod guard;
 mod hooks;
 mod ledger;
+mod legacy;
 mod mcp;
 mod paths;
 pub mod pipeline;
@@ -203,6 +204,7 @@ fn restore_default_sigpipe() {
 fn restore_default_sigpipe() {}
 
 fn main() {
+    legacy::adopt_env();
     restore_default_sigpipe();
 
     let args: Vec<String> = env::args().collect();

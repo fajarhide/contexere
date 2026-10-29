@@ -5,7 +5,13 @@ use dirs::home_dir;
 use std::env;
 use std::path::PathBuf;
 
-/// The legacy tree, `~/.omni`, whether or not it exists.
+/// The tree a fresh install uses, `~/.contexere`, whether or not it exists.
+fn new_home() -> PathBuf {
+    home_dir().unwrap_or_else(temp_dir).join(".contexere")
+}
+
+/// The tree an `omni` install wrote. Read in place and never moved, so going
+/// back to an `omni` release still finds its own data (#876).
 fn legacy_home() -> PathBuf {
     home_dir().unwrap_or_else(temp_dir).join(".omni")
 }
@@ -14,10 +20,11 @@ fn legacy_home() -> PathBuf {
 ///
 /// 1. `OMNI_HOME` puts the whole tree in one place.
 /// 2. `OMNI_CONFIG_HOME` / `OMNI_DATA_HOME` split config from data.
-/// 3. An existing `~/.omni` wins over XDG, so an upgrade never appears to lose
-///    a database.
-/// 4. `XDG_CONFIG_HOME/omni` / `XDG_DATA_HOME/omni` on a fresh install.
-/// 5. `~/.omni`.
+/// 3. An existing `~/.contexere`, then an existing `~/.omni`, win over XDG, so
+///    an upgrade never appears to lose a database.
+/// 4. `XDG_CONFIG_HOME/contexere` / `XDG_DATA_HOME/contexere` on a fresh
+///    install, or the `omni` directory beside it when only that one exists.
+/// 5. `~/.contexere`.
 ///
 /// Read once through a `LazyLock`: tests run in parallel in one process.
 fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
@@ -27,14 +34,23 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
     if let Some(p) = env::var_os(split_var).filter(|p| !p.is_empty()) {
         return PathBuf::from(p);
     }
-    let legacy = legacy_home();
+    let (new, legacy) = (new_home(), legacy_home());
+    if new.exists() {
+        return new;
+    }
     if legacy.exists() {
         return legacy;
     }
     if let Some(p) = env::var_os(xdg_var).filter(|p| !p.is_empty()) {
-        return PathBuf::from(p).join("omni");
+        let base = PathBuf::from(p);
+        let (new, old) = (base.join("contexere"), base.join("omni"));
+        return if !new.exists() && old.exists() {
+            old
+        } else {
+            new
+        };
     }
-    legacy
+    new
 }
 
 /// Where configuration lives: `config.toml`, `filters/`, `signals/`.
@@ -66,7 +82,19 @@ pub fn temp_dir() -> PathBuf {
 
 #[inline]
 pub fn database_path() -> PathBuf {
-    data_home().join("omni.db")
+    database_in(&data_home())
+}
+
+/// `contexere.db`, except in a tree an `omni` install left behind, where
+/// `omni.db` is read in place until a `contexere.db` exists beside it (#876).
+fn database_in(dir: &std::path::Path) -> PathBuf {
+    let new = dir.join("contexere.db");
+    let old = dir.join("omni.db");
+    if !new.exists() && old.exists() {
+        old
+    } else {
+        new
+    }
 }
 
 #[inline]
@@ -138,6 +166,18 @@ mod tests {
         assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
     }
 
+    /// #876: an upgraded install keeps reading `omni.db` where it is, and a
+    /// `contexere.db` beside it wins once one exists.
+    #[test]
+    fn reads_omni_db_in_place_until_a_contexere_db_exists() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
+        std::fs::write(dir.path().join("omni.db"), b"").expect("write");
+        assert_eq!(database_in(dir.path()), dir.path().join("omni.db"));
+        std::fs::write(dir.path().join("contexere.db"), b"").expect("write");
+        assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
+    }
+
     /// `.cargo/config.toml` points `OMNI_HOME` at `target/`; fails if either half
     /// is removed (#307).
     #[test]
@@ -149,12 +189,13 @@ mod tests {
             home.display()
         );
 
-        let real = home_dir().map(|h| h.join(".omni"));
-        assert_ne!(
-            Some(home.clone()),
-            real,
-            "the suite must not share a home with the installed binary"
-        );
+        for name in [".omni", ".contexere"] {
+            assert_ne!(
+                Some(home.clone()),
+                home_dir().map(|h| h.join(name)),
+                "the suite must not share a home with the installed binary"
+            );
+        }
     }
 
     /// Checks every path the product opens, not just the accessor (#315).

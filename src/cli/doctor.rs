@@ -1,7 +1,6 @@
 use crate::store::sqlite::Store;
 use colored::*;
 use std::fs;
-use std::path::PathBuf;
 
 /// Read by both `print_help` and `super::check_flags` (#151).
 const FLAGS: super::Flags = &[
@@ -323,9 +322,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         );
     }
 
-    let conf_dir = dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".omni");
+    let conf_dir = crate::paths::config_home();
     if conf_dir.exists() {
         // A real write catches sandbox restrictions.
         let test_file = conf_dir.join(".write_test");
