@@ -234,10 +234,11 @@ fn process_payload(
 
         // A hint only; the command is unchanged.
         let updated_input = parsed.tool_input.clone();
-        let reason = crate::legacy::tool_text(&format!(
-            "OMNI context available for {}; call omni_context if needed",
-            target_file
-        ));
+        let reason = format!(
+            "OMNI context available for {}; call {} if needed",
+            target_file,
+            crate::legacy::tool_name("context")
+        );
 
         let output = PreHookOutput {
             hook_specific_output: HookSpecificOutput {

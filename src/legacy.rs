@@ -54,14 +54,12 @@ pub fn mcp_name() -> &'static str {
     }
 }
 
-/// Model-facing text names a tool the way this process serves it: `omni` keeps
-/// `omni_run`, `contexere` says `contexere_run`.
-pub fn tool_text(text: &str) -> String {
-    rename_tools(text, mcp_name())
-}
-
-fn rename_tools(text: &str, prefix: &str) -> String {
-    text.replace("omni_", &format!("{prefix}_"))
+/// A tool's name as this process serves it: `omni` keeps `omni_run`,
+/// `contexere` says `contexere_run`. Model-facing text inserts this into the
+/// message before any user value, so a file called `omni_build.sh` is never
+/// rewritten.
+pub fn tool_name(short: &str) -> String {
+    format!("{}_{short}", mcp_name())
 }
 
 /// The tool prefix a registered server command serves, by its file name: the
@@ -122,14 +120,6 @@ mod tests {
         assert!(!file_name_is_omni("/Users/omni/bin/contexere"));
         assert_eq!(prefix_of_command("/x y/omni"), "omni");
         assert_eq!(prefix_of_command("/x/contexere"), "contexere");
-    }
-
-    #[test]
-    fn model_text_follows_the_prefix() {
-        assert_eq!(
-            rename_tools("Use omni_knowledge(\"set\") then omni_run", "contexere"),
-            "Use contexere_knowledge(\"set\") then contexere_run"
-        );
     }
 
     #[test]
