@@ -43,6 +43,36 @@ jobs:
       - name: Run canonical CI pipeline
         run: make ci
 
+  upgrade:
+    name: upgrade from the last omni release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - name: Build
+        run: cargo build --locked
+
+      # Pinned to the last release under the old name, not `latest`: once
+      # contexere ships, `latest` is contexere and the test would compare it
+      # with itself (#876).
+      - name: Upgrade and downgrade against omni v0.7.13
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP"
+          gh release download v0.7.13 --repo "$GITHUB_REPOSITORY" \
+            -p 'omni-v0.7.13-x86_64-unknown-linux-musl.tar.gz' -p SHA256SUMS
+          sha256sum -c --ignore-missing SHA256SUMS
+          tar xzf omni-v0.7.13-x86_64-unknown-linux-musl.tar.gz
+          cd "$GITHUB_WORKSPACE"
+          scripts/upgrade_smoke.sh "$RUNNER_TEMP/omni" target/debug/contexere
+
   test-matrix:
     name: cargo test (${{ matrix.os }})
     # Deliberately not `needs: ci`. Serialising behind ubuntu made the wall clock
