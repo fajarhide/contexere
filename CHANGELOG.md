@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-29
+
+### Changed
+- Homebrew and `install.sh` install `contexere` and keep `omni` as a link to it, and release archives keep their `omni-*` names with both binaries inside, so `brew upgrade` and every registered hook keep working across the rename.
+- **The binary is now `contexere`, and nothing an existing install relies on breaks (#876)**: `omni` stays the same program, installed as a link to it, and serves its MCP tools as `omni_*`, while `contexere` serves them as `contexere_*`. `CONTEXERE_*` settings are read first and `OMNI_*` as the fallback, `~/.omni` and `omni.db` are read in place until a `~/.contexere` exists and nothing is copied or moved, and markers keep the `[OMNI` prefix and the `omni retrieve` hint. `contexere init` replaces the hook or MCP entry an omni install wrote on every host instead of adding a second one. `scripts/upgrade_smoke.sh` drives the old release's hook command against the new binary and back, and runs in CI.
+- `omni doctor` now runs the post-hook each host has registered, with a canary credential, and reports whether it fires and redacts, instead of only whether the entry exists. A registered hook that cannot run is reported as `does not fire`.
+- **The brand is now Contexere in the README, the manual and CLI copy (#956)**: titles, banners and help text say Contexere and docs use `contexere ...`; the `omni` command, `[OMNI` markers, `OMNI_*` settings and `~/.omni` are unchanged.
+
+### Fixed
+- A `*_URL` value with no `user:password@`, query or fragment, such as `postgres://localhost:5432/appdb`, is no longer redacted. A URL that carries credentials still is.
+- A Python `key=lambda` argument is no longer redacted: a lambda under a `*key` name is code, not a credential.
+- The openclaw plugin pins `@hono/node-server` 2.1.3, past the static path bypass in 2.1.1 (a development dependency).
+
 ## [0.7.13] - 2026-10-28
 
 ### Changed

@@ -1,1 +1,0 @@
-Homebrew and `install.sh` install `contexere` and keep `omni` as a link to it, and release archives keep their `omni-*` names with both binaries inside, so `brew upgrade` and every registered hook keep working across the rename.
