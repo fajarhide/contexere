@@ -111,15 +111,10 @@ impl Tier {
 /// The key a host registers our MCP server under.
 pub(crate) const SERVER_KEY: &str = "contexere";
 
-/// True when a command runs a binary named `omni`, by file name and not by
-/// substring, so `/home/omni/bin/contexere` is not taken for it.
+/// True when an MCP `command` (the binary alone, args are stored apart, so a
+/// path may hold spaces) is the omni binary, by file name and not by substring.
 pub(crate) fn runs_omni_binary(command: &str) -> bool {
-    command
-        .split_whitespace()
-        .next()
-        .map(|token| token.trim_matches(|c| c == '"' || c == '\''))
-        .and_then(|token| std::path::Path::new(token).file_stem())
-        .is_some_and(|stem| stem == "omni")
+    crate::legacy::file_name_is_omni(command)
 }
 
 /// A hook or server command of ours under either name. `omni` is the same
@@ -359,12 +354,16 @@ mod rename_tests {
     /// #876: an omni command is recognised by its binary name, never by substring.
     #[test]
     fn knows_an_omni_command_by_its_binary() {
-        assert!(runs_omni_binary("/opt/homebrew/bin/omni --post-hook"));
-        assert!(!runs_omni_binary("/home/omni/bin/contexere --post-hook"));
-        assert!(!runs_omni_binary("/usr/bin/omnibus --post-hook"));
+        assert!(runs_omni_binary("/opt/homebrew/bin/omni"));
+        assert!(
+            runs_omni_binary("/Users/Jane Doe/bin/omni"),
+            "a path may hold spaces"
+        );
+        assert!(!runs_omni_binary("/home/omni/bin/contexere"));
+        assert!(!runs_omni_binary("/usr/bin/omnibus"));
 
         let mut servers = serde_json::json!({
-            "omni": { "command": "/opt/homebrew/bin/omni" },
+            "omni": { "command": "/Users/Jane Doe/bin/omni" },
             "contexere": { "command": "/opt/homebrew/bin/contexere" },
             "x": { "command": "omni-other" }
         });

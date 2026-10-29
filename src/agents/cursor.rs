@@ -35,7 +35,7 @@ impl AgentIntegration for CursorIntegration {
             "Hooks".bold()
         );
 
-        install_cursor_rule()?;
+        install_cursor_rule(exe_path)?;
         Ok(())
     }
 
@@ -165,7 +165,8 @@ impl AgentIntegration for CursorIntegration {
             } else {
                 all_ok = false;
                 if fix_mode {
-                    let _ = install_cursor_rule();
+                    let exe = std::env::current_exe().unwrap_or_default();
+                    let _ = install_cursor_rule(&exe.to_string_lossy());
                 } else {
                     crate::agent_report!(
                         "   {:<21} {}",
@@ -204,6 +205,12 @@ Its output is filtered to signal before it reaches you, which the built-in tool 
     )
 }
 
+/// The rule names the tool the registered command will serve, which follows that
+/// command's file name and not the name init was typed as (#876).
+fn rule_for_exe(exe_path: &str) -> String {
+    cursor_rule(crate::legacy::prefix_of_command(exe_path))
+}
+
 /// Where a project's Cursor rules live, relative to its root.
 fn project_rule_path() -> PathBuf {
     PathBuf::from(".cursor/rules/omni.mdc")
@@ -216,7 +223,8 @@ fn in_a_project() -> bool {
 
 /// Writes the rule inside a project, prints it otherwise: `.cursor/rules/` is
 /// per project, and a printed hint went unused. Uninstall removes it.
-fn install_cursor_rule() -> anyhow::Result<()> {
+fn install_cursor_rule(exe_path: &str) -> anyhow::Result<()> {
+    let rule = rule_for_exe(exe_path);
     if !in_a_project() {
         crate::agent_report!(
             "\n  {} Not in a project, so the {} rule was not written.",
@@ -230,7 +238,7 @@ fn install_cursor_rule() -> anyhow::Result<()> {
             "    from a repository, or save this as {}:\n",
             ".cursor/rules/omni.mdc".bold()
         );
-        for line in cursor_rule(crate::legacy::mcp_name()).lines() {
+        for line in rule.lines() {
             crate::agent_report!("      {}", line.bright_black());
         }
         return Ok(());
@@ -240,7 +248,7 @@ fn install_cursor_rule() -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&path, cursor_rule(crate::legacy::mcp_name()))?;
+    fs::write(&path, rule)?;
     crate::agent_report!(
         "  {} Wrote {} so the agent reaches for {}",
         "✓".green(),
@@ -538,6 +546,14 @@ mod tests {
             !installed.iter().any(|(e, _)| e == "afterFileEdit"),
             "afterFileEdit carries no command output and must not be registered"
         );
+    }
+
+    /// #876: `omni init` through the link must not name `omni_run` when the
+    /// registered binary serves `contexere_run`, and the reverse.
+    #[test]
+    fn the_rule_follows_the_registered_binary() {
+        assert!(rule_for_exe("/usr/bin/contexere").contains("`contexere_run`"));
+        assert!(rule_for_exe("/opt/homebrew/bin/omni").contains("`omni_run`"));
     }
 
     /// The rule needs `alwaysApply` or Cursor never loads it.

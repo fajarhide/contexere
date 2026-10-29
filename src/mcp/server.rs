@@ -67,7 +67,11 @@ fn run_with_timeout(
 
     let child = match spawned {
         Ok(c) => c,
-        Err(e) => return format!("omni_run: failed to start `{command}`: {e}"),
+        Err(e) => {
+            return crate::legacy::tool_text(&format!(
+                "omni_run: failed to start `{command}`: {e}"
+            ));
+        }
     };
 
     // `wait_with_output` drains both pipes at once. Draining stdout first deadlocks
@@ -79,17 +83,21 @@ fn run_with_timeout(
 
     let output = match rx.recv_timeout(timeout) {
         Ok(Ok(o)) => o,
-        Ok(Err(e)) => return format!("omni_run: `{command}` could not be waited on: {e}"),
+        Ok(Err(e)) => {
+            return crate::legacy::tool_text(&format!(
+                "omni_run: `{command}` could not be waited on: {e}"
+            ));
+        }
         // ponytail: the reader thread owns the child, so a timed-out command is
         // abandoned rather than killed. The case that gets us here is a
         // grandchild holding the pipe open, which killing the shell would not
         // reach anyway. Revisit if orphaned shells show up in the wild.
         Err(_) => {
-            return format!(
+            return crate::legacy::tool_text(&format!(
                 "omni_run: `{command}` did not finish within {}s and was abandoned. \
                  Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher.",
                 timeout.as_secs()
-            );
+            ));
         }
     };
 
@@ -888,7 +896,9 @@ impl OmniServer {
         // Off the runtime worker: a hung command there stalled every later call (#544).
         tokio::task::spawn_blocking(move || run_and_distill(&command, store, session))
             .await
-            .unwrap_or_else(|e| format!("omni_run: could not run the command: {e}"))
+            .unwrap_or_else(|e| {
+                crate::legacy::tool_text(&format!("omni_run: could not run the command: {e}"))
+            })
     }
 
     #[tool(
@@ -1083,7 +1093,7 @@ impl OmniServer {
              \n  Active errors:      {}\
              \n  Hot files tracked:  {}\
              \n\
-             \nTip: Call omni_history() for per-command breakdown.\
+             \nTip: Call {history}() for per-command breakdown.\
              ",
             method,
             tilde,
@@ -1092,6 +1102,7 @@ impl OmniServer {
             session.command_count,
             session.active_errors.len(),
             session.hot_files.len(),
+            history = crate::legacy::tool_text("omni_history"),
         )
     }
 
@@ -1162,7 +1173,9 @@ impl OmniServer {
                 agent_id = peer.agent_id,
             ));
         }
-        out.push_str("Use omni_session(\"context\") to share your state with peers.");
+        out.push_str(&crate::legacy::tool_text(
+            "Use omni_session(\"context\") to share your state with peers.",
+        ));
         out
     }
 
@@ -1184,7 +1197,9 @@ impl OmniServer {
             "list" => {
                 let knowledge = self.store.get_project_knowledge(&project_hash);
                 if knowledge.is_empty() {
-                    return "No project knowledge stored yet.\nUse omni_knowledge(\"set\", \"key\", \"value\") to add.".to_string();
+                    return crate::legacy::tool_text(
+                        "No project knowledge stored yet.\nUse omni_knowledge(\"set\", \"key\", \"value\") to add.",
+                    );
                 }
                 let mut out = format!("Project knowledge for {}:\n\n", project_path);
                 for (k, v, conf) in &knowledge {
@@ -1196,21 +1211,29 @@ impl OmniServer {
                 let k = key.unwrap_or_default();
                 let v = value.unwrap_or_default();
                 if k.is_empty() || v.is_empty() {
-                    return "Usage: omni_knowledge(\"set\", \"key\", \"value\")".to_string();
+                    return crate::legacy::tool_text(
+                        "Usage: omni_knowledge(\"set\", \"key\", \"value\")",
+                    );
                 }
-                self.store.upsert_project_knowledge(&project_hash, &k, &v, 0.9);
-                format!("Stored: [{k}] = \"{v}\"\nThis knowledge persists across sessions for this project.")
+                self.store
+                    .upsert_project_knowledge(&project_hash, &k, &v, 0.9);
+                format!(
+                    "Stored: [{k}] = \"{v}\"\nThis knowledge persists across sessions for this project."
+                )
             }
             "forget" => {
                 let k = key.unwrap_or_default();
                 if k.is_empty() {
-                    return "Usage: omni_knowledge(\"forget\", \"key\")".to_string();
+                    return crate::legacy::tool_text("Usage: omni_knowledge(\"forget\", \"key\")");
                 }
                 // Confidence 0 is below the 0.5 threshold, which forgets it.
-                self.store.upsert_project_knowledge(&project_hash, &k, "", 0.0);
+                self.store
+                    .upsert_project_knowledge(&project_hash, &k, "", 0.0);
                 format!("Forgotten: [{k}]")
             }
-            _ => "Actions: list | set | forget\nExample: omni_knowledge(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")".to_string(),
+            _ => crate::legacy::tool_text(
+                "Actions: list | set | forget\nExample: omni_knowledge(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")",
+            ),
         }
     }
 

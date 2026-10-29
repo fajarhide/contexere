@@ -339,6 +339,32 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
     )
 }
 
+/// Drops our MCP server, under either name, from the top level, every project
+/// and every other section of `.claude.json`.
+pub fn remove_mcp_entries(val: &mut Value) {
+    let Some(obj) = val.as_object_mut() else {
+        return;
+    };
+    if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
+        super::drop_server(servers);
+    }
+    for (key, section) in obj.iter_mut().filter(|(k, _)| *k != "mcpServers") {
+        let holders = if key == "projects" {
+            section
+                .as_object_mut()
+                .map(|p| p.values_mut().collect())
+                .unwrap_or_default()
+        } else {
+            vec![section]
+        };
+        for holder in holders {
+            if let Some(servers) = holder.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
+                super::drop_server(servers);
+            }
+        }
+    }
+}
+
 pub fn remove_omni_hooks(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(hooks) = obj.get_mut("hooks").and_then(|h| h.as_object_mut())
@@ -612,6 +638,25 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    /// #876: `init --uninstall` takes our server under both names, wherever it is.
+    #[test]
+    fn uninstall_removes_both_server_names_everywhere() {
+        let ours = json!({"command": "/x/contexere"});
+        let old = json!({"command": "/x/omni"});
+        let mut val = json!({
+            "mcpServers": {"contexere": ours, "omni": old, "keep": {"command": "k"}},
+            "projects": {"/p": {"mcpServers": {"contexere": ours}}},
+            "other": {"mcpServers": {"omni": old}}
+        });
+        remove_mcp_entries(&mut val);
+        let text = val.to_string();
+        assert!(
+            !text.contains("contexere") && !text.contains("/x/omni"),
+            "{text}"
+        );
+        assert!(text.contains("keep"), "{text}");
+    }
+
     /// #876: `contexere init` on a machine set up by omni replaces omni's hooks
     /// in place. Left beside ours, both would distil every call.
     #[test]

@@ -9,8 +9,9 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
-/// Names advertised by `tools/list` for the binary reached through `program`.
-fn advertised(program: &std::path::Path) -> Vec<String> {
+/// Names advertised by `tools/list`, and the text of an empty `knowledge`
+/// listing, for the binary reached through `program`.
+fn session(program: &std::path::Path) -> (Vec<String>, String) {
     let dir = tempfile::tempdir().expect("tempdir");
     let mut child = Command::new(program)
         .arg("--mcp")
@@ -29,11 +30,23 @@ fn advertised(program: &std::path::Path) -> Vec<String> {
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#,
         r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"KNOWLEDGE","arguments":{"action":"list"}}}"#,
     ] {
-        writeln!(stdin, "{msg}").expect("write");
+        let prefix = if program.file_stem().is_some_and(|s| s == "omni") {
+            "omni"
+        } else {
+            "contexere"
+        };
+        writeln!(
+            stdin,
+            "{}",
+            msg.replace("KNOWLEDGE", &format!("{prefix}_knowledge"))
+        )
+        .expect("write");
     }
 
     let mut names = Vec::new();
+    let mut reply = String::new();
     for line in BufReader::new(child.stdout.take().expect("stdout")).lines() {
         let v: serde_json::Value = serde_json::from_str(&line.expect("line")).expect("json");
         if v["id"] == 2 {
@@ -43,12 +56,18 @@ fn advertised(program: &std::path::Path) -> Vec<String> {
                 .iter()
                 .map(|t| t["name"].as_str().expect("name").to_string())
                 .collect();
+        }
+        if v["id"] == 3 {
+            reply = v["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
             break;
         }
     }
     let _ = child.kill();
     let _ = child.wait();
-    names
+    (names, reply)
 }
 
 #[test]
@@ -58,17 +77,22 @@ fn each_name_serves_its_own_tool_prefix() {
     let old = dir.path().join("omni");
     std::os::unix::fs::symlink(&new, &old).expect("link");
 
-    let new_names = advertised(&new);
+    let (new_names, new_reply) = session(&new);
     assert!(!new_names.is_empty(), "contexere advertised no tools");
     assert!(
         new_names.iter().all(|n| n.starts_with("contexere_")),
         "{new_names:?}"
     );
 
-    let old_names = advertised(&old);
+    let (old_names, old_reply) = session(&old);
     assert_eq!(old_names.len(), new_names.len(), "{old_names:?}");
     assert!(
         old_names.iter().all(|n| n.starts_with("omni_")),
         "{old_names:?}"
     );
+
+    // Model-facing text must name tools the server actually serves (#876).
+    assert!(new_reply.contains("contexere_knowledge("), "{new_reply}");
+    assert!(!new_reply.contains("omni_"), "{new_reply}");
+    assert!(old_reply.contains("omni_knowledge("), "{old_reply}");
 }

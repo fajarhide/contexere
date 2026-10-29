@@ -54,6 +54,34 @@ pub fn mcp_name() -> &'static str {
     }
 }
 
+/// Model-facing text names a tool the way this process serves it: `omni` keeps
+/// `omni_run`, `contexere` says `contexere_run`.
+pub fn tool_text(text: &str) -> String {
+    rename_tools(text, mcp_name())
+}
+
+fn rename_tools(text: &str, prefix: &str) -> String {
+    text.replace("omni_", &format!("{prefix}_"))
+}
+
+/// The tool prefix a registered server command serves, by its file name: the
+/// server names its tools after the name it was started under, which is the
+/// name init registered, not the one init itself ran as.
+pub fn prefix_of_command(command: &str) -> &'static str {
+    if file_name_is_omni(command) {
+        "omni"
+    } else {
+        "contexere"
+    }
+}
+
+/// Whether a whole command (a path, spaces allowed, quotes optional) names the omni binary.
+pub fn file_name_is_omni(command: &str) -> bool {
+    let path = command.trim().trim_matches(|c| c == '"' || c == '\'');
+    let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    name.trim_end_matches(".exe") == "omni"
+}
+
 /// A program name that is this binary under either of its names.
 pub fn is_our_program(name: &str) -> bool {
     matches!(name.trim_end_matches(".exe"), "omni" | "contexere")
@@ -84,6 +112,23 @@ mod tests {
         assert_eq!(
             env_to_adopt(vars),
             vec![("OMNI_AGENT_ID".to_string(), OsString::from("cursor"))]
+        );
+    }
+
+    #[test]
+    fn a_command_is_omni_by_its_whole_path() {
+        assert!(file_name_is_omni("/Users/Jane Doe/bin/omni"));
+        assert!(file_name_is_omni("\"C:\\Users\\x y\\omni.exe\""));
+        assert!(!file_name_is_omni("/Users/omni/bin/contexere"));
+        assert_eq!(prefix_of_command("/x y/omni"), "omni");
+        assert_eq!(prefix_of_command("/x/contexere"), "contexere");
+    }
+
+    #[test]
+    fn model_text_follows_the_prefix() {
+        assert_eq!(
+            rename_tools("Use omni_knowledge(\"set\") then omni_run", "contexere"),
+            "Use contexere_knowledge(\"set\") then contexere_run"
         );
     }
 
