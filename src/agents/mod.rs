@@ -108,6 +108,38 @@ impl Tier {
     }
 }
 
+/// The key a host registers our MCP server under.
+pub(crate) const SERVER_KEY: &str = "contexere";
+
+/// True when an MCP `command` (the binary alone, args are stored apart, so a
+/// path may hold spaces) is the omni binary, by file name and not by substring.
+pub(crate) fn runs_omni_binary(command: &str) -> bool {
+    crate::legacy::file_name_is_omni(command)
+}
+
+/// A hook or server command of ours under either name. `omni` is the same
+/// binary through the rename, so `contexere init` replaces what an omni install
+/// wrote instead of leaving it beside ours to run twice (#876).
+pub(crate) fn names_us(command: &str) -> bool {
+    command.contains("contexere") || command.contains("omni")
+}
+
+/// Drop an `omni` MCP server whose command is the omni binary. A server someone
+/// else named `omni` is theirs and stays. Returns whether one went.
+pub(crate) fn drop_omni_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
+    let ours = servers
+        .get("omni")
+        .and_then(|server| server.get("command"))
+        .and_then(|c| c.as_str())
+        .is_some_and(runs_omni_binary);
+    ours && servers.remove("omni").is_some()
+}
+
+/// Drop our MCP server from a `mcpServers` map under either name.
+pub(crate) fn drop_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
+    servers.remove(SERVER_KEY).is_some() | drop_omni_server(servers)
+}
+
 /// Whether `command` is OMNI's own hook for the same entry point as `ours`:
 /// binary name plus flag, never the whole string, or a reinstall from another
 /// path appends a second hook (#454).
@@ -120,7 +152,7 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
         _ => return false,
     };
     // Last token, not `contains`: `--pre-hook` ends with `-hook`.
-    command.contains("omni") && command.rsplit(' ').next() == Some(flag)
+    names_us(command) && command.rsplit(' ').next() == Some(flag)
 }
 
 /// Events that carry more than one OMNI hook, with the count. Finds machines
@@ -137,7 +169,7 @@ pub(crate) fn duplicate_omni_hooks(val: &serde_json::Value) -> Vec<(String, usiz
             .filter_map(|m| m.get("hooks").and_then(|h| h.as_array()))
             .flatten()
             .filter_map(|h| h.get("command").and_then(|c| c.as_str()))
-            .filter(|c| c.contains("omni") && c.contains("-hook") || c.contains("--session-start"))
+            .filter(|c| names_us(c) && c.contains("-hook") || c.contains("--session-start"))
             .count();
         if count > 1 {
             out.push((event.clone(), count));
@@ -311,6 +343,40 @@ mod tier_tests {
         assert!(
             !checked.is_empty(),
             "found no plugin calling `--post-hook`; the scan is looking in the wrong place"
+        );
+    }
+}
+
+#[cfg(test)]
+mod rename_tests {
+    use super::*;
+
+    /// #876: an omni command is recognised by its binary name, never by substring.
+    #[test]
+    fn knows_an_omni_command_by_its_binary() {
+        assert!(runs_omni_binary("/opt/homebrew/bin/omni"));
+        assert!(
+            runs_omni_binary("/Users/Jane Doe/bin/omni"),
+            "a path may hold spaces"
+        );
+        assert!(!runs_omni_binary("/home/omni/bin/contexere"));
+        assert!(!runs_omni_binary("/usr/bin/omnibus"));
+
+        let mut servers = serde_json::json!({
+            "omni": { "command": "/Users/Jane Doe/bin/omni" },
+            "contexere": { "command": "/opt/homebrew/bin/contexere" },
+            "x": { "command": "omni-other" }
+        });
+        let map = servers.as_object_mut().unwrap();
+        assert!(drop_server(map));
+        assert!(!map.contains_key("omni") && !map.contains_key("contexere"));
+        assert!(map.contains_key("x"));
+
+        let mut theirs = serde_json::json!({ "omni": { "command": "/opt/their/tool" } });
+        assert!(!drop_server(theirs.as_object_mut().unwrap()));
+        assert!(
+            theirs.get("omni").is_some(),
+            "a server someone else named omni stays"
         );
     }
 }

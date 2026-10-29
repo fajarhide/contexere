@@ -13,7 +13,7 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 
 fn omni() -> String {
-    env!("CARGO_BIN_EXE_omni").to_string()
+    env!("CARGO_BIN_EXE_contexere").to_string()
 }
 
 /// Run `omni <args…>`, close the read end of its stdout immediately, and return

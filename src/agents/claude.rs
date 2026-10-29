@@ -53,7 +53,7 @@ impl AgentIntegration for ClaudeIntegration {
 
                 if let Some(obj) = val.as_object_mut() {
                     if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut())
-                        && servers.remove("omni").is_some()
+                        && super::drop_server(servers)
                     {
                         changed = true;
                     }
@@ -63,7 +63,7 @@ impl AgentIntegration for ClaudeIntegration {
                         for (_, p_val) in projects.iter_mut() {
                             if let Some(ps) =
                                 p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
-                                && ps.remove("omni").is_some()
+                                && super::drop_server(ps)
                             {
                                 changed = true;
                             }
@@ -79,7 +79,7 @@ impl AgentIntegration for ClaudeIntegration {
                             && let Some(ps) = inner_obj
                                 .get_mut("mcpServers")
                                 .and_then(|s| s.as_object_mut())
-                            && ps.remove("omni").is_some()
+                            && super::drop_server(ps)
                         {
                             changed = true;
                         }
@@ -233,7 +233,10 @@ impl AgentIntegration for ClaudeIntegration {
         for p in &[mcp_path, mcpa_path] {
             if p.exists()
                 && let Ok(c) = fs::read_to_string(p)
-                && (c.contains("omni --mcp") || c.contains("\"omni\":"))
+                && (c.contains("contexere --mcp")
+                    || c.contains("\"contexere\":")
+                    || c.contains("omni --mcp")
+                    || c.contains("\"omni\":"))
             {
                 mcp_found = true;
                 crate::agent_report!(
@@ -336,6 +339,32 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
     )
 }
 
+/// Drops our MCP server, under either name, from the top level, every project
+/// and every other section of `.claude.json`.
+pub fn remove_mcp_entries(val: &mut Value) {
+    let Some(obj) = val.as_object_mut() else {
+        return;
+    };
+    if let Some(servers) = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
+        super::drop_server(servers);
+    }
+    for (key, section) in obj.iter_mut().filter(|(k, _)| *k != "mcpServers") {
+        let holders = if key == "projects" {
+            section
+                .as_object_mut()
+                .map(|p| p.values_mut().collect())
+                .unwrap_or_default()
+        } else {
+            vec![section]
+        };
+        for holder in holders {
+            if let Some(servers) = holder.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
+                super::drop_server(servers);
+            }
+        }
+    }
+}
+
 pub fn remove_omni_hooks(val: &mut Value) {
     if let Some(obj) = val.as_object_mut()
         && let Some(hooks) = obj.get_mut("hooks").and_then(|h| h.as_object_mut())
@@ -346,7 +375,7 @@ pub fn remove_omni_hooks(val: &mut Value) {
                     if let Some(inner) = v.get("hooks").and_then(|h| h.as_array()) {
                         !inner.iter().any(|h| {
                             h.get("command").and_then(|c| c.as_str()).is_some_and(|c| {
-                                c.contains("omni")
+                                super::names_us(c)
                                     && (c.contains("--hook")
                                         || c.contains("--post-hook")
                                         || c.contains("--pre-hook")
@@ -546,8 +575,9 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
         .as_object_mut()
         .ok_or_else(|| anyhow::anyhow!("mcpServers is not an object"))?;
 
+    super::drop_omni_server(servers);
     servers.insert(
-        "omni".to_string(),
+        super::SERVER_KEY.to_string(),
         json!({
             "type": "stdio",
             "command": exe_path,
@@ -561,10 +591,10 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
     if let Some(projects) = obj.get_mut("projects").and_then(|p| p.as_object_mut()) {
         for (_path, p_val) in projects.iter_mut() {
             if let Some(ps) = p_val.get_mut("mcpServers").and_then(|s| s.as_object_mut())
-                && ps.contains_key("omni")
+                && (super::drop_omni_server(ps) | ps.contains_key(super::SERVER_KEY))
             {
                 ps.insert(
-                    "omni".to_string(),
+                    super::SERVER_KEY.to_string(),
                     json!({
                         "type": "stdio",
                         "command": exe_path,
@@ -586,10 +616,10 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             && let Some(ps) = inner_obj
                 .get_mut("mcpServers")
                 .and_then(|s| s.as_object_mut())
-            && ps.contains_key("omni")
+            && (super::drop_omni_server(ps) | ps.contains_key(super::SERVER_KEY))
         {
             ps.insert(
-                "omni".to_string(),
+                super::SERVER_KEY.to_string(),
                 json!({
                     "type": "stdio",
                     "command": exe_path,
@@ -608,6 +638,47 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    /// #876: `init --uninstall` takes our server under both names, wherever it is.
+    #[test]
+    fn uninstall_removes_both_server_names_everywhere() {
+        let ours = json!({"command": "/x/contexere"});
+        let old = json!({"command": "/x/omni"});
+        let mut val = json!({
+            "mcpServers": {"contexere": ours, "omni": old, "keep": {"command": "k"}},
+            "projects": {"/p": {"mcpServers": {"contexere": ours}}},
+            "other": {"mcpServers": {"omni": old}}
+        });
+        remove_mcp_entries(&mut val);
+        let text = val.to_string();
+        assert!(
+            !text.contains("contexere") && !text.contains("/x/omni"),
+            "{text}"
+        );
+        assert!(text.contains("keep"), "{text}");
+    }
+
+    /// #876: `contexere init` on a machine set up by omni replaces omni's hooks
+    /// in place. Left beside ours, both would distil every call.
+    #[test]
+    fn installing_over_an_omni_install_replaces_its_hooks() {
+        let mut val = json!({});
+        install_omni_hooks(&mut val, "/opt/homebrew/bin/omni");
+        install_omni_hooks(&mut val, "/opt/homebrew/bin/contexere");
+        let text = val.to_string();
+        assert!(!text.contains("bin/omni"), "{text}");
+        assert!(text.contains("bin/contexere"), "{text}");
+        assert!(
+            crate::agents::duplicate_omni_hooks(&val).is_empty(),
+            "{text}"
+        );
+
+        remove_omni_hooks(&mut val);
+        assert!(
+            !val.to_string().contains("bin/contexere"),
+            "uninstall leaves ours behind"
+        );
+    }
+
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});

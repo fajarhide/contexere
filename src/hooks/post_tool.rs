@@ -190,7 +190,7 @@ pub(crate) fn returns_archived_bytes(command: &str) -> bool {
     let mut tokens = command.split_whitespace().peekable();
     while let Some(token) = tokens.next() {
         let program = token.rsplit(['/', '\\']).next().unwrap_or(token);
-        if program != "omni" && program != "omni.exe" {
+        if !crate::legacy::is_our_program(program) {
             continue;
         }
         let sub = tokens.clone().find(|t| !t.starts_with('-'));
@@ -1148,6 +1148,7 @@ mod tests {
             "omni retrieve 0000000000000000",
             "/opt/homebrew/bin/omni retrieve 0000000000000000",
             "cd /tmp && omni retrieve 0000000000000000",
+            "/opt/homebrew/bin/contexere retrieve 0000000000000000",
             "omni diff",
         ] {
             assert!(returns_archived_bytes(cmd), "{cmd} must pass through");

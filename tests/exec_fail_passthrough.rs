@@ -10,7 +10,7 @@
 use std::process::Command;
 
 fn omni() -> String {
-    env!("CARGO_BIN_EXE_omni").to_string()
+    env!("CARGO_BIN_EXE_contexere").to_string()
 }
 
 /// Run `omni exec <script>` with an isolated DB. The script is passed as a single

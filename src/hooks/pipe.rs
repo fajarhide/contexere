@@ -621,7 +621,7 @@ fn pipeline_in(siblings: &str) -> Option<String> {
         .filter(|line| {
             (line.contains("sh ") || line.contains("zsh ") || line.contains("bash "))
                 && line.contains('|')
-                && line.contains("omni")
+                && (line.contains("omni") || line.contains("contexere"))
         })
         .find_map(extract_command_from_pipeline)
 }
@@ -671,7 +671,9 @@ fn detect_sibling_command() -> Option<String> {
             .trim()
             .to_string();
 
-        if parent_line.contains('|') && parent_line.contains("omni") {
+        if parent_line.contains('|')
+            && (parent_line.contains("omni") || parent_line.contains("contexere"))
+        {
             #[allow(clippy::collapsible_if)]
             if let Some(cmd) = extract_command_from_pipeline(&parent_line) {
                 return Some(cmd);
@@ -686,7 +688,9 @@ fn detect_sibling_command() -> Option<String> {
 #[allow(clippy::string_slice)]
 fn extract_command_from_pipeline(line: &str) -> Option<String> {
     let pipe_parts: Vec<&str> = line.split('|').collect();
-    let omni_idx = pipe_parts.iter().position(|p| p.contains("omni"));
+    let omni_idx = pipe_parts
+        .iter()
+        .position(|p| p.contains("omni") || p.contains("contexere"));
 
     if let Some(idx) = omni_idx {
         #[allow(clippy::collapsible_if)]
@@ -855,6 +859,17 @@ omni";
     #[test]
     fn a_real_pipeline_still_names_its_command() {
         let siblings = "/bin/zsh -c cat /var/log/app.log | omni\nomni";
+
+        assert_eq!(
+            pipeline_in(siblings),
+            Some("cat /var/log/app.log".to_string())
+        );
+    }
+
+    /// A pipeline into the new binary name names its producer too (#876).
+    #[test]
+    fn a_pipeline_into_contexere_names_its_command() {
+        let siblings = "/bin/zsh -c cat /var/log/app.log | contexere\ncontexere";
 
         assert_eq!(
             pipeline_in(siblings),

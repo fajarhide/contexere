@@ -1,6 +1,6 @@
-use omni::agents::checker::CheckerContext;
-use omni::pipeline::{SegmentationMode, SessionState, scorer::score_segments};
-use omni::store::sqlite::Store;
+use contexere::agents::checker::CheckerContext;
+use contexere::pipeline::{SegmentationMode, SessionState, scorer::score_segments};
+use contexere::store::sqlite::Store;
 use std::sync::Arc;
 use tempfile::tempdir;
 
@@ -22,7 +22,7 @@ fn test_loop_100_iterations_stays_within_budget() {
         state.recalculate_pressure();
 
         // Simulate compacting if pressure is critical
-        if state.context_pressure == omni::pipeline::ContextPressure::Critical {
+        if state.context_pressure == contexere::pipeline::ContextPressure::Critical {
             state.estimated_current_tokens /= 2; // Compacted
             state.active_errors.clear();
         }
@@ -41,12 +41,12 @@ async fn test_maker_checker_full_flow() {
     state.session_id = session_id.to_string();
     store.upsert_session(&state);
 
-    let result = omni::pipeline::DistillResult {
+    let result = contexere::pipeline::DistillResult {
         filter_name: "test_filter".to_string(),
         input_bytes: 100,
         output_bytes: 50,
         output: "FAILED: 2 errors".to_string(),
-        route: omni::pipeline::Route::Keep,
+        route: contexere::pipeline::Route::Keep,
         score: 1.0,
         context_score: 1.0,
         latency_ms: 10,
@@ -83,8 +83,8 @@ fn test_streaming_distill_1k_line_output() {
 
     let mut critical_count = 0;
     for seg in &segments {
-        if seg.tier == omni::pipeline::SignalTier::Critical
-            || seg.tier == omni::pipeline::SignalTier::Important
+        if seg.tier == contexere::pipeline::SignalTier::Critical
+            || seg.tier == contexere::pipeline::SignalTier::Important
         {
             critical_count += 1;
         }
@@ -98,9 +98,9 @@ fn test_streaming_distill_1k_line_output() {
 
 #[test]
 fn test_l1_loop_context_env_detection() {
-    use omni::pipeline::LoopMode;
+    use contexere::pipeline::LoopMode;
 
-    let ctx = omni::pipeline::LoopContext::default();
+    let ctx = contexere::pipeline::LoopContext::default();
     assert_eq!(ctx.mode, LoopMode::Interactive);
     assert!(ctx.loop_id.is_none());
     assert!(ctx.goal.is_none());
@@ -127,9 +127,9 @@ fn test_l1_engram_tracking() {
     let mut state = SessionState::new();
     assert!(state.engrams.is_empty());
 
-    state.add_engram(omni::session::engram::Engram {
+    state.add_engram(contexere::session::engram::Engram {
         label: "Tests passing: 42/42".to_string(),
-        trigger: omni::session::engram::EngramTrigger::LoopCheckpoint,
+        trigger: contexere::session::engram::EngramTrigger::LoopCheckpoint,
         timestamp: chrono::Utc::now().timestamp(),
         files: vec![],
         detail: None,
@@ -178,7 +178,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Normal
+        contexere::pipeline::ContextPressure::Normal
     );
 
     // Push to Warning (65% of ~200K default)
@@ -186,7 +186,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Warning
+        contexere::pipeline::ContextPressure::Warning
     );
 
     // Push to Critical (82%+)
@@ -194,7 +194,7 @@ fn test_l3_pressure_transitions() {
     state.recalculate_pressure();
     assert_eq!(
         state.context_pressure,
-        omni::pipeline::ContextPressure::Critical
+        contexere::pipeline::ContextPressure::Critical
     );
 }
 
@@ -224,7 +224,7 @@ fn test_l3_token_consumption_rate() {
 
 #[test]
 fn test_l4_validate_loop_context_combined() {
-    use omni::guard::env::validate_loop_context;
+    use contexere::guard::env::validate_loop_context;
 
     // All None = valid
     assert!(validate_loop_context(None, None, None).is_ok());

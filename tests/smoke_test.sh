@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-OMNI="${1:-./target/release/omni}"
+OMNI="${1:-./target/release/contexere}"
 if [ ! -f "$OMNI" ]; then
-    OMNI="./target/debug/omni"
+    OMNI="./target/debug/contexere"
 fi
 if [ ! -f "$OMNI" ]; then
     echo "Error: omni binary not found. Build first: cargo build --release"

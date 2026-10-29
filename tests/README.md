@@ -34,7 +34,7 @@ cargo insta review                    # Review changes
 
 # Smoke tests
 chmod +x tests/smoke_test.sh
-tests/smoke_test.sh ./target/debug/omni
+tests/smoke_test.sh ./target/debug/contexere
 ```
 
 ## Adding a New Fixture

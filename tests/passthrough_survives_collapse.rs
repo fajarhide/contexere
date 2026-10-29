@@ -19,7 +19,7 @@ use std::process::Command;
 /// hand-driven `omni exec` look like a hang.
 fn run_exec(script: &str) -> String {
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let out = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("exec")
         .arg(script)
         .env("OMNI_DB_PATH", db.path())

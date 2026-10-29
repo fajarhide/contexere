@@ -67,7 +67,12 @@ fn run_with_timeout(
 
     let child = match spawned {
         Ok(c) => c,
-        Err(e) => return format!("omni_run: failed to start `{command}`: {e}"),
+        Err(e) => {
+            return format!(
+                "{}: failed to start `{command}`: {e}",
+                crate::legacy::tool_name("run")
+            );
+        }
     };
 
     // `wait_with_output` drains both pipes at once. Draining stdout first deadlocks
@@ -79,16 +84,21 @@ fn run_with_timeout(
 
     let output = match rx.recv_timeout(timeout) {
         Ok(Ok(o)) => o,
-        Ok(Err(e)) => return format!("omni_run: `{command}` could not be waited on: {e}"),
+        Ok(Err(e)) => {
+            return format!(
+                "{}: `{command}` could not be waited on: {e}",
+                crate::legacy::tool_name("run")
+            );
+        }
         // ponytail: the reader thread owns the child, so a timed-out command is
         // abandoned rather than killed. The case that gets us here is a
         // grandchild holding the pipe open, which killing the shell would not
         // reach anyway. Revisit if orphaned shells show up in the wild.
         Err(_) => {
-            return format!(
-                "omni_run: `{command}` did not finish within {}s and was abandoned. \
-                 Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher.",
-                timeout.as_secs()
+            return run_timeout_message(
+                &crate::legacy::tool_name("run"),
+                command,
+                timeout.as_secs(),
             );
         }
     };
@@ -888,7 +898,12 @@ impl OmniServer {
         // Off the runtime worker: a hung command there stalled every later call (#544).
         tokio::task::spawn_blocking(move || run_and_distill(&command, store, session))
             .await
-            .unwrap_or_else(|e| format!("omni_run: could not run the command: {e}"))
+            .unwrap_or_else(|e| {
+                format!(
+                    "{}: could not run the command: {e}",
+                    crate::legacy::tool_name("run")
+                )
+            })
     }
 
     #[tool(
@@ -1083,7 +1098,7 @@ impl OmniServer {
              \n  Active errors:      {}\
              \n  Hot files tracked:  {}\
              \n\
-             \nTip: Call omni_history() for per-command breakdown.\
+             \nTip: Call {history}() for per-command breakdown.\
              ",
             method,
             tilde,
@@ -1092,6 +1107,7 @@ impl OmniServer {
             session.command_count,
             session.active_errors.len(),
             session.hot_files.len(),
+            history = crate::legacy::tool_name("history"),
         )
     }
 
@@ -1162,7 +1178,10 @@ impl OmniServer {
                 agent_id = peer.agent_id,
             ));
         }
-        out.push_str("Use omni_session(\"context\") to share your state with peers.");
+        out.push_str(&format!(
+            "Use {}(\"context\") to share your state with peers.",
+            crate::legacy::tool_name("session")
+        ));
         out
     }
 
@@ -1184,7 +1203,10 @@ impl OmniServer {
             "list" => {
                 let knowledge = self.store.get_project_knowledge(&project_hash);
                 if knowledge.is_empty() {
-                    return "No project knowledge stored yet.\nUse omni_knowledge(\"set\", \"key\", \"value\") to add.".to_string();
+                    return format!(
+                        "No project knowledge stored yet.\nUse {}(\"set\", \"key\", \"value\") to add.",
+                        crate::legacy::tool_name("knowledge")
+                    );
                 }
                 let mut out = format!("Project knowledge for {}:\n\n", project_path);
                 for (k, v, conf) in &knowledge {
@@ -1196,21 +1218,34 @@ impl OmniServer {
                 let k = key.unwrap_or_default();
                 let v = value.unwrap_or_default();
                 if k.is_empty() || v.is_empty() {
-                    return "Usage: omni_knowledge(\"set\", \"key\", \"value\")".to_string();
+                    return format!(
+                        "Usage: {}(\"set\", \"key\", \"value\")",
+                        crate::legacy::tool_name("knowledge")
+                    );
                 }
-                self.store.upsert_project_knowledge(&project_hash, &k, &v, 0.9);
-                format!("Stored: [{k}] = \"{v}\"\nThis knowledge persists across sessions for this project.")
+                self.store
+                    .upsert_project_knowledge(&project_hash, &k, &v, 0.9);
+                format!(
+                    "Stored: [{k}] = \"{v}\"\nThis knowledge persists across sessions for this project."
+                )
             }
             "forget" => {
                 let k = key.unwrap_or_default();
                 if k.is_empty() {
-                    return "Usage: omni_knowledge(\"forget\", \"key\")".to_string();
+                    return format!(
+                        "Usage: {}(\"forget\", \"key\")",
+                        crate::legacy::tool_name("knowledge")
+                    );
                 }
                 // Confidence 0 is below the 0.5 threshold, which forgets it.
-                self.store.upsert_project_knowledge(&project_hash, &k, "", 0.0);
+                self.store
+                    .upsert_project_knowledge(&project_hash, &k, "", 0.0);
                 format!("Forgotten: [{k}]")
             }
-            _ => "Actions: list | set | forget\nExample: omni_knowledge(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")".to_string(),
+            _ => format!(
+                "Actions: list | set | forget\nExample: {}(\"set\", \"noise_cmd\", \"npm install always produces 200 dep warnings\")",
+                crate::legacy::tool_name("knowledge")
+            ),
         }
     }
 
@@ -1499,12 +1534,48 @@ impl OmniServer {
 
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
-        Self::router_for(&agent_id)
+        let router = Self::router_for(&agent_id);
+        if crate::legacy::invoked_as_omni() {
+            router
+        } else {
+            Self::with_prefix(router, "contexere")
+        }
+    }
+
+    /// Serve every `omni_*` tool as `<prefix>_*`. The tools keep their `omni_`
+    /// names inside, as policy and analytics key on them; `contexere` presents
+    /// them under its own name and `omni` as before, so a host registered
+    /// against `omni --mcp` sees what it saw (#876). Renamed rather than doubled,
+    /// so the advertised surface costs the same bytes.
+    fn with_prefix(
+        mut router: rmcp::handler::server::router::tool::ToolRouter<Self>,
+        prefix: &str,
+    ) -> rmcp::handler::server::router::tool::ToolRouter<Self> {
+        let names: Vec<String> = router.map.keys().map(|k| k.to_string()).collect();
+        for name in names {
+            let Some(new) = name.strip_prefix("omni_").map(|r| format!("{prefix}_{r}")) else {
+                continue;
+            };
+            if let Some(mut route) = router.map.remove(name.as_str()) {
+                route.attr.name = new.clone().into();
+                router.map.insert(new.into(), route);
+            }
+        }
+        router
     }
 }
 
 #[rmcp::tool_handler(router = Self::active_tool_router())]
 impl rmcp::ServerHandler for OmniServer {}
+
+/// The reply when a command outlives its timeout. The tool name comes in
+/// already resolved, so the command text is never touched.
+fn run_timeout_message(run: &str, command: &str, secs: u64) -> String {
+    format!(
+        "{run}: `{command}` did not finish within {secs}s and was abandoned. \
+         Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher."
+    )
+}
 
 fn compute_project_hash_str(project_path: &str) -> String {
     crate::agents::multiagent::project_hash(project_path)
@@ -1540,6 +1611,31 @@ pub async fn run(store: Arc<Store>, session: Arc<Mutex<SessionState>>) -> anyhow
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    /// #876: the tool name is renamed, a user's own `omni_` text is not.
+    #[test]
+    fn a_reply_keeps_the_users_command_as_typed() {
+        let msg = run_timeout_message("contexere_run", "./omni_build.sh", 5);
+        assert!(msg.starts_with("contexere_run: `./omni_build.sh`"), "{msg}");
+    }
+
+    /// #876: under the new name every tool is served as `contexere_*`, none is
+    /// lost, and each route answers to the name it advertises.
+    #[test]
+    fn the_new_name_serves_every_tool_as_contexere() {
+        let omni = OmniServer::router_from("claude_code", true);
+        let renamed =
+            OmniServer::with_prefix(OmniServer::router_from("claude_code", true), "contexere");
+        assert_eq!(omni.list_all().len(), renamed.list_all().len());
+        for tool in renamed.list_all() {
+            assert!(tool.name.starts_with("contexere_"), "{}", tool.name);
+            assert!(
+                renamed.map.contains_key(tool.name.as_ref()),
+                "{}",
+                tool.name
+            );
+        }
+    }
 
     /// On Cursor this is the only path that distils a command, so it must shorten (#351).
     #[cfg(unix)]
