@@ -1,18 +1,18 @@
 # Hermes Agent
 
-OMNI menancap ke Hermes dua kali: sebuah plugin di jalur hook, dan server MCP.
+Contexere menancap ke Hermes dua kali: sebuah plugin di jalur hook, dan server MCP.
 
 | lapisan | mekanisme | apa yang berubah |
 |---|---|---|
-| hook | `~/.hermes/plugins/omni-signal-engine/__init__.py` yang memanggil `omni --pre-hook`, `--post-hook`, `--session-start` | keluaran tool terminal disuling sebelum masuk ke konteks Hermes |
-| MCP | `mcp_servers.omni` yang menjalankan `omni --mcp` | perkakas MCP OMNI menjadi perkakas kelas satu di Hermes |
+| hook | `~/.hermes/plugins/omni-signal-engine/__init__.py` yang memanggil `contexere --pre-hook`, `--post-hook`, `--session-start` | keluaran tool terminal disuling sebelum masuk ke konteks Hermes |
+| MCP | `mcp_servers.omni` yang menjalankan `contexere --mcp` | perkakas MCP Contexere menjadi perkakas kelas satu di Hermes |
 
 ## Prasyarat
 
 ```sh
 brew install fajarhide/tap/omni
-omni --version
-omni doctor
+contexere --version
+contexere doctor
 
 export HERMES_VENV="${HERMES_HOME:-$HOME/.hermes}/hermes-agent/venv"
 export HERMES_PY="$HERMES_VENV/bin/python"
@@ -25,18 +25,18 @@ dalamnya.
 ## Pasang
 
 ```sh
-omni init --hermes
+contexere init --hermes
 hermes plugins enable omni-signal-engine
 hermes gateway restart
 "$HERMES_PY" -m pip install hermes-omni-plugin
 ```
 
-`omni init --hermes` idempoten. Ia memasang kerangka plugin-nya, mendaftarkan
+`contexere init --hermes` idempoten. Ia memasang kerangka plugin-nya, mendaftarkan
 server MCP di `~/.hermes/config.yaml` kalau belum ada di sana, menyalakan
 kompresi Hermes ketika itu aman, dan menulis nilai bawaan berorientasi Hermes ke
-`~/.omni/config.toml` **tanpa menimpa konfigurasi OMNI yang sudah ada**.
+`~/.omni/config.toml` **tanpa menimpa konfigurasi Contexere yang sudah ada**.
 
-> Pakai salah satu, `hermes-omni-plugin` atau kerangka `omni init --hermes`,
+> Pakai salah satu, `hermes-omni-plugin` atau kerangka `contexere init --hermes`,
 > jangan keduanya sekaligus, atau Anda akan dapat pendaftaran plugin ganda.
 
 ## Konfigurasi
@@ -63,7 +63,7 @@ compression:
 
 Tiga hal harus benar: `plugins.enabled` memuat `omni-signal-engine`,
 `mcp_servers.omni` menunjuk binary yang sebenarnya, dan `compression.enabled`
-menyala supaya pemadatan Hermes sendiri dan peringatan tekanan OMNI sejalan, bukan
+menyala supaya pemadatan Hermes sendiri dan peringatan tekanan Contexere sejalan, bukan
 saling berkelahi.
 
 `OMNI_AGENT_ID: "hermes"` lebih penting daripada kelihatannya. Tanpa itu, baris
@@ -73,7 +73,7 @@ keduanya yang berarti.
 ## Verifikasi
 
 ```sh
-omni doctor
+contexere doctor
 
 hermes plugins list | grep omni        # harapkan: omni-signal-engine enabled
 hermes tools list | grep mcp_omni_     # himpunan yang diiklankan, setelah restart
@@ -82,13 +82,13 @@ hermes tools list | grep mcp_omni_     # himpunan yang diiklankan, setelah resta
 Lalu satu pemeriksaan fungsional pada fixture sungguhan:
 
 ```sh
-cat tests/fixtures/cargo_test_500.txt | omni --post-hook 2>&1 | head -20
+cat tests/fixtures/cargo_test_500.txt | contexere --post-hook 2>&1 | head -20
 # baris test yang lulus dibuang, kegagalannya dipertahankan
 ```
 
 Untuk uji langsung, jalankan sesuatu yang berisik lewat tool `terminal` milik
 Hermes (`terminal("npm install", timeout=120)`) lalu bandingkan ukuran hasil
-tool-nya dengan keluaran npm mentah. Pastikan dengan `omni stats`.
+tool-nya dengan keluaran npm mentah. Pastikan dengan `contexere stats`.
 
 > Baca daftarnya, jangan percaya angka yang tertulis. Panduan ini pernah
 > menyebut 27, yang datang dari mem-`grep` kode sumber server dan menghitung nama
@@ -98,9 +98,9 @@ tool-nya dengan keluaran npm mentah. Pastikan dengan `omni stats`.
 > tempatnya di prefiks setiap permintaan. `OMNI_MCP_TOOLS=all` menyajikan seluruh
 > permukaannya.
 
-## Di mana OMNI membantu dan di mana tidak
+## Di mana Contexere membantu dan di mana tidak
 
-| keluaran | efek OMNI |
+| keluaran | efek Contexere |
 |---|---|
 | `npm install`, `cargo build`, `docker build` | besar, 70% ke atas. Progres, cache hit dan hash layer murni basa-basi. |
 | run test | besar. Vonis dan kegagalannya selamat, baris `ok` tidak. |
@@ -119,7 +119,7 @@ set yang diiklankan secara bawaan, jadi ia butuh `OMNI_MCP_TOOLS=all`.
 ```sh
 hermes plugins list | grep omni
 hermes tools list | grep mcp_omni_
-omni doctor
+contexere doctor
 ```
 
 Sebuah upgrade bisa menyetel ulang `plugins.enabled` atau memindahkan venv-nya.

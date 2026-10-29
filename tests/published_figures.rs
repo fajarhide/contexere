@@ -243,15 +243,15 @@ fn the_swebench_table_was_produced_from_its_own_artifact() {
 fn region_matches_its_artifact(data: &serde_json::Value, start: &str, end: &str) {
     let sha = data["corpus"]["sha256"].as_str().expect("corpus.sha256");
     let short = &sha[..16];
-    let readme = read(&root().join("README.md"));
+    let readme = read(&root().join("docs/website/src/develop/benchmarks.md"));
     let region = readme
         .split_once(start)
         .and_then(|(_, rest)| rest.split_once(end))
         .map(|(inner, _)| inner.to_string())
-        .unwrap_or_else(|| panic!("README carries the region at {start}"));
+        .unwrap_or_else(|| panic!("the benchmarks page carries the region at {start}"));
     assert!(
         region.contains(short),
-        "the README's generated table does not name corpus `{short}`; \
+        "the benchmarks page's generated table does not name corpus `{short}`; \
          regenerate it with docs/internal/runbooks/check-published-figures.py"
     );
 

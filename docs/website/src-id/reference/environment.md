@@ -9,10 +9,10 @@ akan meraihnya.
 |---|---|
 | `OMNI_PASSTHROUGH=1` | Lewati pipeline sepenuhnya. Keluaran mentah, setiap kali. |
 
-Ini hal pertama yang harus diraih ketika Anda curiga OMNI mengubah sesuatu yang
+Ini hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang
 seharusnya tidak ia ubah, dan hal yang perlu disetel ketika Anda butuh byte yang
 persis dari berkas yang dibaca lewat shell Anda. Keluaran yang identik dengan dan
-tanpa variabel itu berarti OMNI tidak terlibat.
+tanpa variabel itu berarti Contexere tidak terlibat.
 
 ## Di mana segala sesuatu tinggal
 
@@ -25,15 +25,15 @@ tanpa variabel itu berarti OMNI tidak terlibat.
 | `OMNI_TRANSCRIPT_DIR` | Tempat transkrip sesi ditulis |
 
 `OMNI_DB_PATH` pantas mendapat catatan sendiri. Arahkan ia ke berkas coretan
-setiap kali Anda menyelidiki perilaku OMNI dengan tangan:
+setiap kali Anda menyelidiki perilaku Contexere dengan tangan:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <perintah>
+OMNI_DB_PATH=/tmp/probe.db contexere exec <perintah>
 ```
 
 Keluarannya tidak deterministik terhadap basis data yang hangat, karena riwayat
 sesi memberi masukan ke penilainya, dan basis data bersama yang hangat membuat
-penulisan berbaris antre, yang biasanya jadi alasan `omni exec` tampak
+penulisan berbaris antre, yang biasanya jadi alasan `contexere exec` tampak
 menggantung. Ia juga wajib ketika menjalankan test suite terhadap pemasangan yang
 hidup.
 
@@ -46,7 +46,7 @@ hidup.
 Bawaannya ada di bawah semua batas waktu MCP host yang kami tahu, jadi perintah yang
 macet kembali sebagai satu kalimat yang menyebut dirinya sendiri, bukan galat idle
 timeout milik host. Naikkan kalau sebuah build memang butuh lebih lama, dan ingat host
-punya batasnya sendiri: milik Cursor 120 detik, dan tidak ada yang bisa OMNI lakukan
+punya batasnya sendiri: milik Cursor 120 detik, dan tidak ada yang bisa Contexere lakukan
 untuk memperpanjangnya.
 
 ## Retensi
@@ -74,7 +74,7 @@ Naikkan sebelum Anda mulai, bukan sesudah.
 | `OMNI_PRESSURE_WARN` | Ambang peringatan, sebagai bagian dari jendelanya |
 | `OMNI_PRESSURE_CRITICAL` | Ambang kritis |
 
-OMNI memperkirakan seberapa penuh konteks sesinya lalu menyuntikkan peringatan
+Contexere memperkirakan seberapa penuh konteks sesinya lalu menyuntikkan peringatan
 setelah ambang-ambang ini. Setel jendelanya agar cocok dengan model yang
 sebenarnya Anda jalankan.
 
@@ -121,8 +121,8 @@ trace atau di konfigurasi yang dihasilkan bukan lagi misteri.
 |---|---|
 | `OMNI_BIN` | Ditulis ke dalam plugin Hermes yang dihasilkan, menyebut jalur binary-nya |
 | `OMNI_CMD` | Perintah yang sedang diproses, jatuh ke `CMD` kalau kosong |
-| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Dicap saat build, dilaporkan `omni version` |
-| `OMNI_UNRELEASED_ENTRIES` | Dihitung `build.rs` dari `CHANGELOG.md`, jadi binary yang dibangun dari pohon tanpa tag mengatakannya di `omni doctor` |
+| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Dicap saat build, dilaporkan `contexere version` |
+| `OMNI_UNRELEASED_ENTRIES` | Dihitung `build.rs` dari `CHANGELOG.md`, jadi binary yang dibangun dari pohon tanpa tag mengatakannya di `contexere doctor` |
 | `OMNI_PI_PACKAGE_SOURCE` | Sumber paket untuk integrasi agent Pi |
 | `OMNI_DATA_HOME_UNSET_FOR_TEST` | Hanya untuk fixture test |
 

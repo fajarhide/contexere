@@ -8,7 +8,7 @@ Empat jenis dikenali: **JSON**, **YAML**, **CSV** dan **TSV**. Mengenali salah
 satunya sudah menutup perkara.
 
 Ini tahap yang orang kira kegagalan. `kubectl get pods -o json` yang kembali
-utuh bukan OMNI melewatkan kesempatan, itu OMNI menolak kesempatan.
+utuh bukan Contexere melewatkan kesempatan, itu Contexere menolak kesempatan.
 
 ## Kenapa menolak adalah jawaban yang benar
 
@@ -47,22 +47,22 @@ Satu baris tidak membuktikan apa pun.
 OMNI_PASSTHROUGH=1 <perintah Anda>
 ```
 
-Melewati pipeline sepenuhnya. Pakai ketika Anda sedang menelusuri OMNI itu
+Melewati pipeline sepenuhnya. Pakai ketika Anda sedang menelusuri Contexere itu
 sendiri dan perlu melihat apa yang sebenarnya dicetak sebuah perintah, atau
 ketika membaca berkas yang byte persisnya penting.
 
 Awalan itu bekerja di semua jalur, termasuk di dalam agent, tapi bukan karena
 alasan yang tampak. Sebuah hook adalah proses terpisah yang dijalankan host, jadi
 ia mewarisi lingkungan host dan tidak pernah melihat variabel yang Anda tulis di
-depan sebuah perintah. Yang ia lihat adalah string perintahnya, jadi OMNI membaca
+depan sebuah perintah. Yang ia lihat adalah string perintahnya, jadi Contexere membaca
 penugasan variabelnya di situ. Dua akibat yang layak diketahui: hanya penugasan
 **di depan** yang dihitung, posisi yang sama dengan yang akan dipakai shell, dan
 `echo OMNI_PASSTHROUGH=1` menyebut namanya tanpa menyetel apa pun sehingga tetap
 disuling. Meng-export-nya untuk satu sesi penuh bekerja seperti biasa.
 
 Ini variabel lingkungan paling berguna di sini, dan hal pertama yang harus diraih
-ketika Anda curiga OMNI mengubah sesuatu yang seharusnya tidak ia ubah. Kalau
-keluarannya identik dengan dan tanpa variabel itu, OMNI tidak terlibat.
+ketika Anda curiga Contexere mengubah sesuatu yang seharusnya tidak ia ubah. Kalau
+keluarannya identik dengan dan tanpa variabel itu, Contexere tidak terlibat.
 
 ## Hal-hal yang mirip gerbang ini padahal bukan
 
@@ -74,6 +74,6 @@ kompresinya. Wajar, bukan cacat.
 karena mengambil sesuatu akan tidak aman atau tidak sepadan dengan ongkos penandanya.
 Itu pipeline yang bekerja.
 
-**Aliran biner `kubectl`.** SPDY merusak yang itu, ada atau tidak ada OMNI.
+**Aliran biner `kubectl`.** SPDY merusak yang itu, ada atau tidak ada Contexere.
 
 **Kutip di shell.** Pemisahan kata itu urusan shell Anda, bukan program ini.

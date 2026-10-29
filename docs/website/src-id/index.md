@@ -1,14 +1,16 @@
-# OMNI
+# Contexere
 
-**Agent AI Anda membayar untuk membaca keluaran yang sama berulang kali. OMNI
+**Agent AI Anda membayar untuk membaca keluaran yang sama berulang kali. Contexere
 menghentikan itu.**
 
-OMNI adalah satu program kecil yang duduk di antara terminal Anda dan agent
+OMNI sekarang bernama Contexere, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi. Contexere sedang berkembang menjadi satu tempat untuk skill, kredensial, dan memori yang dipakai setiap agent; hari ini yang dikirim adalah lapisan konteks dan token.
+
+Contexere adalah satu program kecil yang duduk di antara terminal Anda dan agent
 Anda. Jalannya lokal, tidak perlu API key, dan setelah terpasang Anda tidak
 pernah mengetik namanya lagi.
 
 ```bash
-brew install fajarhide/tap/omni && omni init
+brew install fajarhide/tap/omni && contexere init
 ```
 
 Di dalam Claude Code cukup dua baris, sisanya diurus agent:
@@ -62,13 +64,13 @@ diperlukan.
 
 Menyaring keluaran yang tidak dibaca siapa pun adalah bagian yang mudah, dan
 beberapa perkakas sudah melakukannya. Bagian berikut lebih sulit, dan dari
-sanalah sebagian besar penghematan OMNI datang.
+sanalah sebagian besar penghematan Contexere datang.
 
 Agent Anda membaca sebuah berkas. Tiga giliran kemudian ia membaca berkas yang
 sama lagi, karena tidak ada yang mengingat bacaan pertama. Anda membayar penuh
 dua-duanya.
 
-OMNI ingat. Bacaan kedua kembali sebagai satu baris:
+Contexere ingat. Bacaan kedua kembali sebagai satu baris:
 
 ```
 [OMNI: 178 lines already shown, omni retrieve 0000000000000000]
@@ -89,8 +91,8 @@ Kebanyakan alat di ranah ini meminta Anda mempercayai angka dari laptop orang la
 Jalankan ini saja:
 
 ```bash
-omni stats                     # apa yang OMNI lakukan di riwayat Anda, dalam byte terhitung
-omni retrieve <handle>         # handle mana pun dari penanda mana pun, dicetak utuh
+contexere stats                     # apa yang Contexere lakukan di riwayat Anda, dalam byte terhitung
+contexere retrieve <handle>         # handle mana pun dari penanda mana pun, dicetak utuh
 ```
 
 Setiap angka di situs ini berasal dari korpus yang bisa Anda bangun ulang.
@@ -104,25 +106,25 @@ jalankan melawan alat sebanding terdekat.
 |---|---|
 | **Sesi lebih panjang** | Konteks yang tidak habis untuk basa-basi berarti lebih banyak giliran sebelum mentok, dan lebih sedikit pemadatan yang memutus alur kerja Anda. |
 | **Tagihan lebih kecil** | 14,9% lebih sedikit byte pada 6.656 perintah nyata. Pada pembacaan berkas 25,0%. Pada `git` 22,1%. Pada keluaran build dan test 78,0%. |
-| **Tidak ada yang hilang** | Semua yang dibuang diarsipkan secara lokal. `omni retrieve <handle>` mencetaknya kembali. |
-| **Tidak ada yang dikarang** | Kalau OMNI tidak paham sebuah keluaran, keluaran itu dikembalikan apa adanya, bukan ditebak. |
+| **Tidak ada yang hilang** | Semua yang dibuang diarsipkan secara lokal. `contexere retrieve <handle>` mencetaknya kembali. |
+| **Tidak ada yang dikarang** | Kalau Contexere tidak paham sebuah keluaran, keluaran itu dikembalikan apa adanya, bukan ditebak. |
 | **Ingatan antar sesi** | Tutup editor, kembali besok, pindah dari Claude Code ke Codex: konteks proyeknya masih ada. |
 | **Tidak ada yang perlu diubah** | Tanpa proxy, tanpa API key, tanpa perintah yang harus diawali apa pun. Pasang, lalu pakai terminal Anda seperti biasa. |
 
 ## Di mana ia benar-benar membantu
 
-[Di mana OMNI membantu](concepts/use-cases.md) membahas enam situasi lengkap
-dengan angkanya, termasuk dua situasi ketika OMNI menyingkir dan kenapa itu
+[Di mana Contexere membantu](concepts/use-cases.md) membahas enam situasi lengkap
+dengan angkanya, termasuk dua situasi ketika Contexere menyingkir dan kenapa itu
 keputusan yang benar.
 
 ## Mulai dari mana
 
 **Cuma ingin ia jalan.** [Pasang](use/install.md) makan waktu sekitar lima
 menit. Setelah itu baca [Membaca penanda](use/markers.md), satu-satunya halaman
-yang sepadan dengan waktu Anda, karena penanda adalah cara OMNI memberi tahu apa
+yang sepadan dengan waktu Anda, karena penanda adalah cara Contexere memberi tahu apa
 yang sudah ia lakukan.
 
-**Ingin paham dulu.** [Apa itu OMNI](concepts/what-it-is.md), lalu
+**Ingin paham dulu.** [Apa itu Contexere](concepts/what-it-is.md), lalu
 [Ledger](concepts/the-ledger.md).
 
 **Ingin ikut mengerjakannya.**
@@ -147,7 +149,7 @@ mengalahkan kompresi, dalam urutan itu, setiap kali bertabrakan.
 
 ## Apa yang sebenarnya dikatakan angka-angkanya
 
-OMNI itu selektif, dan dari situlah daya ungkitnya datang. Ia mengincar kelas yang
+Contexere itu selektif, dan dari situlah daya ungkitnya datang. Ia mengincar kelas yang
 mendominasi konteks sebuah agent, yaitu file yang sama dibaca berulang kali. File yang
 dibaca agent Anda dua kali kembali **97,2%** lebih kecil pada bacaan keduanya, dan yang
 satu itu sifat mekanismenya: ia bereproduksi di mesin mana pun, kapan pun diminta.
@@ -156,7 +158,7 @@ Sepanjang satu korpus penuh, angkanya jadi sifat korpusnya. Pada korpus 9.478 pe
 yang dibekukan sebagai `0b63218ef78a1edb`, ledger memangkas **1,5%** dari pembacaan
 file, karena pembacaan file di sana rata-rata 2,1 KB. Satu minggu sebelumnya yang
 pembacaan filenya rata-rata 12,4 KB memberi dua puluh kali lebih banyak, dengan kode
-yang sama, dan itulah yang membuat angka byte jadi sifat minggunya, bukan sifat OMNI.
+yang sama, dan itulah yang membuat angka byte jadi sifat minggunya, bukan sifat Contexere.
 
 Porsi pengulangan tersedia yang benar-benar diambil ledger adalah **10,7%** secara
 agregat di korpus ini. Angka padanannya untuk minggu yang lebih awal itu diukur sebelum
@@ -176,7 +178,7 @@ seberapa banyak minggu Anda sendiri mengulang dirinya.
 Ketika tidak ada yang aman untuk diambil, ia tidak mengambil apa pun. `git status`
 dua baris tidak punya basa-basi untuk dibuang dan tidak punya pengulangan untuk
 dilipat, dan payload JSON yang akan diurai langkah berikutnya sama sekali tidak
-disentuh, jadi OMNI mengembalikannya langsung alih-alih mengarang penghematan
+disentuh, jadi Contexere mengembalikannya langsung alih-alih mengarang penghematan
 untuk dilaporkan.
 
 Angka **14,9%** di tabel atas sengaja dari korpus yang berbeda: harness yang sama
@@ -187,7 +189,7 @@ capture rate-nya berjalan dari **6,8%** pada infra sampai **12,4%** pada ember
 campuran, jadi cari kelas yang benar-benar Anda jalankan. Itu rata-rata nyata atas
 campuran perintah yang nyata, bukan kasus terbaik yang dipetik dari hari yang bagus.
 
-**Keempat babak sekarang jalan, dan di korpus ini OMNI bukan babak teratas.** Alat
+**Keempat babak sekarang jalan, dan di korpus ini Contexere bukan babak teratas.** Alat
 yang mengirimkan dedup lintas giliran yang sama mengambil 5,8% dari byte ini,
 sementara ledger kami mengambil 3,0%, di atas penyaring yang sama dan blok yang sama,
 jadi selisih itu murni mesin dedupnya. Angka kami sendiri terbaca 4,9% sampai #760,
@@ -201,12 +203,12 @@ halaman Benchmarks.
 metodenya dan perintah untuk mereproduksi setiap baris di riwayat Anda sendiri.
 
 Kalau Anda ingin angka yang menggambarkan mesin Anda, bukan mesin orang lain,
-jalankan `omni stats` setelah beberapa hari.
+jalankan `contexere stats` setelah beberapa hari.
 
 ## Bertanya di mana
 
 [Discord](https://discord.gg/zHTuvZhF2M) untuk pertanyaan, terutama untuk kasus
-yang paling dipedulikan proyek ini: OMNI menyatakan hasil yang tidak didukung
+yang paling dipedulikan proyek ini: Contexere menyatakan hasil yang tidak didukung
 masukannya. [Issue tracker](https://github.com/fajarhide/omni/issues) juga bisa.
 Laporan yang memuat keluaran mentah dan keluaran hasil olahan berdampingan akan
 diperbaiki lewat jalur mana pun.

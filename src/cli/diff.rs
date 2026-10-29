@@ -43,7 +43,7 @@ pub fn run_diff(args: &[String]) -> Result<()> {
     super::print_rule();
     println!(
         " {} {}",
-        "OMNI SIGNAL INTELLIGENCE:".bold().bright_cyan(),
+        "CONTEXERE SIGNAL INTELLIGENCE:".bold().bright_cyan(),
         "Comparison Mode".bright_white()
     );
     super::print_rule();
@@ -53,7 +53,7 @@ pub fn run_diff(args: &[String]) -> Result<()> {
         println!("  {}", line.bright_black());
     }
 
-    println!("\n [ {} ]", "OMNI DISTILLED (SIGNAL)".bold().green());
+    println!("\n [ {} ]", "CONTEXERE DISTILLED (SIGNAL)".bold().green());
     for line in truncate_lines(&output, 12) {
         println!("  {}", line.bright_white());
     }

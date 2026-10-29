@@ -16,7 +16,7 @@ stage](../develop/pipeline.md) has the diagram and the reasoning.
 The gate. It answers one question: is this payload something a later step is going to
 parse? If yes, nothing downstream runs and the bytes come back exactly as they
 arrived. [What it refuses to touch](format-safety.md) is the whole of this stage and
-it is worth its own page, because "OMNI did nothing" is usually this working
+it is worth its own page, because "Contexere did nothing" is usually this working
 correctly rather than a failure.
 
 ## Score

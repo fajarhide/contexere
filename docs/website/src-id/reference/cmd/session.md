@@ -1,10 +1,10 @@
-# `omni session`
+# `contexere session`
 
 Keadaan sesi: apa yang sudah dihabiskan sesi ini, untuk apa, dan cara membawanya
 melewati sebuah restart.
 
 ```sh
-omni session --status
+contexere session --status
 ```
 
 ## Flag
@@ -22,7 +22,7 @@ omni session --status
 | `--json` | Bisa dibaca mesin |
 | `--help`, `-h` | Bantuan |
 
-`omni sessions` diterima sebagai alias.
+`contexere sessions` diterima sebagai alias.
 
 ## Apa itu sesi di sini
 
@@ -32,7 +32,7 @@ internal pernah mencakup 16 proyek dalam satu nilai, yang akan membuat ledger
 memberi tahu satu sesi bahwa ia sudah ditunjukkan keluaran yang sebenarnya pergi
 ke sesi lain.
 
-Itu juga alasan `omni exec` menerima `--session`: tanpa id host yang diteruskan
+Itu juga alasan `contexere exec` menerima `--session`: tanpa id host yang diteruskan
 tidak ada cakupan ledger, dan karena itu untuk beberapa waktu jalur exec sama
 sekali tidak menjalankan ledger.
 

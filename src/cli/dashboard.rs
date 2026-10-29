@@ -40,7 +40,7 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))?;
     println!(
         "\n  {} http://127.0.0.1:{port}",
-        "OMNI dashboard".bold().bright_white()
+        "Contexere dashboard".bold().bright_white()
     );
     println!("  {}\n", "Ctrl-C to stop".bright_black());
 

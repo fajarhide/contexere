@@ -45,7 +45,7 @@ pub fn run_version(args: &[String]) {
         };
         println!("{}", serde_json::to_string_pretty(&output).unwrap());
     } else {
-        println!("OMNI v{}", version_str);
+        println!("Contexere v{}", version_str);
     }
 }
 

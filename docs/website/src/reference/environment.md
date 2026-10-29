@@ -8,9 +8,9 @@ Every `OMNI_*` variable the binary reads. Grouped by why you would reach for one
 |---|---|
 | `OMNI_PASSTHROUGH=1` | Skip the pipeline entirely. Raw output, every time. |
 
-This is the first thing to reach for when you suspect OMNI changed something it should
+This is the first thing to reach for when you suspect Contexere changed something it should
 not have, and the thing to set when you need exact bytes from a file read through your
-shell. Identical output with and without it means OMNI was not involved.
+shell. Identical output with and without it means Contexere was not involved.
 
 ## Where things live
 
@@ -23,15 +23,15 @@ shell. Identical output with and without it means OMNI was not involved.
 | `OMNI_TRANSCRIPT_DIR` | Where session transcripts are written |
 
 `OMNI_DB_PATH` earns its own note. Point it at a scratch file whenever you are probing
-OMNI's behaviour by hand:
+Contexere's behaviour by hand:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <command>
+OMNI_DB_PATH=/tmp/probe.db contexere exec <command>
 ```
 
 Output is not deterministic against a warm database, because session history feeds the
 scorer, and a shared warm database serialises writes, which is the usual reason
-`omni exec` looks like it has hung. It is also required when running the test suite
+`contexere exec` looks like it has hung. It is also required when running the test suite
 against a live installation.
 
 ## Commands run through the MCP server
@@ -43,7 +43,7 @@ against a live installation.
 The default sits below every host MCP timeout we know of, so a stalled command comes
 back as a sentence naming itself rather than the host's idle-timeout error. Raise it
 when a build legitimately takes longer, and remember the host has a deadline of its own:
-Cursor's is 120 seconds, and nothing OMNI does can extend it.
+Cursor's is 120 seconds, and nothing Contexere does can extend it.
 
 ## Retention
 
@@ -70,7 +70,7 @@ after.
 | `OMNI_PRESSURE_WARN` | Warning threshold, as a share of the window |
 | `OMNI_PRESSURE_CRITICAL` | Critical threshold |
 
-OMNI estimates how full the session's context is and injects a warning past these
+Contexere estimates how full the session's context is and injects a warning past these
 thresholds. Set the window to match the model you are actually running.
 
 ## Session behaviour
@@ -115,8 +115,8 @@ config is not a mystery.
 |---|---|
 | `OMNI_BIN` | Written into the generated Hermes plugin, naming the binary path |
 | `OMNI_CMD` | The command being processed, falling back to `CMD` |
-| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Stamped at build time, reported by `omni version` |
-| `OMNI_UNRELEASED_ENTRIES` | Computed by `build.rs` from `CHANGELOG.md`, so a binary built from an untagged tree says so in `omni doctor` |
+| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Stamped at build time, reported by `contexere version` |
+| `OMNI_UNRELEASED_ENTRIES` | Computed by `build.rs` from `CHANGELOG.md`, so a binary built from an untagged tree says so in `contexere doctor` |
 | `OMNI_PI_PACKAGE_SOURCE` | Package source for the Pi agent integration |
 | `OMNI_DATA_HOME_UNSET_FOR_TEST` | Test fixture only |
 

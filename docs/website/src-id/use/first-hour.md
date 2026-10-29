@@ -1,9 +1,9 @@
 # Satu jam pertama
 
-Diasumsikan `omni init` dan `omni doctor` sudah dijalankan. Tidak ada di sini yang
+Diasumsikan `contexere init` dan `contexere doctor` sudah dijalankan. Tidak ada di sini yang
 mengubah konfigurasi.
 
-Yang dibeli satu jam ini adalah kemampuan **memeriksa** OMNI alih-alih mempercayainya. Di
+Yang dibeli satu jam ini adalah kemampuan **memeriksa** Contexere alih-alih mempercayainya. Di
 ujungnya Anda bisa melihat potongan apa pun berdampingan dengan aslinya, menarik kembali
 apa pun yang ia buang, dan membedakan penanda miliknya dari baris yang sekadar mirip
 penanda. Keterampilan terakhir itulah yang membuat dua yang pertama ada gunanya.
@@ -15,7 +15,7 @@ Minta agent Anda menjalankan sesuatu yang berisik. Test atau build paling pas.
 Lalu, di shell Anda sendiri:
 
 ```sh
-omni diff
+contexere diff
 ```
 
 Mentah di satu sisi, hasil sulingan di sisi lain, untuk perintah terakhir. Ini
@@ -24,21 +24,21 @@ cara tercepat menumbuhkan kepercayaan atau kecurigaan, dan keduanya berguna.
 ## Coba satu dengan tangan
 
 ```sh
-omni exec cargo test
+contexere exec cargo test
 ```
 
-`omni exec` menjalankan sebuah perintah lewat seluruh pipeline lalu mencetak
+`contexere exec` menjalankan sebuah perintah lewat seluruh pipeline lalu mencetak
 hasilnya dengan catatan kaki. Ia harness yang diminta dipakai setiap laporan bug
 di proyek ini, karena ia mengeluarkan host dari gambar.
 
-Bentuk argumennya persis: `omni exec cargo test`, **bukan**
-`omni exec -- cargo test` dan bukan string yang dikutip. Keduanya gagal dengan
+Bentuk argumennya persis: `contexere exec cargo test`, **bukan**
+`contexere exec -- cargo test` dan bukan string yang dikutip. Keduanya gagal dengan
 "No such file or directory".
 
 ## Lihat angkanya
 
 ```sh
-omni stats
+contexere stats
 ```
 
 Ia memimpin dengan umur sesi, berapa perintah yang dibawa sebuah sesi sebelum
@@ -53,9 +53,9 @@ aritmetikanya benar. Persentasenya tidak pernah terpengaruh: pembaginya saling m
 di dalam rasio.
 
 ```sh
-omni stats --view detail   # per perintah, per rute, per sesi, per agent
-omni stats --rerun         # distiller mana yang berongkos satu run ulang
-omni dashboard             # angka yang sama di peramban, hanya di 127.0.0.1
+contexere stats --view detail   # per perintah, per rute, per sesi, per agent
+contexere stats --rerun         # distiller mana yang berongkos satu run ulang
+contexere dashboard             # angka yang sama di peramban, hanya di 127.0.0.1
 ```
 
 `--rerun` yang menarik. Persentase pengurangan tidak bisa memberi tahu apakah
@@ -67,7 +67,7 @@ bisa.
 Setiap penanda menyebutkan sebuah handle. Jalankan:
 
 ```sh
-omni retrieve 0000000000000000
+contexere retrieve 0000000000000000
 ```
 
 Handle itu persisnya adalah contoh dokumentasi dan ditolak dengan menyebut namanya, dan
@@ -80,7 +80,7 @@ tidak bisa mengembalikannya adalah alat yang harus Anda percayai buta.
 
 ## Bedakan penanda asli dari yang sekadar teks
 
-Halaman ini penuh penanda, begitu pula source OMNI sendiri, dan begitu pula laporan bug
+Halaman ini penuh penanda, begitu pula source Contexere sendiri, dan begitu pula laporan bug
 mana pun yang mengutipnya. Mencari bentuk penanda di transkrip Anda akan menemukan
 semuanya.
 
@@ -88,22 +88,22 @@ Handle-nya yang membedakan. Semua contoh di manual ini memakai nilai cadangan
 `0000000000000000`, yang tidak akan pernah diberikan kepada lipatan sungguhan, jadi:
 
 ```sh
-omni retrieve <handle-dari-keluaran-Anda>   # exit 0, beserta isinya
-omni retrieve 0000000000000000              # exit 1, "the documentation example"
+contexere retrieve <handle-dari-keluaran-Anda>   # exit 0, beserta isinya
+contexere retrieve 0000000000000000              # exit 1, "the documentation example"
 ```
 
-Kalau Anda sedang mengukur apakah OMNI melakukan sesuatu sama sekali pada suatu run, exit
+Kalau Anda sedang mengukur apakah Contexere melakukan sesuatu sama sekali pada suatu run, exit
 code itulah jawabannya, bukan hasil grep terhadap `[OMNI`.
 
 ## Pancang apa yang sedang Anda kerjakan
 
 ```sh
-omni goal set 'Migrate the billing service off the legacy queue'
+contexere goal set 'Migrate the billing service off the legacy queue'
 ```
 
 Penilainya mengutamakan keluaran yang berkaitan dengan tujuan itu, dan agent
-diingatkan padanya alih-alih melantur. `omni goal show` untuk memeriksa,
-`omni goal clear` untuk melepasnya.
+diingatkan padanya alih-alih melantur. `contexere goal show` untuk memeriksa,
+`contexere goal clear` untuk melepasnya.
 
 ## Matikan untuk satu perintah
 
@@ -111,9 +111,9 @@ diingatkan padanya alih-alih melantur. `omni goal show` untuk memeriksa,
 OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
-Hal pertama yang harus diraih ketika Anda curiga OMNI mengubah sesuatu yang
+Hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang
 seharusnya tidak ia ubah. Kalau keluarannya identik dengan dan tanpa variabel
-itu, OMNI tidak terlibat.
+itu, Contexere tidak terlibat.
 
 ## Hal yang layak diketahui sebelum ia menggigit
 
@@ -123,12 +123,12 @@ sebuah berkas sumber bisa kembali terlipat. Pakai perkakas pembaca berkas milik
 agent Anda, atau `OMNI_PASSTHROUGH=1`, ketika Anda butuh byte yang persis.
 
 **Perintah yang cocok bisa ditulis ulang sebelum ia berjalan.** Pre-hook mengubah
-sebagian perintah menjadi `omni exec`, termasuk pengalihan keluarannya, sehingga
+sebagian perintah menjadi `contexere exec`, termasuk pengalihan keluarannya, sehingga
 berkas log yang kemudian Anda baca adalah yang sudah disuling. Patahkan awalannya
 (`env cargo test`, atau `true && cargo test`) ketika Anda butuh log mentah di
 disk.
 
-**Jangan menilai OMNI dari keluaran yang Anda baca lewat OMNI.** Sebuah
+**Jangan menilai Contexere dari keluaran yang Anda baca lewat Contexere.** Sebuah
 `cargo test` yang dibaca lewat hook pernah melaporkan "1 failed" untuk suite yang
 hijau dengan 398 lulus. Alihkan ke sebuah berkas dengan passthrough menyala
 sebelum membuat klaim apa pun tentang sebuah hasil.
@@ -136,7 +136,7 @@ sebelum membuat klaim apa pun tentang sebuah hasil.
 ## Kapan minta bantuan
 
 Kalau keluaran terlihat lebih pendek daripada seharusnya, kalau ada baris yang
-hilang, atau kalau OMNI melaporkan sukses untuk sesuatu yang gagal, itu layak
-dilaporkan. Reproduksi dulu dengan `omni exec`, dan baca **seluruh** keluaran
+hilang, atau kalau Contexere melaporkan sukses untuk sesuatu yang gagal, itu layak
+dilaporkan. Reproduksi dulu dengan `contexere exec`, dan baca **seluruh** keluaran
 sulingannya, bukan hasil `grep` atasnya: mem-`grep` menyembunyikan judul yang
 sering justru membuat keluaran itu ternyata tidak kehilangan apa pun.

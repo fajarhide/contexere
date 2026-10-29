@@ -152,7 +152,7 @@ yang tadi menyuruh pembacanya ke sana. Satu kali kirim, bukan pengecualian: peng
 berikutnya melipat lagi.
 
 Polanya lebih berharga daripada ketiga kasusnya. Ketika ledger mengejutkan Anda, tanyakan
-pembaca mana yang sedang memegang byte-nya, dan apakah ada sesuatu yang memberi tahu OMNI
+pembaca mana yang sedang memegang byte-nya, dan apakah ada sesuatu yang memberi tahu Contexere
 bahwa pembacanya sudah berganti.
 
 ## Alurnya, satu perintah pada satu waktu
@@ -202,7 +202,7 @@ sendiri di kesempatan berikutnya.
 ### Ambil kembali
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 Pencarian persis pada alamat isi. Tidak ada himpunan kandidat, tidak ada
@@ -302,7 +302,7 @@ pernah sampai ke ledger.
 ## Berapa nilainya
 
 Dari pemutaran ulang yang sama, ledger memberi tambahan 12,2 poin di atas
-penyaring OMNI sendiri dan 11,4 poin di atas milik pesaing, dan itu pernyataan
+penyaring Contexere sendiri dan 11,4 poin di atas milik pesaing, dan itu pernyataan
 paling jelas bahwa ia tegak lurus terhadap pola siapa yang berjalan:
 
 | | byte | hemat |

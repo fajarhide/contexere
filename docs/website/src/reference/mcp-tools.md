@@ -1,26 +1,26 @@
 # MCP tools
 
-`omni init` registers OMNI as an MCP server, which gives the agent tools it can call
+`contexere init` registers Contexere as an MCP server, which gives the agent tools it can call
 itself without going through you. This page describes all **25**. Your host is told about
 a subset.
 
 ## What your host is told about
 
 Tool definitions sit in the prefix of every request, so a tool nobody calls is re-read on
-every request of every session rather than paid for once. OMNI advertises the set your
+every request of every session rather than paid for once. Contexere advertises the set your
 host's tier can use:
 
 | tier | advertised |
 |---|---|
 | Full | `omni_retrieve`, `omni_explain_savings` |
-| Handoff-first, and any host OMNI does not recognise | those two, plus `omni_remember`, `omni_recall`, `omni_run`, `omni_find_noise`, `omni_context_breakdown`, `omni_history` |
+| Handoff-first, and any host Contexere does not recognise | those two, plus `omni_remember`, `omni_recall`, `omni_run`, `omni_find_noise`, `omni_context_breakdown`, `omni_history` |
 | MCP-only | `omni_remember`, `omni_recall`, `omni_retrieve`, `omni_knowledge`, plus `omni_run`: no hook means the host's own tool output is never rewritten, so `omni_run` is the only path by which the model reads less |
 
-Full-tier hosts get the shortest list because they are the ones whose shell OMNI already
+Full-tier hosts get the shortest list because they are the ones whose shell Contexere already
 hooks. Measured across 256 recorded sessions, those two tools carry 138 of the 149 calls
 in 467 bytes, while the other six cost 1,631 bytes for 11 calls in the life of the
 corpus. A Handoff-first host never has its built-in tool output rewritten, so MCP is the
-only door OMNI has there and nothing is priced away.
+only door Contexere has there and nothing is priced away.
 
 On Claude Code the shortest list is still not free, and the bytes are the smaller half of
 why: the host discards the whole prompt cache when an MCP server connects or disconnects
@@ -32,13 +32,13 @@ the override:
 
 | tool | on a Full-tier host |
 |---|---|
-| `omni_run` | `omni exec <command>` |
-| `omni_remember` | `omni remember '<fact>'` |
-| `omni_context_breakdown` | `omni stats --view context` |
-| `omni_history` | `omni stats --view detail`, which folds repeated commands into one row with a count instead of listing every call |
+| `omni_run` | `contexere exec <command>` |
+| `omni_remember` | `contexere remember '<fact>'` |
+| `omni_context_breakdown` | `contexere stats --view context` |
+| `omni_history` | `contexere stats --view detail`, which folds repeated commands into one row with a count instead of listing every call |
 | `omni_recall`, `omni_find_noise` | no CLI equivalent; `OMNI_MCP_TOOLS=all` |
 
-`OMNI_MCP_TOOLS=all` advertises all 25, and `omni doctor` says which set is in force and
+`OMNI_MCP_TOOLS=all` advertises all 25, and `contexere doctor` says which set is in force and
 which host it resolved:
 
 ```
@@ -51,7 +51,7 @@ Confirm the list against your own binary rather than this page:
 { echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"p","version":"1"}}}'
   echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
   echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'; } \
-| omni --mcp | tail -1 | jq -r '.result.tools[].name'
+| contexere --mcp | tail -1 | jq -r '.result.tools[].name'
 ```
 
 ## Getting content back
@@ -63,10 +63,10 @@ Confirm the list against your own binary rather than this page:
 | `omni_signal_extract` | Extract signal from raw text, without the hook pipeline |
 
 `omni_run` matters most on hosts that cannot rewrite their built-in shell tool. There,
-it is the only path to distilled output, which is why `omni init --cursor` installs a
+it is the only path to distilled output, which is why `contexere init --cursor` installs a
 rule telling the agent to prefer it.
 
-## Understanding what OMNI did
+## Understanding what Contexere did
 
 | tool | what it does |
 |---|---|
@@ -76,7 +76,7 @@ rule telling the agent to prefer it.
 | `omni_density` | How much signal against noise in a piece of text |
 | `omni_budget` | Token budget usage and compression efficiency for this session |
 
-These four are the right answer to "is OMNI helping here". Pull the numbers rather
+These four are the right answer to "is Contexere helping here". Pull the numbers rather
 than forming an impression.
 
 ## Memory
@@ -136,11 +136,11 @@ therefore wrong wherever it appears. Run the `tools/list` call above for the cou
 
 `omni_context` was advertised until 0.7.7 and had never been called once across
 253 recorded sessions, so it cost 189 bytes in the prefix of every request for a
-capability nobody reached for. It is `omni context <file>` now, which costs nothing
+capability nobody reached for. It is `contexere context <file>` now, which costs nothing
 per request:
 
 ```bash
-omni context src/ledger/mod.rs
+contexere context src/ledger/mod.rs
 ```
 
 An agent can still reach it through `omni_run`.

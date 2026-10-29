@@ -4,8 +4,8 @@
 
 # Understanding it
 
-- [What OMNI is](concepts/what-it-is.md)
-- [Where OMNI helps](concepts/use-cases.md)
+- [What Contexere is](concepts/what-it-is.md)
+- [Where Contexere helps](concepts/use-cases.md)
 - [How it decides what to cut](concepts/how-it-decides.md)
 - [Nothing is deleted](concepts/nothing-is-deleted.md)
 - [The ledger](concepts/the-ledger.md)
@@ -43,7 +43,7 @@
 - [Adding a distiller](develop/adding-a-distiller.md)
 - [Testing](develop/testing.md)
 - [Benchmarks](develop/benchmarks.md)
-- [Where OMNI is going](develop/direction.md)
+- [Where Contexere is going](develop/direction.md)
 - [Releasing](develop/releasing.md)
 
 # Integrations

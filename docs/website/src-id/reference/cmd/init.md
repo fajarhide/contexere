@@ -1,12 +1,12 @@
-# `omni init`
+# `contexere init`
 
-Memasang OMNI ke sebuah agent: menulis konfigurasi hook di tempat host itu
+Memasang Contexere ke sebuah agent: menulis konfigurasi hook di tempat host itu
 membacanya, dan mendaftarkan server MCP.
 
 ```sh
-omni init              # menu interaktif, atau host saat ini kalau tidak ada terminal
-omni init --claude
-omni init --all
+contexere init              # menu interaktif, atau host saat ini kalau tidak ada terminal
+contexere init --claude
+contexere init --all
 ```
 
 Idempoten. Menjalankannya lagi setelah upgrade adalah langkah yang benar, bukan
@@ -15,7 +15,7 @@ risiko.
 ## Tanpa flag
 
 Di terminal, sebuah menu. Tanpa terminal, yang memang begitulah agent
-menjalankannya, menunya tidak bisa digambar, jadi `omni init` menyetel host
+menjalankannya, menunya tidak bisa digambar, jadi `contexere init` menyetel host
 tempat ia berjalan lalu mencetak host mana itu. Host yang tidak bisa ia sebut
 dari lingkungannya, termasuk shell biasa, mendapat galat berisi daftar flag,
 bukan tebakan: memasang ke host yang tidak diminta siapa pun adalah yang lebih
@@ -43,7 +43,7 @@ lokasi milik host itu.
 | `--vscode` | VS Code (MCP) |
 | `--pi` | Pi Agent |
 
-Apa yang sebenarnya diizinkan masing-masing host untuk dilakukan OMNI berbeda
+Apa yang sebenarnya diizinkan masing-masing host untuk dilakukan Contexere berbeda
 jauh. Lihat [Agent yang didukung](../agents.md) sebelum menganggap sebuah flag
 otomatis membeli penyulingan shell.
 
@@ -55,13 +55,13 @@ otomatis membeli penyulingan shell.
 | `--hook` | Hook saja, tanpa pendaftaran MCP |
 | `--mcp` | Pendaftaran MCP saja, tanpa hook |
 | `--status` | Laporkan apa yang saat ini terpasang, tanpa mengubah apa pun |
-| `--uninstall` | Cabut hook dan server MCP milik OMNI |
+| `--uninstall` | Cabut hook dan server MCP milik Contexere |
 | `--help`, `-h` | Bantuan |
 
 ## Setelah menjalankannya
 
 ```sh
-omni doctor
+contexere doctor
 ```
 
 Selalu. `init` melaporkan apa yang ia tulis; `doctor` melaporkan apakah host-nya
@@ -69,7 +69,7 @@ membacanya.
 
 **Codex CLI butuh satu langkah lagi.** Ia hanya menjalankan hook yang sudah
 dinyatakan tepercaya dan melewati sisanya tanpa sepatah kata. Jalankan `codex`
-sekali lalu setujui di bagian "Hooks need review". `omni doctor` gagal sampai
+sekali lalu setujui di bagian "Hooks need review". `contexere doctor` gagal sampai
 Anda melakukannya.
 
 ## Catatan

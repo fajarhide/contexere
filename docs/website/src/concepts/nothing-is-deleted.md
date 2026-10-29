@@ -1,6 +1,6 @@
 # Nothing is deleted
 
-Every byte OMNI removes is written to a local SQLite archive first, keyed by its
+Every byte Contexere removes is written to a local SQLite archive first, keyed by its
 SHA-256. The agent gets a marker carrying a 16 character handle, and the handle
 brings the original back byte for byte.
 
@@ -9,7 +9,7 @@ brings the original back byte for byte.
 ```
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 That works from any shell, in any session, on any host, and it does not re-run your
@@ -59,10 +59,10 @@ number in [Benchmarks](../develop/benchmarks.md) names the window it was measure
 `~/.omni/omni.db`, a single SQLite file. It never leaves the machine.
 
 ```sh
-omni stats            # what it has been doing
-omni diff             # the last command, raw against distilled
-omni retrieve <handle>
+contexere stats            # what it has been doing
+contexere diff             # the last command, raw against distilled
+contexere retrieve <handle>
 ```
 
-`omni diff` is the quickest way to develop trust in this: run a noisy command, then
+`contexere diff` is the quickest way to develop trust in this: run a noisy command, then
 look at exactly what the agent was handed instead.

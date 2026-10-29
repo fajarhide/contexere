@@ -16,7 +16,7 @@ sering salah daripada membantu.
 - [Benchmarks](https://omni.weekndlabs.com/docs/develop/benchmarks)
   Metode di balik setiap angka di manual ini, dan perintah untuk memutarnya ulang
   di riwayat Anda sendiri.
-- [Where OMNI is going](https://omni.weekndlabs.com/docs/develop/direction)
+- [Where Contexere is going](https://omni.weekndlabs.com/docs/develop/direction)
   Termasuk daftar hal yang sengaja tidak dibangun, beserta alasannya.
 - [Releasing](https://omni.weekndlabs.com/docs/develop/releasing)
   Urutan langkahnya, dan jebakan yang pernah membuat satu rilis tidak

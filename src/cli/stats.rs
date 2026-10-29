@@ -606,7 +606,7 @@ fn run_share(args: &[String], store: &Store) -> Result<()> {
     println!();
     // Written out: `6,253`, not `6K`.
     println!(
-        "OMNI saved me {} {unit} ({pct:.1}%) across {} commands, {window}.",
+        "Contexere saved me {} {unit} ({pct:.1}%) across {} commands, {window}.",
         format_compact(saved),
         format_number(calls)
     );
@@ -984,7 +984,7 @@ fn run_default(args: &[String], store: &Store) -> Result<()> {
     if t.distilled_calls == 0 && t.declined_calls == 0 && t.folds == 0 {
         println!(
             "  {}",
-            "No data yet! OMNI tracks savings automatically as you work."
+            "No data yet! Contexere tracks savings automatically as you work."
                 .bright_black()
                 .italic()
         );
@@ -1366,7 +1366,7 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
         let total_routes: u64 = routes.iter().map(|(_, c)| c).sum();
         println!(
             "\n {} {}",
-            "what OMNI did with each call".bold().bright_white(),
+            "what Contexere did with each call".bold().bright_white(),
             "· and why, where it declined".bright_black()
         );
         for (route, cnt) in &routes {
@@ -1937,10 +1937,10 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
     {
         println!();
         println!(
-            "  OMNI's own tables say it kept {} out of tool results in this window,",
+            "  Contexere's own tables say it kept {} out of tool results in this window,",
             format_bytes(totals.total_saved())
         );
-        println!("  across every host it ran on. That line is OMNI's claim. Everything above");
+        println!("  across every host it ran on. That line is Contexere's claim. Everything above");
         println!("  it is the host's record.");
     }
 
@@ -2788,7 +2788,7 @@ mod tests {
         let declined = out
             .lines()
             .find(|l| l.contains("left alone"))
-            .expect("a row for the calls OMNI declined");
+            .expect("a row for the calls Contexere declined");
         assert!(!declined.contains('%'), "a no-op has no ratio: {declined}");
         assert!(
             !declined.contains("MB") && !declined.contains("KB"),

@@ -12,7 +12,7 @@ use colored::*;
 const FLAGS: super::Flags = &[
     (
         "--tokens",
-        "where this project's tool output went, and what OMNI declined",
+        "where this project's tool output went, and what Contexere declined",
     ),
     (
         "--since <window>",
@@ -124,7 +124,7 @@ pub(crate) fn tokens_report(
     writeln!(
         out,
         "   {:<24}{:>10}   {}",
-        "tool output OMNI saw",
+        "tool output Contexere saw",
         format_bytes(seen),
         counted(t.distilled_calls + t.declined_calls, "call")
     )?;
@@ -199,11 +199,11 @@ pub(crate) fn tokens_report(
     writeln!(out)?;
     writeln!(
         out,
-        "   OMNI sees tool output only. Your prompts, the system block and the"
+        "   Contexere sees tool output only. Your prompts, the system block and the"
     )?;
     writeln!(
         out,
-        "   assistant's own text are not counted here and are not OMNI's to see."
+        "   assistant's own text are not counted here and are not Contexere's to see."
     )?;
     writeln!(out)?;
     Ok(out)
@@ -331,7 +331,7 @@ mod tokens_tests {
         assert!(out.contains("of what it was given"), "{out}");
         assert!(out.contains("of what it folded"), "{out}");
         assert!(
-            !out.contains("of what OMNI saw"),
+            !out.contains("of what Contexere saw"),
             "a ratio is being taken against the combined total: {out}"
         );
     }
@@ -352,7 +352,7 @@ mod tokens_tests {
         let (store, _d) = seeded();
         let out = super::tokens_report(&store, "all time", 0).unwrap();
         assert!(
-            out.contains("not OMNI's to see"),
+            out.contains("not Contexere's to see"),
             "the report stopped stating what it cannot see: {out}"
         );
     }

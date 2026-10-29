@@ -1,6 +1,6 @@
 # Membaca penanda
 
-Penanda adalah cara OMNI memberi tahu apa yang ia lakukan. Bentuknya hanya
+Penanda adalah cara Contexere memberi tahu apa yang ia lakukan. Bentuknya hanya
 beberapa, dan mengenalinya adalah beda antara memercayai perkakas ini dan
 mencurigainya.
 
@@ -11,7 +11,7 @@ mencurigainya.
 ```
 
 Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
-`omni retrieve <handle>` mencetak aslinya kembali, persis byte demi byte,
+`contexere retrieve <handle>` mencetak aslinya kembali, persis byte demi byte,
 dari shell mana pun di sesi mana pun.
 
 ```
@@ -67,7 +67,7 @@ digantikannya. Editor menomori baris yang diterimanya, dihitung dari baris tempa
 pembacaan dimulai, jadi tampilan yang lebih pendek akan menaruh tiap baris yang selamat di
 nomor yang bukan miliknya. Mempertahankan jumlah baris itulah yang membuat sebuah lipatan
 boleh berada di antara dua bagian yang masih Anda butuhkan. Baris pengisi itu bukan konten
-yang bisa diambil: `omni retrieve` pada handle di atas mencetak baris aslinya.
+yang bisa diambil: `contexere retrieve` pada handle di atas mencetak baris aslinya.
 
 ```
 [OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
@@ -96,7 +96,7 @@ Collapse. Deretan baris yang nyaris identik, diganti sebuah hitungan.
 [OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
-Catatan kaki, pada `omni exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
+Catatan kaki, pada `contexere exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
 dan berapa lama pipeline-nya berjalan.
 
 ```
@@ -132,10 +132,10 @@ panjang yang ditulis penerbitnya: `sk-ant-`, `ghp_` dan kerabatnya, `github_pat_
 `xoxb-` dan kerabatnya. String yang lebih pendek dengan prefiks yang sama, seperti
 `sk-ant-abc123` di sebuah dokumen, dibiarkan.
 
-Redaksi berjalan pada keluaran yang ditulis ulang OMNI. Di jalur hook, payload yang terbaca
+Redaksi berjalan pada keluaran yang ditulis ulang Contexere. Di jalur hook, payload yang terbaca
 sebagai terstruktur diredaksi di tempatnya, dengan penanda ini di pesan konteks hook dan
-bukan di dalam dokumen; `omni exec` dan mode pipe meneruskan keluaran terstruktur apa
-adanya. Perintah yang dilaporkan gagal oleh host-nya berada di luar jangkauan: OMNI
+bukan di dalam dokumen; `contexere exec` dan mode pipe meneruskan keluaran terstruktur apa
+adanya. Perintah yang dilaporkan gagal oleh host-nya berada di luar jangkauan: Contexere
 mengembalikannya tanpa disentuh, dan Claude Code mengirim panggilan Bash yang gagal ke
 `PostToolUseFailure`, yang sama sekali tidak bisa mengganti keluarannya. Kredensial di
 keluaran perintah yang gagal terkirim apa adanya. Host yang tidak melaporkan kegagalan,
@@ -157,14 +157,14 @@ pola lainnya nilai tidak pernah ikut menentukan, jadi `hunter2` dan `decrypt("gh
 dipotong. Kalau ragu, nilainya dipotong: menyembunyikan nilai yang aman hanya berongkos satu
 baca ulang, sedangkan mencetak kredensial asli tidak bisa ditarik kembali.
 
-Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace lokal OMNI
+Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace lokal Contexere
 menyimpan keluaran mentahnya, termasuk kredensialnya, selama tujuh hari.
 
 ```
 [OMNI: Re-injecting critical files due to Warning pressure]
 ```
 
-Saat konteks tertekan (`Warning` atau `Critical`), OMNI secara berkala menaruh kembali sampai
+Saat konteks tertekan (`Warning` atau `Critical`), Contexere secara berkala menaruh kembali sampai
 tiga berkas `pinned_files` Anda di depan agent, masing-masing dipotong sekitar 400 karakter.
 Tidak ada yang dibuang; isi sesudah baris itu adalah tambahan.
 
@@ -173,11 +173,11 @@ Tidak ada yang dibuang; isi sesudah baris itu adalah tambahan.
 Bug-bug terburuk dalam sejarah proyek ini melaporkan pengurangan **paling
 besar**. Distiller yang menghapus jawabannya terkompresi dengan indah.
 
-Jadi angka besar bukan kabar baik dengan sendirinya. `omni diff` adalah
+Jadi angka besar bukan kabar baik dengan sendirinya. `contexere diff` adalah
 pemeriksanya:
 
 ```sh
-omni diff     # perintah terakhir, mentah dibanding hasil sulingan
+contexere diff     # perintah terakhir, mentah dibanding hasil sulingan
 ```
 
 Kalau penghematan 99% ternyata membuang jalur berkas yang justru jawabannya, itu
@@ -186,7 +186,7 @@ ini.
 
 ## Ketika sama sekali tidak ada penanda
 
-Sering, dan itu tandanya pipeline bekerja, bukan gagal. OMNI mengembalikan
+Sering, dan itu tandanya pipeline bekerja, bukan gagal. Contexere mengembalikan
 keluarannya langsung setiap kali mengambil sesuatu akan tidak aman atau tidak
 sepadan. Itu terjadi ketika:
 
@@ -199,30 +199,30 @@ sepadan. Itu terjadi ketika:
 ## Mengambil isinya kembali
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 Bekerja di semua host, dengan atau tanpa MCP. Agent yang server MCP-nya terpasang
 bisa memanggil `omni_retrieve` sendiri tanpa bertanya ke Anda.
 
 Satu batas yang tidak bisa dijanjikan sebuah handle: arsipnya jendela bergulir 30
-hari, jadi `omni retrieve` atas isi yang lebih tua dari itu tidak akan ketemu.
+hari, jadi `contexere retrieve` atas isi yang lebih tua dari itu tidak akan ketemu.
 Jejak apa adanya bahkan lebih pendek, tujuh hari.
 
 ## Membedakan penanda asli dari penanda yang sekadar dicetak
 
 Penanda juga muncul di dalam prosa. Halaman ini penuh dengannya, begitu pula source
-OMNI sendiri, dan begitu pula laporan bug mana pun yang mengutipnya. Itu penting
-ketika Anda mengukur apakah OMNI aktif pada suatu run, karena mencari bentuk penanda
+Contexere sendiri, dan begitu pula laporan bug mana pun yang mengutipnya. Itu penting
+ketika Anda mengukur apakah Contexere aktif pada suatu run, karena mencari bentuk penanda
 di dalam transkrip akan menemukan contohnya semudah menemukan lipatan aslinya.
 
-Handle-nya yang membedakan. Setiap contoh di manual ini dan di source OMNI memakai
+Handle-nya yang membedakan. Setiap contoh di manual ini dan di source Contexere memakai
 satu nilai cadangan, `0000000000000000`, yang tidak akan pernah diberikan kepada
 lipatan sungguhan:
 
 ```sh
-omni retrieve 0000000000000000   # exit 1, "the documentation example"
-omni retrieve <handle-yang-Anda-temukan> # exit 0 jika OMNI benar-benar melipatnya
+contexere retrieve 0000000000000000   # exit 1, "the documentation example"
+contexere retrieve <handle-yang-Anda-temukan> # exit 0 jika Contexere benar-benar melipatnya
 ```
 
 Jadi exit code-nya yang menjawab pertanyaan itu, dan penanda yang disalin dari

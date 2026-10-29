@@ -1,10 +1,10 @@
-# `omni exec`
+# `contexere exec`
 
 Runs one command through the full pipeline and prints the result, with a footer
 showing what it cost.
 
 ```sh
-omni exec cargo test
+contexere exec cargo test
 ```
 
 ```
@@ -14,15 +14,15 @@ cargo test: 411 passed, 1 failed
 ```
 
 This is the harness every bug report in this project is asked to use, because it takes
-the host out of the picture. If a corruption survives `omni exec`, it is OMNI.
+the host out of the picture. If a corruption survives `contexere exec`, it is Contexere.
 
 ## The argument form is exact
 
 ```sh
-omni exec cargo test          # correct
-omni exec -- cargo test       # fails: No such file or directory
-omni exec 'cargo test'        # works, single-string form
-omni exec sh -c 'a; b'        # works, split-argv form
+contexere exec cargo test          # correct
+contexere exec -- cargo test       # fails: No such file or directory
+contexere exec 'cargo test'        # works, single-string form
+contexere exec sh -c 'a; b'        # works, split-argv form
 ```
 
 The `--` form is the one people reach for and the one that does not work.
@@ -35,7 +35,7 @@ The `--` form is the one people reach for and the one that does not work.
 | `--agent <id>` | Record the run under a given `agent_id` |
 | `--help`, `-h` | Help |
 
-Both are what the pre-hook uses when it rewrites a command into `omni exec`.
+Both are what the pre-hook uses when it rewrites a command into `contexere exec`.
 
 `--session` is worth knowing when you are investigating ledger behaviour: it is the
 only way to drive two distinct sessions by hand and see the difference between an
@@ -47,13 +47,13 @@ Output is not deterministic against a warm database, because session history fee
 the scorer. Give each probe its own:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db omni exec <command>
+OMNI_DB_PATH=/tmp/probe.db contexere exec <command>
 ```
 
-A warm shared database also serialises writes, which is the usual reason `omni exec`
+A warm shared database also serialises writes, which is the usual reason `contexere exec`
 appears to hang.
 
 ## Related
 
-`omni diff` shows the same before and after for the **last** command the hook
+`contexere diff` shows the same before and after for the **last** command the hook
 processed, which is what you want when the interesting command already ran.

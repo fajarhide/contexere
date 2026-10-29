@@ -1,6 +1,6 @@
 # Reading the markers
 
-A marker is OMNI telling you what it did. There are only a few shapes, and knowing
+A marker is Contexere telling you what it did. There are only a few shapes, and knowing
 them is the difference between trusting the tool and suspecting it.
 
 ## The shapes
@@ -10,7 +10,7 @@ them is the difference between trusting the tool and suspecting it.
 ```
 
 Content was cut and archived. The 16 characters are a handle:
-`omni retrieve <handle>` prints the original back, byte for byte, from any
+`contexere retrieve <handle>` prints the original back, byte for byte, from any
 shell in any session.
 
 ```
@@ -63,7 +63,7 @@ In a file read, and only there, the marker is followed by one `⋮` per line it 
 Your editor numbers the lines it is handed, counting from the line the read began at, so a
 shorter view would put every surviving line on a number it is not at. Keeping the count is
 what lets a fold sit between two pieces of content you still need. The filler is never
-retrievable content: `omni retrieve` on the handle above prints the real lines.
+retrievable content: `contexere retrieve` on the handle above prints the real lines.
 
 ```
 [OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
@@ -90,7 +90,7 @@ Collapse. A run of near-identical lines, replaced by a count.
 [OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
-The footer, on `omni exec` and pipe mode. Input size, output size, and how long the
+The footer, on `contexere exec` and pipe mode. Input size, output size, and how long the
 pipeline took.
 
 ```
@@ -125,10 +125,10 @@ the issuer writes it: `sk-ant-`, `ghp_` and its siblings, `github_pat_`, `AKIA`,
 its siblings. A shorter string with the same prefix, such as `sk-ant-abc123` in a document,
 is left alone.
 
-Redaction runs on output OMNI rewrites. On the hook path a payload read as structured is
+Redaction runs on output Contexere rewrites. On the hook path a payload read as structured is
 redacted where it stands, with this notice in the hook's context message instead of in the
-document; `omni exec` and pipe mode pass structured output through verbatim. A command the
-host reports as failed is out of reach: OMNI hands it back untouched, and Claude Code sends
+document; `contexere exec` and pipe mode pass structured output through verbatim. A command the
+host reports as failed is out of reach: Contexere hands it back untouched, and Claude Code sends
 a failed Bash call to `PostToolUseFailure`, which cannot replace the output at all. A
 credential in a failed command's output is delivered as printed. A host that reports no
 failure, such as OpenCode or Continue, has its output rewritten whether the command failed
@@ -149,14 +149,14 @@ pattern the value never argues, so `hunter2` and `decrypt("ghp_x")` are cut. Whe
 the value is cut: hiding a harmless value costs a re-read, and printing a real one cannot
 be undone.
 
-Redaction protects what the agent receives, not your disk. OMNI's local trace store keeps
+Redaction protects what the agent receives, not your disk. Contexere's local trace store keeps
 the raw output, secret included, for seven days.
 
 ```
 [OMNI: Re-injecting critical files due to Warning pressure]
 ```
 
-When the context is under pressure (`Warning` or `Critical`), OMNI periodically puts up to
+When the context is under pressure (`Warning` or `Critical`), Contexere periodically puts up to
 three of your `pinned_files` back in front of the agent, each cut to about 400 characters.
 Nothing was removed; what follows the line is added.
 
@@ -165,10 +165,10 @@ Nothing was removed; what follows the line is added.
 The worst bugs in this project's history reported the **highest** reductions. A
 distiller that deletes the answer compresses beautifully.
 
-So a large number is not on its own good news. `omni diff` is the check:
+So a large number is not on its own good news. `contexere diff` is the check:
 
 ```sh
-omni diff     # the last command, raw against distilled
+contexere diff     # the last command, raw against distilled
 ```
 
 If a 99% saving turns out to have removed the file paths that were the answer, that is
@@ -176,7 +176,7 @@ a bug worth reporting, and it is the exact class this project cares about most.
 
 ## When there is no marker at all
 
-Most of the time, and that is the pipeline working rather than failing. OMNI hands the
+Most of the time, and that is the pipeline working rather than failing. Contexere hands the
 output straight back whenever taking anything would be unsafe or would not pay:
 
 - The payload is JSON, YAML, CSV or TSV. Never touched, on purpose.
@@ -188,30 +188,30 @@ output straight back whenever taking anything would be unsafe or would not pay:
 ## Getting content back
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 Works on every host, with or without MCP. Agents with the MCP server wired can call
 `omni_retrieve` themselves without asking you.
 
 One boundary a handle cannot promise: the archive is a rolling 30 day window, so
-`omni retrieve` on content older than that will not resolve. Verbatim traces are
+`contexere retrieve` on content older than that will not resolve. Verbatim traces are
 shorter still at seven days.
 
 ## Telling a real marker from a printed one
 
-Markers appear in prose too. This page is full of them, so is OMNI's source, and so
-is any bug report that quotes one. That matters if you are measuring whether OMNI
+Markers appear in prose too. This page is full of them, so is Contexere's source, and so
+is any bug report that quotes one. That matters if you are measuring whether Contexere
 was active on a run, because searching a transcript for the marker shape will find
 the examples as readily as the folds.
 
-The handle is what separates them. Every worked example in this manual and in OMNI's
+The handle is what separates them. Every worked example in this manual and in Contexere's
 own source uses one reserved value, `0000000000000000`, which no real fold can ever
 be assigned:
 
 ```sh
-omni retrieve 0000000000000000   # exit 1, "the documentation example"
-omni retrieve <handle-you-found> # exit 0 if OMNI really folded it
+contexere retrieve 0000000000000000   # exit 1, "the documentation example"
+contexere retrieve <handle-you-found> # exit 0 if Contexere really folded it
 ```
 
 So the exit code answers the question, and a marker copied out of documentation

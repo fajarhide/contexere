@@ -4,7 +4,7 @@ One developer's real command history, replayed. Every figure in a section comes 
 same run as the rest of that section, including the ones that do not flatter us.
 
 **Two runs are published here and they disagree by a factor of fifteen.** That is the most
-useful thing on the page: the number OMNI reports is a property of the week it replays, not
+useful thing on the page: the number Contexere reports is a property of the week it replays, not
 a constant. Read the corpus line before the figure, every time.
 
 ## Correction, 2026-09-03: every ledger figure below is overstated
@@ -57,7 +57,7 @@ and one written without that field was measured this way.
 
 **Corpus**: 9,478 traces, 8,458,937 bytes, 70 sessions, all `agent_id='claude_code'`,
 0 terminal rows, 0 errored. Frozen on disk and hashed as `0b63218ef78a1edb`, replayed
-in 7.1 s on OMNI 0.7.8.
+in 7.1 s on Contexere 0.7.8.
 
 Every run above this line on this page was measured on `execution_traces`, which prunes
 at seven days, so none of them can be re-derived. This one is a file. That is the whole
@@ -110,19 +110,48 @@ one marker and a partially-seen reply now folds nothing.
 | rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
 | omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.7.11.
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, Contexere 0.7.11.
 <!-- omni:corpus-table:end -->
+
+A corpus anyone can rebuild, 40 SWE-bench Verified instances across 10 public repos:
+
+```sh
+python3 scripts/build-swebench-corpus.py --instances 40 --stride 12
+CORPUS_DIR=swebench-corpus ./scripts/bench.sh
+```
+
+<!-- omni:swebench-table:start -->
+| Class | Calls | Input | Filters | + ledger | Available | Captured |
+|---|---|---|---|---|---|---|
+| file read | 86 | 2.07 MB | 26.8% | 32.3% | 25.8% | **28.7%** |
+| search | 80 | 0.13 MB | 11.2% | 11.2% | 46.8% | **0.0%** |
+| git | 120 | 0.06 MB | 0.0% | 2.5% | 18.3% | **13.9%** |
+| **aggregate** | 286 | 2.26 MB | 25.2% | 30.3% | 27.0% | **24.9%** |
+
+| Arm | bytes | saved |
+|---|---|---|
+| lean-ctx `compress` | 2,259,278 to 852,777 | 62.3% |
+| headroom dedup, omni's filters | 2,259,278 to 1,539,608 | 31.9% |
+| **omni, with the ledger** | 2,259,278 to 1,575,607 | 30.3% |
+| omni, filters only | 2,259,278 to 1,689,234 | 25.2% |
+| rtk + omni's ledger | 2,259,278 to 2,039,856 | 9.7% |
+| caveman + omni's ledger | 2,259,278 to 2,106,392 | 6.8% |
+| rtk `pipe` | 2,259,278 to 2,192,628 | 3.0% |
+| caveman `compress` | 2,259,278 to 2,259,164 | 0.0% |
+
+Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.11.
+<!-- omni:swebench-table:end -->
 
 **`available` and `captured` are new, and `captured` is the figure that survives a
 change of workload.** The ledger substitutes lines it has already delivered, so it can
 never fold what was not repeated; `available` is that ceiling and `captured` is the share
 of it taken. Between this corpus and the 0.7.5 run below, the file-read saving moves by a
 factor of twenty. The capture rate barely moves. Only one of those two is a statement
-about OMNI.
+about Contexere.
 
 **Why the savings column is so much lower than the run below: this corpus is mostly
 one-line shell plumbing.** 4,815 of the 9,478 calls begin with `cd`, carrying 3.98 MB at
-1.2%, and the median repeated run is 10 bytes. It was a week of driving OMNI's own
+1.2%, and the median repeated run is 10 bytes. It was a week of driving Contexere's own
 development from a terminal, so the payloads are `git`, `gh`, `sed` and `sqlite3` output
 that is either tiny, structured, or seen once. Repetition is 16.3% of raw bytes here
 against 80.6% in the window below.
@@ -142,7 +171,7 @@ a subcommand it knows, so it falls through to shrink mode and hands back the inp
 #711's failure wearing a different binary. `caveman-engine compress` is the entry point
 that works (#712).
 
-**On this corpus OMNI is last of the four rows that carry a ledger, and both halves are
+**On this corpus Contexere is last of the four rows that carry a ledger, and both halves are
 behind.** headroom's dedup takes 5.0% where ours takes 2.4% over identical filters and
 identical blocks, so that 2.6 points is the dedup engine alone. It read 0.9 points until
 #760, which is the correction at the top of this page and not a change in the code. Our filter tier is the
@@ -207,7 +236,7 @@ everything below. 148 of the 5,984 calls carry 64.7% of all bytes, 286 groups of
 byte-identical payloads account for 80.6% of the total, and the single largest
 contributor is five traces of exactly 820,000 bytes whose content is one sentence
 repeated to fill. It is the week this machine did nothing but develop and benchmark
-OMNI. A corpus of ordinary work reads far lower: the same harness on 6,656 traces in
+Contexere. A corpus of ordinary work reads far lower: the same harness on 6,656 traces in
 August 2026 read 2.7% and 14.9%.
 
 ### Which commands benefit
@@ -303,7 +332,7 @@ retired the TOML layer, and a 10 row table arrived as three lines with seven pod
 deleted. A count of pods cannot be turned back into a pod name (#562).
 
 `git diff` reads 0.0% for the same reason a parser's input does. The hook and
-`omni exec` pass a unified diff through byte for byte, so it can still be applied.
+`contexere exec` pass a unified diff through byte for byte, so it can still be applied.
 This table read 37.8% until #918, measured on the diff distiller directly, which no
 live path reaches.
 
@@ -333,13 +362,13 @@ OMNI_BENCH_DB=/tmp/bench-corpus.db \
 | corpus | `execution_traces.raw_input`, real usage, replayed. Not synthetic. Shell commands only: no `Read` payload is in this table, so no figure here covers the ledger's file-read path |
 | population | calls whose result reached a model. `OMNI_BENCH_ALL=1` widens it |
 | state | `session: None`, `store: None`, `HOME` at an empty temp dir |
-| path | `run_inner`, the same pipeline the hook and `omni exec` run, markers included |
+| path | `run_inner`, the same pipeline the hook and `contexere exec` run, markers included |
 | binary | release build |
 | arms | `OMNI_BENCH_RTK`, `_LEANCTX`, `_CAVEMAN`, `_HEADROOM`, each off unless it names a binary, so CI never needs a competitor installed |
 
 **Terminal output is excluded, and it is worth two different headlines.** On an
 installation carrying it, it was 68% of raw bytes: 79.1% including it against 43.3%
-model-facing. The harness and `omni stats` both counted it until that was fixed, and
+model-facing. The harness and `contexere stats` both counted it until that was fixed, and
 both now print which population they used.
 
 **Every figure comes from one run.** This file once published 15.7% and 16.1% from two
@@ -367,8 +396,8 @@ Whether the removed lines were signal.
 ## Measure your own
 
 ```sh
-omni stats
-omni stats --share
+contexere stats
+contexere stats --share
 ```
 
 Both read the same aggregation, so the share card cannot drift from the report.

@@ -1,10 +1,10 @@
-# `omni doctor`
+# `contexere doctor`
 
 Memeriksa bahwa pemasangannya sehat, dan memperbaiki yang bisa ia perbaiki.
 
 ```sh
-omni doctor
-omni doctor --fix
+contexere doctor
+contexere doctor --fix
 ```
 
 Ia mencakup versi dan keterjangkauan binary-nya, direktori konfigurasi dan basis
@@ -22,7 +22,7 @@ data, pemasangan hook per host, pendaftaran server MCP, dan pemuatan sinyal.
 ## Membaca keluarannya
 
 **Tingkat host.** `doctor` mencetak tingkat untuk setiap host yang terpasang, dan
-tingkat itu adalah langit-langit jujur untuk apa yang bisa dilakukan OMNI di
+tingkat itu adalah langit-langit jujur untuk apa yang bisa dilakukan Contexere di
 sana. Host yang mengutamakan handoff atau hanya MCP tidak bisa menulis ulang
 keluaran tool shell bawaannya, jadi sebanyak apa pun pekerjaan pipeline tidak
 akan menggerakkan angka penyulingannya. Lihat

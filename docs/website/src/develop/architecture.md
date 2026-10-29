@@ -27,7 +27,7 @@ About 46,000 lines of Rust.
 ## Design rules that the code actually enforces
 
 **Library first.** `main.rs` is a thin entry point. Logic lives in `lib.rs` and its
-submodules, so OMNI can be tested as a crate.
+submodules, so Contexere can be tested as a crate.
 
 **Single source of truth.** Command-to-behaviour mapping is centralised in
 `pipeline/registry.rs`. Duplicated `matches!(cmd, ...)` blocks in distillers and
@@ -62,7 +62,7 @@ One SQLite file, `~/.omni/omni.db`.
 | `ledger_sources` | the command that first showed a line, stored once per command |
 | `ledger_folds` | one row per marker issued: which scope, and which agent's bytes it drew on |
 | `passthrough_events` | telemetry for commands that bypassed the pipeline |
-| `unhandled_tools` | tools OMNI does not support natively yet |
+| `unhandled_tools` | tools Contexere does not support natively yet |
 | `execution_traces` | raw input and distilled output per command |
 | `session_summaries` | per-session metrics |
 | `project_knowledge` | cross-session semantic memory |

@@ -72,14 +72,18 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "SET UP",
         "init",
-        "Install OMNI into your agent (hooks + MCP)",
+        "Install Contexere into your agent (hooks + MCP)",
     ),
     (
         "SET UP",
         "doctor",
         "Check the install is healthy, and fix what isn't",
     ),
-    ("SET UP", "update", "Upgrade OMNI to the latest release"),
+    (
+        "SET UP",
+        "update",
+        "Upgrade Contexere to the latest release",
+    ),
     (
         "SET UP",
         "reset",
@@ -88,7 +92,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "SEE WHAT IT SAVED",
         "stats",
-        "How many tokens OMNI cut, and from which commands",
+        "How many tokens Contexere cut, and from which commands",
     ),
     (
         "SEE WHAT IT SAVED",
@@ -113,7 +117,7 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     (
         "TUNE IT",
         "exec",
-        "Run one command through OMNI, to see what it would do",
+        "Run one command through Contexere, to see what it would do",
     ),
     ("TUNE IT", "query", "Search past distillations (OmniQL)"),
     ("TUNE IT", "patterns", "Errors that keep coming back"),
@@ -164,7 +168,7 @@ fn print_help() {
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
         "  omni stats            {}",
-        "# what did OMNI save me?".bright_black()
+        "# what did Contexere save me?".bright_black()
     );
     println!(
         "  omni stats -d         {}",

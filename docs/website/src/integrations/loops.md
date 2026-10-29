@@ -1,7 +1,7 @@
 # Loop engineering
 
 Running an agent in a loop, where each iteration adds to a context window that does
-not grow. OMNI's part is tracking what the loop has spent and carrying memory across
+not grow. Contexere's part is tracking what the loop has spent and carrying memory across
 iterations that would otherwise reset.
 
 ## Setting a loop up
@@ -26,7 +26,7 @@ export OMNI_LOOP_ITERATION=0
 
 The budget is estimated context window usage per iteration, not a spend limit.
 
-| loop shape | budget | what OMNI does |
+| loop shape | budget | what Contexere does |
 |---|---|---|
 | quick fix, 1 to 5 iterations | 200,000 | passive tracking |
 | feature work, 5 to 20 | 100,000 | active distillation, engrams |
@@ -44,9 +44,9 @@ preserves test detail, "debug" keeps error context, "refactor" compresses harder
 
 ## Tools an orchestrator calls
 
-None of these are advertised by default. OMNI tells a host about the tools its tier
+None of these are advertised by default. Contexere tells a host about the tools its tier
 actually uses, and the loop tools are outside that set, so an orchestrator that calls them
-needs `OMNI_MCP_TOOLS=all` in its environment. `omni doctor` prints which set is in force.
+needs `OMNI_MCP_TOOLS=all` in its environment. `contexere doctor` prints which set is in force.
 The MCP tools reference has the per-tier lists.
 
 | tool | when |
@@ -92,13 +92,13 @@ failures, and remember that every interaction is logged so the audit trail is re
 ## Monitoring
 
 ```sh
-omni stats                 # real-time
-omni stats --view detail
-omni stats --json          # for an orchestrator to read
-omni doctor                # health
+contexere stats                 # real-time
+contexere stats --view detail
+contexere stats --json          # for an orchestrator to read
+contexere doctor                # health
 ```
 
-`omni handoff` is **not** a CLI subcommand. It was removed. The `omni_handoff` MCP tool
+`contexere handoff` is **not** a CLI subcommand. It was removed. The `omni_handoff` MCP tool
 is unchanged, so session export is reachable from an MCP client rather than a shell.
 
 ## A caution about the numbers

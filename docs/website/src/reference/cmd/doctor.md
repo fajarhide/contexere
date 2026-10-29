@@ -1,10 +1,10 @@
-# `omni doctor`
+# `contexere doctor`
 
 Checks that the installation is healthy, and repairs what it can.
 
 ```sh
-omni doctor
-omni doctor --fix
+contexere doctor
+contexere doctor --fix
 ```
 
 It covers the binary's version and accessibility, the configuration directory and
@@ -22,7 +22,7 @@ database, hook installation per host, MCP server registration, and signal loadin
 ## Reading the output
 
 **Host tiers.** `doctor` prints the tier for every installed host, and the tier is
-the honest ceiling on what OMNI can do there. A Handoff-first or MCP-only host cannot
+the honest ceiling on what Contexere can do there. A Handoff-first or MCP-only host cannot
 rewrite its built-in shell tool's output, so no amount of pipeline work will move its
 distillation numbers. See [Supported agents](../agents.md).
 

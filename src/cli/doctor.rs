@@ -25,7 +25,7 @@ fn print_help() {
     println!("  omni doctor {}", "[--fix]".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
-    println!("  Checks the health of your OMNI installation, including:");
+    println!("  Checks the health of your Contexere installation, including:");
     println!("  • Binary version and accessibility");
     println!("  • Configuration directory and database");
     println!("  • Claude Code hook installation");
@@ -287,22 +287,29 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let mut warnings: Vec<String> = Vec::new();
     println!();
     super::print_rule();
-    println!(" {}: Installation Diagnostics", "OMNI Doctor".bold().cyan());
+    println!(
+        " {}: Installation Diagnostics",
+        "Contexere Doctor".bold().cyan()
+    );
     super::print_rule();
 
     let status = crate::guard::update::get_status();
     let version_info = match status {
         crate::guard::update::Status::Latest => {
-            format!("omni v{} {}", env!("CARGO_PKG_VERSION"), "[LATEST]".green())
+            format!(
+                "contexere v{} {}",
+                env!("CARGO_PKG_VERSION"),
+                "[LATEST]".green()
+            )
         }
         crate::guard::update::Status::UpdateAvailable(v) => format!(
-            "omni v{} {} (Latest: {})",
+            "contexere v{} {} (Latest: {})",
             env!("CARGO_PKG_VERSION"),
             "[UPDATE]".yellow().bold(),
             v.green()
         ),
         crate::guard::update::Status::Ahead => format!(
-            "omni v{} {}",
+            "contexere v{} {}",
             env!("CARGO_PKG_VERSION"),
             "[AHEAD/RC]".blue().bold()
         ),

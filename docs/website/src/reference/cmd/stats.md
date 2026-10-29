@@ -1,17 +1,17 @@
-# `omni stats`
+# `contexere stats`
 
 Token savings analytics, read from your own database.
 
 ```sh
-omni stats
+contexere stats
 ```
 
 Leads with the bytes that never reached your model, then one line per engine, each
 percentage against its own base, then the command classes those bytes came from. The
-aggregate below them mixes in every call OMNI deliberately declined, so it is a
+aggregate below them mixes in every call Contexere deliberately declined, so it is a
 diagnostic for one host's pipeline rather than a product claim.
 
-Every view draws the same frame, `OMNI · <view> · <window>` between two rules, and
+Every view draws the same frame, `Contexere · <view> · <window>` between two rules, and
 `--view context` carries no window because it reads the live session rather than a
 period.
 
@@ -46,8 +46,8 @@ handle is the reader disagreeing. This view puts the two side by side, per marke
 shape, so the guard with the highest rate is the one to look at.
 
 ```sh
-omni stats --view folds              # the last 30 days
-omni stats --view calibration --since week
+contexere stats --view folds              # the last 30 days
+contexere stats --view calibration --since week
 ```
 
 `calibration` is the same view under the word most readers reach for first.
@@ -59,15 +59,15 @@ confident zero.
 
 ## `--view bill` is the host's side of the books
 
-Every other view reports what OMNI did, from OMNI's own tables. This one reads Claude
-Code's transcripts, which the host writes and OMNI does not: billed tokens by class,
+Every other view reports what Contexere did, from Contexere's own tables. This one reads Claude
+Code's transcripts, which the host writes and Contexere does not: billed tokens by class,
 context bytes by source, tool result bytes by tool, and what that cost by model and by
 project.
 
 ```sh
-omni stats --view bill               # the last 30 days
-omni stats --view bill --since week --limit 0
-omni stats --view bill --by session  # which sessions cost the most
+contexere stats --view bill               # the last 30 days
+contexere stats --view bill --since week --limit 0
+contexere stats --view bill --by session  # which sessions cost the most
 ```
 
 A request is counted once by its id, because the host repeats `usage` on every record
@@ -84,7 +84,7 @@ API.
 The spend tables count subagent requests, because they are billed. The token and context
 tables leave them out, because a subagent's context is not the session's.
 
-The last paragraph of the output is OMNI's own figure for the same window, labelled as
+The last paragraph of the output is Contexere's own figure for the same window, labelled as
 its claim, so the two sides sit on one screen without being mixed. `--json` does not
 carry this view. It reads every transcript in the window, which takes seconds, and the
 machine-readable report is meant to stay cheap.
@@ -98,18 +98,18 @@ flag is the check that percentage cannot make.
 ## Traps
 
 **Terminal rows are not tokens.** Output written to a TTY is read by a human, not a
-model. On one installation those rows were 73% of every byte OMNI claimed to have
+model. On one installation those rows were 73% of every byte Contexere claimed to have
 saved. `stats` excludes them now, and so does the benchmark harness, but anyone
 querying `~/.omni/omni.db` directly has to filter by `agent_id` themselves.
 
 **A high number deserves suspicion.** The worst defects in this project reported the
 highest reductions, because deleting the answer compresses very well. Pair any figure
-with `omni diff` on a real command.
+with `contexere diff` on a real command.
 
-**A low aggregate is usually right, and it is not the number to judge OMNI by.** Most
+**A low aggregate is usually right, and it is not the number to judge Contexere by.** Most
 calls are handed back untouched by design, so read the per-class rows to see where the
 work actually happened.
 
 **`--share` and `--card` cannot drift from the report.** Both read the same
-aggregation as `omni stats` itself, which was a deliberate choice after an earlier
+aggregation as `contexere stats` itself, which was a deliberate choice after an earlier
 version computed them separately.
