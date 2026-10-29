@@ -288,19 +288,10 @@ fn strip_legacy_server(config: &str) -> Option<String> {
         }
         in_block
             && t.split_once('=').is_some_and(|(k, v)| {
-                k.trim() == "command" && super::runs_omni_binary(&toml_string(v))
+                k.trim() == "command" && super::runs_omni_binary(v.trim().trim_matches('"'))
             })
     });
     ours.then(|| strip_server(config, "omni"))
-}
-
-/// A TOML basic string's value, unescaped, so a Windows path compares as the
-/// path it is.
-fn toml_string(raw: &str) -> String {
-    raw.trim()
-        .trim_matches('"')
-        .replace("\\\\", "\\")
-        .replace("\\\"", "\"")
 }
 
 /// Removes `[mcp_servers.<name>]` and every `[mcp_servers.<name>.*]` sub-table; a
@@ -673,7 +664,7 @@ name = \"Other\"
         let windows = "[mcp_servers.omni]\ncommand = \"C:\\\\Users\\\\Jane Doe\\\\omni.exe\"\n";
         assert!(
             strip_legacy_server(windows).is_some(),
-            "TOML escapes are decoded"
+            "escaped backslashes still end in the file name"
         );
         let theirs = "[mcp_servers.omni]\ncommand = \"/opt/their/tool\"\n";
         assert!(strip_legacy_server(theirs).is_none());
