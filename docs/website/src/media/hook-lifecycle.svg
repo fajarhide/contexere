@@ -94,7 +94,7 @@
 
       <rect x="420" y="120" width="160" height="56" rx="6" fill="#E3E4E0"/>
       <rect x="420" y="120" width="160" height="56" rx="6" fill="rgba(122,78,0,0.08)" stroke="#7A4E00" stroke-width="1"/>
-      <text x="500" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">OMNI</text>
+      <text x="500" y="146" fill="#16161A" font-size="12" font-weight="600" font-family="'IBM Plex Sans', sans-serif" text-anchor="middle">Contexere</text>
       <text x="500" y="163" fill="#7A4E00" font-size="9" font-family="'IBM Plex Mono', monospace" text-anchor="middle">twice per call</text>
 
       <rect x="620" y="120" width="160" height="56" rx="6" fill="#E3E4E0"/>

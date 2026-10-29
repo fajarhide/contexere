@@ -1,6 +1,6 @@
 class Omni < Formula
-  desc "Semantic Signal Engine: less noise, more signal, the right signal"
-  homepage "https://github.com/fajarhide/omni"
+  desc "The context layer for AI coding agents: less noise, fewer tokens, nothing lost"
+  homepage "https://github.com/fajarhide/contexere"
   version "0.8.0"
   license "MIT"
 
@@ -35,12 +35,11 @@ class Omni < Formula
   def caveats
     <<~EOS
       Quick start:
-        omni init              # Initialize OMNI setup (interactive)
-        omni doctor            # Verify installation
-        omni stats             # View token savings
+        contexere init         # pick your agents (interactive)
+        contexere doctor       # check the hooks fire and redact
+        contexere stats        # what it saved on your own history
 
-      OMNI works automatically — no configuration needed.
-      Hooks intercept Claude Code tool outputs and distill them in real-time.
+      `omni` is the same program, so existing hooks keep working.
     EOS
   end
 

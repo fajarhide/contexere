@@ -106,7 +106,7 @@
       <text x="152" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">where the work happens</text>
 
       <rect x="316" y="546" width="16" height="12" rx="2" fill="#ffffff" stroke="#16161A" stroke-width="1"/>
-      <text x="340" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">OMNI</text>
+      <text x="340" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">Contexere</text>
 
       <rect x="412" y="546" width="16" height="12" rx="2" fill="rgba(22,22,26,0.03)" stroke="rgba(22,22,26,0.30)" stroke-width="1"/>
       <text x="436" y="556" fill="#56585A" font-size="9" font-family="'IBM Plex Sans', sans-serif">not ours</text>
