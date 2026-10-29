@@ -169,6 +169,15 @@ impl AgentIntegration for CodexIntegration {
             fmt_hook("PostToolUse", has_post);
             fmt_hook("SessionStart", has_session);
 
+            // Codex parses replaced tool output but does not apply it yet, so this
+            // proves the hook runs, not that the model is protected.
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&hooks_content)
+                && let Some(cmd) = crate::agents::probe::registered_post_hook(&val, "PostToolUse")
+                && !crate::agents::probe::report(&cmd, false, warnings)
+            {
+                all_ok = false;
+            }
+
             // Installed is not running: Codex skips untrusted hooks silently (#359).
             let config = fs::read_to_string(&config_path).unwrap_or_default();
             let awaiting = hooks_awaiting_review(&config, &hooks_path.to_string_lossy());
