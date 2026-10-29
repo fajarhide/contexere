@@ -7,7 +7,7 @@ echo "Running CLI E2E Tests..."
 
 # Build the omni binary
 cargo build --release
-OMNI_BIN="./target/release/omni"
+OMNI_BIN="./target/release/contexere"
 
 # Session State
 echo "[Session] Test 1: Init runs successfully"

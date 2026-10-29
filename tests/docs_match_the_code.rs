@@ -178,19 +178,19 @@ fn every_documented_count_matches_the_code() {
         // on its own is ordinary prose that any page may write for other reasons.
         (
             r"(?:save|menghemat) (\d+) (?:bytes over its marker|byte di atas penandanya)",
-            omni::guard::limits::MIN_LEDGER_RUN_GAIN,
+            contexere::guard::limits::MIN_LEDGER_RUN_GAIN,
             "bytes a session-origin run must save",
             true,
         ),
         (
             r"(?:under|di bawah) (\d+) (?:bytes never reaches|byte tidak pernah)",
-            omni::guard::limits::MIN_LEDGER_INPUT,
+            contexere::guard::limits::MIN_LEDGER_INPUT,
             "bytes below which the ledger is skipped",
             true,
         ),
         (
             r"(?:entire output needs|seluruh keluaran butuh) (\d+) (?:bytes|byte)",
-            omni::guard::limits::MIN_WHOLE_OUTPUT_FOLD,
+            contexere::guard::limits::MIN_WHOLE_OUTPUT_FOLD,
             "bytes a whole-output fold needs",
             true,
         ),

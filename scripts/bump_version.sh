@@ -45,7 +45,7 @@ echo "Verifying build..."
 cargo build --quiet
 
 # 6. Verify version output
-ACTUAL=$(./target/debug/omni version 2>&1)
+ACTUAL=$(./target/debug/contexere version 2>&1)
 if echo "$ACTUAL" | grep -q "$NEW"; then
     echo "✓ Version output: $ACTUAL"
 else

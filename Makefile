@@ -59,7 +59,7 @@ binary-check:
 	@echo "=== Building Release Binary ==="
 	cargo build --profile ci
 	@echo "=== Checking Binary Size ==="
-	@SIZE=$$(stat -c%s target/ci/omni 2>/dev/null || stat -f%z target/ci/omni); \
+	@SIZE=$$(stat -c%s target/ci/contexere 2>/dev/null || stat -f%z target/ci/contexere); \
 	SIZE_MB=$$((SIZE / 1048576)); \
 	echo "Binary size: $${SIZE_MB}MB ($${SIZE} bytes)"; \
 	if [ $$SIZE -gt 15728640 ]; then \
@@ -76,7 +76,7 @@ binary-check:
 	# session history feeds the scorer, so inheriting whatever `cargo test`
 	# left behind makes those assertions depend on test ordering.
 	rm -rf $(CURDIR)/target/omni-smoke
-	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh ./target/ci/omni
+	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh ./target/ci/contexere
 
 ci: fmt clippy test security binary-check
 	@echo "========================================"

@@ -7,7 +7,7 @@
 use std::process::Command;
 
 fn doctor_stdout(args: &[&str]) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(args)
         // Keep the suite off the developer's real database.
         .env(

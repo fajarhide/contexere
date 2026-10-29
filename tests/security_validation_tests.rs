@@ -1,4 +1,4 @@
-use omni::guard::env::{ValidationError, validate_loop_context};
+use contexere::guard::env::{ValidationError, validate_loop_context};
 
 // ─── Unit Tests (15+) ────────────────────────────────────────────────────────
 macro_rules! generate_security_validation_unit_tests {
@@ -35,8 +35,8 @@ generate_security_validation_unit_tests!(
 );
 
 // ─── Integration Tests (3+) ──────────────────────────────────────────────────
-use omni::pipeline::SessionState;
-use omni::store::sqlite::Store;
+use contexere::pipeline::SessionState;
+use contexere::store::sqlite::Store;
 use tempfile::tempdir;
 
 macro_rules! generate_security_validation_integration_tests {

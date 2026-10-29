@@ -196,6 +196,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "contexere"
+version = "0.7.13"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "colored",
+ "dialoguer",
+ "dirs",
+ "insta",
+ "libc",
+ "r2d2",
+ "r2d2_sqlite",
+ "regex",
+ "rmcp",
+ "rusqlite",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strsim",
+ "tempfile",
+ "tiktoken-rs",
+ "tokio",
+ "toml",
+ "unicode-width",
+ "ureq",
+ "walkdir",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -846,36 +876,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "omni"
-version = "0.7.13"
-dependencies = [
- "anyhow",
- "chrono",
- "colored",
- "dialoguer",
- "dirs",
- "insta",
- "libc",
- "r2d2",
- "r2d2_sqlite",
- "regex",
- "rmcp",
- "rusqlite",
- "schemars",
- "serde",
- "serde_json",
- "sha2",
- "strsim",
- "tempfile",
- "tiktoken-rs",
- "tokio",
- "toml",
- "unicode-width",
- "ureq",
- "walkdir",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "omni"
+name = "contexere"
 version = "0.7.13"
 edition = "2024"
 authors = ["Fajar Hidayat"]
@@ -17,11 +17,12 @@ keywords = ["cli", "ai", "mcp", "terminal", "agent", "ai-agent", "ai-coding", "a
 categories = ["command-line-utilities", "development-tools", "text-processing", "ai", "productivity", "os", "ai-productivity"]
 
 [lib]
-name = "omni"
+name = "contexere"
 path = "src/lib.rs"
 
+# `omni` is not a second target: installers link it to this binary (#876).
 [[bin]]
-name = "omni"
+name = "contexere"
 path = "src/main.rs"
 
 [target.'cfg(unix)'.dependencies]

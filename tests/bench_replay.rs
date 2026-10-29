@@ -140,7 +140,7 @@ impl GapSeen {
     fn account(&mut self, t: &Trace, text: &str) -> Vec<(bool, u64)> {
         let keys: Vec<(String, u64)> = text
             .split_inclusive('\n')
-            .map(|l| (omni::ledger::line_key(l), l.len() as u64))
+            .map(|l| (contexere::ledger::line_key(l), l.len() as u64))
             .collect();
 
         // Session first, project only for what the session did not answer,
@@ -250,7 +250,7 @@ fn command_form(cmd: &str) -> &'static str {
 /// same resolver the pipeline routes with, which keeps this table honest about
 /// what the pipeline saw.
 fn trace_class(cmd: &str) -> &'static str {
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = contexere::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     match base_command(producer).as_str() {
         "cat" | "head" | "tail" | "sed" | "less" | "bat" => "file read",
         "grep" | "rg" | "ag" | "ack" | "find" | "fd" => "search",
@@ -271,7 +271,7 @@ fn trace_class(cmd: &str) -> &'static str {
 ///
 /// Names come from `resolve_filter` in rtk's `cmds/system/pipe_cmd.rs`.
 fn rtk_filter(cmd: &str) -> Option<&'static str> {
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = contexere::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     let mut words = producer.split_whitespace();
     let base = words.next().unwrap_or("").rsplit('/').next().unwrap_or("");
     let sub = words.next().unwrap_or("");
@@ -407,7 +407,7 @@ fn caveman_out(bin: &str, home: &str, raw: &str) -> String {
 /// omni's own passthrough.
 fn lean_ctx_bytes(bin: &str, cmd: &str, raw: &str) -> usize {
     use std::io::Write;
-    let producer = omni::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
+    let producer = contexere::pipeline::registry::sole_output_command(cmd).unwrap_or(cmd);
     let Ok(mut child) = std::process::Command::new(bin)
         .args(["compress", "diff", "-", "--shell", producer, "--json"])
         .stdin(std::process::Stdio::piped())
@@ -781,7 +781,7 @@ fn replay_execution_traces_net_savings() {
     // applies it, and it keeps the filter figure above unaffected.
     let ledger_dir = tempfile::tempdir().expect("ledger home");
     let ledger_store =
-        omni::store::sqlite::Store::open_path(&ledger_dir.path().join("ledger.db")).ok();
+        contexere::store::sqlite::Store::open_path(&ledger_dir.path().join("ledger.db")).ok();
     let (mut ledger_total, mut ledger_calls) = (0u64, 0u64);
     // #448. `OMNI_BENCH_PROJECT=off` drops the project scope so the two can be
     // measured apart. There is no env var for the floor: it is
@@ -806,7 +806,7 @@ fn replay_execution_traces_net_savings() {
     let (mut rtk_total, mut rtk_claimed, mut rtk_marked) = (0u64, 0u64, 0u64);
     let rtk_ledger_dir = tempfile::tempdir().expect("rtk ledger home");
     let rtk_ledger_store =
-        omni::store::sqlite::Store::open_path(&rtk_ledger_dir.path().join("ledger.db")).ok();
+        contexere::store::sqlite::Store::open_path(&rtk_ledger_dir.path().join("ledger.db")).ok();
     let mut rtk_ledger_total = 0u64;
     // Second competitor arm, same rule: off unless the binary is named.
     let lean_ctx = std::env::var("OMNI_BENCH_LEANCTX").ok();
@@ -820,7 +820,7 @@ fn replay_execution_traces_net_savings() {
     let (mut cm_total, mut cm_claimed) = (0u64, 0u64);
     let cm_ledger_dir = tempfile::tempdir().expect("caveman ledger home");
     let cm_ledger_store =
-        omni::store::sqlite::Store::open_path(&cm_ledger_dir.path().join("ledger.db")).ok();
+        contexere::store::sqlite::Store::open_path(&cm_ledger_dir.path().join("ledger.db")).ok();
     let mut cm_ledger_total = 0u64;
     // Third arm, and the only one that is not a filter. `OMNI_BENCH_HEADROOM`
     // names headroom's `transforms/cross_turn_dedup.py`, which is the same idea
@@ -861,7 +861,7 @@ fn replay_execution_traces_net_savings() {
         // failed replay would leave `out` empty and be counted as 100% savings,
         // inflating the honest figure (review of #202), exclude it entirely and
         // report the count instead.
-        if omni::hooks::pipe::run_inner(
+        if contexere::hooks::pipe::run_inner(
             Cursor::new(t.raw.as_bytes()),
             &mut out,
             &mut err,
@@ -925,10 +925,10 @@ fn replay_execution_traces_net_savings() {
                 c.4 += repeated;
                 c.5 += accounted;
             }
-            if omni::pipeline::format::sniff(&distilled).is_some() {
+            if contexere::pipeline::format::sniff(&distilled).is_some() {
                 gap_structured += repeated;
                 n_structured += 1;
-            } else if distilled.len() < omni::guard::limits::MIN_LEDGER_INPUT {
+            } else if distilled.len() < contexere::guard::limits::MIN_LEDGER_INPUT {
                 gap_under_floor += repeated;
                 n_under_floor += 1;
             } else {
@@ -954,7 +954,8 @@ fn replay_execution_traces_net_savings() {
                     // marker length is not reachable from a test binary, so the
                     // session form's 65 bytes is written here and pinned by
                     // `session_marker_len_matches_the_ledger` below.
-                    let bar = SESSION_MARKER_LEN + omni::guard::limits::MIN_LEDGER_RUN_GAIN as u64;
+                    let bar =
+                        SESSION_MARKER_LEN + contexere::guard::limits::MIN_LEDGER_RUN_GAIN as u64;
                     if bytes < bar {
                         m1_under_bar += bytes;
                         m1_under_bar_runs += 1;
@@ -979,9 +980,9 @@ fn replay_execution_traces_net_savings() {
         // half above already uses it; only the ledger was left guessing.
         let after_ledger = ledger_store
             .as_ref()
-            .filter(|_| omni::pipeline::format::sniff(&distilled).is_none())
+            .filter(|_| contexere::pipeline::format::sniff(&distilled).is_none())
             .and_then(|s| {
-                let ledger = omni::ledger::Ledger::new(s, &t.session).from(&t.command);
+                let ledger = contexere::ledger::Ledger::new(s, &t.session).from(&t.command);
                 let ledger = if project_scope {
                     ledger.with_project(&t.project)
                 } else {
@@ -1024,7 +1025,7 @@ fn replay_execution_traces_net_savings() {
             // Ordering is the loop's, which is the recorded order, and
             // prefix-monotonicity depends on that as much for their design as
             // for ours.
-            if omni::pipeline::format::sniff(&distilled).is_none() {
+            if contexere::pipeline::format::sniff(&distilled).is_none() {
                 hr_blocks
                     .entry(t.session.clone())
                     .or_default()
@@ -1053,9 +1054,9 @@ fn replay_execution_traces_net_savings() {
             // cannot see each other's history.
             let after = rtk_ledger_store
                 .as_ref()
-                .filter(|_| omni::pipeline::format::sniff(&rtk_text).is_none())
+                .filter(|_| contexere::pipeline::format::sniff(&rtk_text).is_none())
                 .and_then(|s| {
-                    omni::ledger::Ledger::new(s, &t.session)
+                    contexere::ledger::Ledger::new(s, &t.session)
                         .from(&t.command)
                         .with_project(&t.project)
                         .project(&rtk_text)
@@ -1074,9 +1075,9 @@ fn replay_execution_traces_net_savings() {
             }
             let after = cm_ledger_store
                 .as_ref()
-                .filter(|_| omni::pipeline::format::sniff(&cm_text).is_none())
+                .filter(|_| contexere::pipeline::format::sniff(&cm_text).is_none())
                 .and_then(|s| {
-                    omni::ledger::Ledger::new(s, &t.session)
+                    contexere::ledger::Ledger::new(s, &t.session)
                         .from(&t.command)
                         .with_project(&t.project)
                         .project(&cm_text)
@@ -1241,7 +1242,7 @@ fn replay_execution_traces_net_savings() {
     );
     println!(
         "ledger arm:      project_scope={project_scope} floor_mult={} bytes={ledger_total} folds: {ledger_calls} replies (marker shapes pending #766)",
-        omni::guard::limits::PROJECT_FLOOR_MULT
+        contexere::guard::limits::PROJECT_FLOOR_MULT
     );
 
     // #450. Every repeated byte the ledger was handed, attributed to the gate
@@ -1554,11 +1555,12 @@ fn ignores_lines_under_the_floor() {
 #[test]
 fn session_marker_len_matches_the_ledger() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let store = omni::store::sqlite::Store::open_path(&dir.path().join("l.db")).expect("store");
+    let store =
+        contexere::store::sqlite::Store::open_path(&dir.path().join("l.db")).expect("store");
     let text: String = (0..40)
         .map(|i| format!("2026-08-11T00:00:00Z  handler finished request {i} in 12ms\n"))
         .collect();
-    let ledger = omni::ledger::Ledger::new(&store, "s1");
+    let ledger = contexere::ledger::Ledger::new(&store, "s1");
     ledger.project(&text);
     let view = ledger
         .project(&format!(

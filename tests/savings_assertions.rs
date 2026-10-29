@@ -2,14 +2,14 @@
 ///
 /// This integration test runs the full pipeline (classify → score → compose) on real
 /// fixture files and asserts each achieves a minimum savings percentage.
-use omni::pipeline::scorer;
+use contexere::pipeline::scorer;
 use std::time::Instant;
 
 fn run_pipeline(input: &str, command: &str) -> (usize, usize, f64) {
     let segments = scorer::score_with_command(input, command, None);
 
     // Use the actual distiller logic
-    let output = omni::distillers::distill_with_command(&segments, input, command, None);
+    let output = contexere::distillers::distill_with_command(&segments, input, command, None);
 
     let input_len = input.len();
     let output_len = output.len();
@@ -146,7 +146,7 @@ fn test_pipeline_latency_under_50ms_debug() {
 
     let start = Instant::now();
     let segments = scorer::score_with_command(&input, "git diff", None);
-    omni::distillers::distill_with_command(&segments, &input, "git diff", None);
+    contexere::distillers::distill_with_command(&segments, &input, "git diff", None);
     let elapsed = start.elapsed();
 
     // 250ms budget for debug (unoptimized) builds; release builds are ~5-10x faster
@@ -161,26 +161,26 @@ fn test_pipeline_latency_under_50ms_debug() {
 fn test_hook_no_panic_on_large_input() {
     let large = "error: cannot find type\n".repeat(20000);
     let segments = scorer::score_with_command(&large, "cargo test", None);
-    let output = omni::distillers::distill_with_command(&segments, &large, "cargo test", None);
+    let output = contexere::distillers::distill_with_command(&segments, &large, "cargo test", None);
     assert!(!output.is_empty());
 }
 
 #[test]
 fn test_score_with_command_returns_segments() {
-    use omni::pipeline::scorer::score_with_command;
+    use contexere::pipeline::scorer::score_with_command;
     let input = "error[E0382]: use of moved value\n   --> src/main.rs:10:5\nCompiling omni v0.5.6";
     let segments = score_with_command(input, "cargo build", None);
     assert!(!segments.is_empty());
     let has_critical = segments
         .iter()
-        .any(|s| s.tier == omni::pipeline::SignalTier::Critical);
+        .any(|s| s.tier == contexere::pipeline::SignalTier::Critical);
     assert!(has_critical, "Error line should be Critical");
 }
 
 #[test]
 fn test_omni_stats_shows_command_not_content_type() {
-    use omni::pipeline::{DistillResult, Route};
-    use omni::store::sqlite::Store;
+    use contexere::pipeline::{DistillResult, Route};
+    use contexere::store::sqlite::Store;
     use tempfile::tempdir;
 
     let dir = tempdir().unwrap();
@@ -227,7 +227,7 @@ fn test_omni_stats_shows_command_not_content_type() {
 /// they are parsed downstream, so the pipeline must hand them back untouched.
 #[test]
 fn structured_output_reports_zero_savings_and_preserves_bytes() {
-    use omni::hooks::pipe;
+    use contexere::hooks::pipe;
 
     const STRUCTURED: &[(&str, &str)] = &[
         ("tests/fixtures/az_vm_list.json", "az vm list -o json"),

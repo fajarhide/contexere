@@ -22,8 +22,8 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 
-use omni::pipeline::registry;
-use omni::pipeline::scorer;
+use contexere::pipeline::registry;
+use contexere::pipeline::scorer;
 
 /// One candidate trace, held until its class is sorted.
 struct Candidate {
@@ -108,8 +108,9 @@ fn main() {
                     .iter()
                     .enumerate()
             {
-                let text = omni::distillers::system_ops::redact_sensitive_assignments(&seg.content)
-                    .unwrap_or_else(|| seg.content.clone());
+                let text =
+                    contexere::distillers::system_ops::redact_sensitive_assignments(&seg.content)
+                        .unwrap_or_else(|| seg.content.clone());
                 let lower = text.to_lowercase();
                 if patterns.iter().any(|p| lower.contains(p)) {
                     flagged += 1;
@@ -149,7 +150,7 @@ fn main() {
 /// Stable across runs and machines, which a `DefaultHasher` is not, so two
 /// samples of the same corpus grade the same blocks.
 fn spread_key(id: i64, seq: i64) -> String {
-    omni::util::text::short_hash(&format!("{id}:{seq}"))
+    contexere::util::text::short_hash(&format!("{id}:{seq}"))
 }
 
 /// Reads the operator's sensitive-name patterns, or exits before a single row

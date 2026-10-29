@@ -16,7 +16,7 @@ fn run_hook(event: &str, db: &std::path::Path) {
             "tool_name":"Bash","tool_input":{{"command":"x"}},"error":"Exit code 2"}}"#
     );
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_omni"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("--hook")
         .env("OMNI_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
@@ -38,12 +38,12 @@ fn run_hook(event: &str, db: &std::path::Path) {
 /// Counted through the library rather than the `sqlite3` binary, which is not
 /// guaranteed on the CI runners and would make this test a platform check.
 fn summaries(db: &std::path::Path) -> usize {
-    let store = omni::store::sqlite::Store::open_path(db).expect("open db");
+    let store = contexere::store::sqlite::Store::open_path(db).expect("open db");
     store.session_summary_count()
 }
 
 fn recorded_sessions(db: &std::path::Path) -> usize {
-    let store = omni::store::sqlite::Store::open_path(db).expect("open db");
+    let store = contexere::store::sqlite::Store::open_path(db).expect("open db");
     store.session_count()
 }
 

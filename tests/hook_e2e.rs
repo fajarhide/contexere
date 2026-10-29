@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 
 fn omni_binary() -> String {
     // Cargo sets this during `cargo test`
-    env!("CARGO_BIN_EXE_omni").to_string()
+    env!("CARGO_BIN_EXE_contexere").to_string()
 }
 
 fn omni_cmd() -> (Command, tempfile::NamedTempFile) {

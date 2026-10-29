@@ -1,6 +1,6 @@
-use omni::pipeline::SessionState;
-use omni::session::engram::{Engram, EngramTrigger};
-use omni::store::sqlite::Store;
+use contexere::pipeline::SessionState;
+use contexere::session::engram::{Engram, EngramTrigger};
+use contexere::store::sqlite::Store;
 use tempfile::tempdir;
 
 // ─── Unit Tests (25+) ────────────────────────────────────────────────────────
