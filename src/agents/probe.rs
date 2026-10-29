@@ -3,6 +3,9 @@
 //! config file says (#947). #364 shipped a Codex entry the host accepted and never
 //! ran, and doctor called it OK.
 
+// Running a hook needs `sh`; on Windows only the config lookup is used.
+#![cfg_attr(not(unix), allow(dead_code))]
+
 use colored::*;
 use serde_json::Value;
 
@@ -19,17 +22,36 @@ pub(crate) enum Outcome {
     Fails(String),
 }
 
-/// The command a host config registers for OMNI's post-hook under `event`.
-pub(crate) fn registered_post_hook(val: &Value, event: &str) -> Option<String> {
-    val.get("hooks")?
-        .get(event)?
-        .as_array()?
-        .iter()
-        .filter_map(|group| group.get("hooks").and_then(Value::as_array))
-        .flatten()
-        .filter_map(|hook| hook.get("command").and_then(Value::as_str))
-        .find(|cmd| super::is_our_hook(Some(cmd), "omni --post-hook"))
-        .map(str::to_string)
+/// Whether a hook group's matcher lets the host call it for Bash output, the
+/// tool the probe imitates. Hosts read the matcher as an anchored regex.
+fn covers_bash(matcher: Option<&str>) -> bool {
+    match matcher {
+        None | Some("") | Some("*") => true,
+        Some(m) => regex::Regex::new(&format!("^(?:{m})$")).is_ok_and(|r| r.is_match("Bash")),
+    }
+}
+
+/// The command a host config registers for OMNI's post-hook under `event`, and
+/// whether its group's matcher covers Bash. A covering entry wins over one that
+/// is registered for other tools only.
+pub(crate) fn registered_post_hook(val: &Value, event: &str) -> Option<(String, bool)> {
+    let mut found: Vec<(String, bool)> = Vec::new();
+    for group in val.get("hooks")?.get(event)?.as_array()? {
+        let covers = covers_bash(group.get("matcher").and_then(Value::as_str));
+        for hook in group
+            .get("hooks")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            if let Some(cmd) = hook.get("command").and_then(Value::as_str)
+                && super::is_our_hook(Some(cmd), "omni --post-hook")
+            {
+                found.push((cmd.to_string(), covers));
+            }
+        }
+    }
+    found.iter().find(|(_, c)| *c).or(found.first()).cloned()
 }
 
 fn judge(code: Option<i32>, stdout: &str) -> Outcome {
@@ -59,6 +81,7 @@ pub(crate) fn probe(command: &str) -> (Outcome, u128) {
 
     let tmp = std::env::temp_dir();
     let db = tmp.join(format!("omni-doctor-probe-{}.db", std::process::id()));
+    let transcripts = tmp.join(format!("omni-doctor-probe-{}", std::process::id()));
     let payload = serde_json::json!({
         "session_id": "omni-doctor-probe",
         "hook_event_name": "PostToolUse",
@@ -69,11 +92,15 @@ pub(crate) fn probe(command: &str) -> (Outcome, u128) {
     });
 
     let start = Instant::now();
-    // The probe must never write into the user's own store.
+    // The probe must never write into the user's own store or transcripts. Its own
+    // process group lets a timeout reach whatever the hook command started.
+    use std::os::unix::process::CommandExt;
     let child = Command::new("sh")
         .arg("-c")
         .arg(command)
         .env("OMNI_DB_PATH", &db)
+        .env("OMNI_TRANSCRIPT_DIR", &transcripts)
+        .process_group(0)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -94,7 +121,10 @@ pub(crate) fn probe(command: &str) -> (Outcome, u128) {
         Ok(Ok(out)) => judge(out.status.code(), &String::from_utf8_lossy(&out.stdout)),
         Ok(Err(e)) => Outcome::Fails(e.to_string()),
         Err(_) => {
-            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+            let _ = Command::new("kill")
+                .args(["-9", "--", &format!("-{pid}")])
+                .status();
+            let _ = rx.recv_timeout(Duration::from_secs(1));
             Outcome::Fails("no reply within 5 s".to_string())
         }
     };
@@ -102,6 +132,7 @@ pub(crate) fn probe(command: &str) -> (Outcome, u128) {
     for suffix in ["", "-wal", "-shm"] {
         let _ = std::fs::remove_file(format!("{}{suffix}", db.display()));
     }
+    let _ = std::fs::remove_dir_all(&transcripts);
     (outcome, ms)
 }
 
@@ -109,10 +140,22 @@ pub(crate) fn probe(command: &str) -> (Outcome, u128) {
 /// `host_applies_rewrite` is false where the host ignores replaced tool output,
 /// so a working hook still cannot keep the canary from the model.
 pub(crate) fn report(
-    command: &str,
+    (command, covers): &(String, bool),
     host_applies_rewrite: bool,
     warnings: &mut Vec<String>,
 ) -> bool {
+    if !covers {
+        crate::agent_report!(
+            "   {:<15} {}",
+            "Probe:".bright_black(),
+            "[WARNING] registered, but its matcher never runs it for Bash output".yellow()
+        );
+        warnings.push(format!(
+            "OMNI's post-hook `{command}` is registered under a matcher that excludes Bash. \
+             Run `omni init` again."
+        ));
+        return false;
+    }
     #[cfg(not(unix))]
     {
         let _ = (command, host_applies_rewrite, warnings);
@@ -121,6 +164,7 @@ pub(crate) fn report(
     #[cfg(unix)]
     {
         let (outcome, ms) = probe(command);
+        let command = command.as_str();
         let (line, ok) = match outcome {
             Outcome::Redacts if host_applies_rewrite => (
                 format!("[OK] fires and redacts a canary credential ({ms} ms)").green(),
@@ -166,10 +210,29 @@ mod tests {
             {"hooks": [{"type": "command", "command": "/usr/bin/omni --post-hook"}]},
         ]}});
         assert_eq!(
-            registered_post_hook(&val, "PostToolUse").as_deref(),
-            Some("/usr/bin/omni --post-hook")
+            registered_post_hook(&val, "PostToolUse"),
+            Some(("/usr/bin/omni --post-hook".to_string(), true))
         );
         assert_eq!(registered_post_hook(&val, "PreToolUse"), None);
+    }
+
+    #[test]
+    fn a_post_hook_matched_to_other_tools_does_not_cover_bash() {
+        let read_only = serde_json::json!({"hooks": {"PostToolUse": [
+            {"matcher": "Read", "hooks": [{"type": "command", "command": "/usr/bin/omni --post-hook"}]},
+        ]}});
+        assert_eq!(
+            registered_post_hook(&read_only, "PostToolUse"),
+            Some(("/usr/bin/omni --post-hook".to_string(), false))
+        );
+        let both = serde_json::json!({"hooks": {"PostToolUse": [
+            {"matcher": "Read|Grep", "hooks": [{"type": "command", "command": "/a/omni --post-hook"}]},
+            {"matcher": "Bash|Read", "hooks": [{"type": "command", "command": "/b/omni --post-hook"}]},
+        ]}});
+        assert_eq!(
+            registered_post_hook(&both, "PostToolUse"),
+            Some(("/b/omni --post-hook".to_string(), true))
+        );
     }
 
     #[cfg(unix)]

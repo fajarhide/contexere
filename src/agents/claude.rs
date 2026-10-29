@@ -160,14 +160,6 @@ impl AgentIntegration for ClaudeIntegration {
                         all_ok = false;
                     }
 
-                    if let Ok(val) = serde_json::from_str::<Value>(&content)
-                        && let Some(cmd) =
-                            crate::agents::probe::registered_post_hook(&val, "PostToolUse")
-                        && !crate::agents::probe::report(&cmd, true, warnings)
-                    {
-                        all_ok = false;
-                    }
-
                     if fix_mode && !all_ok {
                         if let Ok(exe_path) = std::env::current_exe() {
                             crate::agents::report_fix(
@@ -181,6 +173,16 @@ impl AgentIntegration for ClaudeIntegration {
                         warnings.retain(|w| {
                             !w.contains("hook") && !w.contains("Claude settings not found")
                         });
+                    }
+
+                    // After any repair, so a reinstall cannot clear a probe it never re-ran.
+                    if let Ok(fresh) = fs::read_to_string(&path)
+                        && let Ok(val) = serde_json::from_str::<Value>(&fresh)
+                        && let Some(hook) =
+                            crate::agents::probe::registered_post_hook(&val, "PostToolUse")
+                        && !crate::agents::probe::report(&hook, true, warnings)
+                    {
+                        all_ok = false;
                     }
                 } else if fix_mode {
                     if let Ok(exe_path) = std::env::current_exe() {
