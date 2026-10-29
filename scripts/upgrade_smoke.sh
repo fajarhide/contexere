@@ -77,6 +77,10 @@ mkdir -p "$H0"
 HOOK=$(hook_cmd "$H0")
 echo "hook command written by the old release: $HOOK"
 payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as old "$H0" sh -c "$HOOK") >/dev/null
+# A fresh update cache keeps both sides off the network: once a newer release
+# exists, the old binary prints an upgrade notice in `omni stats` and the
+# comparison below fails on the release calendar, not on the code.
+printf '{"latest_version":"0.0.0","last_checked":%s}' "$(date +%s)" > "$H0/.omni/update_cache.json"
 
 cp -R "$H0" "$ROOT/home-old"
 cp -R "$H0" "$ROOT/home-new"
