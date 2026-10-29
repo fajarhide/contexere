@@ -97,8 +97,15 @@ download_and_install() {
 
     # Install
     mkdir -p "$INSTALL_DIR"
-    cp "$tmpdir/omni" "$INSTALL_DIR/omni"
-    chmod +x "$INSTALL_DIR/omni"
+    if [ -f "$tmpdir/contexere" ]; then
+        # 0.8.0 and later: `omni` stays a link so registered hooks keep working (#876).
+        cp "$tmpdir/contexere" "$INSTALL_DIR/contexere"
+        chmod +x "$INSTALL_DIR/contexere"
+        ln -sf contexere "$INSTALL_DIR/omni"
+    else
+        cp "$tmpdir/omni" "$INSTALL_DIR/omni"
+        chmod +x "$INSTALL_DIR/omni"
+    fi
 
     # Cleanup
     rm -rf "$tmpdir"

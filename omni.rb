@@ -27,7 +27,9 @@ class Omni < Formula
   end
 
   def install
-    bin.install "omni"
+    bin.install "contexere"
+    # Hooks and MCP entries registered before the rename call `omni` (#876).
+    bin.install_symlink "contexere" => "omni"
   end
 
   def caveats
