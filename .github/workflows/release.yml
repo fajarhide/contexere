@@ -19,19 +19,24 @@ jobs:
         include:
           - target: aarch64-apple-darwin
             os: macos-latest
-            binary: omni
+            binary: contexere
+            legacy: omni
           - target: x86_64-apple-darwin
             os: macos-latest
-            binary: omni
+            binary: contexere
+            legacy: omni
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            binary: omni
+            binary: contexere
+            legacy: omni
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
-            binary: omni
+            binary: contexere
+            legacy: omni
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            binary: omni.exe
+            binary: contexere.exe
+            legacy: omni.exe
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -78,11 +83,16 @@ jobs:
           mkdir -p dist
           cp target/${{ matrix.target }}/release/${{ matrix.binary }} dist/
           cd dist
+          # The archive keeps its omni-* name and an `omni` entry beside `contexere`, so
+          # install.sh fetched from an older main, and every hook that calls `omni`,
+          # still find what they expect after the rename (#876).
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a omni-${{ github.ref_name }}-${{ matrix.target }}.zip ${{ matrix.binary }}
+            cp ${{ matrix.binary }} ${{ matrix.legacy }}
+            7z a omni-${{ github.ref_name }}-${{ matrix.target }}.zip ${{ matrix.binary }} ${{ matrix.legacy }}
             sha256sum omni-${{ github.ref_name }}-${{ matrix.target }}.zip > omni-${{ github.ref_name }}-${{ matrix.target }}.zip.sha256
           else
-            tar czf omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz ${{ matrix.binary }}
+            ln ${{ matrix.binary }} ${{ matrix.legacy }}
+            tar czf omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz ${{ matrix.binary }} ${{ matrix.legacy }}
             sha256sum omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz > omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256
           fi
 
