@@ -3,7 +3,7 @@
 OMNI - Universal Windows Install Script
 
 .DESCRIPTION
-Installs the latest OMNI binary to $HOME\.local\bin\omni.exe.
+Installs the latest Contexere binary to $HOME\.local\bin\contexere.exe, with omni.exe beside it.
 Supports: Windows (x86_64)
 
 .EXAMPLE
@@ -42,7 +42,7 @@ $ZipFile = Join-Path $TmpDir "omni.zip"
 
 Write-Host "[omni] Platform: $Platform" -ForegroundColor Cyan
 Write-Host "[omni] Version:  $Version" -ForegroundColor Cyan
-Write-Host "[omni] Target:   $InstallDir\omni.exe" -ForegroundColor Cyan
+Write-Host "[omni] Target:   $InstallDir" -ForegroundColor Cyan
 Write-Host ""
 
 # --- Download & Install ---
@@ -65,23 +65,31 @@ if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 }
 
-$ExtractedExe = Join-Path $TmpDir "omni.exe"
-if (-not (Test-Path $ExtractedExe)) {
-    Write-Error "[omni] Extract failed: omni.exe not found in downloaded archive."
+$Contexere = Join-Path $TmpDir "contexere.exe"
+$Legacy = Join-Path $TmpDir "omni.exe"
+if (Test-Path $Contexere) {
+    $Bin = "contexere.exe"
+    Copy-Item -Path $Contexere -Destination "$InstallDir\contexere.exe" -Force
+    # A copy, not a link: Windows symlinks need admin. Same program under the old name.
+    Copy-Item -Path $Contexere -Destination "$InstallDir\omni.exe" -Force
+} elseif (Test-Path $Legacy) {
+    # Archives from before 0.8.0 hold only omni.exe.
+    $Bin = "omni.exe"
+    Copy-Item -Path $Legacy -Destination "$InstallDir\omni.exe" -Force
+} else {
+    Write-Error "[omni] Extract failed: no contexere.exe or omni.exe in downloaded archive."
     exit 1
 }
-
-Copy-Item -Path $ExtractedExe -Destination "$InstallDir\omni.exe" -Force
 
 # --- Cleanup ---
 Remove-Item -Path $TmpDir -Recurse -Force | Out-Null
 
 Write-Host ""
-Write-Host "[omni] ✓ OMNI installed to $InstallDir\omni.exe" -ForegroundColor Green
+Write-Host "[omni] ✓ Contexere installed to $InstallDir\$Bin" -ForegroundColor Green
 
 # --- Verify ---
 try {
-    $ExeVersion = & "$InstallDir\omni.exe" version
+    $ExeVersion = & "$InstallDir\$Bin" version
     Write-Host "[omni] Verified: $ExeVersion" -ForegroundColor Green
 } catch {
     Write-Host "[omni] Unable to verify executable easily." -ForegroundColor Yellow
@@ -98,12 +106,12 @@ if ($UserPath -notmatch [regex]::Escape($InstallDir)) {
     [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
     
     Write-Host "[omni] ✓ PATH updated successfully." -ForegroundColor Green
-    Write-Host "[omni] IMPORTANT: You must restart your terminal or open a new PowerShell window to use the 'omni' command." -ForegroundColor Yellow
+    Write-Host "[omni] IMPORTANT: You must restart your terminal or open a new PowerShell window to use the 'contexere' command." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "  Next steps:"
-Write-Host "    omni init              # Interactive setup for your preferred AI Agent"
-Write-Host "    omni doctor            # Verify installation"
-Write-Host "    omni stats             # View savings after first session"
+Write-Host "    contexere init              # Interactive setup for your preferred AI Agent"
+Write-Host "    contexere doctor            # Verify installation"
+Write-Host "    contexere stats             # View savings after first session"
 Write-Host ""

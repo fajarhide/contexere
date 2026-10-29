@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>코딩 에이전트를 위한 컨텍스트와 토큰 레이어.</b> 시끄러운 도구 출력을 줄이고, 에이전트가 이미 읽은 내용을 접고, 자격 증명이 모델에 보이지 않게 합니다. 잃어버리는 것은 없습니다.</em>
+    <em><b>코딩 에이전트를 위한 컨텍스트와 토큰 레이어.</b> 시끄러운 도구 출력을 줄이고, 에이전트가 이미 읽은 내용을 접고, 다시 쓴 출력 안의 자격 증명을 마스킹합니다. 잃어버리는 것은 없습니다.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -30,8 +30,8 @@ Contexere는 모델이 읽기 전에 모델에 필요 없는 것을 걷어냅니
 
 - 에이전트가 이미 읽은 파일을 다시 읽을 때: 파일 대신 핸들이 담긴 한 줄을 보냅니다.
 - 시끄러운 빌드나 테스트를 실행할 때: 결과와 실패는 남기고 진행 노이즈는 버립니다.
-- 토큰이나 비밀번호가 출력될 때: 모델이 보기 전에 `[REDACTED]`로 바꿉니다.
-- 명령이 실패할 때: 출력된 그대로 전달하므로 실제 오류가 에이전트에게 닿습니다.
+- 다시 쓰는 출력에 토큰이나 비밀번호가 있을 때: 모델이 보기 전에 `[REDACTED]`로 바꿉니다.
+- 명령이 실패할 때: 출력된 그대로 전달하므로 실제 오류가 에이전트에게 닿습니다. 실패한 명령이 출력한 자격 증명도 에이전트에게 그대로 닿습니다.
 - JSON, YAML, CSV를 읽을 때: 바이트 단위로 그대로 둡니다.
 - `contexere doctor`는 각 에이전트의 Hook이 동작하고 마스킹하는지 확인합니다.
 
@@ -77,7 +77,7 @@ contexere stats     # 내 기록에서 Contexere가 절감한 양
 
 | 티어 | 에이전트 |
 |---|---|
-| **Full** (모델이 읽기 전에 도구 출력을 다시 씀) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (모델이 읽기 전에 도구 출력을 다시 씀) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| contexere` 사용) |
 | **Handoff-first** (`omni_run`을 통해 에이전트가 실행하는 것을 줄임) | Cursor, Windsurf |
 | **MCP-only** (메모리와 리콜, 그리고 `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 

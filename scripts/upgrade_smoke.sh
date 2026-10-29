@@ -108,7 +108,7 @@ for side in old new; do
   as "$side" "$ROOT/home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
 done
 # Only the latency line differs: it is timed per run, not history.
-norm() { sed -e '/ ms  per command/d' "$1"; }
+norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }
 diff <(norm "$ROOT/stats-old.txt") <(norm "$ROOT/stats-new.txt") || fail "omni stats reads the old history differently"
 as new "$ROOT/home-new" omni retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "new binary: omni retrieve $HANDLE"
 [ ! -e "$ROOT/home-new/.contexere" ] || fail "the upgrade created ~/.contexere; the old store has to be read in place"

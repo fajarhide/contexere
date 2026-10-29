@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>コーディングエージェントのためのコンテキストとトークンのレイヤー。</b>ノイズの多いツール出力を縮め、エージェントがすでに読んだ内容を畳み、認証情報がモデルに見えないようにします。失われるものはありません。</em>
+    <em><b>コーディングエージェントのためのコンテキストとトークンのレイヤー。</b>ノイズの多いツール出力を縮め、エージェントがすでに読んだ内容を畳み、書き換えた出力に含まれる認証情報をマスクします。失われるものはありません。</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -30,8 +30,8 @@ Contexere は、モデルが読む前に、モデルに不要なものを取り�
 
 - すでに読んだファイルをエージェントが再び読むとき: ファイルの代わりにハンドル付きの1行を送ります。
 - ノイズの多いビルドやテストを実行するとき: 結果と失敗を残し、進捗のノイズを捨てます。
-- トークンやパスワードが出力されたとき: モデルが見る前に `[REDACTED]` に置き換えます。
-- コマンドが失敗したとき: 出力されたままの形で渡すので、本当のエラーがエージェントに届きます。
+- 書き換える出力にトークンやパスワードが含まれるとき: モデルが見る前に `[REDACTED]` に置き換えます。
+- コマンドが失敗したとき: 出力されたままの形で渡すので、本当のエラーがエージェントに届きます。失敗したコマンドが出力した認証情報も、そのままエージェントに届きます。
 - JSON、YAML、CSV を読むとき: バイト単位でそのまま残します。
 - `contexere doctor` は、各エージェントのフックが動作し、マスキングを行うことを確認します。
 
@@ -77,7 +77,7 @@ contexere stats     # 自分の履歴で Contexere が節約した量
 
 | ティア | エージェント |
 |---|---|
-| **Full** (モデルが読む前にツール出力を書き換える) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (モデルが読む前にツール出力を書き換える) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| contexere` 経由) |
 | **Handoff-first** (`omni_run` を通してエージェントが実行するものを短くする) | Cursor, Windsurf |
 | **MCP-only** (メモリとリコール、加えて `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 

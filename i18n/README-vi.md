@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Lớp ngữ cảnh và token cho agent lập trình.</b> Nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và giữ thông tin xác thực khỏi tầm nhìn của model. Không có gì bị mất.</em>
+    <em><b>Lớp ngữ cảnh và token cho agent lập trình.</b> Nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -30,8 +30,8 @@ Contexere loại bỏ những gì model không cần, trước khi model đọc.
 
 - Agent đọc lại một tệp đã đọc: gửi một dòng kèm handle thay vì gửi lại cả tệp.
 - Chạy build hoặc test nhiều nhiễu: giữ kết quả và lỗi, bỏ nhiễu tiến trình.
-- In ra token hoặc mật khẩu: thay bằng `[REDACTED]` trước khi model nhìn thấy.
-- Lệnh thất bại: chuyển tiếp đúng như đã in, để lỗi thật đến được agent.
+- In ra token hoặc mật khẩu trong output mà nó viết lại: thay bằng `[REDACTED]` trước khi model nhìn thấy.
+- Lệnh thất bại: chuyển tiếp đúng như đã in, để lỗi thật đến được agent. Thông tin xác thực do lệnh thất bại in ra cũng đến được agent.
 - Đọc JSON, YAML hoặc CSV: giữ nguyên từng byte.
 - `contexere doctor` kiểm tra Hook của từng agent có chạy và có che thông tin nhạy cảm hay không.
 
@@ -77,7 +77,7 @@ Sau `init`, các Hook tự chạy. Không cần gõ thêm tiền tố nào.
 
 | Tầng | Agent |
 |---|---|
-| **Full** (viết lại output công cụ trước khi model đọc) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (viết lại output công cụ trước khi model đọc) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (qua `cmd \| contexere`) |
 | **Handoff-first** (rút ngắn những gì agent chạy qua `omni_run`) | Cursor, Windsurf |
 | **MCP-only** (bộ nhớ và recall, cộng thêm `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 

@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>The context and token layer for coding agents.</b> It shrinks noisy tool output, folds what an agent already read, and keeps credentials out of what the model sees. Nothing is lost.</em>
+    <em><b>The context and token layer for coding agents.</b> It shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
@@ -35,8 +35,8 @@ Contexere takes out what the model does not need, before the model reads it. Not
 
 - Reads a file the agent already read: sends one line with a handle instead of the file again.
 - Runs a noisy build or test: keeps the result and the failures, drops the progress noise.
-- Prints a token or password: replaces it with `[REDACTED]` before the model sees it.
-- Fails a command: passes it through as printed, so the real error reaches the agent.
+- Prints a token or password in output it rewrites: replaces it with `[REDACTED]` before the model sees it.
+- Fails a command: passes it through as printed, so the real error reaches the agent. A credential printed by a failing command reaches the agent too.
 - Reads JSON, YAML or CSV: leaves it byte for byte.
 - `contexere doctor` checks that each agent's hooks fire and redact.
 
@@ -82,7 +82,7 @@ After `init`, the hooks run on their own. There is nothing to prefix.
 
 | Tier | Agents |
 |---|---|
-| **Full** (rewrites tool output before the model reads it) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (rewrites tool output before the model reads it) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (via `cmd \| contexere`) |
 | **Handoff-first** (shortens what the agent runs through `omni_run`) | Cursor, Windsurf |
 | **MCP-only** (memory and recall, plus `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 

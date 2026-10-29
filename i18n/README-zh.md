@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>面向编码智能体的上下文与 token 层。</b>它压缩嘈杂的工具输出，折叠智能体已经读过的内容，并让凭据不出现在模型看到的内容里。什么都不会丢失。</em>
+    <em><b>面向编码智能体的上下文与 token 层。</b>它压缩嘈杂的工具输出，折叠智能体已经读过的内容，并对它改写的输出中的凭据进行脱敏。什么都不会丢失。</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -30,8 +30,8 @@ Contexere 在模型读取之前，去掉模型不需要的内容。没有任何�
 
 - 智能体读取已经读过的文件：只发送一行带句柄的内容，而不是再发一遍文件。
 - 运行嘈杂的构建或测试：保留结果和失败信息，丢掉进度噪音。
-- 打印 token 或密码：在模型看到之前替换为 `[REDACTED]`。
-- 命令失败：按原样透传，真正的错误会送达智能体。
+- 在它改写的输出中出现 token 或密码：在模型看到之前替换为 `[REDACTED]`。
+- 命令失败：按原样透传，真正的错误会送达智能体。失败命令打印出的凭据也会原样送达智能体。
 - 读取 JSON、YAML 或 CSV：逐字节原样保留。
 - `contexere doctor` 会检查每个智能体的 Hook 是否触发并完成脱敏。
 
@@ -77,7 +77,7 @@ contexere stats     # Contexere 在你自己的历史记录上节省了多少
 
 | 层级 | 智能体 |
 |---|---|
-| **Full** (在模型读取之前重写工具输出) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (在模型读取之前重写工具输出) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider（通过 `cmd \| contexere`） |
 | **Handoff-first** (缩短智能体经由 `omni_run` 执行的内容) | Cursor, Windsurf |
 | **MCP-only** (记忆与召回，外加 `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 

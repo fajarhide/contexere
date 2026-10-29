@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Lapisan konteks dan token untuk agent coding.</b> Ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menjaga kredensial tidak terlihat model. Tidak ada yang hilang.</em>
+    <em><b>Lapisan konteks dan token untuk agent coding.</b> Ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menyamarkan kredensial pada output yang ia tulis ulang. Tidak ada yang hilang.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -30,8 +30,8 @@ Contexere membuang apa yang tidak dibutuhkan model, sebelum model membacanya. Ti
 
 - Agent membaca file yang sudah pernah dibacanya: mengirim satu baris berisi handle, bukan file-nya lagi.
 - Menjalankan build atau test yang bising: menyimpan hasil dan kegagalannya, membuang noise progress.
-- Mencetak token atau password: menggantinya dengan `[REDACTED]` sebelum model melihatnya.
-- Perintah gagal: diteruskan persis seperti yang dicetak, supaya error yang sebenarnya sampai ke agent.
+- Mencetak token atau password pada output yang ia tulis ulang: menggantinya dengan `[REDACTED]` sebelum model melihatnya.
+- Perintah gagal: diteruskan persis seperti yang dicetak, supaya error yang sebenarnya sampai ke agent. Kredensial yang dicetak perintah yang gagal ikut sampai ke agent.
 - Membaca JSON, YAML atau CSV: dibiarkan byte demi byte.
 - `contexere doctor` memeriksa bahwa Hook tiap agent berjalan dan melakukan redaksi.
 
@@ -77,7 +77,7 @@ Setelah `init`, Hook berjalan sendiri. Tidak ada yang perlu diberi awalan.
 
 | Tier | Agent |
 |---|---|
-| **Full** (menulis ulang output tool sebelum model membacanya) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider |
+| **Full** (menulis ulang output tool sebelum model membacanya) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (lewat `cmd \| contexere`) |
 | **Handoff-first** (memendekkan apa yang dijalankan agent lewat `omni_run`) | Cursor, Windsurf |
 | **MCP-only** (memori dan recall, plus `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
