@@ -13,7 +13,7 @@
     "@sinclair/typebox": "0.34.52"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "openclaw": "^2026.9.6",
     "typescript": "^7.0.2"
   },
