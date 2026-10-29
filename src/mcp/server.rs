@@ -97,7 +97,7 @@ fn run_with_timeout(
         Err(_) => {
             return run_timeout_message(
                 &crate::legacy::tool_name("run"),
-                &command,
+                command,
                 timeout.as_secs(),
             );
         }
