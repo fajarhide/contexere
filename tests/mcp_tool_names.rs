@@ -45,29 +45,36 @@ fn session(program: &std::path::Path) -> (Vec<String>, String) {
         .expect("write");
     }
 
-    let mut names = Vec::new();
-    let mut reply = String::new();
+    // The server answers requests concurrently, so id 3 can arrive before id 2;
+    // stop only once both are in. CI on macOS saw them out of order.
+    let (mut names, mut reply) = (None, None);
     for line in BufReader::new(child.stdout.take().expect("stdout")).lines() {
         let v: serde_json::Value = serde_json::from_str(&line.expect("line")).expect("json");
         if v["id"] == 2 {
-            names = v["result"]["tools"]
-                .as_array()
-                .expect("tools")
-                .iter()
-                .map(|t| t["name"].as_str().expect("name").to_string())
-                .collect();
+            names = Some(
+                v["result"]["tools"]
+                    .as_array()
+                    .expect("tools")
+                    .iter()
+                    .map(|t| t["name"].as_str().expect("name").to_string())
+                    .collect(),
+            );
         }
         if v["id"] == 3 {
-            reply = v["result"]["content"][0]["text"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
+            reply = Some(
+                v["result"]["content"][0]["text"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
+            );
+        }
+        if names.is_some() && reply.is_some() {
             break;
         }
     }
     let _ = child.kill();
     let _ = child.wait();
-    (names, reply)
+    (names.unwrap_or_default(), reply.unwrap_or_default())
 }
 
 #[test]
