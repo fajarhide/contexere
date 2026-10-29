@@ -54,10 +54,12 @@ fn targets_from_args(args: &[String]) -> Vec<&'static str> {
 fn print_help() {
     println!(
         "\n{} {}",
-        "OMNI RESET".bold().red(),
+        "CONTEXERE RESET".bold().red(),
         "- Wipe All Omni AI Connections".bold().white()
     );
-    println!("Use this command to cleanly remove OMNI configurations from all IDEs and tools.");
+    println!(
+        "Use this command to cleanly remove Contexere configurations from all IDEs and tools."
+    );
     println!();
     println!("Usage: omni reset [OPTIONS]");
     println!();
@@ -83,7 +85,7 @@ pub fn handle_reset() -> anyhow::Result<()> {
     if target_ids.is_empty() && !is_all {
         println!(
             "\n{} {}",
-            "OMNI RESET".bold().red(),
+            "CONTEXERE RESET".bold().red(),
             "- Interactive Mode".bold().white()
         );
         println!("Which integrations would you like to remove?");

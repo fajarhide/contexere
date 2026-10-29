@@ -37,8 +37,8 @@ pub fn print_header(view: Option<&str>, scope: Option<&str>) {
     println!();
     print_rule();
     let title = match view {
-        Some(v) => format!("OMNI · {v}"),
-        None => "OMNI".to_string(),
+        Some(v) => format!("Contexere · {v}"),
+        None => "Contexere".to_string(),
     };
     match scope {
         Some(s) => println!(

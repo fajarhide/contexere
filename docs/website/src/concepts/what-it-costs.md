@@ -70,21 +70,21 @@ exactly that reason.
 ## The prompt cache
 
 A tool that rewrites a prompt breaks the provider's cache, because the cache matches on
-the prefix. OMNI rewrites only the newest tool result, which is the tail, so everything
+the prefix. Contexere rewrites only the newest tool result, which is the tail, so everything
 before it stays byte for byte.
 
 Measured, not argued: a paired run on Claude Code with omni 0.7.10, 20 pairs, the same
 six-command workload with the hook on and with `OMNI_PASSTHROUGH=1`, one machine.
 
-| | with OMNI | without | |
+| | with Contexere | without | |
 |---|---|---|---|
 | tool result bytes | 965,414 | 1,585,160 | -39.1% |
 | cache-write tokens | 1,014,764 | 1,238,503 | -18.1% |
 | output tokens | 22,617 | 11,748 | +92.5% |
 | billed cost | $4.26 | $4.78 | -11.0% |
 
-The output row goes against OMNI. The run measures the increase and does not establish
-its cause. The sessions with OMNI held 41 thinking blocks against 5, which is where to
+The output row goes against Contexere. The run measures the increase and does not establish
+its cause. The sessions with Contexere held 41 thinking blocks against 5, which is where to
 look first. Here output is 0.3% of the tokens and the bill still falls. On a workload
 with little to fold, that cost could be the larger side.
 
@@ -95,7 +95,7 @@ python3 scripts/ab_cache.py report arms.json
 
 It spends real tokens, about half a dollar a pair.
 
-## The cost that is not OMNI's to pay
+## The cost that is not Contexere's to pay
 
 On a flat-rate plan, compression does not reduce a bill at all. What it buys is
 session lifetime and fewer re-runs. Prompt-cache reads bill about a tenth of fresh
@@ -103,7 +103,7 @@ input, so bytes saved once are not dollars saved per turn.
 
 This is why the project's own primary measure is context-window pressure for the same
 job, and reduction percentage is a diagnostic rather than a headline. See
-[Where OMNI is going](../develop/direction.md).
+[Where Contexere is going](../develop/direction.md).
 
 ## If it panics
 

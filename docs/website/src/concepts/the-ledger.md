@@ -136,7 +136,7 @@ pipeline, hashed the same, and came back as the very marker that sent the reader
 One delivery, not an exemption: the next repeat folds again.
 
 The pattern is worth more than the three cases. When the ledger surprises you, ask which
-reader is holding the bytes, and whether anything told OMNI that reader had changed.
+reader is holding the bytes, and whether anything told Contexere that reader had changed.
 
 ## The flow, one command at a time
 
@@ -182,7 +182,7 @@ entirely new still writes its lines, and pays for itself the next time.
 ### Retrieve
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 An exact lookup on a content address. There is no candidate set, no ranking, no
@@ -269,7 +269,7 @@ run around it, so the frames either side still fold.
 
 ## What it is worth
 
-From the same replay, the ledger is 12.2 points on top of OMNI's own filters and 11.4
+From the same replay, the ledger is 12.2 points on top of Contexere's own filters and 11.4
 points on top of a competitor's, which is the clearest statement that it is
 orthogonal to whose patterns run:
 

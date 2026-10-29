@@ -187,7 +187,7 @@ pub fn run_session(args: &[String], store: Arc<Store>) -> anyhow::Result<()> {
 
         println!();
         super::print_rule();
-        println!(" {}: Current Session", "OMNI".bold().cyan());
+        println!(" {}: Current Session", "Contexere".bold().cyan());
         super::print_rule();
 
         println!(
@@ -266,7 +266,10 @@ fn run_resume() -> anyhow::Result<()> {
         Some(t) => {
             println!();
             super::print_rule();
-            println!(" {}: Interrupted Session Detected", "OMNI".bold().cyan());
+            println!(
+                " {}: Interrupted Session Detected",
+                "Contexere".bold().cyan()
+            );
             super::print_rule();
 
             let sid = if t.session_id.len() > 8 {
@@ -361,7 +364,7 @@ fn run_transcript() -> anyhow::Result<()> {
     super::print_rule();
     println!(
         " {}: Session Transcript ({})",
-        "OMNI".bold().cyan(),
+        "Contexere".bold().cyan(),
         sid.cyan()
     );
     super::print_rule();
@@ -438,7 +441,7 @@ fn run_health(store: &Store) -> anyhow::Result<()> {
             .bright_black()
             .bold()
     );
-    println!(" {}: Session Health Dashboard", "OMNI".bold().cyan());
+    println!(" {}: Session Health Dashboard", "Contexere".bold().cyan());
     println!(
         "{}",
         "═══════════════════════════════════════════"

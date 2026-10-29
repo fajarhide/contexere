@@ -5,7 +5,7 @@ use std::process::Command;
 
 pub fn print_help() {
     println!(
-        "\n{} {}: Upgrade OMNI to latest version",
+        "\n{} {}: Upgrade Contexere to latest version",
         "omni".bold().cyan(),
         "update".bold().yellow()
     );
@@ -13,7 +13,7 @@ pub fn print_help() {
     println!("  omni {}", "update".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
-    println!("  Fetches the latest version from GitHub and upgrades OMNI.");
+    println!("  Fetches the latest version from GitHub and upgrades Contexere.");
     println!("  Currently supports Homebrew-based installations.");
     println!();
 }
@@ -70,7 +70,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
             #[cfg(not(target_family = "windows"))]
             {
-                println!("{} Updating OMNI via Homebrew...", "🚀".cyan());
+                println!("{} Updating Contexere via Homebrew...", "🚀".cyan());
 
                 let status = Command::new("brew")
                     .args(["upgrade", "fajarhide/tap/omni"])
@@ -78,7 +78,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 
                 match status {
                     Ok(s) if s.success() => {
-                        println!("\n{} OMNI updated successfully!", "✓".green());
+                        println!("\n{} Contexere updated successfully!", "✓".green());
                     }
                     Ok(s) => {
                         return Err(format!(
@@ -97,7 +97,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         }
         crate::guard::update::Status::Ahead => {
             println!(
-                "\n{} OMNI is ahead of the latest stable release (v{}).",
+                "\n{} Contexere is ahead of the latest stable release (v{}).",
                 "🚀".blue(),
                 env!("CARGO_PKG_VERSION")
             );
@@ -105,7 +105,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         }
         crate::guard::update::Status::Latest => {
             println!(
-                "\n{} OMNI is already up to date (v{}).",
+                "\n{} Contexere is already up to date (v{}).",
                 "✓".green(),
                 env!("CARGO_PKG_VERSION")
             );

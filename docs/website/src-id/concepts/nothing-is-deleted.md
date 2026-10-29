@@ -1,6 +1,6 @@
 # Tidak ada yang dihapus
 
-Setiap byte yang dibuang OMNI ditulis dulu ke arsip SQLite lokal, dikunci dengan
+Setiap byte yang dibuang Contexere ditulis dulu ke arsip SQLite lokal, dikunci dengan
 SHA-256 miliknya. Agent menerima penanda yang membawa handle 16 karakter, dan
 handle itu mengembalikan aslinya persis byte demi byte.
 
@@ -9,7 +9,7 @@ handle itu mengembalikan aslinya persis byte demi byte.
 ```
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 Itu jalan dari shell mana pun, di sesi mana pun, di host mana pun, dan ia tidak
@@ -61,11 +61,11 @@ waktu pengukurannya.
 `~/.omni/omni.db`, satu berkas SQLite. Ia tidak pernah meninggalkan mesin Anda.
 
 ```sh
-omni stats            # apa saja yang sudah ia kerjakan
-omni diff             # perintah terakhir, mentah dibanding hasil sulingan
-omni retrieve <handle>
+contexere stats            # apa saja yang sudah ia kerjakan
+contexere diff             # perintah terakhir, mentah dibanding hasil sulingan
+contexere retrieve <handle>
 ```
 
-`omni diff` cara tercepat menumbuhkan kepercayaan pada hal ini: jalankan satu
+`contexere diff` cara tercepat menumbuhkan kepercayaan pada hal ini: jalankan satu
 perintah yang berisik, lalu lihat persis apa yang diserahkan ke agent sebagai
 gantinya.

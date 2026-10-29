@@ -1,12 +1,12 @@
-# `omni init`
+# `contexere init`
 
-Installs OMNI into an agent: writes the hook configuration where that host reads it,
+Installs Contexere into an agent: writes the hook configuration where that host reads it,
 and registers the MCP server.
 
 ```sh
-omni init              # interactive menu, or the current host when there is no terminal
-omni init --claude
-omni init --all
+contexere init              # interactive menu, or the current host when there is no terminal
+contexere init --claude
+contexere init --all
 ```
 
 Idempotent. Running it again after an upgrade is the right move, not a risk.
@@ -14,7 +14,7 @@ Idempotent. Running it again after an upgrade is the right move, not a risk.
 ## With no flags
 
 On a terminal, a menu. Without one, which is how an agent runs it, the menu cannot
-be drawn, so `omni init` configures the host it is running inside and prints which
+be drawn, so `contexere init` configures the host it is running inside and prints which
 one that is. A host it cannot name from the environment, a plain shell included,
 gets an error listing the flags rather than a guess: installing into a host nobody
 asked for is the worse of the two failures.
@@ -41,7 +41,7 @@ own location.
 | `--vscode` | VS Code (MCP) |
 | `--pi` | Pi Agent |
 
-What each host actually lets OMNI do differs a great deal. See
+What each host actually lets Contexere do differs a great deal. See
 [Supported agents](../agents.md) before assuming a flag buys shell distillation.
 
 ## Modes
@@ -52,20 +52,20 @@ What each host actually lets OMNI do differs a great deal. See
 | `--hook` | Hooks only, no MCP registration |
 | `--mcp` | MCP registration only, no hooks |
 | `--status` | Report what is currently installed, change nothing |
-| `--uninstall` | Remove OMNI's hooks and MCP server |
+| `--uninstall` | Remove Contexere's hooks and MCP server |
 | `--help`, `-h` | Help |
 
 ## After running it
 
 ```sh
-omni doctor
+contexere doctor
 ```
 
 Always. `init` reports what it wrote; `doctor` reports whether the host is reading it.
 
 **Codex CLI needs one more step.** It runs only hooks it has been told to trust and
 skips the rest without a word. Start `codex` once and approve them under "Hooks need
-review". `omni doctor` fails until you do.
+review". `contexere doctor` fails until you do.
 
 ## Notes
 

@@ -1,9 +1,9 @@
-# `omni retrieve`
+# `contexere retrieve`
 
 Mencetak isi yang diarsipkan sebuah penanda.
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 Handle-nya adalah 16 karakter di dalam sebuah penanda:

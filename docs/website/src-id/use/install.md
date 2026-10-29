@@ -1,5 +1,7 @@
 # Pasang
 
+Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, yaitu program yang sama dengan `contexere`.
+
 ## Ambil binary-nya
 
 **macOS dan Linux, lewat Homebrew:**
@@ -51,12 +53,12 @@ ini tetap berlaku; plugin hanya berarti ada orang lain yang mengetiknya.
 ## Sambungkan ke agent Anda
 
 ```sh
-omni init            # host tempat Anda berjalan, atau sebuah menu kalau Anda punya terminal
-omni init --claude   # atau --cursor, --codex, --gemini, dan 11 lainnya
-omni init --all      # semua host, plus .vscode/mcp.json di direktori saat ini
+contexere init            # host tempat Anda berjalan, atau sebuah menu kalau Anda punya terminal
+contexere init --claude   # atau --cursor, --codex, --gemini, dan 11 lainnya
+contexere init --all      # semua host, plus .vscode/mcp.json di direktori saat ini
 ```
 
-`omni init` menulis hook dan mendaftarkan server MCP. Ia idempoten, jadi
+`contexere init` menulis hook dan mendaftarkan server MCP. Ia idempoten, jadi
 menjalankannya lagi setelah upgrade adalah langkah yang benar, bukan risiko.
 
 Di Claude Code, bagian yang memendekkan keluaran adalah hook-nya, sedangkan server MCP
@@ -64,7 +66,7 @@ adalah kemudahan yang ada ongkos cache-nya. Membiarkannya terpasang tidak masala
 perlu Anda tahu ongkosnya ada di [Agent yang didukung](../reference/agents.md).
 
 Tanpa terminal untuk bertanya, yang memang begitulah cara agent menjalankannya,
-`omni init` menyetel host tempat ia berjalan alih-alih gagal karena menunya tidak
+`contexere init` menyetel host tempat ia berjalan alih-alih gagal karena menunya tidak
 ada. Ia menyebut host mana yang ia pilih. Kalau ia tidak bisa menyebut host-nya,
 misalnya di shell biasa, ia berhenti dan meminta sebuah flag ketimbang memasang
 ke tempat yang tidak diminta siapa pun.
@@ -78,54 +80,54 @@ pun pipeline-nya bekerja.
 ## Verifikasi
 
 ```sh
-omni doctor
+contexere doctor
 ```
 
 Ini bukan seremoni opsional. Ia memeriksa binary-nya ada di `PATH`, basis datanya
 bisa dibuka, hook-nya benar-benar terpasang di tempat host membacanya, dan server
-MCP-nya terdaftar. `omni doctor --fix` memperbaiki yang bisa ia perbaiki.
+MCP-nya terdaftar. `contexere doctor --fix` memperbaiki yang bisa ia perbaiki.
 
 **Codex CLI butuh satu langkah tambahan.** Ia hanya menjalankan hook yang sudah
-dinyatakan tepercaya dan melewati sisanya diam-diam. Setelah `omni init --codex`,
+dinyatakan tepercaya dan melewati sisanya diam-diam. Setelah `contexere init --codex`,
 jalankan `codex` sekali lalu setujui hook-nya di bagian "Hooks need review".
-`omni doctor` akan terus gagal sampai Anda melakukannya.
+`contexere doctor` akan terus gagal sampai Anda melakukannya.
 
 ## Pastikan ia benar-benar jalan
 
-`omni doctor` bilang sambungannya benar. Yang berikut bilang sambungannya sedang
+`contexere doctor` bilang sambungannya benar. Yang berikut bilang sambungannya sedang
 dipakai:
 
 ```sh
 cat berkas-panjang.txt     # lewat agent Anda, bukan shell ini
-omni diff                  # mentah dibanding hasil sulingan, untuk perintah terakhir
-omni stats
+contexere diff                  # mentah dibanding hasil sulingan, untuk perintah terakhir
+contexere stats
 ```
 
-Kalau `omni stats` menampilkan baris dan `omni diff` menampilkan perbedaan,
+Kalau `contexere stats` menampilkan baris dan `contexere diff` menampilkan perbedaan,
 hook-nya hidup.
 
 Satu jebakan yang lebih baik diketahui sekarang daripada nanti: angka di
-`omni stats` dipisah menurut `agent_id`, dan baris yang tercatat di bawah
+`contexere stats` dipisah menurut `agent_id`, dan baris yang tercatat di bawah
 `terminal` adalah keluaran TTY yang tidak pernah dibaca model mana pun. Ketika
-Anda menilai apakah OMNI layak berada di sana, lihat baris untuk host Anda yang
+Anda menilai apakah Contexere layak berada di sana, lihat baris untuk host Anda yang
 sebenarnya.
 
 ## Perbarui
 
 ```sh
-omni update      # untuk pemasangan Homebrew
+contexere update      # untuk pemasangan Homebrew
 brew upgrade omni
 ```
 
-Jalankan ulang `omni init` sesudahnya kalau sebuah rilis mengubah kontrak
+Jalankan ulang `contexere init` sesudahnya kalau sebuah rilis mengubah kontrak
 hook-nya. Changelog menyebut kapan itu terjadi.
 
 ## Cabut
 
 ```sh
-omni init --uninstall   # hook dan pendaftaran MCP untuk satu host
-omni reset --all        # semua integrasi, dan menawarkan menghapus omni.db
+contexere init --uninstall   # hook dan pendaftaran MCP untuk satu host
+contexere reset --all        # semua integrasi, dan menawarkan menghapus omni.db
 ```
 
-`omni reset` tanpa flag memberi menu interaktif. Keduanya tidak menyentuh
-konfigurasi shell Anda, karena OMNI memang tidak pernah menulis apa pun di sana.
+`contexere reset` tanpa flag memberi menu interaktif. Keduanya tidak menyentuh
+konfigurasi shell Anda, karena Contexere memang tidak pernah menulis apa pun di sana.

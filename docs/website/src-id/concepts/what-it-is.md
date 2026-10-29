@@ -1,4 +1,4 @@
-# Apa itu OMNI
+# Apa itu Contexere
 
 **Program kecil di mesin Anda yang menyunting apa yang dibaca agent AI Anda,
 sebelum agent itu membacanya.**
@@ -27,7 +27,7 @@ Solusi yang kelihatan jelas semuanya lebih buruk daripada masalahnya:
 | Minta model meringkas | Satu panggilan inferensi per perintah, dan peringkas bisa salah |
 | Minta agent lebih hati-hati | Berhasil sampai agent-nya sibuk, yaitu selalu |
 
-OMNI adalah opsi keempat: program yang tahu keluaran `cargo test` itu bentuknya
+Contexere adalah opsi keempat: program yang tahu keluaran `cargo test` itu bentuknya
 seperti apa, ingat apa yang sudah pernah ditunjukkan ke agent Anda, dan tidak
 pernah menebak saat ia ragu.
 
@@ -35,7 +35,7 @@ pernah menebak saat ia ragu.
 
 Setiap host agent yang serius bisa menjalankan sebuah program ketika sebuah tool
 selesai, lalu memakai apa yang program itu kembalikan. Claude Code menyebutnya
-hook `PostToolUse`, host lain punya nama sendiri untuk ide yang sama. OMNI
+hook `PostToolUse`, host lain punya nama sendiri untuk ide yang sama. Contexere
 memasang dirinya di sana, dan di slot pasangannya sebelum tool berjalan, yang ia
 pakai hanya untuk menyerahkan perintah yang cocok ke dirinya sendiri. Perintahnya
 tetap berjalan tanpa perubahan; shell tidak pernah tahu.
@@ -52,7 +52,7 @@ byte mentah.
 Ia tidak bisa membantu di tempat host-nya tidak mengizinkan. Host yang tidak
 menerapkan hasil tulis ulang sebuah hook pada tool shell bawaannya akan
 menunjukkan byte yang sama ke agent, sebagus apa pun penyaringnya. Itu bukan bug
-yang harus diperbaiki di OMNI, itu sifat host tersebut, dan
+yang harus diperbaiki di Contexere, itu sifat host tersebut, dan
 [Agent yang didukung](../reference/agents.md) menyebut host mana ada di tingkat
 mana.
 
@@ -79,25 +79,25 @@ Setelah itu masukan mentahnya masuk ke arsip, dan agent menerima hasilnya
 ditambah penanda yang menyebut apa yang terjadi.
 
 Kalau Anda lebih suka melihat ini sebagai situasi ketimbang sebagai tahapan,
-[Di mana OMNI membantu](use-cases.md) memuat enam situasi lengkap dengan
+[Di mana Contexere membantu](use-cases.md) memuat enam situasi lengkap dengan
 penghematan terukurnya.
 
 ## Apa yang ia lakukan pada dirinya sendiri
 
-Semua di atas soal keluaran. Ada hal kedua yang disunting OMNI, dan lama sekali ia tidak
+Semua di atas soal keluaran. Ada hal kedua yang disunting Contexere, dan lama sekali ia tidak
 menyuntingnya sama sekali: bobotnya sendiri.
 
-OMNI mendaftar sebagai server MCP, dan definisi perkakas berada di **awal** setiap request
+Contexere mendaftar sebagai server MCP, dan definisi perkakas berada di **awal** setiap request
 di setiap sesi tempat ia terpasang. Byte di awal tidak dibayar sekali. Ia dibawa sejak
 request pertama dan dibaca ulang di setiap request sesudahnya, sedangkan byte yang dibuang
 dari keluaran tool disisipkan di tengah dan dibaca lebih sedikit kali.
 
-Diukur di 229 sesi, enam belas dari dua puluh lima perkakas yang diiklankan OMNI tidak
+Diukur di 229 sesi, enam belas dari dua puluh lima perkakas yang diiklankan Contexere tidak
 pernah sekali pun dipanggil, dan keenam belasnya berbobot 4.940 byte. Distiller-nya
 membuang median 4.942 byte dari keluaran tool pada sesi yang benar-benar padat. Dua byte
 bedanya, dan sisi awal itulah yang dibawa sejak permulaan.
 
-Jadi sekarang OMNI hanya memberi tahu host perkakas yang memang dipakai tier-nya. Alat
+Jadi sekarang Contexere hanya memberi tahu host perkakas yang memang dipakai tier-nya. Alat
 yang menghabiskan konteks untuk menjelaskan dirinya sebanyak yang ia hemat bukanlah alat
 efisiensi token, dan menyadarinya menuntut pengukurannya sendiri diarahkan ke dirinya.
 
@@ -112,7 +112,7 @@ Anda kira, dan ketika bertabrakan, angkanya yang mengalah.
 sebuah hook adalah milidetik satu digit dan tidak ada yang memuat panggilan
 inferensi yang muat di situ.
 
-**Bukan produk ingatan, walau ia punya satu.** `omni remember`, `omni goal` dan
+**Bukan produk ingatan, walau ia punya satu.** `contexere remember`, `contexere goal` dan
 serah terima sesi ada karena agent yang sama yang membaca terlalu banyak juga
 melupakan segalanya antar sesi. [Ingatan antar sesi](../use/memory.md) membahas
 paruh itu.

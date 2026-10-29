@@ -82,7 +82,8 @@ fn real_subcommands() -> BTreeSet<String> {
 /// prose precisely to say it is **not** a subcommand, and a check that read
 /// prose would have to be taught about sentences like that one.
 fn commands_in_shell_blocks() -> Vec<(String, String, usize)> {
-    let call = regex::Regex::new(r"(?:^|\s)omni\s+([a-z][a-z-]{2,})").expect("valid regex");
+    let call =
+        regex::Regex::new(r"(?:^|\s)(?:omni|contexere)\s+([a-z][a-z-]{2,})").expect("valid regex");
     let mut out = Vec::new();
 
     for path in doc_files() {

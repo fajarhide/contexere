@@ -24,7 +24,7 @@ pub fn cmd_set(goal: &str, store: &Store) -> Result<()> {
     store.upsert_project_knowledge(&ph, GOAL_KEY, goal, 1.0);
     println!("{} Goal set: {}", "✓".green(), goal.bright_white());
     println!(
-        "  {} OMNI will inject this goal at the start of every new session.",
+        "  {} Contexere will inject this goal at the start of every new session.",
         "→".bright_black()
     );
     Ok(())

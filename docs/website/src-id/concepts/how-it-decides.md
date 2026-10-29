@@ -1,4 +1,4 @@
-# Bagaimana OMNI memutuskan apa yang dipotong
+# Bagaimana Contexere memutuskan apa yang dipotong
 
 Pipeline-nya tetap dan setiap muatan melewati tahapan yang sama:
 
@@ -18,7 +18,7 @@ Gerbangnya. Ia menjawab satu pertanyaan: apakah muatan ini sesuatu yang akan
 diurai langkah berikutnya? Kalau ya, tidak ada tahap sesudahnya yang berjalan dan
 byte-nya kembali persis seperti saat datang.
 [Yang tidak pernah disentuh](format-safety.md) adalah keseluruhan tahap ini dan
-ia pantas punya halaman sendiri, karena "OMNI tidak melakukan apa-apa" biasanya
+ia pantas punya halaman sendiri, karena "Contexere tidak melakukan apa-apa" biasanya
 berarti tahap ini bekerja dengan benar, bukan gagal.
 
 ## Score

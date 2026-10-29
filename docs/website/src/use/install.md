@@ -1,5 +1,7 @@
 # Install
 
+Existing installs keep working under `omni`, which is the same program as `contexere`.
+
 ## Get the binary
 
 **macOS and Linux, via Homebrew:**
@@ -51,19 +53,19 @@ plugin only means someone else types it.
 ## Wire it into your agent
 
 ```sh
-omni init            # the host you are running in, or a menu if you have a terminal
-omni init --claude   # or --cursor, --codex, --gemini, and 11 more
-omni init --all      # every host, and a .vscode/mcp.json in the current directory
+contexere init            # the host you are running in, or a menu if you have a terminal
+contexere init --claude   # or --cursor, --codex, --gemini, and 11 more
+contexere init --all      # every host, and a .vscode/mcp.json in the current directory
 ```
 
-`omni init` writes hooks and registers the MCP server. It is idempotent, so running it
+`contexere init` writes hooks and registers the MCP server. It is idempotent, so running it
 again after an upgrade is the right move rather than a risk.
 
 On Claude Code the hooks are the part that shortens output, and the MCP server is a
 convenience with a cache cost. Keeping it is fine; knowing what it costs is in
 [Supported agents](../reference/agents.md).
 
-With no terminal to prompt on, which is how an agent runs it, `omni init` configures
+With no terminal to prompt on, which is how an agent runs it, `contexere init` configures
 the host it is running inside instead of failing on the absent menu. It says which
 host it picked. If it cannot name the host, a plain shell for instance, it stops and
 asks for a flag rather than installing into somewhere nobody asked for.
@@ -76,50 +78,50 @@ agent distilled bytes however well the pipeline works.
 ## Verify
 
 ```sh
-omni doctor
+contexere doctor
 ```
 
 This is not optional ceremony. It checks the binary is on `PATH`, the database opens,
 the hooks are actually installed where the host reads them, and the MCP server is
-registered. `omni doctor --fix` repairs what it can.
+registered. `contexere doctor --fix` repairs what it can.
 
 **Codex CLI needs one extra step.** It runs only hooks it has been told to trust and
-skips the rest silently. After `omni init --codex`, start `codex` once and approve
-them under "Hooks need review". `omni doctor` will keep failing until you do.
+skips the rest silently. After `contexere init --codex`, start `codex` once and approve
+them under "Hooks need review". `contexere doctor` will keep failing until you do.
 
 ## Confirm it is really running
 
-`omni doctor` says the wiring is correct. This says the wiring is being used:
+`contexere doctor` says the wiring is correct. This says the wiring is being used:
 
 ```sh
 cat some-long-file.txt     # through your agent, not this shell
-omni diff                  # raw against distilled, for the last command
-omni stats
+contexere diff                  # raw against distilled, for the last command
+contexere stats
 ```
 
-If `omni stats` shows rows and `omni diff` shows a difference, the hook is live.
+If `contexere stats` shows rows and `contexere diff` shows a difference, the hook is live.
 
-A trap worth knowing now rather than later: the numbers in `omni stats` are split by
+A trap worth knowing now rather than later: the numbers in `contexere stats` are split by
 `agent_id`, and a row recorded under `terminal` is TTY output no model ever read.
-When you are judging whether OMNI is earning its place, look at the rows for your
+When you are judging whether Contexere is earning its place, look at the rows for your
 actual host.
 
 ## Upgrade
 
 ```sh
-omni update      # Homebrew installs
+contexere update      # Homebrew installs
 brew upgrade omni
 ```
 
-Re-run `omni init` afterwards if a release changes the hook contract. The changelog
+Re-run `contexere init` afterwards if a release changes the hook contract. The changelog
 says when that happens.
 
 ## Remove it
 
 ```sh
-omni init --uninstall   # hooks and MCP registration for one host
-omni reset --all        # every integration, and offers to wipe omni.db
+contexere init --uninstall   # hooks and MCP registration for one host
+contexere reset --all        # every integration, and offers to wipe omni.db
 ```
 
-`omni reset` without flags gives an interactive menu. Neither command touches your
-shell configuration, because OMNI never wrote any.
+`contexere reset` without flags gives an interactive menu. Neither command touches your
+shell configuration, because Contexere never wrote any.

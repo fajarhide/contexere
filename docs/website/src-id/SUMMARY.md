@@ -2,17 +2,17 @@
 
 [Mulai dari sini](index.md)
 
-# Memahami OMNI
+# Memahami Contexere
 
-- [Apa itu OMNI](concepts/what-it-is.md)
-- [Di mana OMNI membantu](concepts/use-cases.md)
-- [Bagaimana OMNI memutuskan apa yang dipotong](concepts/how-it-decides.md)
+- [Apa itu Contexere](concepts/what-it-is.md)
+- [Di mana Contexere membantu](concepts/use-cases.md)
+- [Bagaimana Contexere memutuskan apa yang dipotong](concepts/how-it-decides.md)
 - [Tidak ada yang dihapus](concepts/nothing-is-deleted.md)
 - [Ledger](concepts/the-ledger.md)
 - [Yang tidak pernah disentuh](concepts/format-safety.md)
 - [Berapa ongkosnya](concepts/what-it-costs.md)
 
-# Memakai OMNI
+# Memakai Contexere
 
 - [Pasang](use/install.md)
 - [Satu jam pertama](use/first-hour.md)
@@ -41,6 +41,6 @@
 - [Hermes Agent](integrations/hermes.md)
 - [Loop engineering](integrations/loops.md)
 
-# Mengembangkan OMNI
+# Mengembangkan Contexere
 
 - [Bagian pengembang, dalam bahasa Inggris](develop/index.md)

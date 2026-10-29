@@ -32,7 +32,7 @@ const FLAGS: super::Flags = &[
     ("--hook", "Only install hooks"),
     ("--mcp", "Only register MCP server"),
     ("--status", "Check current installation status"),
-    ("--uninstall", "Remove OMNI hooks and MCP server"),
+    ("--uninstall", "Remove Contexere hooks and MCP server"),
 ];
 
 /// Where `FLAGS` stops listing agents and starts listing Claude-specific flags.
@@ -43,7 +43,7 @@ const AGENT_FLAGS: usize = 15;
 
 fn print_help() {
     println!(
-        "\n{} {}: Setup OMNI for your preferred AI Agent",
+        "\n{} {}: Setup Contexere for your preferred AI Agent",
         "omni".bold().cyan(),
         "init".bold().yellow()
     );
@@ -172,7 +172,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
     if no_flags {
         println!(
-            "\n{} {}: Setup OMNI for your preferred AI Agent\n",
+            "\n{} {}: Setup Contexere for your preferred AI Agent\n",
             "omni".bold().cyan(),
             "init".bold().yellow()
         );
@@ -242,12 +242,12 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         println!();
         super::print_rule();
-        println!(" {} OMNI Before & After Preview", "⚡".yellow());
+        println!(" {} Contexere Before & After Preview", "⚡".yellow());
         super::print_rule();
-        println!("{}", "Without OMNI:".red());
+        println!("{}", "Without Contexere:".red());
         println!("  npm WARN deprecated ... (300 lines of warnings)");
         println!("  git log (2000 lines of history)");
-        println!("{}", "\nWith OMNI:".green());
+        println!("{}", "\nWith Contexere:".green());
         println!("  npm WARN deprecated ... [OMNI: ⚠️ 300 repetitive lines dropped]");
         println!("  git log [OMNI: ⚠️ truncated to latest 50 lines]");
         super::print_rule();
@@ -337,7 +337,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         println!(
             "\n{}",
-            "Claude Code OMNI Installation Status:"
+            "Claude Code Contexere Installation Status:"
                 .bold()
                 .bright_white()
         );
@@ -376,7 +376,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
         let new_content = serde_json::to_string_pretty(&val)?;
         fs::write(&path, new_content)?;
-        println!("✓ OMNI hooks and MCP server uninstalled from Claude");
+        println!("✓ Contexere hooks and MCP server uninstalled from Claude");
         return Ok(());
     }
 
@@ -499,7 +499,7 @@ mod tests {
         assert!(
             ok_arm.contains("agent.tier()"),
             "the success arm does not consult `agent.tier()`, so every host gets \
-             the same line whatever OMNI can do there. Arm: {ok_arm}"
+             the same line whatever Contexere can do there. Arm: {ok_arm}"
         );
         assert!(
             ok_arm.contains("println!"),

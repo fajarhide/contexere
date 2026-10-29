@@ -328,8 +328,8 @@ fn test_cli_version() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("OMNI"),
-        "Version output should contain 'OMNI'"
+        stdout.contains("Contexere"),
+        "Version output should contain 'Contexere'"
     );
 }
 
@@ -437,7 +437,10 @@ fn test_cli_doctor_runs() {
 
     assert!(output.status.success(), "Doctor should exit 0");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("OMNI Doctor"), "Doctor should show header");
+    assert!(
+        stdout.contains("Contexere Doctor"),
+        "Doctor should show header"
+    );
 }
 
 #[test]
@@ -462,7 +465,7 @@ fn test_cli_stats_no_crash() {
         stderr
     );
     assert!(
-        stdout.contains("Signal Report") || stdout.contains("OMNI"),
+        stdout.contains("Signal Report") || stdout.contains("Contexere"),
         "Stats should show report header. Stdout: {}\nStderr: {}",
         stdout,
         stderr

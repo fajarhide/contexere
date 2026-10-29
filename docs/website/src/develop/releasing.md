@@ -30,7 +30,7 @@ that before pushing the tag.
 **The half of that line to trust afterwards is the missing `UNRELEASED`, not the
 label.** `guard::update::get_status` caches the newest known release in
 `~/.omni/update_cache.json` for 14400 seconds, so for four hours after a tag a machine
-that ran `omni doctor` beforehand still holds the previous version and reports `Ahead`
+that ran `contexere doctor` beforehand still holds the previous version and reports `Ahead`
 whatever it is running. Observed on 0.7.5, where the freshly installed release printed
 `[AHEAD/RC]`. `build.rs` computes the unreleased count from the tree with no cache, so
 that half is always current; delete the cache file if you want the label to mean

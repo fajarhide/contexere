@@ -1,10 +1,10 @@
-# `omni session`
+# `contexere session`
 
 Session state: what this session has spent, on what, and how to carry it across a
 restart.
 
 ```sh
-omni session --status
+contexere session --status
 ```
 
 ## Flags
@@ -22,7 +22,7 @@ omni session --status
 | `--json` | Machine readable |
 | `--help`, `-h` | Help |
 
-`omni sessions` is accepted as an alias.
+`contexere sessions` is accepted as an alias.
 
 ## What a session is here
 
@@ -31,7 +31,7 @@ distinction was a real defect: an internal wall-clock id once covered 16 project
 one value, which would let the ledger tell one session it had been shown output that
 went to another.
 
-That is also why `omni exec` takes `--session`: without a forwarded host id there is
+That is also why `contexere exec` takes `--session`: without a forwarded host id there is
 no ledger scope, and for a while the exec path therefore ran no ledger at all.
 
 ## Continuity across a restart

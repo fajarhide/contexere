@@ -1,7 +1,7 @@
 # Ingatan antar sesi
 
 Agent yang sama yang membaca terlalu banyak juga melupakan segalanya begitu Anda
-memulainya ulang. OMNI membawa tiga jenis ingatan, dan ketiganya disimpan dengan
+memulainya ulang. Contexere membawa tiga jenis ingatan, dan ketiganya disimpan dengan
 lama yang berbeda secara sengaja.
 
 ## Apa yang disimpan, dan berapa lama
@@ -12,9 +12,9 @@ lama yang berbeda secara sengaja.
 | **Kerja, 30 hari** | sesi, baris penyulingan, berkas yang sering disentuh, arsip, indeks peristiwa, ledger | jendela bergulir |
 | **Apa adanya, 7 hari** | jejak eksekusi dan transkrip sesi | sengaja lebih pendek, dua orde besaran lebih berat per baris |
 
-Jawaban singkat untuk "apakah OMNI masih akan tahu proyek saya setelah sebulan
+Jawaban singkat untuk "apakah Contexere masih akan tahu proyek saya setelah sebulan
 ditinggal" adalah ya untuk kesimpulannya dan tidak untuk byte mentahnya. Batas
-yang penting dalam praktik: `omni retrieve` atas isi yang diarsipkan lebih dari
+yang penting dalam praktik: `contexere retrieve` atas isi yang diarsipkan lebih dari
 30 hari lalu tidak akan ketemu.
 
 Ledger punya satu cara melupakan lagi yang tidak berdasarkan jam. **Saat
@@ -27,9 +27,9 @@ dan [Ledger](../concepts/the-ledger.md#lupa) menjelaskan pembagiannya.
 ## Memancang sebuah tujuan
 
 ```sh
-omni goal set 'Migrate the billing service off the legacy queue'
-omni goal show
-omni goal clear
+contexere goal set 'Migrate the billing service off the legacy queue'
+contexere goal show
+contexere goal clear
 ```
 
 Penilainya mengutamakan keluaran yang berkaitan dengan tujuan itu, dan agent
@@ -39,14 +39,14 @@ sesi yang panjang.
 ## Fakta yang layak disimpan
 
 ```sh
-omni remember 'The staging database ignores migrations run outside the deploy job'
+contexere remember 'The staging database ignores migrations run outside the deploy job'
 ```
 
 Agent yang MCP-nya terpasang memanggil `omni_remember` sendiri, dan menarik fakta
 kembali dengan `omni_recall`, sebuah pencarian semantik lintas engram,
 pengetahuan tersimpan dan riwayat penyulingan. Keduanya diiklankan di tier MCP-only
-dan Handoff-first. Host tier Full seperti Claude Code menulis lewat `omni remember` di
-shell yang sudah dipasangi hook OMNI, dan mencapai `omni_recall`, yang tidak punya
+dan Handoff-first. Host tier Full seperti Claude Code menulis lewat `contexere remember` di
+shell yang sudah dipasangi hook Contexere, dan mencapai `omni_recall`, yang tidak punya
 padanan CLI, dengan `OMNI_MCP_TOOLS=all`.
 
 Simpan yang tidak bisa diturunkan dari kodenya: sebuah keputusan dan alasannya,
@@ -60,11 +60,11 @@ sedang panas dan apa galat aktif terakhirnya. Kalau host-nya tertutup atau Anda
 berganti perkakas, konteks proyeknya masih ada.
 
 ```sh
-omni session --status
-omni session --history
-omni session --resume        # lanjutkan sesi yang terputus
-omni session --transcript
-omni session --health
+contexere session --status
+contexere session --history
+contexere session --resume        # lanjutkan sesi yang terputus
+contexere session --transcript
+contexere session --health
 ```
 
 Untuk pindah ke mesin atau host yang tidak berbagi basis data, `omni_handoff`
@@ -78,15 +78,15 @@ Ringkasan subtugas yang selesai, ditulis seiring pekerjaan rampung, bukan
 disusun ulang belakangan.
 
 ```sh
-omni engram
-omni engram --json
+contexere engram
+contexere engram --json
 ```
 
 ## Pengetahuan yang hidup lebih lama daripada satu sesi
 
 ```sh
-omni query errors in last 5 commands
-omni patterns                # galat yang terus kembali lintas sesi
+contexere query errors in last 5 commands
+contexere patterns                # galat yang terus kembali lintas sesi
 ```
 
 `omni_insight` memeringkat persoalan berulang yang sama untuk seluruh proyek, dan

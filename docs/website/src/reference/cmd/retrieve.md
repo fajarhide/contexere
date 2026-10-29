@@ -1,9 +1,9 @@
-# `omni retrieve`
+# `contexere retrieve`
 
 Prints the content a marker archived.
 
 ```sh
-omni retrieve <handle>
+contexere retrieve <handle>
 ```
 
 The handle is the 16 characters inside a marker:

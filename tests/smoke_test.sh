@@ -85,7 +85,7 @@ echo ""
 # ─── 1. Version ──────────────────────────────────────────
 echo "▸ Scenario 1: Version"
 VERSION_OUT=$("$OMNI" version 2>&1)
-check "version output" "$VERSION_OUT" "omni"
+check "version output" "$VERSION_OUT" "Contexere"
 
 # ─── 2. Help ─────────────────────────────────────────────
 echo "▸ Scenario 2: Help"
@@ -103,7 +103,7 @@ check "help shows pipe mode" "$HELP_OUT" "| omni"
 # ─── 3. Doctor ───────────────────────────────────────────
 echo "▸ Scenario 3: Doctor"
 DOCTOR_OUT=$("$OMNI" doctor 2>&1 || true)
-check "doctor shows header" "$DOCTOR_OUT" "OMNI Doctor"
+check "doctor shows header" "$DOCTOR_OUT" "Contexere Doctor"
 check "doctor shows binary" "$DOCTOR_OUT" "Binary"
 
 # The env read behind OMNI_MCP_TOOLS cannot be covered by a cargo test: this crate
@@ -222,7 +222,7 @@ fi
 SHARE_OUT=$("$OMNI" stats --share 2>&1)
 SHARE_EXIT=$?
 check_exit "stats --share exits 0" "$SHARE_EXIT" "0"
-if echo "$SHARE_OUT" | grep -q "OMNI saved me"; then
+if echo "$SHARE_OUT" | grep -q "Contexere saved me"; then
     check "share card names the source" "$SHARE_OUT" "terminal output excluded"
 else
     check "share card says so when there is no data" "$SHARE_OUT" "No data yet"
@@ -328,7 +328,7 @@ check "session json has context_pressure" "$SESSION_JSON" "context_pressure"
 # never runs this file.
 DETAIL_OUT="$($OMNI stats --view detail 2>&1 || true)"
 for SECTION in "commands" "bytes in, out" "of what it saw" "latency" "sessions" \
-               "by period" "where the bytes were" "what OMNI did with each call" \
+               "by period" "where the bytes were" "what Contexere did with each call" \
                "by agent"; do
     check "detail keeps '$SECTION'" "$DETAIL_OUT" "$SECTION"
 done
@@ -346,15 +346,15 @@ done
 FOLDS_OUT="$($OMNI stats --view folds 2>&1 || true)"
 # The header, not the word: `folds` appears in the summary view's prose too, so
 # the loose check passed with the dispatch arm deleted.
-check "folds view renders" "$FOLDS_OUT" "OMNI . folds"
+check "folds view renders" "$FOLDS_OUT" "Contexere . folds"
 check "folds view says why it is empty" "$FOLDS_OUT" "No marker recorded"
-check "calibration is accepted too" "$($OMNI stats --view calibration 2>&1 || true)" "OMNI . folds"
+check "calibration is accepted too" "$($OMNI stats --view calibration 2>&1 || true)" "Contexere . folds"
 # #859. Pointed at an empty config dir so the run reads no real transcript: the
 # check is that the arm dispatches and says why it is empty, in under a second.
 BILL_HOME="$(mktemp -d)"
 BILL_OUT="$(CLAUDE_CONFIG_DIR="$BILL_HOME" $OMNI stats --view bill 2>&1 || true)"
 rm -rf "$BILL_HOME"
-check "bill view renders" "$BILL_OUT" "OMNI . bill"
+check "bill view renders" "$BILL_OUT" "Contexere . bill"
 check "bill view says why it is empty" "$BILL_OUT" "No host transcript"
 
 DEFAULT_OUT="$($OMNI stats 2>&1 || true)"

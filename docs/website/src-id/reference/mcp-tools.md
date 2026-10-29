@@ -1,6 +1,6 @@
 # Perkakas MCP
 
-`omni init` mendaftarkan OMNI sebagai server MCP, yang memberi agent perkakas yang bisa
+`contexere init` mendaftarkan Contexere sebagai server MCP, yang memberi agent perkakas yang bisa
 ia panggil sendiri tanpa lewat Anda. Halaman ini menjelaskan seluruh **25** perkakas.
 Host Anda hanya diberi tahu sebagiannya.
 
@@ -8,19 +8,19 @@ Host Anda hanya diberi tahu sebagiannya.
 
 Definisi perkakas berada di awal setiap request, jadi perkakas yang tidak pernah dipanggil
 akan dibaca ulang pada setiap request di setiap sesi, bukan dibayar sekali saja. Karena
-itu OMNI hanya mengiklankan set yang bisa dipakai oleh tier host Anda:
+itu Contexere hanya mengiklankan set yang bisa dipakai oleh tier host Anda:
 
 | tier | yang diiklankan |
 |---|---|
 | Full | `omni_retrieve`, `omni_explain_savings` |
-| Handoff-first, dan host apa pun yang tidak dikenali OMNI | dua itu, ditambah `omni_remember`, `omni_recall`, `omni_run`, `omni_find_noise`, `omni_context_breakdown`, `omni_history` |
+| Handoff-first, dan host apa pun yang tidak dikenali Contexere | dua itu, ditambah `omni_remember`, `omni_recall`, `omni_run`, `omni_find_noise`, `omni_context_breakdown`, `omni_history` |
 | MCP-only | keempatnya, ditambah `omni_run`: tanpa hook, output tool milik host tidak pernah ditulis ulang, jadi `omni_run` satu-satunya jalan agar model membaca lebih sedikit |
 
 Host tier Full mendapat daftar terpendek justru karena shell-nya sudah dipasangi hook oleh
-OMNI. Diukur pada 256 sesi yang terekam, dua perkakas itu membawa 138 dari 149 panggilan
+Contexere. Diukur pada 256 sesi yang terekam, dua perkakas itu membawa 138 dari 149 panggilan
 dengan 467 byte, sedangkan enam sisanya memakan 1.631 byte untuk 11 panggilan sepanjang
 korpus. Host Handoff-first tidak pernah mendapat penulisan ulang pada output perkakas
-bawaannya, jadi MCP adalah satu-satunya pintu OMNI di sana dan tidak ada yang dipangkas.
+bawaannya, jadi MCP adalah satu-satunya pintu Contexere di sana dan tidak ada yang dipangkas.
 
 Di Claude Code, daftar terpendek pun tetap ada ongkosnya, dan byte-nya justru bagian yang
 lebih kecil: host membuang seluruh cache prompt ketika sebuah server MCP tersambung atau
@@ -32,13 +32,13 @@ adalah CLI atau override:
 
 | perkakas | di host tier Full |
 |---|---|
-| `omni_run` | `omni exec <perintah>` |
-| `omni_remember` | `omni remember '<fakta>'` |
-| `omni_context_breakdown` | `omni stats --view context` |
-| `omni_history` | `omni stats --view detail`, yang menggabung perintah berulang jadi satu baris berhitung, bukan satu baris per panggilan |
+| `omni_run` | `contexere exec <perintah>` |
+| `omni_remember` | `contexere remember '<fakta>'` |
+| `omni_context_breakdown` | `contexere stats --view context` |
+| `omni_history` | `contexere stats --view detail`, yang menggabung perintah berulang jadi satu baris berhitung, bukan satu baris per panggilan |
 | `omni_recall`, `omni_find_noise` | tidak ada padanan CLI; `OMNI_MCP_TOOLS=all` |
 
-`OMNI_MCP_TOOLS=all` mengiklankan seluruh 25 perkakas, dan `omni doctor` menyebutkan set
+`OMNI_MCP_TOOLS=all` mengiklankan seluruh 25 perkakas, dan `contexere doctor` menyebutkan set
 mana yang sedang berlaku serta host mana yang terdeteksi:
 
 ```
@@ -51,7 +51,7 @@ Pastikan daftarnya terhadap binary Anda sendiri, bukan terhadap halaman ini:
 { echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"p","version":"1"}}}'
   echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
   echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'; } \
-| omni --mcp | tail -1 | jq -r '.result.tools[].name'
+| contexere --mcp | tail -1 | jq -r '.result.tools[].name'
 ```
 
 ## Mengambil isi kembali
@@ -64,10 +64,10 @@ Pastikan daftarnya terhadap binary Anda sendiri, bukan terhadap halaman ini:
 
 `omni_run` paling penting di host yang tidak bisa menulis ulang tool shell
 bawaannya. Di sana, ia satu-satunya jalan menuju keluaran sulingan, dan itu
-sebabnya `omni init --cursor` memasang sebuah aturan yang menyuruh agent
+sebabnya `contexere init --cursor` memasang sebuah aturan yang menyuruh agent
 mengutamakannya.
 
-## Memahami apa yang dikerjakan OMNI
+## Memahami apa yang dikerjakan Contexere
 
 | perkakas | apa yang ia lakukan |
 |---|---|
@@ -77,7 +77,7 @@ mengutamakannya.
 | `omni_density` | Seberapa banyak sinyal dibanding kebisingan dalam sepotong teks |
 | `omni_budget` | Pemakaian anggaran token dan efisiensi kompresi untuk sesi ini |
 
-Keempat ini jawaban yang tepat untuk "apakah OMNI membantu di sini". Tarik
+Keempat ini jawaban yang tepat untuk "apakah Contexere membantu di sini". Tarik
 angkanya, jangan membentuk kesan.
 
 ## Ingatan
@@ -139,11 +139,11 @@ untuk hitungannya.
 
 `omni_context` diiklankan sampai 0.7.7 dan tidak pernah sekali pun dipanggil di 253
 sesi yang terekam, jadi ia memakan 189 byte di prefix setiap request untuk
-kapabilitas yang tidak pernah dijangkau siapa pun. Sekarang ia `omni context
+kapabilitas yang tidak pernah dijangkau siapa pun. Sekarang ia `contexere context
 <file>`, yang tidak memakan biaya per request:
 
 ```bash
-omni context src/ledger/mod.rs
+contexere context src/ledger/mod.rs
 ```
 
 Agen tetap bisa menjangkaunya lewat `omni_run`.

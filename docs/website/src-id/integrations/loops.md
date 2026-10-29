@@ -1,7 +1,7 @@
 # Loop engineering
 
 Menjalankan agent dalam sebuah loop, ketika setiap iterasi menambah isi jendela
-konteks yang tidak ikut membesar. Bagian OMNI adalah melacak apa yang sudah
+konteks yang tidak ikut membesar. Bagian Contexere adalah melacak apa yang sudah
 dihabiskan loop-nya dan membawa ingatan melintasi iterasi yang kalau tidak
 begitu akan direset.
 
@@ -28,7 +28,7 @@ export OMNI_LOOP_ITERATION=0
 Anggarannya adalah perkiraan pemakaian jendela konteks per iterasi, bukan batas
 belanja.
 
-| bentuk loop | anggaran | yang OMNI lakukan |
+| bentuk loop | anggaran | yang Contexere lakukan |
 |---|---|---|
 | perbaikan cepat, 1 sampai 5 iterasi | 200.000 | pelacakan pasif |
 | pengerjaan fitur, 5 sampai 20 | 100.000 | penyulingan aktif, engram |
@@ -48,10 +48,10 @@ memuat "test" mempertahankan detail test, "debug" menyimpan konteks galat,
 
 ## Perkakas yang dipanggil orkestrator
 
-Tidak satu pun dari perkakas ini diiklankan secara bawaan. OMNI hanya memberi tahu host
+Tidak satu pun dari perkakas ini diiklankan secara bawaan. Contexere hanya memberi tahu host
 tentang perkakas yang memang dipakai tier-nya, dan perkakas loop berada di luar set itu,
 jadi orkestrator yang memanggilnya membutuhkan `OMNI_MCP_TOOLS=all` di environment-nya.
-`omni doctor` menyebutkan set mana yang sedang berlaku. Daftar per tier ada di rujukan
+`contexere doctor` menyebutkan set mana yang sedang berlaku. Daftar per tier ada di rujukan
 perkakas MCP.
 
 | perkakas | kapan |
@@ -98,13 +98,13 @@ sehingga jejak auditnya nyata.
 ## Pemantauan
 
 ```sh
-omni stats                 # waktu nyata
-omni stats --view detail
-omni stats --json          # untuk dibaca orkestrator
-omni doctor                # kesehatan
+contexere stats                 # waktu nyata
+contexere stats --view detail
+contexere stats --json          # untuk dibaca orkestrator
+contexere doctor                # kesehatan
 ```
 
-`omni handoff` **bukan** subperintah CLI. Ia sudah dihapus. Perkakas MCP
+`contexere handoff` **bukan** subperintah CLI. Ia sudah dihapus. Perkakas MCP
 `omni_handoff` tidak berubah, jadi ekspor sesi bisa dijangkau dari klien MCP,
 bukan dari shell.
 

@@ -1,6 +1,6 @@
 # Perintah
 
-Semua subperintah, dikelompokkan seperti `omni --help` mengelompokkannya:
+Semua subperintah, dikelompokkan seperti `contexere --help` mengelompokkannya:
 menurut apa yang sedang Anda coba lakukan, bukan menurut abjad.
 
 ```
@@ -12,7 +12,7 @@ cmd | omni                # suling keluaran perintah apa pun lewat pipa
 
 | perintah | apa yang ia lakukan |
 |---|---|
-| [`init`](cmd/init.md) | Pasang OMNI ke agent Anda, hook dan MCP |
+| [`init`](cmd/init.md) | Pasang Contexere ke agent Anda, hook dan MCP |
 | [`doctor`](cmd/doctor.md) | Periksa pemasangannya sehat, dan perbaiki yang tidak |
 | [`update`](cmd/rest.md#update) | Naikkan ke rilis terbaru |
 | [`reset`](cmd/rest.md#reset) | Cabut dengan bersih, sambil menyimpan cadangan konfigurasi Anda |
@@ -31,7 +31,7 @@ cmd | omni                # suling keluaran perintah apa pun lewat pipa
 
 | perintah | apa yang ia lakukan |
 |---|---|
-| [`exec`](cmd/exec.md) | Jalankan satu perintah lewat OMNI, untuk melihat apa yang akan ia lakukan |
+| [`exec`](cmd/exec.md) | Jalankan satu perintah lewat Contexere, untuk melihat apa yang akan ia lakukan |
 | [`query`](cmd/rest.md#query) | Cari penyulingan yang sudah lewat |
 | [`patterns`](cmd/rest.md#patterns) | Galat yang terus kembali |
 
@@ -50,9 +50,9 @@ Bukan untuk diketik. Ini yang dipanggil host agent, dan didokumentasikan di
 [Hook](hooks.md).
 
 ```
-omni --pre-hook      omni --post-hook     omni --hook
-omni --session-start omni --session-end   omni --pre-compact
-omni --mcp
+contexere --pre-hook      contexere --post-hook     contexere --hook
+contexere --session-start contexere --session-end   contexere --pre-compact
+contexere --mcp
 ```
 
 ## Catatan soal cara flag diurai
@@ -60,7 +60,7 @@ omni --mcp
 Kecocokan pada argumen pertama menentukan rute subperintahnya lalu menyerahkan
 `env::args()` mentah ke modulnya, jadi setiap modul mengurai flag-nya sendiri dan
 menyatakan himpunan flag yang ia terima. `cli::check_flags` menolak apa pun di
-luar himpunan itu, dan itulah yang mencegah `omni stats --detial` mencetak
+luar himpunan itu, dan itulah yang mencegah `contexere stats --detial` mencetak
 ikhtisar bawaan lalu keluar dengan status 0.
 
 Bantuan per perintah itu nyata dan layak dibaca: `omni <perintah> --help`. Kalau
