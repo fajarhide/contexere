@@ -74,6 +74,8 @@ contexere doctor    # check it is wired, or `contexere doctor --fix`
 contexere stats     # what Contexere saved on your own history
 ```
 
+<img src="media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 After `init`, the hooks run on their own. There is nothing to prefix.
 
 ## Supported agents

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 560" width="860" height="560" font-family="Menlo, Monaco, Consolas, monospace" font-size="15">
+<title>contexere doctor, real output, trimmed to two hosts</title>
+<rect width="860" height="560" rx="14" fill="#151829"/>
+<rect width="860" height="40" rx="14" fill="#20243a"/><rect y="26" width="860" height="14" fill="#20243a"/>
+<circle cx="24" cy="20" r="6" fill="#ff5f57"/><circle cx="44" cy="20" r="6" fill="#febc2e"/><circle cx="64" cy="20" r="6" fill="#28c840"/>
+<text x="24" y="64" xml:space="preserve"><tspan fill="#e6e9f5">$ contexere doctor --detail</tspan></text>
+<text x="24" y="116" xml:space="preserve"><tspan fill="#7cc4ff"> Contexere Doctor: Installation Diagnostics</tspan></text>
+<text x="24" y="168" xml:space="preserve"><tspan fill="#7cc4ff">  Claude Code:</tspan></text>
+<text x="24" y="194" xml:space="preserve"><tspan fill="#8b93b5">   PreToolUse      </tspan><tspan fill="#4ade80">[OK] installed</tspan></text>
+<text x="24" y="220" xml:space="preserve"><tspan fill="#8b93b5">   PostToolUse     </tspan><tspan fill="#4ade80">[OK] installed</tspan></text>
+<text x="24" y="246" xml:space="preserve"><tspan fill="#8b93b5">   SessionStart    </tspan><tspan fill="#4ade80">[OK] installed</tspan></text>
+<text x="24" y="272" xml:space="preserve"><tspan fill="#8b93b5">   Probe:          </tspan><tspan fill="#4ade80">[OK] fires and redacts a canary credential (56 ms)</tspan></text>
+<text x="24" y="298" xml:space="preserve"><tspan fill="#8b93b5">   Distill tier:   </tspan><tspan fill="#e6e9f5">Full</tspan></text>
+<text x="24" y="350" xml:space="preserve"><tspan fill="#7cc4ff">  Codex CLI:</tspan></text>
+<text x="24" y="376" xml:space="preserve"><tspan fill="#8b93b5">   PostToolUse     </tspan><tspan fill="#4ade80">[OK] installed</tspan></text>
+<text x="24" y="402" xml:space="preserve"><tspan fill="#8b93b5">   Trust:          </tspan><tspan fill="#8b93b5">recorded; re-approve after any upgrade</tspan></text>
+<text x="24" y="428" xml:space="preserve"><tspan fill="#8b93b5">   Probe:          </tspan><tspan fill="#8b93b5">fires (20 ms); this host does not apply rewritten output yet</tspan></text>
+<text x="24" y="480" xml:space="preserve"><tspan fill="#7cc4ff"> Status:</tspan></text>
+<text x="24" y="506" xml:space="preserve"><tspan fill="#4ade80">  ✓ ALL OK</tspan></text>
+</svg>

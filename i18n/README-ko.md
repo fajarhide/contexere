@@ -69,6 +69,8 @@ contexere doctor    # 연결 상태 확인, 또는 `contexere doctor --fix`
 contexere stats     # 내 기록에서 Contexere가 절감한 양
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 `init` 이후에는 Hook이 알아서 동작합니다. 명령 앞에 아무것도 붙일 필요가 없습니다.
 
 ## 지원 에이전트

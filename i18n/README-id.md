@@ -69,6 +69,8 @@ contexere doctor    # periksa keterpasangannya, atau `contexere doctor --fix`
 contexere stats     # apa yang dihemat Contexere di riwayat kamu sendiri
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 Setelah `init`, Hook berjalan sendiri. Tidak ada yang perlu diberi awalan.
 
 ## Agent yang didukung

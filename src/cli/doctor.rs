@@ -296,16 +296,20 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     let status = crate::guard::update::get_status();
     let version_info = match status {
         crate::guard::update::Status::Latest => {
-            format!("omni v{} {}", env!("CARGO_PKG_VERSION"), "[LATEST]".green())
+            format!(
+                "contexere v{} {}",
+                env!("CARGO_PKG_VERSION"),
+                "[LATEST]".green()
+            )
         }
         crate::guard::update::Status::UpdateAvailable(v) => format!(
-            "omni v{} {} (Latest: {})",
+            "contexere v{} {} (Latest: {})",
             env!("CARGO_PKG_VERSION"),
             "[UPDATE]".yellow().bold(),
             v.green()
         ),
         crate::guard::update::Status::Ahead => format!(
-            "omni v{} {}",
+            "contexere v{} {}",
             env!("CARGO_PKG_VERSION"),
             "[AHEAD/RC]".blue().bold()
         ),

@@ -69,6 +69,8 @@ contexere doctor    # تحقق من الربط، أو `contexere doctor --fix`
 contexere stats     # ما وفّره Contexere من سجلّك أنت
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 بعد `init` تعمل الـ Hook من تلقاء نفسها. لا حاجة إلى إضافة أي بادئة.
 
 ## الوكلاء المدعومون

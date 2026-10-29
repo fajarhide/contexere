@@ -69,6 +69,8 @@ contexere doctor    # 設定を確認する。`contexere doctor --fix` も可
 contexere stats     # 自分の履歴で Contexere が節約した量
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 `init` のあとは、フックが自動で動きます。コマンドの前に何かを付ける必要はありません。
 
 ## 対応エージェント

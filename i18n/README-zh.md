@@ -69,6 +69,8 @@ contexere doctor    # 检查是否已接好，或使用 `contexere doctor --fix`
 contexere stats     # Contexere 在你自己的历史记录上节省了多少
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 运行 `init` 之后，Hook 会自动工作，不需要给命令加任何前缀。
 
 ## 支持的智能体

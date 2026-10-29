@@ -69,6 +69,8 @@ contexere doctor    # kiểm tra đã nối xong chưa, hoặc `contexere doctor
 contexere stats     # Contexere đã tiết kiệm được bao nhiêu trên lịch sử của chính bạn
 ```
 
+<img src="../media/doctor.svg" alt="contexere doctor: each agent's hooks are run with a canary credential to prove they fire and redact" width="720" />
+
 Sau `init`, các Hook tự chạy. Không cần gõ thêm tiền tố nào.
 
 ## Agent được hỗ trợ
