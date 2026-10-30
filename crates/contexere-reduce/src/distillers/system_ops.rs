@@ -507,6 +507,23 @@ fn looks_like_code_expression(value: &str) -> bool {
             .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == ':'))
 }
 
+/// A tuple or list of plain identifiers is a set of field names, not a secret:
+/// `KEY = ("trace", "seq")` hid the only definition of the name (#974). Each
+/// element has to pass the same test a bare `KEY` value does, so a mixed-case or
+/// long element stays redacted. Only for the weak `KEY` pattern.
+fn looks_like_list_of_names(value: &str) -> bool {
+    let v = value.trim().trim_end_matches([',', ';']).trim_end();
+    let Some(inner) = v
+        .strip_prefix('(')
+        .and_then(|r| r.strip_suffix(')'))
+        .or_else(|| v.strip_prefix('[').and_then(|r| r.strip_suffix(']')))
+    else {
+        return false;
+    };
+    let inner = inner.trim().trim_end_matches(',');
+    !inner.is_empty() && inner.split(',').all(looks_like_plain_identifier)
+}
+
 /// Database and cache schemes, whose path names a database, never a secret.
 /// An `https` path can be the secret itself, as in a Slack webhook (#946 review).
 const CONNECTION_SCHEMES: &[&str] = &[
@@ -629,7 +646,9 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     }
     // The value gets a say only when `KEY` alone matched, or `sk-ant-abc123` passes.
     if only_the_key_pattern_matched(key)
-        && (looks_like_plain_identifier(value) || looks_like_code_expression(value))
+        && (looks_like_plain_identifier(value)
+            || looks_like_code_expression(value)
+            || looks_like_list_of_names(value))
     {
         return None;
     }
@@ -1374,6 +1393,40 @@ mod tests {
     }
 
     use super::*;
+
+    fn redacted(line: &str) -> bool {
+        redact_sensitive_assignments(line).is_some()
+    }
+
+    #[test]
+    fn delivers_a_tuple_of_field_names_under_a_bare_key() {
+        assert!(!redacted(r#"KEY = ("trace", "seq", "block")"#));
+    }
+
+    #[test]
+    fn delivers_a_list_of_field_names_under_a_key_suffix() {
+        assert!(!redacted(r#"primary_key = ["id", "name"],"#));
+    }
+
+    #[test]
+    fn redacts_a_list_holding_a_mixed_case_element() {
+        assert!(redacted(r#"KEY = ["Ab3dEf9Gh2"]"#));
+    }
+
+    #[test]
+    fn redacts_a_list_under_a_strong_key() {
+        assert!(redacted(r#"API_KEY = ["abc123def"]"#));
+    }
+
+    #[test]
+    fn redacts_a_list_that_never_closes() {
+        assert!(redacted(r#"KEY = ("Ab3dEf9Gh2", "x""#));
+    }
+
+    #[test]
+    fn redacts_an_empty_looking_list_with_a_secret_after_it() {
+        assert!(redacted("KEY = () Ab3dEf9Gh2"));
+    }
 
     /// Each grep section is counted above its own rows (#247).
     #[test]
