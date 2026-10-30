@@ -1,1 +1,0 @@
-- **The Homebrew formula is now `contexere` (#876)**: install with `brew install fajarhide/tap/contexere`. It still installs `omni` beside `contexere`, so hooks keep working. **If you installed as `omni`, run `brew trust --tap fajarhide/tap && brew upgrade` once**: without it Homebrew skips the renamed formula, and `brew upgrade` stays on the old version with no message.
