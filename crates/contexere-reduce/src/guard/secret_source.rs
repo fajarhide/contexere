@@ -469,7 +469,7 @@ mod tests {
     fn summary_holds_no_fragment_of_the_value() {
         let secret = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY01";
         let out = summary(".env", &format!("AKIAIOSFODNN7EXAMPLE {secret}\n"));
-        assert!(!out.contains(&secret[..8]), "{out}");
+        assert!(!out.contains("wJalrXUt"), "{out}");
         assert!(!out.contains("AKIAIOSF"), "{out}");
         assert!(out.contains("1 lines") && out.contains("20 40"), "{out}");
     }
