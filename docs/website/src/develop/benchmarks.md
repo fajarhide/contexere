@@ -220,7 +220,7 @@ because the gap between the two runs is the point.
 | | |
 |---|---|
 | tokens, filters only | 7,682,124 to 4,874,124, **36.6%** |
-| bytes per token | 3.005 raw, 3.192 distilled (the shipped estimate is 3.6) |
+| bytes per token | 3.005 raw, 3.192 distilled, in `cl100k_base` (the estimate then was 3.6; since #584 it is 2.2, measured on Claude's tokenizer) |
 | calls that saved nothing | **96.1%**, 5,748 of 5,984 |
 | calls that shrank | 3.9%, 236 |
 | calls that grew | **0** |
