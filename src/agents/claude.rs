@@ -245,6 +245,7 @@ impl AgentIntegration for ClaudeIntegration {
                     p.display().to_string().bright_black(),
                     "[OK]".green().bold()
                 );
+                super::report_server_name(super::registered_server(&c, "mcpServers"));
                 break;
             }
         }

@@ -133,6 +133,9 @@ impl AgentIntegration for CodexIntegration {
                 config_path.display().to_string().bright_black(),
                 "[OK]".green().bold()
             );
+            let legacy = fs::read_to_string(&config_path)
+                .is_ok_and(|c| !declares_transport(&c) && strip_legacy_server(&c).is_some());
+            super::report_server_name(legacy.then_some("omni"));
         } else {
             all_ok = false;
             if fix_mode {

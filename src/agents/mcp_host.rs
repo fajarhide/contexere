@@ -187,17 +187,16 @@ impl AgentIntegration for &'static McpHost {
         let path = self.path();
         crate::agent_report!("\n  {}", format!("{}:", self.display).cyan());
 
-        if path.exists()
-            && fs::read_to_string(&path)
-                .unwrap_or_default()
-                .contains("\"omni\"")
-        {
+        let server =
+            super::registered_server(&fs::read_to_string(&path).unwrap_or_default(), self.key);
+        if server.is_some() {
             crate::agent_report!(
                 "   {:<15} {} {}",
                 "Config:".bright_black(),
                 path.display(),
                 "[OK]".green().bold()
             );
+            super::report_server_name(server);
             return true;
         }
 

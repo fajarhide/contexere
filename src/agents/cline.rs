@@ -105,13 +105,15 @@ impl AgentIntegration for ClineIntegration {
 
         let content = fs::read_to_string(&settings_path).unwrap_or_default();
 
-        if content.contains("\"omni\"") {
+        let server = super::registered_server(&content, "mcpServers");
+        if server.is_some() {
             crate::agent_report!(
                 "   {:<15} {} {}",
                 "MCP Server:".bright_black(),
                 settings_path.display().to_string().bright_black(),
                 "[OK]".green().bold()
             );
+            super::report_server_name(server);
         } else {
             all_ok = false;
             if fix_mode {
