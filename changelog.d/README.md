@@ -14,7 +14,7 @@ a short slug instead, never a number that belongs to something else.
 **Anything here that is not `README.md` and is not hidden counts as an entry**,
 whatever it is named. Get the section wrong and `scripts/changelog_cut.sh` refuses
 to cut a release until you rename it. That is deliberate: the rule is one sentence
-so the shell script and `count_fragments` in `src/util/changelog.rs` cannot drift
+so the shell script and `count_fragments` in `crates/contexere-reduce/src/util/changelog.rs` cannot drift
 apart, and an entry cannot go missing by being spelled unusually. Do not leave
 scratch files in this directory.
 

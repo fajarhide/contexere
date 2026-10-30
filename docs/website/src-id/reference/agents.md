@@ -116,7 +116,7 @@ menggambarkan sebuah campuran, bukan sebuah produk.
 
 ## Menambahkan sebuah host
 
-Modul agent-nya ada di `src/agents/`, satu berkas per host, dan masing-masing
+Modul agent-nya ada di `crates/contexere-reduce/src/agents/`, satu berkas per host, dan masing-masing
 menulis format konfigurasi milik host itu di lokasi milik host itu. Polanya kecil
 dan sebagian besar mekanis.
 
