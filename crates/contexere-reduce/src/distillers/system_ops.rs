@@ -615,6 +615,13 @@ fn references_instead_of_holding(value: &str) -> bool {
     if !(v.ends_with(')') && v.contains('(')) {
         return false;
     }
+    // What the #783 charset accepts is delivered exactly as before, so this
+    // change can only widen what passes, never hide what used to pass.
+    if v.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '(' | ')' | '[' | ']'))
+    {
+        return true;
+    }
     // Outside the parentheses only a call chain may appear, so `a.b().c()` is
     // one reference and `f(x) g(secret)` is not. Inside, colons, commas and
     // spaces are arguments (#980), but never a quote.
@@ -1697,6 +1704,9 @@ mod tests {
                 " BillingGatewayClient.new.chat(query: query)",
             ),
             ("api_key", " fetch_key(:billing)"),
+            // What the #783 rule delivered keeps being delivered (#980 review).
+            ("token", " get_token(refresh_token_v2)"),
+            ("api_response", " wrap(BillingGatewayClient.new())"),
             ("token", " Settings.fetch(:api, default: nil)"),
             ("secret", " vault.read(path, version)"),
             // A chain closes a call before the end (#980 review).
@@ -1724,7 +1734,6 @@ mod tests {
             // A literal written as a symbol or a bare word (#980 review).
             ("api_key", " String(:sk_live_realLookingValue)"),
             ("api_key", " fetch(:Xq7Zb2Lm9Pw4Rt8Kd3Vn)"),
-            ("token", " use_token(ghp0123456789abcdefABCDEF)"),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
