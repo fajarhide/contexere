@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn leaves_a_line_that_only_mentions_eval_alone() {
-        assert!(!is_critical("(eval): see the docs", None));
+        assert!(!is_critical("(eval): see: the docs", None));
     }
 
     #[test]
