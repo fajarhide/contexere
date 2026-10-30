@@ -4,7 +4,9 @@ fn distill_readfile(content: &str, filepath: &str) -> Option<String> {
     distill_readfile_with_context(content, filepath, || 0)
 }
 
-const MIN_DISTILL_TOKENS: usize = 2000;
+// 2,560 Claude tokens keeps a code file's gate at 6,400 bytes, where it was
+// before the divisors moved to Claude's tokenizer (#584).
+const MIN_DISTILL_TOKENS: usize = 2560;
 
 /// `imported_by` counts the files importing this one; above 3 the reply
 /// suggests `omni context` (#609). A closure, since computing it walks the repo:
@@ -540,6 +542,36 @@ mod tests {
             distill_readfile(&content, "notes.txt"),
             None,
             "prose OMNI cannot parse has to reach the agent whole"
+        );
+    }
+
+    /// Recalibrating to Claude's tokenizer moved the unit, not the gate: a Rust
+    /// file is still distilled from 6,400 bytes, as before #584.
+    #[test]
+    fn keeps_the_code_read_gate_at_6400_bytes() {
+        let sized = |len: usize| {
+            let mut s = String::new();
+            let mut i = 0;
+            while s.len() < len - 64 {
+                s.push_str(&format!(
+                    "pub fn handler_{i}(req: &Request) -> Response {{\n    let id = req.id({i});\n    respond(id)\n}}\n"
+                ));
+                i += 1;
+            }
+            s.push_str("//");
+            s.push_str(&"x".repeat(len - s.len() - 1));
+            s.push('\n');
+            assert_eq!(s.len(), len);
+            s
+        };
+        assert_eq!(
+            distill_readfile(&sized(6_390), "/tmp/handlers.rs"),
+            None,
+            "below the gate a Rust file reaches the agent whole"
+        );
+        assert!(
+            distill_readfile(&sized(6_400), "/tmp/handlers.rs").is_some(),
+            "at 6,400 bytes a Rust file is distilled, as it was before #584"
         );
     }
 
