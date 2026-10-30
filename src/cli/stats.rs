@@ -2188,6 +2188,11 @@ mod tests {
             glance_line(&t, 7),
             "last 7 days: 5.2 MB never reached your model, 925 folds, 2,341 calls left alone"
         );
+    }
+
+    /// With nothing recorded, the glance says how to start instead of printing zeros.
+    #[test]
+    fn glance_points_at_init_when_nothing_is_recorded() {
         assert_eq!(
             glance_line(&crate::store::sqlite::EngineTotals::default(), 7),
             "last 7 days: nothing recorded yet. `contexere init` wires your agents"
