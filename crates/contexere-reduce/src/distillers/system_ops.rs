@@ -615,35 +615,39 @@ fn references_instead_of_holding(value: &str) -> bool {
     if !(v.ends_with(')') && v.contains('(')) {
         return false;
     }
-    // The callee keeps the narrow charset: no quote, no whitespace.
-    let Some(open) = v.find('(') else {
-        return false;
-    };
-    #[allow(clippy::string_slice)] // `(` is one ASCII byte, found above
-    let (callee, args) = (&v[..open], &v[open..]);
-    if !callee
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '[' | ']'))
-    {
-        return false;
-    }
-    // The arguments may hold colons, commas and spaces (#980), but never a quote,
-    // and the first `(` must close at the end: `f(x) g(secret)` is two calls.
+    // Outside the parentheses only a call chain may appear, so `a.b().c()` is
+    // one reference and `f(x) g(secret)` is not. Inside, colons, commas and
+    // spaces are arguments (#980), but never a quote.
     let mut depth = 0usize;
-    for (i, c) in args.char_indices() {
+    let mut args = String::new();
+    for c in v.chars() {
+        if depth > 0 {
+            args.push(c);
+        }
         match c {
             '"' | '\'' | '`' => return false,
             '(' => depth += 1,
-            ')' => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 && i + 1 != args.len() {
-                    return false;
-                }
+            ')' => depth = depth.saturating_sub(1),
+            _ if depth == 0
+                && !(c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '[' | ']' | ':')) =>
+            {
+                return false;
             }
             _ => {}
         }
     }
-    depth == 0
+    // A long argument word with a digit or mixed case is a literal however it is
+    // spelled, bare or as a symbol: `String(:sk_live_...)` holds the credential it
+    // names. Only arguments: a long CamelCase class name is a callee.
+    let holds_a_literal = args
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+        .any(|w| {
+            w.len() >= 16
+                && (w.chars().any(|c| c.is_ascii_digit())
+                    || (w.chars().any(|c| c.is_ascii_uppercase())
+                        && w.chars().any(|c| c.is_ascii_lowercase())))
+        });
+    depth == 0 && !holds_a_literal
 }
 
 /// One line's redaction decision and its replacement, shared by both callers:
@@ -1687,9 +1691,17 @@ mod tests {
                 "api_response",
                 " PaymentClient.new.chat(query: query, history: history)",
             ),
+            // A long CamelCase class is a callee, not a literal (#980 review replay).
+            (
+                "api_response",
+                " BillingGatewayClient.new.chat(query: query)",
+            ),
             ("api_key", " fetch_key(:billing)"),
             ("token", " Settings.fetch(:api, default: nil)"),
             ("secret", " vault.read(path, version)"),
+            // A chain closes a call before the end (#980 review).
+            ("token", " Client.new().get_token()"),
+            ("token", " cfg[:auth].fetch(:token)"),
         ] {
             assert_eq!(
                 redact_assignment(key, value),
@@ -1706,8 +1718,13 @@ mod tests {
             ("token", " auth(user, \"hunter2\")"),
             ("token", " login(user: 'ghp_realLookingValue1234')"),
             ("api_key", " f(x) g(sk_live_realLookingValue)"),
+            ("token", " f(x) g(hunter2)"),
             ("api_key", " (sk_live_realLookingValue)"),
             ("secret", " wrap(x)tail"),
+            // A literal written as a symbol or a bare word (#980 review).
+            ("api_key", " String(:sk_live_realLookingValue)"),
+            ("api_key", " fetch(:Xq7Zb2Lm9Pw4Rt8Kd3Vn)"),
+            ("token", " use_token(ghp0123456789abcdefABCDEF)"),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
