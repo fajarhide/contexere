@@ -130,13 +130,7 @@ impl AgentIntegration for &'static McpHost {
             fs::create_dir_all(parent)?;
         }
 
-        // Parse-or-empty: one bad byte in the user's file must not block install,
-        // but a file that parsed is never rewritten from scratch.
-        let mut val = if path.exists() {
-            serde_json::from_str(&fs::read_to_string(&path)?).unwrap_or_else(|_| json!({}))
-        } else {
-            json!({})
-        };
+        let mut val = super::read_json_config(&path)?;
 
         if let Some(obj) = val.as_object_mut() {
             let servers = obj.entry(self.key).or_insert_with(|| json!({}));

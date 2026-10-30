@@ -28,12 +28,7 @@ impl AgentIntegration for GeminiIntegration {
 
         let _ = backup_settings(&settings_path);
 
-        let mut val = if settings_path.exists() {
-            let content = fs::read_to_string(&settings_path)?;
-            serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-        } else {
-            json!({})
-        };
+        let mut val = super::read_json_config(&settings_path)?;
 
         if let Some(obj) = val.as_object_mut() {
             let mcp_servers = obj.entry("mcpServers").or_insert_with(|| json!({}));

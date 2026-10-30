@@ -320,12 +320,7 @@ fn initialize_mcp_config() -> anyhow::Result<(PathBuf, Value)> {
     if let Some(parent) = mcp_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let val = if mcp_path.exists() {
-        let content = fs::read_to_string(&mcp_path)?;
-        serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-    } else {
-        json!({})
-    };
+    let val = super::read_json_config(&mcp_path)?;
     Ok((mcp_path, val))
 }
 
@@ -387,12 +382,7 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
         fs::create_dir_all(parent)?;
     }
 
-    let mut val = if hooks_path.exists() {
-        let content = fs::read_to_string(hooks_path)?;
-        serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-    } else {
-        json!({})
-    };
+    let mut val = super::read_json_config(hooks_path)?;
 
     let obj = match val.as_object_mut() {
         Some(o) => o,
