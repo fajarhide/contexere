@@ -96,14 +96,17 @@ where
         .into_iter()
         .filter_map(|(k, _)| k.into_string().ok())
         .collect();
+    // Names compare without case, as every setting reader here does (Windows).
+    let upper: Vec<String> = keys.iter().map(|k| k.to_ascii_uppercase()).collect();
     let mut old: Vec<String> = keys
         .iter()
-        .filter(|k| {
-            k.strip_prefix(OLD_ENV_PREFIX).is_some_and(|rest| {
-                !rest.is_empty() && !keys.contains(&format!("{NEW_ENV_PREFIX}{rest}"))
+        .zip(&upper)
+        .filter(|(_, u)| {
+            u.strip_prefix(OLD_ENV_PREFIX).is_some_and(|rest| {
+                !rest.is_empty() && !upper.contains(&format!("{NEW_ENV_PREFIX}{rest}"))
             })
         })
-        .cloned()
+        .map(|(k, _)| k.clone())
         .collect();
     old.sort();
     old
@@ -152,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn a_hook_on_the_old_name_is_found_by_its_binary() {
+    fn finds_a_hook_on_the_old_name_by_its_binary() {
         assert!(hook_calls_omni("/opt/homebrew/bin/omni --post-hook"));
         assert!(hook_calls_omni("\"/Users/Jane Doe/bin/omni\" --post-hook"));
         assert!(!hook_calls_omni("/opt/homebrew/bin/contexere --post-hook"));
@@ -160,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn a_setting_is_on_the_old_name_only_without_its_twin() {
+    fn lists_a_setting_on_the_old_name_only_without_its_twin() {
         let vars = vec![
             (OsString::from("OMNI_QUIET"), OsString::from("1")),
             (OsString::from("OMNI_AGENT_ID"), OsString::from("cursor")),
@@ -169,8 +172,15 @@ mod tests {
                 OsString::from("cursor"),
             ),
             (OsString::from("OMNIX"), OsString::from("no")),
+            // Windows reads environment names without case, and so does the code.
+            (OsString::from("omni_passthrough"), OsString::from("1")),
+            (OsString::from("omni_db_path"), OsString::from("/x")),
+            (OsString::from("Contexere_Db_Path"), OsString::from("/x")),
         ];
-        assert_eq!(settings_on_old_name(vars), vec!["OMNI_QUIET".to_string()]);
+        assert_eq!(
+            settings_on_old_name(vars),
+            vec!["OMNI_QUIET".to_string(), "omni_passthrough".to_string()]
+        );
     }
 
     #[test]
