@@ -31,8 +31,11 @@ repository.workspace = true
 # docs/BENCHMARKS.md next to the command that regenerates them.
 description = "Semantic Signal Engine for AI agents: decides what your agent reads, keeps a receipt for every byte it removes, and never invents a result."
 readme = "README.md"
-keywords = ["cli", "ai", "mcp", "terminal", "agent", "ai-agent", "ai-coding", "ai-developer", "ai-tools", "ai-workflow", "ai-assistant"]
-categories = ["command-line-utilities", "development-tools", "text-processing", "ai", "productivity", "os", "ai-productivity"]
+# crates.io takes at most five keywords and only its own category slugs.
+keywords = ["ai", "agent", "mcp", "cli", "llm"]
+categories = ["command-line-utilities", "development-tools", "text-processing"]
+# What crates.io packages; the rest of the repository is docs, fixtures and media.
+include = ["src/**/*.rs", "README.md", "LICENSE", "NOTICE"]
 
 # `omni` is not a second target: installers link it to this binary (#876).
 [[bin]]
@@ -40,7 +43,8 @@ name = "contexere"
 path = "src/main.rs"
 
 [dependencies]
-contexere = { package = "contexere-reduce", path = "crates/contexere-reduce" }
+# The version is what crates.io resolves; bump_version.sh keeps it equal to ours.
+contexere = { package = "contexere-reduce", path = "crates/contexere-reduce", version = "0.8.1" }
 colored = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 
