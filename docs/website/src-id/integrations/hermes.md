@@ -10,7 +10,7 @@ Contexere menancap ke Hermes dua kali: sebuah plugin di jalur hook, dan server M
 ## Prasyarat
 
 ```sh
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 contexere --version
 contexere doctor
 

@@ -14,7 +14,7 @@
 </br></br>
 
 ```bash
-brew install fajarhide/tap/omni && contexere init
+brew install fajarhide/tap/contexere && contexere init
 ```
 
 </br>
@@ -56,7 +56,7 @@ It costs about 21 ms per command. Savings depend on what your agent does; run `c
 ## Install
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | Where | Command |

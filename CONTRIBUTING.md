@@ -37,7 +37,6 @@ without the migration plan in #876:
 | `[OMNI` markers and the `omni retrieve` hint | agents and skills parse them |
 | `OMNI_*` variables, `~/.omni`, `omni.db` | the code reads them; `CONTEXERE_*` is folded onto `OMNI_*` at startup and wins |
 | `omni_*` MCP tools when run as `omni` | a host registered against `omni --mcp` keeps calling them |
-| `fajarhide/tap/omni` | `brew upgrade` cannot cross a formula rename; `fajarhide/tap/contexere` is an alias |
 
 ## What Contexere is trying to be
 

@@ -51,7 +51,7 @@ Biayanya sekitar 21 ms per perintah. Penghematan tergantung pada apa yang dikerj
 ## Instalasi
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | Di mana | Perintah |

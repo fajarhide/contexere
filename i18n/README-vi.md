@@ -51,7 +51,7 @@ Chi phí khoảng 21 ms cho mỗi lệnh. Mức tiết kiệm phụ thuộc vào
 ## Cài đặt
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | Ở đâu | Lệnh |

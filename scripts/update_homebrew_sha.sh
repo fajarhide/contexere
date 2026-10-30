@@ -1,5 +1,5 @@
 #!/bin/bash
-# update_homebrew_sha.sh — Update SHA-256 values in omni.rb after a GitHub Release
+# update_homebrew_sha.sh — Update SHA-256 values in contexere.rb after a GitHub Release
 # Usage: ./scripts/update_homebrew_sha.sh [v0.5.0]
 #
 # If no version is given, reads it from Cargo.toml.
@@ -44,7 +44,7 @@ SHA_X86_LINUX=$(fetch_sha "x86_64-unknown-linux-musl")
 
 rm -f "$TMP_SUMS"
 
-echo "Updating omni.rb..."
+echo "Updating contexere.rb..."
 
 # Use awk to find the url line and replace the sha256 line immediately following it
 awk -v mac_arm="$SHA_AARCH64_MACOS" \
@@ -57,18 +57,18 @@ awk -v mac_arm="$SHA_AARCH64_MACOS" \
     /aarch64-unknown-linux-musl/ { print; getline; sub(/sha256 ".*"/, "sha256 \"" lin_arm "\""); print; next }
     /x86_64-unknown-linux-musl/ { print; getline; sub(/sha256 ".*"/, "sha256 \"" lin_intel "\""); print; next }
     { print }
-    ' omni.rb > omni.rb.tmp && mv omni.rb.tmp omni.rb
+    ' contexere.rb > contexere.rb.tmp && mv contexere.rb.tmp contexere.rb
 
 # Also update the version line if it differs
-CURRENT_VERSION=$(grep '  version ' omni.rb | sed 's/.*"\(.*\)".*/\1/')
+CURRENT_VERSION=$(grep '  version ' contexere.rb | sed 's/.*"\(.*\)".*/\1/')
 if [ "$CURRENT_VERSION" != "$VERSION" ]; then
-    sed -i.bak "s/version \"${CURRENT_VERSION}\"/version \"${VERSION}\"/" omni.rb
-    rm -f omni.rb.bak
+    sed -i.bak "s/version \"${CURRENT_VERSION}\"/version \"${VERSION}\"/" contexere.rb
+    rm -f contexere.rb.bak
     echo "  Version updated: ${CURRENT_VERSION} → ${VERSION}"
 fi
 
 echo ""
-echo "✓ omni.rb updated with real SHA-256 values"
+echo "✓ contexere.rb updated with real SHA-256 values"
 echo "  AARCH64_MACOS: ${SHA_AARCH64_MACOS}"
 echo "  X86_64_MACOS:  ${SHA_X86_MACOS}"
 echo "  AARCH64_LINUX: ${SHA_AARCH64_LINUX}"
@@ -83,22 +83,31 @@ BREW_TAP_PATH=$(brew --repository fajarhide/omni 2>/dev/null || echo "")
 
 if [ -d "$TAP_REPO_PATH" ]; then
     echo "🔄 Syncing with Homebrew Tap at $TAP_REPO_PATH..."
-    cp omni.rb "$TAP_REPO_PATH/omni.rb"
-    (cd "$TAP_REPO_PATH" && git add omni.rb && git commit -m "update omni to v$VERSION" && git push origin main)
+    cp contexere.rb "$TAP_REPO_PATH/contexere.rb"
+    # The rename lands in the same commit as the new version, so the tap never serves
+    # a renamed formula that points at the old release (#876). Safe to repeat.
+    (
+        cd "$TAP_REPO_PATH/.."
+        git rm -q --ignore-unmatch Formula/omni.rb Aliases/contexere
+        printf '{\n  "omni": "contexere"\n}\n' > formula_renames.json
+        git add Formula/contexere.rb formula_renames.json
+        git diff --cached --quiet || git commit -m "update contexere to v$VERSION"
+        git push origin main
+    )
     echo "✅ Tap updated!"
 elif [ -n "$BREW_TAP_PATH" ] && [ -d "$BREW_TAP_PATH" ]; then
     echo "🔄 Syncing with Homebrew Tap at $BREW_TAP_PATH..."
-    cp omni.rb "$BREW_TAP_PATH/omni.rb"
-    (cd "$BREW_TAP_PATH" && git add omni.rb && git commit -m "update omni to v$VERSION" && git push origin main)
+    cp contexere.rb "$BREW_TAP_PATH/contexere.rb"
+    (cd "$BREW_TAP_PATH" && git add contexere.rb && git commit -m "update contexere to v$VERSION" && git push origin main)
     echo "✅ Tap updated!"
 else
     echo "⚠️  Tap repository not found at $TAP_REPO_PATH or via brew --repository."
     echo "Please update manually and push to your tap repository."
 fi
 
-# Final Sync for local omni.rb
-echo "📦 Committing updated omni.rb to local repository..."
-git add omni.rb
+# Final Sync for local contexere.rb
+echo "📦 Committing updated contexere.rb to local repository..."
+git add contexere.rb
 git commit -m "chore: update formula SHA-256 for v$VERSION" || echo "No changes to commit in local repo"
 # Uncomment if you want it to push automatically:
 git push origin main

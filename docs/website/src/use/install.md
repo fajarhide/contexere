@@ -7,7 +7,7 @@ Existing installs keep working under `omni`, which is the same program as `conte
 **macOS and Linux, via Homebrew:**
 
 ```sh
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 **macOS, Linux, WSL:**
@@ -110,7 +110,13 @@ actual host.
 
 ```sh
 contexere update      # Homebrew installs
-brew upgrade omni
+brew upgrade contexere
+```
+
+Installed before 0.8.2 as `omni`? The formula is now `contexere`, and Homebrew skips a renamed formula from a tap until you trust it. `brew upgrade` then says nothing and stays on the old version. Run this once:
+
+```sh
+brew trust --tap fajarhide/tap && brew upgrade
 ```
 
 Re-run `contexere init` afterwards if a release changes the hook contract. The changelog

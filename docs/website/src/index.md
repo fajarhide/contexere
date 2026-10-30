@@ -8,7 +8,7 @@ One small program between your terminal and your agent. Local, no API key, no pr
 Install it and you never type its name again.
 
 ```bash
-brew install fajarhide/tap/omni && contexere init
+brew install fajarhide/tap/contexere && contexere init
 ```
 
 Inside Claude Code, two lines and the agent does the rest:

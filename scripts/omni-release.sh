@@ -120,7 +120,7 @@ echo "  4. GitHub Release will be created automatically"
 echo ""
 echo " After release completes (~10 min):"
 echo "  5. Run: ./scripts/update_homebrew_sha.sh ${VERSION}"
-echo "  6. Update Homebrew tap with newest omni.rb"
+echo "  6. Update Homebrew tap with newest contexere.rb"
 echo ""
 read -r -p "Proceed with release? [y/N] " confirm
 [ "$confirm" = "y" ] || { echo "Aborted."; exit 0; }

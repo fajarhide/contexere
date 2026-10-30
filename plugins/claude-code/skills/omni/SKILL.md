@@ -13,7 +13,7 @@ about the machine leaves it.
 ## Install
 
 ```
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 omni init
 ```
 

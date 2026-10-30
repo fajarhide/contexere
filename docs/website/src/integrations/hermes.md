@@ -10,7 +10,7 @@ Contexere plugs into Hermes twice: a plugin on the hook path, and the MCP server
 ## Prerequisites
 
 ```sh
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 contexere --version
 contexere doctor
 
