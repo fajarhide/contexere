@@ -518,15 +518,19 @@ fn withheld_reply(
         let body = source::summary(&name, &normalized.content);
         (body, "[OMNI: a credential source was withheld]".to_string())
     } else {
-        let (body, count) = source::hide_secret_columns(&normalized.content)?;
+        let (mut body, mut count) = source::hide_secret_columns(&normalized.content)?;
+        // The other cells still get the shape-based redactor.
+        if let Some((rest, more)) = crate::distillers::system_ops::redact_in_place(&body) {
+            body = rest;
+            count += more as usize;
+        }
         (
             body,
             format!("[OMNI: {count} sensitive value(s) redacted in place]"),
         )
     };
-    if let Some(sess) = session
-        && let Ok(mut state) = sess.lock()
-    {
+    if let Some(sess) = session {
+        let mut state = sess.lock().unwrap_or_else(|p| p.into_inner());
         state.current_turn.tool_output_bytes += body.len() as u64;
     }
     serde_json::to_string(&HookOutput {
@@ -1760,28 +1764,30 @@ Ran 6 tests across 1 file. [4.00ms]
             "cat ~/.storage-creds",
             &format!("AKIAIOSFODNN7EXAMPLE {secret}\n"),
         );
-        assert!(
-            !reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"),
-            "{reply}"
-        );
-        assert!(reply.contains("withheld"), "{reply}");
+        assert!(!reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"));
+        assert!(reply.contains("withheld"));
     }
 
     #[test]
     fn withholds_a_source_even_with_a_typed_passthrough() {
         let reply = bash_reply("OMNI_PASSTHROUGH=1 cat .env", "A=wJalrXUtnFEMIK7MDENGbPx\n");
-        assert!(!reply.contains("wJalrXUt"), "{reply}");
+        assert!(!reply.contains("wJalrXUt"));
     }
 
     #[test]
     fn hides_csv_secret_columns_under_any_command() {
         let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAIOSFODNN7EXAMPLE,wJalrXUtnFEMIK7MDENG\n";
         let reply = bash_reply("python3 export.py", csv);
-        assert!(
-            !reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"),
-            "{reply}"
-        );
-        assert!(reply.contains("alice"), "{reply}");
+        assert!(!reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"));
+        assert!(reply.contains("alice"));
+    }
+
+    #[test]
+    fn still_redacts_the_cells_a_csv_header_does_not_name() {
+        let key = concat!("AK", "IA", "IOSFODNN7", "EXAMPLE");
+        let csv = format!("name,password,notes\nalice,hidden,{key}\n");
+        let reply = bash_reply("python3 export.py", &csv);
+        assert!(!reply.contains(key));
     }
 
     #[test]
@@ -1796,7 +1802,7 @@ Ran 6 tests across 1 file. [4.00ms]
         })
         .to_string();
         let reply = process_payload(&payload, None, None).expect("a rewrite");
-        assert!(!reply.contains("wJalrXUt"), "{reply}");
+        assert!(!reply.contains("wJalrXUt"));
     }
     use serde_json::json;
 

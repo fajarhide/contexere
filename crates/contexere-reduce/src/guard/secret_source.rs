@@ -41,7 +41,8 @@ const NOT_A_CREDENTIAL_FILE: &[&str] = &[
 const SAMPLE_ENV_WORDS: &[&str] = &["example", "sample", "template", "dist", "test"];
 
 fn program(word: &str) -> &str {
-    word.rsplit('/').next().unwrap_or(word)
+    let name = word.rsplit(['/', '\\']).next().unwrap_or(word);
+    name.strip_suffix(".exe").unwrap_or(name)
 }
 
 fn trimmed(word: &str) -> &str {
@@ -52,6 +53,7 @@ fn trimmed(word: &str) -> &str {
 /// Whether a path names a credential source. `extra` is the user's list, matched
 /// as a path suffix.
 pub fn is_source(path: &str, extra: &[String]) -> bool {
+    let path = path.replace('\\', "/");
     let path = path.trim_end_matches('/');
     let Some(name) = path.rsplit('/').next().filter(|n| !n.is_empty()) else {
         return false;
@@ -92,7 +94,8 @@ pub fn user_sources() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Commands whose whole output can hold credentials, wherever they run.
+/// Commands whose whole output can hold credentials, wherever they run. Takes one
+/// pipeline stage, so a later `cut -f 1` is not read as docker's format flag.
 fn remote_source(words: &[&str]) -> Option<&'static str> {
     let has = |a: &str, b: &str| words.windows(2).any(|w| program(w[0]) == a && w[1] == b);
     if has("crontab", "-l") {
@@ -112,24 +115,39 @@ fn remote_source(words: &[&str]) -> Option<&'static str> {
 }
 
 /// A `grep -c`, `-l` or `-q` reports about the file without printing its lines,
-/// and `sed -i` writes it back.
+/// and `sed -i` writes it back. Options are walked in order: `-e` and `-f` take the
+/// next word, so a pattern such as `-client` is never read as flags, and `--` ends them.
 fn prints_nothing_of_the_file(name: &str, args: &[&str]) -> bool {
-    let has_flag = |letters: &str, long: &[&str]| {
-        args.iter().any(|a| {
-            long.contains(a)
-                || (a.starts_with('-')
-                    && !a.starts_with("--")
-                    && a.chars().skip(1).any(|c| letters.contains(c)))
-        })
-    };
-    match name {
-        "grep" | "egrep" | "rg" | "ag" => has_flag(
+    let (letters, long): (&str, &[&str]) = match name {
+        "grep" | "egrep" | "rg" | "ag" => (
             "clqL",
             &["--count", "--quiet", "--files-with-matches", "--silent"],
         ),
-        "sed" => has_flag("i", &["--in-place"]),
-        _ => false,
+        "sed" => ("i", &["--in-place"]),
+        _ => return false,
+    };
+    let mut words = args.iter();
+    while let Some(word) = words.next() {
+        if *word == "--" {
+            return false;
+        }
+        if long.contains(word) {
+            return true;
+        }
+        if !word.starts_with('-') || word.starts_with("--") {
+            continue;
+        }
+        for c in word.chars().skip(1) {
+            if letters.contains(c) {
+                return true;
+            }
+            if matches!(c, 'e' | 'f') {
+                words.next();
+                break;
+            }
+        }
     }
+    false
 }
 
 /// `>`, `>>`, `2>&1`, or a target attached as in `>file`.
@@ -148,10 +166,6 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
     let spaced = spaced.replace("&&", "\n").replace(';', "\n");
     for statement in spaced.lines() {
         let raw: Vec<&str> = statement.split_whitespace().collect();
-        let words: Vec<&str> = raw.iter().map(|w| trimmed(w)).collect();
-        if let Some(found) = remote_source(&words) {
-            return Some(found.to_string());
-        }
         let stages: Vec<&[&str]> = raw.split(|w| *w == "|").collect();
         let ends_in_a_sink = stages.len() > 1
             && stages
@@ -162,6 +176,10 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
             continue;
         }
         for stage in stages {
+            let words: Vec<&str> = stage.iter().map(|w| trimmed(w)).collect();
+            if let Some(found) = remote_source(&words) {
+                return Some(found.to_string());
+            }
             let Some(at) = printer_position(stage) else {
                 continue;
             };
@@ -185,13 +203,20 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
 /// the value without printing it.
 fn printer_position(stage: &[&str]) -> Option<usize> {
     let first_is_ssh = stage.first().is_some_and(|w| program(w) == "ssh");
+    // `sudo -u app cat x` and `env -i cat x`: a wrapper's options, and a value after one.
+    let wrapped = |before: &[&str]| {
+        before.iter().enumerate().all(|(k, w)| {
+            WRAPPERS.contains(&program(w))
+                || (w.contains('=') && !w.starts_with('-'))
+                || w.starts_with('-')
+                || (k > 0 && before[k - 1].starts_with('-'))
+        })
+    };
     stage.iter().enumerate().find_map(|(i, word)| {
         if !PRINTERS.contains(&program(trimmed(word))) {
             return None;
         }
-        let after_wrappers = stage[..i]
-            .iter()
-            .all(|w| WRAPPERS.contains(&program(w)) || (w.contains('=') && !w.starts_with('-')));
+        let after_wrappers = wrapped(&stage[..i]);
         let handed_over = i > 0 && matches!(stage[i - 1], "--" | "-c" | "-lc");
         (after_wrappers || handed_over || first_is_ssh).then_some(i)
     })
@@ -204,6 +229,7 @@ fn source_argument<'a>(name: &str, args: &[&'a str], extra: &[String]) -> Option
     let mut skip_pattern = TAKES_A_PATTERN.contains(&name) && !args.iter().any(|w| plain(&w));
     let mut skip_target = false;
     let mut open_quote = None;
+    let mut options_ended = false;
     for raw in args.iter().copied() {
         if let Some(q) = open_quote {
             if raw.contains(q) {
@@ -220,7 +246,11 @@ fn source_argument<'a>(name: &str, args: &[&'a str], extra: &[String]) -> Option
             skip_target = matches!(word, ">" | ">>" | "1>" | "1>>" | "2>" | "2>>");
             continue;
         }
-        if word.starts_with('-') {
+        if word == "--" {
+            options_ended = true;
+            continue;
+        }
+        if word.starts_with('-') && !options_ended {
             continue;
         }
         if skip_pattern {
@@ -309,6 +339,9 @@ pub fn hide_secret_columns(content: &str) -> Option<(String, usize)> {
     if hidden.is_empty() || cells.len() < 2 {
         return None;
     }
+    // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
+    // record is withheld rather than parsed.
+    let header_quoted = header.contains('"');
     let mut out = vec![header.to_string()];
     let mut count = 0;
     for line in lines {
@@ -317,7 +350,7 @@ pub fn hide_secret_columns(content: &str) -> Option<(String, usize)> {
             continue;
         }
         let row: Vec<&str> = line.split(delimiter).collect();
-        if row.len() != cells.len() {
+        if header_quoted || line.contains('"') || row.len() != cells.len() {
             count += 1;
             out.push("[REDACTED]".to_string());
             continue;
@@ -389,6 +422,35 @@ mod tests {
         assert!(printed("ssh host crontab -l"));
         assert!(printed("systemctl cat app"));
         assert!(printed("docker inspect app"));
+    }
+
+    #[test]
+    fn refuses_past_a_wrappers_own_options() {
+        assert!(printed("sudo -u app cat /app/.env"));
+        assert!(printed("env -i cat .env"));
+    }
+
+    #[test]
+    fn refuses_a_pattern_that_only_looks_like_a_safe_flag() {
+        assert!(printed("grep -e '-client' .env"));
+        assert!(printed("grep -- -c .env"));
+    }
+
+    #[test]
+    fn refuses_docker_inspect_when_a_later_stage_has_the_flag() {
+        assert!(printed("docker inspect app | cut -f 1"));
+    }
+
+    #[test]
+    fn allows_counting_a_remote_source() {
+        assert!(!printed("crontab -l | wc -l"));
+    }
+
+    #[test]
+    fn knows_a_windows_path_and_program() {
+        assert!(is_source("C:\\project\\.env", &[]));
+        assert!(is_source("C:\\Users\\me\\.ssh\\id_ed25519", &[]));
+        assert!(printed("cat.exe .env"));
     }
 
     #[test]
@@ -469,9 +531,9 @@ mod tests {
     fn summary_holds_no_fragment_of_the_value() {
         let secret = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY01";
         let out = summary(".env", &format!("AKIAIOSFODNN7EXAMPLE {secret}\n"));
-        assert!(!out.contains("wJalrXUt"), "{out}");
-        assert!(!out.contains("AKIAIOSF"), "{out}");
-        assert!(out.contains("1 lines") && out.contains("20 40"), "{out}");
+        assert!(!out.contains("wJalrXUt"));
+        assert!(!out.contains("AKIAIOSF"));
+        assert!(out.contains("1 lines") && out.contains("20 40"));
     }
 
     #[test]
@@ -479,14 +541,21 @@ mod tests {
         let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAONE,sekretone\nbob,AKIATWO,sekrettwo\n";
         let (out, count) = hide_secret_columns(csv).expect("hidden");
         assert_eq!(count, 4);
-        assert!(out.contains("alice,[REDACTED],[REDACTED]"), "{out}");
-        assert!(!out.contains("sekret") && !out.contains("AKIA"), "{out}");
+        assert!(out.contains("alice,[REDACTED],[REDACTED]"));
+        assert!(!out.contains("sekret") && !out.contains("AKIA"));
+    }
+
+    #[test]
+    fn withholds_a_record_a_quote_could_split() {
+        let csv = "name,\"password, current\"\nalice,\"prefix,opaque-secret\"\n";
+        let (out, _) = hide_secret_columns(csv).expect("hidden");
+        assert!(!out.contains("opaque-secret"));
     }
 
     #[test]
     fn hides_a_row_of_another_width_whole() {
         let (out, _) = hide_secret_columns("name,token\nalice,x,y\n").expect("hidden");
-        assert!(!out.contains("alice"), "{out}");
+        assert!(!out.contains("alice"));
     }
 
     #[test]
