@@ -7,18 +7,19 @@ pub enum ContentHint {
     Mixed,
 }
 
-/// Tokens, from bytes and a guess at what the bytes are. Replaced an exact
-/// `cl100k_base` count (#174): that is not Claude's vocabulary, and loading it
-/// took 34.3 ms of a hook budgeted at 10 ms. `Mixed` is the measured 3.614
-/// bytes per token over 4,000 traces.
+/// Tokens, from bytes and a guess at what the bytes are. Measured with
+/// `count_tokens` on `claude-opus-5-5`, 2026-10-30, over tracked files of public
+/// repos (#584): Code 2.52, Prose 2.52, Json 2.36, BuildLog 2.27, Mixed 2.20 bytes
+/// per token. The old values came from `cl100k_base`, GPT's vocabulary, and
+/// counted 40 to 60% fewer tokens than Claude bills.
 pub fn estimate_tokens(bytes: usize, hint: ContentHint) -> usize {
     let chars_per_token = match hint {
-        ContentHint::Code => 3.2,
-        ContentHint::Prose => 4.5,
-        // The low end (p10 is 2.94): a budget guard must not under-count tokens.
-        ContentHint::Json => 2.8,
-        ContentHint::BuildLog => 3.8,
-        ContentHint::Mixed => 3.6,
+        ContentHint::Code => 2.5,
+        ContentHint::Prose => 2.5,
+        // The low end (p10 is 1.89): a budget guard must not under-count tokens.
+        ContentHint::Json => 1.9,
+        ContentHint::BuildLog => 2.3,
+        ContentHint::Mixed => 2.2,
     };
     (bytes as f64 / chars_per_token).ceil() as usize
 }
@@ -34,8 +35,8 @@ mod tests {
 
     #[test]
     fn mixed_tracks_the_measured_bytes_per_token() {
-        let exact_ratio = 3.614_f64;
-        let bytes = 36_140_usize;
+        let exact_ratio = 2.198_f64;
+        let bytes = 21_980_usize;
         let expected = (bytes as f64 / exact_ratio) as usize;
         let got = estimate_tokens(bytes, ContentHint::Mixed);
         let err = (got as f64 - expected as f64).abs() / expected as f64;

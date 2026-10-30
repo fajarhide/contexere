@@ -2256,12 +2256,10 @@ Ran 6 tests across 1 file. [4.00ms]
     /// review).
     #[test]
     fn the_converted_bar_is_never_noisier_than_the_one_it_replaced() {
-        let old_fires = |i: usize, o: usize| {
-            use crate::util::token_estimate::{ContentHint, estimate_tokens};
-            estimate_tokens(i, ContentHint::Mixed)
-                .saturating_sub(estimate_tokens(o, ContentHint::Mixed))
-                >= 500
-        };
+        // The bar as it was: 500 tokens at the `cl100k_base` divisor of the day,
+        // frozen here since #584 moved `Mixed` to Claude's 2.2.
+        let old_tokens = |b: usize| (b as f64 / 3.6).ceil() as usize;
+        let old_fires = |i: usize, o: usize| old_tokens(i).saturating_sub(old_tokens(o)) >= 500;
         let new_fires = |i: usize, o: usize| i.saturating_sub(o) >= 1800;
 
         let mut disagreements = 0;

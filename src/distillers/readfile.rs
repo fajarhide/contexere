@@ -4,7 +4,9 @@ fn distill_readfile(content: &str, filepath: &str) -> Option<String> {
     distill_readfile_with_context(content, filepath, || 0)
 }
 
-const MIN_DISTILL_TOKENS: usize = 2000;
+// 2,560 Claude tokens keeps a code file's gate at 6,400 bytes, where it was
+// before the divisors moved to Claude's tokenizer (#584).
+const MIN_DISTILL_TOKENS: usize = 2560;
 
 /// `imported_by` counts the files importing this one; above 3 the reply
 /// suggests `omni context` (#609). A closure, since computing it walks the repo:
@@ -541,6 +543,20 @@ mod tests {
             None,
             "prose OMNI cannot parse has to reach the agent whole"
         );
+    }
+
+    /// Recalibrating to Claude's tokenizer moved the unit, not the gate: a code
+    /// file is still distilled from 6,400 bytes, as before #584.
+    #[test]
+    fn keeps_the_code_read_gate_at_6400_bytes() {
+        let tokens = |b| {
+            crate::util::token_estimate::estimate_tokens(
+                b,
+                crate::util::token_estimate::ContentHint::Code,
+            )
+        };
+        assert!(tokens(6_390) < MIN_DISTILL_TOKENS, "{}", tokens(6_390));
+        assert!(tokens(6_400) >= MIN_DISTILL_TOKENS, "{}", tokens(6_400));
     }
 
     /// A long markdown spec passes through whole, sized past `MIN_DISTILL_TOKENS` (#523).
