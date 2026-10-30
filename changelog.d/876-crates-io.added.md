@@ -1,0 +1,1 @@
+- **Contexere installs from crates.io (#876)**: `cargo install contexere` builds the same binary the release ships, from two crates, `contexere` and the library it depends on, `contexere-reduce`. The library carries its own copy of the Hermes plugin, which a test keeps byte for byte equal to `plugins/hermes/`.
