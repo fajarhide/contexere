@@ -80,6 +80,35 @@ pub fn file_name_is_omni(command: &str) -> bool {
     name.trim_end_matches(".exe") == "omni"
 }
 
+/// Whether a registered post-hook still calls the binary by its old name, so
+/// `doctor` can point at `contexere init` (#876 step 5).
+pub fn hook_calls_omni(command: &str) -> bool {
+    file_name_is_omni(command.trim().trim_end_matches("--post-hook"))
+}
+
+/// `OMNI_*` settings with no `CONTEXERE_*` twin, sorted. A twin means the user
+/// already moved it; `adopt_env` folded it onto the old name at startup.
+pub fn settings_on_old_name<I>(vars: I) -> Vec<String>
+where
+    I: IntoIterator<Item = (OsString, OsString)>,
+{
+    let keys: Vec<String> = vars
+        .into_iter()
+        .filter_map(|(k, _)| k.into_string().ok())
+        .collect();
+    let mut old: Vec<String> = keys
+        .iter()
+        .filter(|k| {
+            k.strip_prefix(OLD_ENV_PREFIX).is_some_and(|rest| {
+                !rest.is_empty() && !keys.contains(&format!("{NEW_ENV_PREFIX}{rest}"))
+            })
+        })
+        .cloned()
+        .collect();
+    old.sort();
+    old
+}
+
 /// A program name that is this binary under either of its names.
 pub fn is_our_program(name: &str) -> bool {
     matches!(name.trim_end_matches(".exe"), "omni" | "contexere")
@@ -120,6 +149,25 @@ mod tests {
         assert!(!file_name_is_omni("/Users/omni/bin/contexere"));
         assert_eq!(prefix_of_command("/x y/omni"), "omni");
         assert_eq!(prefix_of_command("/x/contexere"), "contexere");
+    }
+
+    #[test]
+    fn a_hook_on_the_old_name_is_found_by_its_binary() {
+        assert!(hook_calls_omni("/opt/homebrew/bin/omni --post-hook"));
+        assert!(hook_calls_omni("\"/Users/Jane Doe/bin/omni\" --post-hook"));
+        assert!(!hook_calls_omni("/opt/homebrew/bin/contexere --post-hook"));
+        assert!(!hook_calls_omni("/Users/omni/bin/contexere --post-hook"));
+    }
+
+    #[test]
+    fn a_setting_is_on_the_old_name_only_without_its_twin() {
+        let vars = vec![
+            (OsString::from("OMNI_QUIET"), OsString::from("1")),
+            (OsString::from("OMNI_AGENT_ID"), OsString::from("cursor")),
+            (OsString::from("CONTEXERE_AGENT_ID"), OsString::from("cursor")),
+            (OsString::from("OMNIX"), OsString::from("no")),
+        ];
+        assert_eq!(settings_on_old_name(vars), vec!["OMNI_QUIET".to_string()]);
     }
 
     #[test]
