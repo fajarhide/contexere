@@ -1,26 +1,14 @@
-pub mod agents;
-pub mod analytics;
-mod cli;
-mod distillers;
-mod graph;
-mod guard;
-mod hooks;
-mod ledger;
-mod legacy;
-mod mcp;
-mod paths;
-pub mod pipeline;
-mod session;
-mod store;
-mod util;
+// The modules live in crates/contexere-reduce since #948; this binary is a thin
+// dispatcher over that library, compiled once instead of twice.
+use contexere::{cli, hooks, legacy, mcp};
 
 use colored::*;
 use std::env;
 use std::io::{self, IsTerminal};
 use std::sync::{Arc, Mutex};
 
-use crate::pipeline::SessionState;
-use crate::store::sqlite::Store;
+use contexere::pipeline::SessionState;
+use contexere::store::sqlite::Store;
 
 #[derive(Debug, PartialEq)]
 enum Mode {
@@ -188,8 +176,8 @@ fn print_help() {
     );
     println!();
 
-    if let Some(latest) = crate::guard::update::check() {
-        crate::guard::update::print_notification(&latest);
+    if let Some(latest) = contexere::guard::update::check() {
+        contexere::guard::update::print_notification(&latest);
     }
 }
 

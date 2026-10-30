@@ -140,7 +140,7 @@ capability nobody reached for. It is `contexere context <file>` now, which costs
 per request:
 
 ```bash
-contexere context src/ledger/mod.rs
+contexere context crates/contexere-reduce/src/ledger/mod.rs
 ```
 
 An agent can still reach it through `omni_run`.

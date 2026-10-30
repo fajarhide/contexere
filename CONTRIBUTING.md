@@ -103,8 +103,8 @@ down why not.
 ## Project layout
 
 ```
-src/
-├── main.rs          CLI dispatch and the single command list
+src/main.rs                      the `contexere` binary: CLI dispatch, the command list
+crates/contexere-reduce/src/     the library, crate name `contexere` (#948)
 ├── lib.rs           library re-exports, so the crate is testable
 ├── agents/          one file per host: claude, cursor, codex, hermes, pi, …
 ├── cli/             one file per subcommand
@@ -119,7 +119,7 @@ src/
 └── util/            command families, token estimation
 ```
 
-**Library first.** `main.rs` is thin. Logic lives in `lib.rs` and its submodules.
+**Library first.** `main.rs` is thin and imports the library. Logic lives in `lib.rs` and its submodules, and new crates go beside `contexere-reduce` under `crates/`.
 
 **Single source of truth.** Command-to-behaviour mapping is centralised in
 `pipeline/registry.rs`. Do not duplicate `matches!(cmd, ...)` blocks in distillers or
@@ -130,7 +130,7 @@ scorers. Thresholds and limits are named constants in `pipeline/mod.rs` or
 
 ## Adding a distiller
 
-1. `src/distillers/my_type.rs`:
+1. `crates/contexere-reduce/src/distillers/my_type.rs`:
 
 ```rust
 use crate::pipeline::{OutputSegment, SessionState};
@@ -154,7 +154,7 @@ impl Distiller for MyDistiller {
 the input; the caller then hands back raw bytes. The invariant lives in the trait
 rather than in each author remembering, so it holds for all 12 by construction.
 
-2. Register in `src/distillers/mod.rs`, and put the routing in `registry.rs`.
+2. Register in `crates/contexere-reduce/src/distillers/mod.rs`, and put the routing in `registry.rs`.
 3. Add a realistic fixture in `tests/fixtures/`. Real output from the real tool.
 4. Add a snapshot test, run `cargo test`, then `cargo insta review`.
 5. **Break the rule deliberately and watch the test go red before restoring it.**

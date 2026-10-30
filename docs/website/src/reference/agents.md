@@ -109,7 +109,7 @@ rather than a product.
 
 ## Adding a host
 
-The agent modules live in `src/agents/`, one file per host, and each writes that
+The agent modules live in `crates/contexere-reduce/src/agents/`, one file per host, and each writes that
 host's own configuration format in that host's own location. The pattern is small and
 mostly mechanical.
 

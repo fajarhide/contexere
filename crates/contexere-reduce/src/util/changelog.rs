@@ -147,8 +147,8 @@ mod tests {
             .parse()
             .expect("build.rs must stamp a number");
         // `cargo test` runs from the crate root, the directory `build.rs` read.
-        let recount = count_unreleased_entries(include_str!("../../CHANGELOG.md"))
-            + count_fragments(std::path::Path::new("changelog.d"));
+        let recount = count_unreleased_entries(include_str!("../../../../CHANGELOG.md"))
+            + count_fragments(std::path::Path::new("../../changelog.d"));
         assert_eq!(
             compiled, recount,
             "omni doctor would report {compiled} unreleased entries against {recount} in the tree"
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn parses_the_repository_changelog() {
-        let c = include_str!("../../CHANGELOG.md");
+        let c = include_str!("../../../../CHANGELOG.md");
         // The count changes every merge; this only checks the parser stays in the section.
         let total_bullets = c.lines().filter(|l| l.starts_with("- ")).count();
         assert!(count_unreleased_entries(c) <= total_bullets);

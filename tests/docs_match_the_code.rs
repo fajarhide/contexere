@@ -137,15 +137,15 @@ fn every_command_in_a_shell_block_is_a_real_subcommand() {
 #[test]
 fn every_documented_count_matches_the_code() {
     let root = repo_root();
-    let server =
-        std::fs::read_to_string(root.join("src/mcp/server.rs")).expect("read mcp/server.rs");
+    let server = std::fs::read_to_string(root.join("crates/contexere-reduce/src/mcp/server.rs"))
+        .expect("read mcp/server.rs");
     let tools: BTreeSet<&str> = regex::Regex::new(r#"name = "(omni_[a-z_]+)""#)
         .expect("valid regex")
         .captures_iter(&server)
         .map(|c| c.get(1).expect("group 1").as_str())
         .collect();
 
-    let distillers = std::fs::read_dir(root.join("src/distillers"))
+    let distillers = std::fs::read_dir(root.join("crates/contexere-reduce/src/distillers"))
         .expect("read distillers")
         .filter_map(Result::ok)
         .filter(|e| {
@@ -285,7 +285,8 @@ fn every_documented_count_matches_the_code() {
 #[test]
 fn every_marker_the_ledger_can_print_is_documented() {
     let root = repo_root();
-    let ledger = std::fs::read_to_string(root.join("src/ledger/mod.rs")).expect("read ledger");
+    let ledger = std::fs::read_to_string(root.join("crates/contexere-reduce/src/ledger/mod.rs"))
+        .expect("read ledger");
     let page = std::fs::read_to_string(root.join("docs/website/src/use/markers.md"))
         .expect("read markers.md");
 
@@ -363,7 +364,8 @@ fn the_scan_reaches_the_manual_and_the_readme() {
 /// `real_subcommands` gives: a second copy of a constant is the defect this file
 /// exists to catch, not a convenience.
 fn reserved_example_handle() -> String {
-    let src = std::fs::read_to_string(repo_root().join("src/util/text.rs")).expect("read text.rs");
+    let src = std::fs::read_to_string(repo_root().join("crates/contexere-reduce/src/util/text.rs"))
+        .expect("read text.rs");
     let decl = src
         .split_once("pub const EXAMPLE_HANDLE: &str = \"")
         .expect("EXAMPLE_HANDLE was renamed or moved")

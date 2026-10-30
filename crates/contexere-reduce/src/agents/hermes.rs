@@ -250,7 +250,7 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
 /// quote or a Windows `\U` cannot break the Python literal.
 fn render_plugin(exe_path: &str) -> String {
     let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
-    include_str!("../../plugins/hermes/__init__.py").replace("\"{{OMNI_BIN}}\"", &literal)
+    include_str!("../../../../plugins/hermes/__init__.py").replace("\"{{OMNI_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {

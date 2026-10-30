@@ -143,7 +143,7 @@ kapabilitas yang tidak pernah dijangkau siapa pun. Sekarang ia `contexere contex
 <file>`, yang tidak memakan biaya per request:
 
 ```bash
-contexere context src/ledger/mod.rs
+contexere context crates/contexere-reduce/src/ledger/mod.rs
 ```
 
 Agen tetap bisa menjangkaunya lewat `omni_run`.

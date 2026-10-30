@@ -4,7 +4,7 @@ The most common change here. Five steps, and the fourth is the one that matters.
 
 ## 1. The module
 
-`src/distillers/my_type.rs`:
+`crates/contexere-reduce/src/distillers/my_type.rs`:
 
 ```rust
 use crate::pipeline::{OutputSegment, SessionState};
@@ -34,7 +34,7 @@ defect this project keeps fixing.
 
 ## 2. Register it
 
-`src/distillers/mod.rs`:
+`crates/contexere-reduce/src/distillers/mod.rs`:
 
 ```rust
 pub mod my_type;
