@@ -46,19 +46,18 @@
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/ibm-plex-mono-500.woff2') format('woff2'); }
 
 /* --------------------------------------------------------------------------
-   Every value in this file that decides how the book looks is a --wl-* token
-   from @weekndlabs/design, and every one of them carries the pre-system value
-   as its fallback.
+   Two sources. Colours are written by hand in the .light and .navy blocks
+   below, matching weekndlabs/omni-pages DESIGN.md, so a palette change is an
+   edit here and there together. Fonts, sizes and spacing are --wl-* tokens
+   from @weekndlabs/design, each carrying the pre-system value as its fallback.
 
-   The tokens are not vendored here. omni-pages depends on that package for its
-   own pages and, at publish time, drops the same copy into this book and links
-   it from theme/head.hbs (see scripts/build-docs.sh over there). That is what
-   keeps /docs and the rest of omni.weekndlabs.com on one palette through a
-   style change: one version bump, in one repository.
+   The tokens are not vendored here. omni-pages depends on that package and, at
+   publish time, drops the same copy into this book and links it from
+   theme/head.hbs (see scripts/build-docs.sh over there).
 
-   The consequence to know about: `mdbook serve` here renders the fallbacks, so
-   a local preview is the pre-system look and correct only in layout. Judge
-   colour and type on the published site, not on localhost:3000.
+   The consequence to know about: `mdbook serve` here shows the real colours
+   but the fallback fonts and sizes, so judge type on the published site, not
+   on localhost:3000.
    -------------------------------------------------------------------------- */
 
 :root {
