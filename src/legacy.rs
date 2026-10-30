@@ -164,7 +164,10 @@ mod tests {
         let vars = vec![
             (OsString::from("OMNI_QUIET"), OsString::from("1")),
             (OsString::from("OMNI_AGENT_ID"), OsString::from("cursor")),
-            (OsString::from("CONTEXERE_AGENT_ID"), OsString::from("cursor")),
+            (
+                OsString::from("CONTEXERE_AGENT_ID"),
+                OsString::from("cursor"),
+            ),
             (OsString::from("OMNIX"), OsString::from("no")),
         ];
         assert_eq!(settings_on_old_name(vars), vec!["OMNI_QUIET".to_string()]);
