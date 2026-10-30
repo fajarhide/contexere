@@ -518,7 +518,7 @@ fn withheld_reply(
         let body = source::summary(&name, &normalized.content);
         (body, "[OMNI: a credential source was withheld]".to_string())
     } else {
-        let (mut body, mut count) = source::hide_secret_columns(&normalized.content)?;
+        let (mut body, mut count) = source::mask_named_columns(&normalized.content)?;
         // The other cells still get the shape-based redactor.
         if let Some((rest, more)) = crate::distillers::system_ops::redact_in_place(&body) {
             body = rest;

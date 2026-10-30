@@ -325,7 +325,7 @@ fn names_a_secret(cell: &str) -> bool {
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
 /// row, and the count hidden. A row of another width is hidden whole, since its
 /// columns cannot be trusted to line up. `None` when there is nothing to hide.
-pub fn hide_secret_columns(content: &str) -> Option<(String, usize)> {
+pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let mut lines = content.lines();
     let header = lines.next()?;
     let delimiter = ['\t', ','].into_iter().find(|d| header.contains(*d))?;
@@ -539,7 +539,7 @@ mod tests {
     #[test]
     fn hides_every_secret_column_on_every_row() {
         let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAONE,sekretone\nbob,AKIATWO,sekrettwo\n";
-        let (out, count) = hide_secret_columns(csv).expect("hidden");
+        let (out, count) = mask_named_columns(csv).expect("hidden");
         assert_eq!(count, 4);
         assert!(out.contains("alice,[REDACTED],[REDACTED]"));
         assert!(!out.contains("sekret") && !out.contains("AKIA"));
@@ -548,19 +548,19 @@ mod tests {
     #[test]
     fn withholds_a_record_a_quote_could_split() {
         let csv = "name,\"password, current\"\nalice,\"prefix,opaque-secret\"\n";
-        let (out, _) = hide_secret_columns(csv).expect("hidden");
+        let (out, _) = mask_named_columns(csv).expect("hidden");
         assert!(!out.contains("opaque-secret"));
     }
 
     #[test]
     fn hides_a_row_of_another_width_whole() {
-        let (out, _) = hide_secret_columns("name,token\nalice,x,y\n").expect("hidden");
+        let (out, _) = mask_named_columns("name,token\nalice,x,y\n").expect("hidden");
         assert!(!out.contains("alice"));
     }
 
     #[test]
     fn leaves_a_table_with_no_secret_column_alone() {
-        assert!(hide_secret_columns("name,tokens_used\nalice,12\n").is_none());
-        assert!(hide_secret_columns("just some prose, with a comma\n").is_none());
+        assert!(mask_named_columns("name,tokens_used\nalice,12\n").is_none());
+        assert!(mask_named_columns("just some prose, with a comma\n").is_none());
     }
 }
