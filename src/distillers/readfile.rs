@@ -545,18 +545,34 @@ mod tests {
         );
     }
 
-    /// Recalibrating to Claude's tokenizer moved the unit, not the gate: a code
+    /// Recalibrating to Claude's tokenizer moved the unit, not the gate: a Rust
     /// file is still distilled from 6,400 bytes, as before #584.
     #[test]
     fn keeps_the_code_read_gate_at_6400_bytes() {
-        let tokens = |b| {
-            crate::util::token_estimate::estimate_tokens(
-                b,
-                crate::util::token_estimate::ContentHint::Code,
-            )
+        let sized = |len: usize| {
+            let mut s = String::new();
+            let mut i = 0;
+            while s.len() < len - 64 {
+                s.push_str(&format!(
+                    "pub fn handler_{i}(req: &Request) -> Response {{\n    let id = req.id({i});\n    respond(id)\n}}\n"
+                ));
+                i += 1;
+            }
+            s.push_str("//");
+            s.push_str(&"x".repeat(len - s.len() - 1));
+            s.push('\n');
+            assert_eq!(s.len(), len);
+            s
         };
-        assert!(tokens(6_390) < MIN_DISTILL_TOKENS, "{}", tokens(6_390));
-        assert!(tokens(6_400) >= MIN_DISTILL_TOKENS, "{}", tokens(6_400));
+        assert_eq!(
+            distill_readfile(&sized(6_390), "/tmp/handlers.rs"),
+            None,
+            "below the gate a Rust file reaches the agent whole"
+        );
+        assert!(
+            distill_readfile(&sized(6_400), "/tmp/handlers.rs").is_some(),
+            "at 6,400 bytes a Rust file is distilled, as it was before #584"
+        );
     }
 
     /// A long markdown spec passes through whole, sized past `MIN_DISTILL_TOKENS` (#523).
