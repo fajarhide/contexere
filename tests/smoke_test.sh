@@ -326,7 +326,7 @@ check "session json has context_pressure" "$SESSION_JSON" "context_pressure"
 # terminal weeks later. It lives in the smoke test for the same reason as the
 # block below: it is a property of the shipped binary's output, and `cargo test`
 # never runs this file.
-DETAIL_OUT="$($OMNI stats --view detail 2>&1 || true)"
+DETAIL_OUT="$("$OMNI" stats --view detail 2>&1 || true)"
 for SECTION in "commands" "bytes in, out" "of what it saw" "latency" "sessions" \
                "by period" "where the bytes were" "what Contexere did with each call" \
                "by agent"; do
@@ -343,21 +343,21 @@ done
 # #816. The calibration view has to reach a person: `marker_retrieve_rates` was
 # computed and read by nothing outside tests for two releases. An empty store
 # prints the empty state, which is what a fresh smoke run has.
-FOLDS_OUT="$($OMNI stats --view folds 2>&1 || true)"
+FOLDS_OUT="$("$OMNI" stats --view folds 2>&1 || true)"
 # The header, not the word: `folds` appears in the summary view's prose too, so
 # the loose check passed with the dispatch arm deleted.
 check "folds view renders" "$FOLDS_OUT" "Contexere . folds"
 check "folds view says why it is empty" "$FOLDS_OUT" "No marker recorded"
-check "calibration is accepted too" "$($OMNI stats --view calibration 2>&1 || true)" "Contexere . folds"
+check "calibration is accepted too" "$("$OMNI" stats --view calibration 2>&1 || true)" "Contexere . folds"
 # #859. Pointed at an empty config dir so the run reads no real transcript: the
 # check is that the arm dispatches and says why it is empty, in under a second.
 BILL_HOME="$(mktemp -d)"
-BILL_OUT="$(CLAUDE_CONFIG_DIR="$BILL_HOME" $OMNI stats --view bill 2>&1 || true)"
+BILL_OUT="$(CLAUDE_CONFIG_DIR="$BILL_HOME" "$OMNI" stats --view bill 2>&1 || true)"
 rm -rf "$BILL_HOME"
 check "bill view renders" "$BILL_OUT" "Contexere . bill"
 check "bill view says why it is empty" "$BILL_OUT" "No host transcript"
 
-DEFAULT_OUT="$($OMNI stats 2>&1 || true)"
+DEFAULT_OUT="$("$OMNI" stats 2>&1 || true)"
 for WORD in "folded" "distilled" "left alone" "where the bytes were"; do
     check "default has '$WORD'" "$DEFAULT_OUT" "$WORD"
     check "detail has '$WORD'" "$DETAIL_OUT" "$WORD"
