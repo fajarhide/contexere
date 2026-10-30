@@ -1548,6 +1548,7 @@ mod tests {
             ("KEY", "/home/me@host/key"),
             ("KEY", "/tmp/a b"),
             ("KEY", "relative/path/key"),
+            ("KEY", "\"/etc/app/key\"glued-secret"),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
