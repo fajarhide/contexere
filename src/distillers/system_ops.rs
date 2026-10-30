@@ -535,10 +535,17 @@ fn is_a_url_without_credentials(key: &str, literal: &str) -> bool {
 }
 
 /// An absolute or `~/` path names where a secret lives, not the secret (#950).
-/// Base64 can open with `/`, so: two segments or more, path characters only
-/// (no `+`, `=`, `:`, `@`, space), and no segment of 12 or more characters
-/// mixing upper, lower and digits.
-fn names_a_path(literal: &str) -> bool {
+/// The shape alone is weak evidence, since base64 can open with `/`
+/// (`/Ab3dEf/Gh4jKlMn`), so the key has to agree: one that names a file
+/// (`*_FILE`, `*_PATH`, `*_DIR`) takes any path shape below, the weak bare
+/// `KEY` only an all-lowercase path, and every other key none.
+fn names_a_path(key: &str, literal: &str) -> bool {
+    let k = key.trim().to_uppercase();
+    let names_a_file = ["_FILE", "_PATH", "_DIR"].iter().any(|s| k.ends_with(s));
+    let lowercase_only = !literal.chars().any(|c| c.is_ascii_uppercase());
+    if !(names_a_file || (only_the_key_pattern_matched(key) && lowercase_only)) {
+        return false;
+    }
     let v = literal.trim().trim_end_matches([',', ';']);
     let Some(rest) = v.strip_prefix("~/").or_else(|| v.strip_prefix('/')) else {
         return false;
@@ -616,7 +623,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
-        || (names_a_path(literal) && is_only_punctuation(tail))
+        || (names_a_path(key, literal) && is_only_punctuation(tail))
     {
         return None;
     }
@@ -1549,6 +1556,10 @@ mod tests {
             ("KEY", "/tmp/a b"),
             ("KEY", "relative/path/key"),
             ("KEY", "\"/etc/app/key\"glued-secret"),
+            ("API_TOKEN", "/Ab3dEf/Gh4jKlMn"),
+            ("KEY", "/Ab3dEf/Gh4jKlMn"),
+            ("API_TOKEN", "/etc/app/token"),
+            ("SECRET", "~/abc/def"),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
