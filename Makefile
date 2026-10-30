@@ -55,11 +55,18 @@ security:
 	fi; \
 	echo "All security pattern checks passed ✓"
 
+# Where `cargo build --profile ci` writes, which follows CARGO_TARGET_DIR (#969).
+CI_BIN = $(or $(CARGO_TARGET_DIR),target)/ci/contexere
+
 binary-check:
 	@echo "=== Building Release Binary ==="
 	cargo build --profile ci
 	@echo "=== Checking Binary Size ==="
-	@SIZE=$$(stat -c%s target/ci/contexere 2>/dev/null || stat -f%z target/ci/contexere); \
+	@if [ ! -f "$(CI_BIN)" ]; then \
+		echo "ERROR: no binary at $(CI_BIN)"; \
+		exit 1; \
+	fi
+	@SIZE=$$(stat -c%s "$(CI_BIN)" 2>/dev/null || stat -f%z "$(CI_BIN)"); \
 	SIZE_MB=$$((SIZE / 1048576)); \
 	echo "Binary size: $${SIZE_MB}MB ($${SIZE} bytes)"; \
 	if [ $$SIZE -gt 15728640 ]; then \
@@ -76,7 +83,7 @@ binary-check:
 	# session history feeds the scorer, so inheriting whatever `cargo test`
 	# left behind makes those assertions depend on test ordering.
 	rm -rf $(CURDIR)/target/omni-smoke
-	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh ./target/ci/contexere
+	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh "$(CI_BIN)"
 
 ci: fmt clippy test security binary-check
 	@echo "========================================"
