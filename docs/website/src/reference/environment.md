@@ -7,6 +7,7 @@ Every `OMNI_*` variable the binary reads. Grouped by why you would reach for one
 | variable | effect |
 |---|---|
 | `OMNI_PASSTHROUGH=1` | Skip the pipeline entirely. Raw output, every time. |
+| `OMNI_SECRET_SOURCES=~/.portal-key:conf/prod.ini` | More credential sources, colon separated and matched as a path suffix. Printing one is refused like `.env`. |
 
 This is the first thing to reach for when you suspect Contexere changed something it should
 not have, and the thing to set when you need exact bytes from a file read through your

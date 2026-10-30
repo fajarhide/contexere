@@ -120,6 +120,28 @@ fn process_payload(
     let parsed: PreHookInput = serde_json::from_str(input_str).ok()?;
     let cmd_str = parsed.tool_input.command.as_ref()?;
 
+    // First, so no wrapper or passthrough prefix can route around it (#981). The
+    // global switch stays honoured: it is the A/B control.
+    if !crate::guard::env::is_passthrough()
+        && let Some(source) = crate::guard::secret_source::printed_source(
+            cmd_str,
+            &crate::guard::secret_source::user_sources(),
+        )
+    {
+        let reason = crate::guard::secret_source::denial(&source);
+        if parsed.hook_event_name.as_deref() == Some("BeforeTool") {
+            return serde_json::to_string(&json!({ "decision": "deny", "reason": reason })).ok();
+        }
+        return serde_json::to_string(&json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }))
+        .ok();
+    }
+
     // Claude Code refuses `omni exec ... git` in a worktree-isolated agent (#905); the post-hook
     // still distills.
     if names_git(cmd_str) && parsed.cwd.as_deref().is_some_and(in_linked_worktree) {
@@ -395,6 +417,36 @@ mod tests {
         assert_eq!(host_from_payload(Some("BeforeTool"), false), Some("gemini"));
     }
     use super::*;
+
+    #[test]
+    fn denies_reading_a_credential_source_and_names_what_to_run() {
+        let payload = r#"{"tool_input":{"command":"cat .env"}}"#;
+        let reply = process_payload(payload, None).expect("a denial");
+        let v: serde_json::Value = serde_json::from_str(&reply).expect("json");
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .expect("a reason");
+        assert!(
+            reason.contains("wc -l") && reason.contains(". file"),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn denies_in_gemini_shape_for_before_tool() {
+        let payload = r#"{"hook_event_name":"BeforeTool","tool_input":{"command":"cat .env"}}"#;
+        let reply = process_payload(payload, None).expect("a denial");
+        let v: serde_json::Value = serde_json::from_str(&reply).expect("json");
+        assert_eq!(v["decision"], "deny");
+    }
+
+    #[test]
+    fn leaves_loading_a_source_alone() {
+        let payload = r#"{"tool_input":{"command":". .env && ./run.sh"}}"#;
+        let reply = process_payload(payload, None).unwrap_or_default();
+        assert!(!reply.contains("deny"), "{reply}");
+    }
     use serde_json::json;
 
     /// Each host gets the reply shape it reads (#351, #158): `updatedInput` under

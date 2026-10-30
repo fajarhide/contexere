@@ -118,6 +118,12 @@ yang sangat panjang kehilangan ekornya. Handle ada kalau bagian yang dibuang dia
 tanpa handle pun penandanya tetap menyebut apa yang dibuang.
 
 ```
+[OMNI: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
+```
+
+Perintah itu mencetak sumber kredensial, jadi kamu mendapat bentuknya dan tidak pernah isinya. Perintah seperti ini biasanya ditolak sebelum berjalan, disertai apa yang bisa dijalankan sebagai gantinya. Sumbernya `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, file bernama `*secret*`, `*credential*` atau `*creds*`, `crontab -l`, `systemctl cat`, `docker inspect` tanpa format, juga di dalam `ssh`, ditambah `OMNI_SECRET_SOURCES`. Memuat nilai tanpa mencetaknya tetap jalan: `. file`, `jq --rawfile`, `wc -l`, `stat`, `shasum`, `cmp`.
+
+```
 [OMNI: 2 sensitive value(s) redacted]
 ```
 

@@ -8,6 +8,7 @@ akan meraihnya.
 | variabel | efeknya |
 |---|---|
 | `OMNI_PASSTHROUGH=1` | Lewati pipeline sepenuhnya. Keluaran mentah, setiap kali. |
+| `OMNI_SECRET_SOURCES=~/.portal-key:conf/prod.ini` | Sumber kredensial tambahan, dipisah titik dua dan dicocokkan sebagai akhiran path. Mencetaknya ditolak seperti `.env`. |
 
 Ini hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang
 seharusnya tidak ia ubah, dan hal yang perlu disetel ketika Anda butuh byte yang
