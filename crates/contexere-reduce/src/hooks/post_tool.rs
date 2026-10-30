@@ -488,12 +488,69 @@ fn distil_tool_reply(
     None
 }
 
+/// The reply for output that comes from a credential source, or holds a CSV column
+/// naming a secret (#981). `None` for everything else.
+fn withheld_reply(
+    normalized: &crate::hooks::normalize::NormalizedInput,
+    store: Option<&Store>,
+    session: Option<&Arc<Mutex<SessionState>>>,
+) -> Option<String> {
+    use crate::guard::secret_source as source;
+    if crate::guard::env::is_passthrough() {
+        return None;
+    }
+    let extra = source::user_sources();
+    let named = if normalized.tool_name == "Read" {
+        source::is_source(&normalized.command, &extra).then(|| normalized.command.clone())
+    } else {
+        source::printed_source(&normalized.command, &extra)
+    };
+    let (body, context) = if let Some(name) = named {
+        if let Some(s) = store {
+            s.record_passthrough(
+                "credential source",
+                normalized.content.len(),
+                "credential source",
+                normalized.host_session_id.as_deref().unwrap_or(""),
+                &crate::hooks::normalize::stats_agent_id(&normalized.agent),
+            );
+        }
+        let body = source::summary(&name, &normalized.content);
+        (body, "[OMNI: a credential source was withheld]".to_string())
+    } else {
+        let (body, count) = source::hide_secret_columns(&normalized.content)?;
+        (
+            body,
+            format!("[OMNI: {count} sensitive value(s) redacted in place]"),
+        )
+    };
+    if let Some(sess) = session
+        && let Ok(mut state) = sess.lock()
+    {
+        state.current_turn.tool_output_bytes += body.len() as u64;
+    }
+    serde_json::to_string(&HookOutput {
+        hook_specific_output: HookSpecificOutput {
+            hook_event_name: "PostToolUse",
+            updated_tool_output: shape_for_host(normalized.raw_response.as_ref(), body),
+            additional_context: Some(context),
+        },
+    })
+    .ok()
+}
+
 pub fn process_payload(
     input_str: &str,
     store: Option<Arc<Store>>,
     session: Option<Arc<Mutex<SessionState>>>,
 ) -> Option<String> {
     let normalized = crate::hooks::normalize::normalize(input_str)?;
+
+    // Before every gate, a failed command and a typed passthrough included: whatever
+    // ran, this source's bytes do not reach the model (#981).
+    if let Some(reply) = withheld_reply(&normalized, store.as_deref(), session.as_ref()) {
+        return Some(reply);
+    }
 
     // The decline gates, each recording its reason (#442, #441).
     if let Some(decline) = declined(&normalized, store.as_deref()) {
@@ -1685,6 +1742,62 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(!carries_our_marker(theirs), "false positive on real output");
     }
     use super::*;
+
+    fn bash_reply(command: &str, stdout: &str) -> String {
+        let payload = serde_json::json!({
+            "tool_name": "Bash",
+            "tool_input": { "command": command },
+            "tool_response": { "stdout": stdout, "stderr": "", "interrupted": false },
+        })
+        .to_string();
+        process_payload(&payload, None, None).expect("a rewrite")
+    }
+
+    #[test]
+    fn withholds_a_bare_pair_read_from_a_credential_source() {
+        let secret = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY01";
+        let reply = bash_reply(
+            "cat ~/.storage-creds",
+            &format!("AKIAIOSFODNN7EXAMPLE {secret}\n"),
+        );
+        assert!(
+            !reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"),
+            "{reply}"
+        );
+        assert!(reply.contains("withheld"), "{reply}");
+    }
+
+    #[test]
+    fn withholds_a_source_even_with_a_typed_passthrough() {
+        let reply = bash_reply("OMNI_PASSTHROUGH=1 cat .env", "A=wJalrXUtnFEMIK7MDENGbPx\n");
+        assert!(!reply.contains("wJalrXUt"), "{reply}");
+    }
+
+    #[test]
+    fn hides_csv_secret_columns_under_any_command() {
+        let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAIOSFODNN7EXAMPLE,wJalrXUtnFEMIK7MDENG\n";
+        let reply = bash_reply("python3 export.py", csv);
+        assert!(
+            !reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"),
+            "{reply}"
+        );
+        assert!(reply.contains("alice"), "{reply}");
+    }
+
+    #[test]
+    fn withholds_a_read_of_a_credential_source() {
+        let payload = serde_json::json!({
+            "tool_name": "Read",
+            "tool_input": { "file_path": "/home/u/.aws/credentials" },
+            "tool_response": { "type": "text", "file": {
+                "filePath": "/home/u/.aws/credentials",
+                "content": "aws_secret=wJalrXUtnFEMIK7MDENGbPx\n",
+                "numLines": 1, "startLine": 1, "totalLines": 1 } },
+        })
+        .to_string();
+        let reply = process_payload(&payload, None, None).expect("a rewrite");
+        assert!(!reply.contains("wJalrXUt"), "{reply}");
+    }
     use serde_json::json;
 
     /// The guardrail never restores a redacted secret (#342).
