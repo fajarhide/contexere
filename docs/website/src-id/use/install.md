@@ -7,7 +7,7 @@ Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, yaitu program yang 
 **macOS dan Linux, lewat Homebrew:**
 
 ```sh
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 **macOS, Linux, WSL:**
@@ -116,7 +116,13 @@ sebenarnya.
 
 ```sh
 contexere update      # untuk pemasangan Homebrew
-brew upgrade omni
+brew upgrade contexere
+```
+
+Dipasang sebelum 0.8.2 sebagai `omni`? Formula-nya kini bernama `contexere`, dan Homebrew melewati formula yang berganti nama dari sebuah tap sampai kamu mempercayainya. `brew upgrade` lalu tidak berkata apa-apa dan tetap di versi lama. Jalankan sekali:
+
+```sh
+brew trust --tap fajarhide/tap && brew upgrade
 ```
 
 Jalankan ulang `contexere init` sesudahnya kalau sebuah rilis mengubah kontrak

@@ -51,7 +51,7 @@ Contexere 在模型读取之前，去掉模型不需要的内容。没有任何�
 ## 安装
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | 平台 | 命令 |

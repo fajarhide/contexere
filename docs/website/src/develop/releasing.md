@@ -75,7 +75,7 @@ succeeds anyway with `rc=0`. That line is not an error.
 
 ## The Homebrew step
 
-`update_homebrew_sha.sh` pushes to **two** repositories: the tap, and `omni.rb` back
+`update_homebrew_sha.sh` pushes to **two** repositories: the tap, and `contexere.rb` back
 to `main`. Check the tap clone is clean and synced with its remote first, or the run
 aborts partway and leaves the formula half updated.
 
@@ -83,7 +83,7 @@ Afterwards, verify the formula's SHAs against the release's published `SHA256SUM
 rather than trusting the script's own success line, then confirm:
 
 ```sh
-brew info fajarhide/tap/omni      # expect: x.y.z → stable <new>
+brew info fajarhide/tap/contexere      # expect: x.y.z → stable <new>
 ```
 
 ## Before merging anything into a release

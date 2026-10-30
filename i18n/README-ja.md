@@ -51,7 +51,7 @@ Contexere は、モデルが読む前に、モデルに不要なものを取り�
 ## インストール
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | 場所 | コマンド |

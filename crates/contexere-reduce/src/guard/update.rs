@@ -132,7 +132,7 @@ pub fn print_notification(latest: &str) {
     );
     println!(
         "      Run: {} to upgrade.\n",
-        "brew upgrade fajarhide/tap/omni".cyan()
+        "brew upgrade fajarhide/tap/contexere".cyan()
     );
 }
 

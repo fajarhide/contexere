@@ -51,7 +51,7 @@
 ## التثبيت
 
 ```bash
-brew install fajarhide/tap/omni
+brew install fajarhide/tap/contexere
 ```
 
 | أين | الأمر |

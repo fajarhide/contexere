@@ -73,7 +73,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                 println!("{} Updating Contexere via Homebrew...", "🚀".cyan());
 
                 let status = Command::new("brew")
-                    .args(["upgrade", "fajarhide/tap/omni"])
+                    .args(["upgrade", "fajarhide/tap/contexere"])
                     .status();
 
                 match status {
@@ -88,7 +88,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     }
                     Err(e) => {
                         return Err(format!(
-                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/omni' manually.",
+                            "Failed to execute 'brew': {}. Please run 'brew upgrade fajarhide/tap/contexere' manually.",
                             e
                         ));
                     }

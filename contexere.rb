@@ -1,8 +1,8 @@
-class Omni < Formula
+class Contexere < Formula
   desc "The context layer for AI coding agents: less noise, fewer tokens, nothing lost"
   homepage "https://github.com/fajarhide/contexere"
   version "0.8.1"
-  license "MIT"
+  license "Apache-2.0"
 
   on_macos do
     on_arm do

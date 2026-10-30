@@ -10,7 +10,7 @@ Anda. Jalannya lokal, tidak perlu API key, dan setelah terpasang Anda tidak
 pernah mengetik namanya lagi.
 
 ```bash
-brew install fajarhide/tap/omni && contexere init
+brew install fajarhide/tap/contexere && contexere init
 ```
 
 Di dalam Claude Code cukup dua baris, sisanya diurus agent:
