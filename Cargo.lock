@@ -197,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "contexere"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "chrono",
  "colored",
@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "contexere-reduce"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "chrono",
