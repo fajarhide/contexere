@@ -14,7 +14,7 @@ edition = "2024"
 authors = ["Fajar Hidayat"]
 license = "Apache-2.0"
 homepage = "https://omni.weekndlabs.com"
-repository = "https://github.com/fajarhide/omni"
+repository = "https://github.com/fajarhide/contexere"
 
 [package]
 name = "contexere"
@@ -28,8 +28,8 @@ repository.workspace = true
 # population a savings figure is only true inside, and the last two ratios that
 # shipped without them (58.9% here, 89% in the repo description) both descend from a
 # corpus that seven-day pruning has since deleted. The reproducible numbers live in
-# docs/BENCHMARKS.md next to the command that regenerates them.
-description = "Semantic Signal Engine for AI agents: decides what your agent reads, keeps a receipt for every byte it removes, and never invents a result."
+# the manual's benchmarks page next to the command that regenerates them.
+description = "The context layer for AI coding agents: less noise, fewer tokens, nothing lost. Formerly OMNI."
 readme = "README.md"
 # crates.io takes at most five keywords and only its own category slugs.
 keywords = ["ai", "agent", "mcp", "cli", "llm"]
