@@ -615,10 +615,35 @@ fn references_instead_of_holding(value: &str) -> bool {
     if !(v.ends_with(')') && v.contains('(')) {
         return false;
     }
-    // The charset carries the quote and whitespace narrowings; do not add either.
-    // A separate guard clause for them was dead, as a break test showed.
-    v.chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '(' | ')' | '[' | ']'))
+    // The callee keeps the narrow charset: no quote, no whitespace.
+    let Some(open) = v.find('(') else {
+        return false;
+    };
+    #[allow(clippy::string_slice)] // `(` is one ASCII byte, found above
+    let (callee, args) = (&v[..open], &v[open..]);
+    if !callee
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '[' | ']'))
+    {
+        return false;
+    }
+    // The arguments may hold colons, commas and spaces (#980), but never a quote,
+    // and the first `(` must close at the end: `f(x) g(secret)` is two calls.
+    let mut depth = 0usize;
+    for (i, c) in args.char_indices() {
+        match c {
+            '"' | '\'' | '`' => return false,
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 && i + 1 != args.len() {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
 }
 
 /// One line's redaction decision and its replacement, shared by both callers:
@@ -1649,6 +1674,44 @@ mod tests {
                 redact_assignment(key, value),
                 Some(expected.to_string()),
                 "{key}={value} kept a literal the reader should not see"
+            );
+        }
+    }
+
+    /// A call is a reference whatever its arguments look like, as long as no
+    /// quote holds a literal and it is one call, not two (#980).
+    #[test]
+    fn keeps_a_call_whose_arguments_carry_colons_commas_or_spaces() {
+        for (key, value) in [
+            (
+                "api_response",
+                " PaymentClient.new.chat(query: query, history: history)",
+            ),
+            ("api_key", " fetch_key(:billing)"),
+            ("token", " Settings.fetch(:api, default: nil)"),
+            ("secret", " vault.read(path, version)"),
+        ] {
+            assert_eq!(
+                redact_assignment(key, value),
+                None,
+                "{key}={value} is a call, and was destroyed"
+            );
+        }
+    }
+
+    /// The widened call rule still refuses what could hold a credential (#980).
+    #[test]
+    fn still_hides_a_quoted_argument_or_a_second_call() {
+        for (key, value) in [
+            ("token", " auth(user, \"hunter2\")"),
+            ("token", " login(user: 'ghp_realLookingValue1234')"),
+            ("api_key", " f(x) g(sk_live_realLookingValue)"),
+            ("api_key", " (sk_live_realLookingValue)"),
+            ("secret", " wrap(x)tail"),
+        ] {
+            assert!(
+                redact_assignment(key, value).is_some(),
+                "{key}={value} could carry a credential and was delivered"
             );
         }
     }
