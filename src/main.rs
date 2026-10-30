@@ -298,6 +298,10 @@ fn main() {
         }
 
         Mode::Cli => {
+            // A person asking what it did gets one line, not a help page (#769).
+            if args.len() == 1 && cli::stats::print_glance() {
+                return;
+            }
             let cmd_name = args.get(1).map(|s| s.as_str()).unwrap_or("help");
             match cmd_name {
                 "version" | "-v" | "--version" => cli::version::run_version(&args),

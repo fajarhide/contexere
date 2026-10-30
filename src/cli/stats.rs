@@ -15,6 +15,39 @@ pub fn format_bytes(n: u64) -> String {
     }
 }
 
+/// What `contexere` with no arguments says: one line from the same rows as
+/// `stats`, saved bytes first and declined calls as the product working (#769).
+pub fn glance_line(t: &crate::store::sqlite::EngineTotals, days: u64) -> String {
+    if t.distilled_calls == 0 && t.declined_calls == 0 && t.folds == 0 {
+        return format!(
+            "last {days} days: nothing recorded yet. `contexere init` wires your agents"
+        );
+    }
+    format!(
+        "last {days} days: {} never reached your model, {} folds, {} calls left alone",
+        format_bytes(t.total_saved()),
+        format_number(t.folds),
+        format_number(t.declined_calls)
+    )
+}
+
+/// Prints the glance, or help when the store cannot be opened.
+pub fn print_glance() -> bool {
+    let Ok(store) = Store::open() else {
+        return false;
+    };
+    let since = chrono::Utc::now().timestamp() - 7 * 86_400;
+    let Ok(t) = store.engine_totals(since) else {
+        return false;
+    };
+    println!("{}", glance_line(&t, 7));
+    println!(
+        "{}",
+        "contexere stats for the detail, contexere --help for every command".bright_black()
+    );
+    true
+}
+
 /// Rounds a count to `12K` or `1.2M`. No unit: callers pass tokens or bytes (#663).
 pub fn format_compact(count: u64) -> String {
     if count < 1000 {
@@ -2139,6 +2172,32 @@ fn run_project_stats(args: &[String], store: &Store) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    /// One line, no choice to make, and a declined call reads as the product working (#769).
+    #[test]
+    fn glance_says_what_was_saved_and_what_was_left_alone() {
+        let t = crate::store::sqlite::EngineTotals {
+            distilled_calls: 40,
+            distilled_input: 5 * 1024 * 1024,
+            distilled_output: 1024 * 1024,
+            declined_calls: 2_341,
+            folds: 925,
+            fold_bytes: 1024 * 1024 + 209_716,
+            ..Default::default()
+        };
+        assert_eq!(
+            glance_line(&t, 7),
+            "last 7 days: 5.2 MB never reached your model, 925 folds, 2,341 calls left alone"
+        );
+    }
+
+    /// With nothing recorded, the glance says how to start instead of printing zeros.
+    #[test]
+    fn glance_points_at_init_when_nothing_is_recorded() {
+        assert_eq!(
+            glance_line(&crate::store::sqlite::EngineTotals::default(), 7),
+            "last 7 days: nothing recorded yet. `contexere init` wires your agents"
+        );
+    }
 
     /// `--since` wins over the old window flags (#667).
     #[test]
