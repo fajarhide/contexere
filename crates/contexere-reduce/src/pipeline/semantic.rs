@@ -190,6 +190,11 @@ fn is_critical(lower_text: &str, tool_family: Option<&str>) -> bool {
         // `> Build error occurred` has no colon for the `error:` rule (#650).
         || lower_text.contains("build error")
         || lower_text.contains("--- fail")
+        // Measured misses from the labelled sample (#818).
+        || lower_text.contains("crashloopbackoff")
+        || lower_text.contains("imagepullbackoff")
+        || lower_text.contains("errimagepull")
+        || lower_text.lines().any(is_a_shell_eval_error)
         || mentions_failure_as_a_verdict(lower_text)
         || states_a_severity(lower_text)
 }
@@ -267,6 +272,14 @@ fn mentions_failure_as_a_verdict(text: &str) -> bool {
     text.lines()
         .filter(|l| !l.trim_start().starts_with(PASS_GLYPHS))
         .any(mentions_failure)
+}
+
+/// zsh reports a `-c` command's error as `(eval):3: condition expected: <`, with no
+/// word the rules above know (#818).
+fn is_a_shell_eval_error(line: &str) -> bool {
+    line.strip_prefix("(eval):")
+        .and_then(|rest| rest.split_once(':'))
+        .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// Whether `failed` appears as a verdict: not inside an identifier, and not after
@@ -376,6 +389,26 @@ fn is_data(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tiers_a_zsh_eval_error_critical() {
+        assert!(is_critical("(eval):3: condition expected: <", None));
+    }
+
+    #[test]
+    fn leaves_a_line_that_only_mentions_eval_alone() {
+        assert!(!is_critical("(eval): see the docs", None));
+    }
+
+    #[test]
+    fn tiers_a_pod_in_crash_loop_critical() {
+        assert!(is_critical("app-1  0/1  crashloopbackoff  94  5h", None));
+    }
+
+    #[test]
+    fn tiers_a_pod_that_cannot_pull_its_image_critical() {
+        assert!(is_critical("app-1  0/1  imagepullbackoff  0  5h", None));
+    }
 
     /// A failing glyph line is Critical (#425).
     #[test]
