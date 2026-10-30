@@ -1,5 +1,10 @@
 /* ==========================================================================
-   OMNI docs, wearing omni.weekndlabs.com's clothes.
+   Contexere docs, wearing omni.weekndlabs.com's clothes.
+
+   Colours are Contexere's, taken from media/logo.svg and written here by hand
+   since 0.8.1: the site no longer takes its palette from @weekndlabs/design,
+   so neither does the book. Fonts and sizes still come from that package.
+   weekndlabs/omni-pages DESIGN.md is the source; change both together.
 
    The site's design system is "the receipt": quiet paper, one instrument,
    itemised numbers. Its two rules are inherited here without exception.
@@ -98,14 +103,14 @@
    -------------------------------------------------------------------------- */
 
 .light {
-  --paper:       var(--wl-background, #E3E4E0);
-  --paper-panel: var(--wl-card, #DBDCD6);
-  --paper-sunk:  var(--wl-muted, #D3D5CD);
-  --ink:         var(--wl-foreground, #16161A);
-  --ink-soft:    var(--wl-muted-foreground, #56585A);
-  --rule:        var(--wl-border, #C6C8C1);
-  --rule-strong: var(--wl-input, #A9ABA3);
-  --accent:      var(--wl-ring, #7A4E00);      /* the house accent, as on the site */
+  --paper:       #EEF0F6;
+  --paper-panel: #E3E6F0;
+  --paper-sunk:  #E8EBF3;
+  --ink:         #14172A;
+  --ink-soft:    #565B78;
+  --rule:        #CDD1E0;
+  --rule-strong: #AFB4C8;
+  --accent:      #0E7462;      /* teal, the one accent, as on the site */
 
   --bg: var(--paper);
   --fg: var(--ink);
@@ -146,22 +151,22 @@
    -------------------------------------------------------------------------- */
 
 .navy {
-  --crt:          var(--wl-background, #0B0B0C);
-  --crt-panel:    var(--wl-card, #121214);
-  --crt-sunk:     var(--wl-muted, #161618);
-  --accent:       var(--wl-ring, #FFB000);
+  --crt:          #14172A;
+  --crt-panel:    #1B1F36;
+  --crt-sunk:     #191C33;
+  --accent:       #3FD4B4;
   --phosphor:     var(--wl-terminal-yellow, #FFB000);
   --phosphor-dim: var(--wl-terminal-dim, #A87400);
-  --ink:          var(--wl-foreground, #DEDFDA);
-  --ink-soft:     var(--wl-muted-foreground, #8C8E88);
-  --rule:         var(--wl-border, #26262A);
-  --rule-strong:  var(--wl-input, #3A3A40);
+  --ink:          #E6E8F2;
+  --ink-soft:     #8F94B0;
+  --rule:         #2C3150;
+  --rule-strong:  #3A4066;
 
   --bg: var(--crt);
   --fg: var(--ink);
-  --sidebar-bg: var(--wl-sidebar, #0E0E10);
+  --sidebar-bg: #111427;
   --sidebar-fg: var(--ink-soft);
-  --sidebar-non-existant: var(--wl-input, #4A4A50);
+  --sidebar-non-existant: #4A5078;
   --sidebar-active: var(--accent);
   --sidebar-spacer: var(--rule);
   --scrollbar: var(--rule-strong);
@@ -180,7 +185,7 @@
   --searchbar-border-color: var(--rule);
   --searchbar-bg: var(--crt-panel);
   --searchbar-fg: var(--ink);
-  --searchbar-shadow-color: var(--wl-background, #000);
+  --searchbar-shadow-color: #000;
   --searchresults-header-fg: var(--ink-soft);
   --searchresults-border-color: var(--rule);
   --searchresults-li-bg: var(--crt-panel);
