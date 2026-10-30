@@ -96,17 +96,21 @@ where
         .into_iter()
         .filter_map(|(k, _)| k.into_string().ok())
         .collect();
-    // Names compare without case, as every setting reader here does (Windows).
-    let upper: Vec<String> = keys.iter().map(|k| k.to_ascii_uppercase()).collect();
+    // A twin is what `env_to_adopt` folds: the exact `CONTEXERE_` prefix. Its rest
+    // and the old name compare without case, as every setting reader does.
+    let twins: Vec<String> = keys
+        .iter()
+        .filter_map(|k| k.strip_prefix(NEW_ENV_PREFIX))
+        .map(str::to_ascii_uppercase)
+        .collect();
     let mut old: Vec<String> = keys
         .iter()
-        .zip(&upper)
-        .filter(|(_, u)| {
-            u.strip_prefix(OLD_ENV_PREFIX).is_some_and(|rest| {
-                !rest.is_empty() && !upper.contains(&format!("{NEW_ENV_PREFIX}{rest}"))
-            })
+        .filter(|k| {
+            k.to_ascii_uppercase()
+                .strip_prefix(OLD_ENV_PREFIX)
+                .is_some_and(|rest| !rest.is_empty() && !twins.iter().any(|t| t == rest))
         })
-        .map(|(k, _)| k.clone())
+        .cloned()
         .collect();
     old.sort();
     old
@@ -174,12 +178,21 @@ mod tests {
             (OsString::from("OMNIX"), OsString::from("no")),
             // Windows reads environment names without case, and so does the code.
             (OsString::from("omni_passthrough"), OsString::from("1")),
+            // `adopt_env` folds only the exact `CONTEXERE_` prefix, so this twin
+            // is never read and `omni_db_path` still carries the setting.
             (OsString::from("omni_db_path"), OsString::from("/x")),
             (OsString::from("Contexere_Db_Path"), OsString::from("/x")),
+            // An adopted twin whose rest differs in case still covers the old one.
+            (OsString::from("OMNI_LOG"), OsString::from("1")),
+            (OsString::from("CONTEXERE_log"), OsString::from("1")),
         ];
         assert_eq!(
             settings_on_old_name(vars),
-            vec!["OMNI_QUIET".to_string(), "omni_passthrough".to_string()]
+            vec![
+                "OMNI_QUIET".to_string(),
+                "omni_db_path".to_string(),
+                "omni_passthrough".to_string()
+            ]
         );
     }
 
