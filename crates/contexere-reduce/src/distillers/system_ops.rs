@@ -1420,12 +1420,12 @@ mod tests {
 
     #[test]
     fn redacts_a_list_that_never_closes() {
-        assert!(redacted(r#"KEY = ("Ab3dEf9Gh2", "x""#));
+        assert!(redacted(r#"KEY = ("abc", "x""#));
     }
 
     #[test]
     fn redacts_an_empty_looking_list_with_a_secret_after_it() {
-        assert!(redacted("KEY = () Ab3dEf9Gh2"));
+        assert!(redacted("KEY = () abc"));
     }
 
     /// Each grep section is counted above its own rows (#247).
