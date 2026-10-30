@@ -154,6 +154,14 @@ pub(crate) fn report(
     host_applies_rewrite: bool,
     warnings: &mut Vec<String>,
 ) -> bool {
+    // A hook on the old name still works; this is the checklist for moving it (#876).
+    if crate::legacy::hook_calls_omni(command) {
+        crate::agent_report!(
+            "   {:<15} {}",
+            "Name:".bright_black(),
+            "still calls `omni`; `contexere init` switches it".bright_black()
+        );
+    }
     if !covers {
         crate::agent_report!(
             "   {:<15} {}",

@@ -317,6 +317,17 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     println!("  {:<15} {}", "Binary:".bright_black(), version_info);
 
+    // Settings still on the old name keep working; listed so the move has a checklist (#876).
+    let old = crate::legacy::settings_on_old_name(std::env::vars_os());
+    if !old.is_empty() {
+        println!(
+            "  {:<15} {} {}",
+            "Settings:".bright_black(),
+            old.join(", "),
+            "use the old name; CONTEXERE_* reads the same".bright_black()
+        );
+    }
+
     // `[LATEST]` cannot see merged but unreleased fixes (#127); this reads them
     // from the tree the binary was built from (#137).
     if unreleased_entries() > 0 {
