@@ -1,5 +1,10 @@
 /* ==========================================================================
-   OMNI docs, wearing omni.weekndlabs.com's clothes.
+   Contexere docs, wearing omni.weekndlabs.com's clothes.
+
+   Colours are Contexere's, taken from media/logo.svg and written here by hand
+   since 0.8.1: the site no longer takes its palette from @weekndlabs/design,
+   so neither does the book. Fonts and sizes still come from that package.
+   weekndlabs/omni-pages DESIGN.md is the source; change both together.
 
    The site's design system is "the receipt": quiet paper, one instrument,
    itemised numbers. Its two rules are inherited here without exception.
@@ -41,19 +46,18 @@
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/ibm-plex-mono-500.woff2') format('woff2'); }
 
 /* --------------------------------------------------------------------------
-   Every value in this file that decides how the book looks is a --wl-* token
-   from @weekndlabs/design, and every one of them carries the pre-system value
-   as its fallback.
+   Two sources. Colours are written by hand in the .light and .navy blocks
+   below, matching weekndlabs/omni-pages DESIGN.md, so a palette change is an
+   edit here and there together. Fonts, sizes and spacing are --wl-* tokens
+   from @weekndlabs/design, each carrying the pre-system value as its fallback.
 
-   The tokens are not vendored here. omni-pages depends on that package for its
-   own pages and, at publish time, drops the same copy into this book and links
-   it from theme/head.hbs (see scripts/build-docs.sh over there). That is what
-   keeps /docs and the rest of omni.weekndlabs.com on one palette through a
-   style change: one version bump, in one repository.
+   The tokens are not vendored here. omni-pages depends on that package and, at
+   publish time, drops the same copy into this book and links it from
+   theme/head.hbs (see scripts/build-docs.sh over there).
 
-   The consequence to know about: `mdbook serve` here renders the fallbacks, so
-   a local preview is the pre-system look and correct only in layout. Judge
-   colour and type on the published site, not on localhost:3000.
+   The consequence to know about: `mdbook serve` here shows the real colours
+   but the fallback fonts and sizes, so judge type on the published site, not
+   on localhost:3000.
    -------------------------------------------------------------------------- */
 
 :root {
@@ -98,14 +102,14 @@
    -------------------------------------------------------------------------- */
 
 .light {
-  --paper:       var(--wl-background, #E3E4E0);
-  --paper-panel: var(--wl-card, #DBDCD6);
-  --paper-sunk:  var(--wl-muted, #D3D5CD);
-  --ink:         var(--wl-foreground, #16161A);
-  --ink-soft:    var(--wl-muted-foreground, #56585A);
-  --rule:        var(--wl-border, #C6C8C1);
-  --rule-strong: var(--wl-input, #A9ABA3);
-  --accent:      var(--wl-ring, #7A4E00);      /* the house accent, as on the site */
+  --paper:       #EEF0F6;
+  --paper-panel: #E3E6F0;
+  --paper-sunk:  #E8EBF3;
+  --ink:         #14172A;
+  --ink-soft:    #565B78;
+  --rule:        #CDD1E0;
+  --rule-strong: #AFB4C8;
+  --accent:      #0E7462;      /* teal, the one accent, as on the site */
 
   --bg: var(--paper);
   --fg: var(--ink);
@@ -146,22 +150,22 @@
    -------------------------------------------------------------------------- */
 
 .navy {
-  --crt:          var(--wl-background, #0B0B0C);
-  --crt-panel:    var(--wl-card, #121214);
-  --crt-sunk:     var(--wl-muted, #161618);
-  --accent:       var(--wl-ring, #FFB000);
+  --crt:          #14172A;
+  --crt-panel:    #1B1F36;
+  --crt-sunk:     #191C33;
+  --accent:       #3FD4B4;
   --phosphor:     var(--wl-terminal-yellow, #FFB000);
   --phosphor-dim: var(--wl-terminal-dim, #A87400);
-  --ink:          var(--wl-foreground, #DEDFDA);
-  --ink-soft:     var(--wl-muted-foreground, #8C8E88);
-  --rule:         var(--wl-border, #26262A);
-  --rule-strong:  var(--wl-input, #3A3A40);
+  --ink:          #E6E8F2;
+  --ink-soft:     #8F94B0;
+  --rule:         #2C3150;
+  --rule-strong:  #3A4066;
 
   --bg: var(--crt);
   --fg: var(--ink);
-  --sidebar-bg: var(--wl-sidebar, #0E0E10);
+  --sidebar-bg: #111427;
   --sidebar-fg: var(--ink-soft);
-  --sidebar-non-existant: var(--wl-input, #4A4A50);
+  --sidebar-non-existant: #4A5078;
   --sidebar-active: var(--accent);
   --sidebar-spacer: var(--rule);
   --scrollbar: var(--rule-strong);
@@ -180,7 +184,7 @@
   --searchbar-border-color: var(--rule);
   --searchbar-bg: var(--crt-panel);
   --searchbar-fg: var(--ink);
-  --searchbar-shadow-color: var(--wl-background, #000);
+  --searchbar-shadow-color: #000;
   --searchresults-header-fg: var(--ink-soft);
   --searchresults-border-color: var(--rule);
   --searchresults-li-bg: var(--crt-panel);
