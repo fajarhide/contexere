@@ -111,6 +111,26 @@ impl Tier {
 /// The key a host registers our MCP server under.
 pub(crate) const SERVER_KEY: &str = "contexere";
 
+/// A host's JSON config to edit: `{}` when absent or empty. A file that does not
+/// parse is an error, because the caller writes back what it gets and everything
+/// in that file, comments allowed by Zed and VS Code included, would go (#972).
+pub(crate) fn read_json_config(path: &std::path::Path) -> anyhow::Result<serde_json::Value> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e.into()),
+    };
+    if content.trim().is_empty() {
+        return Ok(serde_json::json!({}));
+    }
+    serde_json::from_str(&content).map_err(|e| {
+        anyhow::anyhow!(
+            "{} is not plain JSON ({e}), so it was left alone. Add the entry by hand, or remove the comments and run this again.",
+            path.display()
+        )
+    })
+}
+
 /// True when an MCP `command` (the binary alone, args are stored apart, so a
 /// path may hold spaces) is the omni binary, by file name and not by substring.
 pub(crate) fn runs_omni_binary(command: &str) -> bool {
@@ -350,6 +370,35 @@ mod tier_tests {
 #[cfg(test)]
 mod rename_tests {
     use super::*;
+
+    #[test]
+    fn read_json_config_starts_empty_when_the_file_is_absent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let val = read_json_config(&dir.path().join("none.json")).expect("absent reads as empty");
+        assert_eq!(val, serde_json::json!({}));
+    }
+
+    #[test]
+    fn read_json_config_starts_empty_when_the_file_is_blank() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("blank.json");
+        std::fs::write(&path, " \n").expect("write fixture");
+        assert_eq!(
+            read_json_config(&path).expect("blank reads as empty"),
+            serde_json::json!({})
+        );
+    }
+
+    #[test]
+    fn read_json_config_refuses_a_file_with_comments_and_names_it() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, "{\n  // mine\n  \"theme\": \"dark\"\n}").expect("write fixture");
+        let err = read_json_config(&path)
+            .expect_err("comments must refuse")
+            .to_string();
+        assert!(err.contains("settings.json"), "{err}");
+    }
 
     /// #876: an omni command is recognised by its binary name, never by substring.
     #[test]

@@ -293,12 +293,7 @@ pub fn initialize_settings() -> anyhow::Result<(PathBuf, Value)> {
         fs::create_dir_all(parent)?;
     }
 
-    let mut val = if path.exists() {
-        let content = fs::read_to_string(&path)?;
-        serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-    } else {
-        json!({})
-    };
+    let mut val = super::read_json_config(&path)?;
 
     install_omni_hooks(&mut val, ""); // Temp to ensure object exists
     Ok((path, val))
@@ -558,12 +553,7 @@ pub fn install_hooks(exe_path: &str) -> anyhow::Result<()> {
 
 pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
     let path = get_claude_json_path();
-    let mut val = if path.exists() {
-        let content = fs::read_to_string(&path)?;
-        serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-    } else {
-        json!({})
-    };
+    let mut val = super::read_json_config(&path)?;
 
     let obj = val
         .as_object_mut()
