@@ -373,25 +373,30 @@ mod rename_tests {
 
     #[test]
     fn read_json_config_starts_empty_when_the_file_is_absent() {
-        let dir = tempfile::tempdir().unwrap();
-        let val = read_json_config(&dir.path().join("none.json")).unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let val = read_json_config(&dir.path().join("none.json")).expect("absent reads as empty");
         assert_eq!(val, serde_json::json!({}));
     }
 
     #[test]
     fn read_json_config_starts_empty_when_the_file_is_blank() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("blank.json");
-        std::fs::write(&path, " \n").unwrap();
-        assert_eq!(read_json_config(&path).unwrap(), serde_json::json!({}));
+        std::fs::write(&path, " \n").expect("write fixture");
+        assert_eq!(
+            read_json_config(&path).expect("blank reads as empty"),
+            serde_json::json!({})
+        );
     }
 
     #[test]
     fn read_json_config_refuses_a_file_with_comments_and_names_it() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("settings.json");
-        std::fs::write(&path, "{\n  // mine\n  \"theme\": \"dark\"\n}").unwrap();
-        let err = read_json_config(&path).unwrap_err().to_string();
+        std::fs::write(&path, "{\n  // mine\n  \"theme\": \"dark\"\n}").expect("write fixture");
+        let err = read_json_config(&path)
+            .expect_err("comments must refuse")
+            .to_string();
         assert!(err.contains("settings.json"), "{err}");
     }
 
