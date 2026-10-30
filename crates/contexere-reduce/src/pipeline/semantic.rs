@@ -390,24 +390,33 @@ fn is_data(text: &str) -> bool {
 mod tests {
     use super::*;
 
+    fn tiers_critical(line: &str) -> bool {
+        matches!(classify_block(&[line], None).0, SemanticClass::Critical)
+    }
+
     #[test]
     fn tiers_a_zsh_eval_error_critical() {
-        assert!(is_critical("(eval):3: condition expected: <", None));
+        assert!(tiers_critical("(eval):3: condition expected: <"));
     }
 
     #[test]
     fn leaves_a_line_that_only_mentions_eval_alone() {
-        assert!(!is_critical("(eval): see: the docs", None));
+        assert!(!tiers_critical("(eval): see: the docs"));
     }
 
     #[test]
     fn tiers_a_pod_in_crash_loop_critical() {
-        assert!(is_critical("app-1  0/1  crashloopbackoff  94  5h", None));
+        assert!(tiers_critical("app-1  0/1  CrashLoopBackOff  94  5h"));
     }
 
     #[test]
-    fn tiers_a_pod_that_cannot_pull_its_image_critical() {
-        assert!(is_critical("app-1  0/1  imagepullbackoff  0  5h", None));
+    fn tiers_a_pod_backing_off_an_image_pull_critical() {
+        assert!(tiers_critical("app-1  0/1  ImagePullBackOff  0  5h"));
+    }
+
+    #[test]
+    fn tiers_a_pod_failing_an_image_pull_critical() {
+        assert!(tiers_critical("app-1  0/1  ErrImagePull  0  5h"));
     }
 
     /// A failing glyph line is Critical (#425).
