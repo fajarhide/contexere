@@ -250,7 +250,8 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
 /// quote or a Windows `\U` cannot break the Python literal.
 fn render_plugin(exe_path: &str) -> String {
     let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
-    include_str!("../../../../plugins/hermes/__init__.py").replace("\"{{OMNI_BIN}}\"", &literal)
+    // The crate's own copy, so it can be published; a test keeps it equal to plugins/.
+    include_str!("../../assets/hermes_plugin.py").replace("\"{{OMNI_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {
@@ -647,6 +648,15 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    /// The crate ships its own copy of the plugin so it can be published; this
+    /// keeps that copy byte-identical to the one users install from `plugins/`.
+    #[test]
+    fn ships_the_same_plugin_users_install() {
+        let installed = std::fs::read_to_string("../../plugins/hermes/__init__.py")
+            .expect("plugins/hermes/__init__.py ships with the repo");
+        assert_eq!(include_str!("../../assets/hermes_plugin.py"), installed);
+    }
     #[test]
     fn removes_the_omni_server_and_leaves_the_users_own() {
         let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";

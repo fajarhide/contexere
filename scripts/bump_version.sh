@@ -27,6 +27,9 @@ echo "Bumping version from $CURRENT_VERSION to $NEW..."
 # 2. Update Cargo.toml
 sed -i.bak "s/^version = \".*\"/version = \"$NEW\"/" Cargo.toml
 rm -f Cargo.toml.bak
+# The binary's dependency on the library names our version for crates.io (#876).
+sed -i.bak "s/package = \"contexere-reduce\", path = \"crates\/contexere-reduce\", version = \"[^\"]*\"/package = \"contexere-reduce\", path = \"crates\/contexere-reduce\", version = \"$NEW\"/" Cargo.toml
+rm -f Cargo.toml.bak
 
 # 3. Update Cargo.lock
 cargo check --quiet 2>/dev/null || true
