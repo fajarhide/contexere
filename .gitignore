@@ -7,6 +7,8 @@ actual_stdout.txt
 # is compiled into the binary with include_str! and a fresh clone cannot
 # build without it (#628).
 !plugins/**/*.py
+# The library's own copy of that plugin, embedded so the crate can be published (#876).
+!crates/contexere-reduce/assets/*.py
 # And `scripts/`, which is shipped tooling a user is told to run. The blanket rule
 # above had already swallowed one announced file whole (#651), and it was about to
 # swallow a reproduction script the README pointed at.
