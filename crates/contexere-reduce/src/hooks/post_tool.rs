@@ -1848,7 +1848,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// Pi read `updatedResponse` and dropped every result (#688, #158).
     #[test]
     fn every_plugin_that_calls_the_hook_reads_the_key_it_writes() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("plugins");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
         let mut consumers = Vec::new();
         let mut offenders = Vec::new();
 
@@ -4363,7 +4363,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
     /// A failed command passes through even when its output is distillable (#120).
     fn distillable_noise() -> String {
-        std::fs::read_to_string("tests/fixtures/heavy_noise.txt")
+        std::fs::read_to_string("../../tests/fixtures/heavy_noise.txt")
             .expect("heavy_noise fixture missing")
     }
 

@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     fn collapses_cargo_test_500_fixture() {
-        let input = include_str!("../../tests/fixtures/cargo_test_500.txt");
+        let input = include_str!("../../../../tests/fixtures/cargo_test_500.txt");
         let result = collapse(input, &CollapseMode::Test);
 
         assert!(
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn collapses_cargo_build_fixture() {
-        let input = include_str!("../../tests/fixtures/cargo_build_large.txt");
+        let input = include_str!("../../../../tests/fixtures/cargo_build_large.txt");
         let result = collapse(input, &CollapseMode::Build);
 
         assert!(

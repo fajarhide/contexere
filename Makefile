@@ -31,22 +31,22 @@ security:
 	cargo audit
 	@echo "=== Checking for dangerous patterns ==="
 	@FAIL=0; \
-	if grep -rn 'Command::new("sh")' src/hooks/; then \
+	if grep -rn 'Command::new("sh")' crates/contexere-reduce/src/hooks/; then \
 		echo "WARNING: Command::new(\"sh\") found in hooks"; \
 		FAIL=1; \
 	fi; \
-	if grep -rn 'LD_PRELOAD' src/ --include='*.rs' | grep -v 'guard/env.rs' | grep -v 'DENYLIST'; then \
+	if grep -rn 'LD_PRELOAD' src/ crates/contexere-reduce/src/ --include='*.rs' | grep -v 'guard/env.rs' | grep -v 'DENYLIST'; then \
 		echo "WARNING: LD_PRELOAD referenced outside guard/env.rs"; \
 		FAIL=1; \
 	fi; \
-	if grep -rn ' as char' src/ --include='*.rs'; then \
+	if grep -rn ' as char' src/ crates/contexere-reduce/src/ --include='*.rs'; then \
 		echo "WARNING: 'as char' found. This is unsafe for UTF-8 bytes. Use char::from() or iterators instead."; \
 		FAIL=1; \
 	fi; \
-	UNWRAP_COUNT=$$(grep -rn '\.unwrap()' src/hooks/ --include='*.rs' | grep -v '#\[test\]' | grep -v 'mod tests' | grep -v '// safe:' | wc -l | tr -d ' '); \
+	UNWRAP_COUNT=$$(grep -rn '\.unwrap()' crates/contexere-reduce/src/hooks/ --include='*.rs' | grep -v '#\[test\]' | grep -v 'mod tests' | grep -v '// safe:' | wc -l | tr -d ' '); \
 	if [ "$$UNWRAP_COUNT" -gt 5 ]; then \
 		echo "WARNING: $$UNWRAP_COUNT unwrap() calls in src/hooks/ (max 5 allowed)"; \
-		grep -rn '\.unwrap()' src/hooks/ --include='*.rs' | grep -v '#\[test\]' | grep -v 'mod tests'; \
+		grep -rn '\.unwrap()' crates/contexere-reduce/src/hooks/ --include='*.rs' | grep -v '#\[test\]' | grep -v 'mod tests'; \
 		FAIL=1; \
 	fi; \
 	if [ $$FAIL -eq 1 ]; then \

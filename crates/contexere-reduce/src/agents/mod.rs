@@ -357,7 +357,7 @@ mod tier_tests {
     /// loudly rather than quietly.
     #[test]
     fn a_host_whose_plugin_calls_the_post_hook_is_not_mcp_only() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("plugins");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
         let integrations = all_integrations();
         let mut checked = Vec::new();
 

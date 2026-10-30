@@ -313,7 +313,8 @@ mod flag_tests {
     /// `CHANGELOG.md` is history and may name removed files.
     #[test]
     fn every_script_the_docs_name_is_in_the_repository() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        // The repository root, two levels above this crate since #948.
+        let root = &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         // `CONTRIBUTING.md` is a live guide too.
         let mut docs = vec![root.join("README.md"), root.join("CONTRIBUTING.md")];
         for dir in ["docs/website/src", "docs/website/src-id"] {

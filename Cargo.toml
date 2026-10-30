@@ -1,81 +1,61 @@
-[package]
-name = "contexere"
+# A workspace since #948: today's code lives in crates/contexere-reduce, and the
+# binary below depends on it, so later crates (a daemon, a credential broker) sit
+# beside it instead of growing one crate. Both are default members, so a plain
+# `cargo test` or `cargo clippy` still covers everything.
+[workspace]
+members = ["crates/contexere-reduce"]
+default-members = [".", "crates/contexere-reduce"]
+resolver = "3"
+
+# Read by scripts/bump_version.sh and omni-release.sh as the first `version =` line.
+[workspace.package]
 version = "0.8.1"
 edition = "2024"
 authors = ["Fajar Hidayat"]
+license = "Apache-2.0"
+homepage = "https://omni.weekndlabs.com"
+repository = "https://github.com/fajarhide/omni"
+
+[package]
+name = "contexere"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 # No ratio here on purpose. A crates.io description cannot carry the window and the
 # population a savings figure is only true inside, and the last two ratios that
 # shipped without them (58.9% here, 89% in the repo description) both descend from a
 # corpus that seven-day pruning has since deleted. The reproducible numbers live in
 # docs/BENCHMARKS.md next to the command that regenerates them.
 description = "Semantic Signal Engine for AI agents: decides what your agent reads, keeps a receipt for every byte it removes, and never invents a result."
-license = "Apache-2.0"
-homepage = "https://omni.weekndlabs.com"
-repository = "https://github.com/fajarhide/omni"
 readme = "README.md"
 keywords = ["cli", "ai", "mcp", "terminal", "agent", "ai-agent", "ai-coding", "ai-developer", "ai-tools", "ai-workflow", "ai-assistant"]
 categories = ["command-line-utilities", "development-tools", "text-processing", "ai", "productivity", "os", "ai-productivity"]
-
-[lib]
-name = "contexere"
-path = "src/lib.rs"
 
 # `omni` is not a second target: installers link it to this binary (#876).
 [[bin]]
 name = "contexere"
 path = "src/main.rs"
 
-[target.'cfg(unix)'.dependencies]
-# Only to restore default SIGPIPE (#155). Already in the tree via rusqlite, so
-# this adds no compilation, it just makes the use direct.
-libc = "0.2"
-
 [dependencies]
-# Core
-anyhow = "1.0"
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order"] }
-
-# MCP Server  
-rmcp = { version = "2.1", features = ["server", "transport-io"] }
+contexere = { package = "contexere-reduce", path = "crates/contexere-reduce" }
+colored = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 
-# Database (SQLite bundled — no system dep)
-rusqlite = { version = "0.31", features = ["bundled"] }
-r2d2 = "0.8"
-r2d2_sqlite = "0.24"
-
-# Observability
-
-# Pattern matching
-regex = "1"
-
-# Security & hashing
-sha2 = "0.10"
-
-# Time & analytics
-chrono = "0.4"
-
-# File system
-dirs = "5"
-walkdir = "2"
-
-# Output formatting
-colored = "2"
-
-# Config (TOML DSL filters)
-toml = "0.8"
-
-# Misc
-ureq = { version = "2", features = ["json"] }
-strsim = "0.11"
-schemars = "1.2.1"
-unicode-width = "0.2.2"
-dialoguer = "0.11"
+[target.'cfg(unix)'.dependencies]
+# Only to restore default SIGPIPE (#155).
+libc = "0.2"
 
 [dev-dependencies]
-insta = "1"  # snapshot testing
+serde_json = { version = "1", features = ["preserve_order"] }
 tempfile = "3"
+regex = "1"
+walkdir = "2"
+chrono = "0.4"
+rusqlite = { version = "0.31", features = ["bundled"] }
+insta = "1"
 # Exact token counting for tests/bench_replay.rs only (#392). Deliberately NOT a
 # runtime dependency: #174 removed cl100k counting from the hook after measuring
 # it at 34.3 ms against a 10 ms budget. The benchmark has no such budget, and a

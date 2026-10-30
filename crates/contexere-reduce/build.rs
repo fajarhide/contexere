@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn main() {
     // Re-run if .git/HEAD changes
-    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
 
     let git_hash = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
@@ -30,18 +30,18 @@ fn main() {
     // A build-time count is the honest source: `## [Unreleased]` describes the
     // tree this binary was compiled from. A properly cut release has none, so a
     // released binary says nothing.
-    println!("cargo:rerun-if-changed=CHANGELOG.md");
-    println!("cargo:rerun-if-changed=changelog.d");
+    println!("cargo:rerun-if-changed=../../CHANGELOG.md");
+    println!("cargo:rerun-if-changed=../../changelog.d");
     println!("cargo:rerun-if-changed=src/util/changelog.rs");
     // The sum of both places. New work writes a fragment under `changelog.d/`
     // so parallel branches stop conflicting on `## [Unreleased]`, but entries
     // already written into that section still count until the next tag folds
     // them in. Counting one and not the other would let a tag be cut on work
     // the binary then denies having.
-    let unreleased = std::fs::read_to_string("CHANGELOG.md")
+    let unreleased = std::fs::read_to_string("../../CHANGELOG.md")
         .map(|s| count_unreleased_entries(&s))
         .unwrap_or(0)
-        + count_fragments(std::path::Path::new("changelog.d"));
+        + count_fragments(std::path::Path::new("../../changelog.d"));
     println!("cargo:rustc-env=OMNI_UNRELEASED_ENTRIES={}", unreleased);
 }
 

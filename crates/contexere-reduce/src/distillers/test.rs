@@ -138,7 +138,7 @@ mod tests {
     /// Through collapse, score and distill: the runner's 490 passed, not `1 passed`.
     #[test]
     fn reports_runner_totals_not_a_recount_of_collapsed_lines() {
-        let input = include_str!("../../tests/fixtures/cargo_test_500.txt");
+        let input = include_str!("../../../../tests/fixtures/cargo_test_500.txt");
         let profile = registry::resolve_profile("cargo test");
         let collapsed = collapse::collapse(input, &profile.collapse)
             .collapsed_lines

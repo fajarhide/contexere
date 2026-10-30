@@ -199,6 +199,24 @@ dependencies = [
 name = "contexere"
 version = "0.8.1"
 dependencies = [
+ "chrono",
+ "colored",
+ "contexere-reduce",
+ "insta",
+ "libc",
+ "regex",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "tiktoken-rs",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
+name = "contexere-reduce"
+version = "0.8.1"
+dependencies = [
  "anyhow",
  "chrono",
  "colored",
@@ -217,7 +235,6 @@ dependencies = [
  "sha2",
  "strsim",
  "tempfile",
- "tiktoken-rs",
  "tokio",
  "toml",
  "unicode-width",

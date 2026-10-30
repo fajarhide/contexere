@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn vitest_zero_parse_passes_through_instead_of_claiming_success() {
         // A Vite dev server is not `vitest: ✓ 0/0` (#143, #115).
-        let input = include_str!("../../tests/fixtures/vite_dev_server.txt");
+        let input = include_str!("../../../../tests/fixtures/vite_dev_server.txt");
         let segments = scorer::score_with_command(input, "vitest", None);
         let output = distill_with_command(&segments, input, "vitest", None);
 
@@ -389,7 +389,7 @@ mod tests {
     /// `docker ps` passes through (#233).
     #[test]
     fn keeps_every_row_of_a_container_listing() {
-        let input = std::fs::read_to_string("tests/fixtures/docker_ps_mixed.txt")
+        let input = std::fs::read_to_string("../../tests/fixtures/docker_ps_mixed.txt")
             .expect("fixture must exist");
 
         for cmd in [
@@ -457,7 +457,7 @@ mod tests {
         ($name:ident, $file:expr, $cmd:expr) => {
             #[test]
             fn $name() {
-                let input = include_str!(concat!("../../tests/fixtures/", $file));
+                let input = include_str!(concat!("../../../../tests/fixtures/", $file));
                 let segments = scorer::score_with_command(input, $cmd, None);
                 let output = distill_with_command(&segments, input, $cmd, None);
 
@@ -531,7 +531,7 @@ mod tests {
         ($name:ident, $file:expr, $cmd:expr) => {
             #[test]
             fn $name() {
-                let input = include_str!(concat!("../../tests/fixtures/", $file));
+                let input = include_str!(concat!("../../../../tests/fixtures/", $file));
                 let segments = scorer::score_with_command(input, $cmd, None);
                 let output = distill_with_command(&segments, input, $cmd, None);
                 assert_eq!(
@@ -553,7 +553,7 @@ mod tests {
     /// Every env line and ordinary value survives; only secrets change (#344).
     #[test]
     fn env_passes_through_verbatim_except_its_secrets() {
-        let input = include_str!("../../tests/fixtures/env_output.txt");
+        let input = include_str!("../../../../tests/fixtures/env_output.txt");
         let segments = scorer::score_with_command(input, "env", None);
         let output = distill_with_command(&segments, input, "env", None);
 
