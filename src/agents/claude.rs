@@ -245,6 +245,7 @@ impl AgentIntegration for ClaudeIntegration {
                     p.display().to_string().bright_black(),
                     "[OK]".green().bold()
                 );
+                super::report_server_name(server_on_old_name(&c));
                 break;
             }
         }
@@ -332,6 +333,17 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
         check("SessionStart"),
         check("PreCompact"),
     )
+}
+
+/// `Some("omni")` when `.claude.json` holds our server on the old name, at the top
+/// level or under any project, the places `install_mcp_server` migrates.
+fn server_on_old_name(config: &str) -> Option<&'static str> {
+    let val: Value = serde_json::from_str(config).ok()?;
+    let projects = val.get("projects").and_then(Value::as_object);
+    std::iter::once(&val)
+        .chain(projects.into_iter().flat_map(|p| p.values()))
+        .filter_map(|holder| crate::agents::server_in(holder.get("mcpServers")?))
+        .find(|name| *name == "omni")
 }
 
 /// Drops our MCP server, under either name, from the top level, every project
@@ -723,6 +735,19 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn server_on_old_name_finds_a_project_entry() {
+        let config = r#"{"projects":{"/repo":{"mcpServers":{"omni":{"command":"/x/omni"}}}}}"#;
+        assert_eq!(server_on_old_name(config), Some("omni"));
+    }
+
+    #[test]
+    fn server_on_old_name_is_quiet_when_every_entry_moved() {
+        let config = r#"{"mcpServers":{"contexere":{"command":"/x/c"}},
+            "projects":{"/repo":{"mcpServers":{"contexere":{"command":"/x/c"}}}}}"#;
+        assert_eq!(server_on_old_name(config), None);
+    }
 
     #[test]
     fn test_init_hook_creates_valid_settings_json() {

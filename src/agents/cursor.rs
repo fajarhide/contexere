@@ -87,6 +87,7 @@ impl AgentIntegration for CursorIntegration {
                 "~/.cursor/mcp.json".bright_black(),
                 "[OK]".green().bold()
             );
+            super::report_server_name(super::registered_server(&content, "mcpServers"));
         } else {
             all_ok = false;
             if fix_mode {

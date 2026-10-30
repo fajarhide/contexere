@@ -155,6 +155,41 @@ pub(crate) fn drop_omni_server(servers: &mut serde_json::Map<String, serde_json:
     ours && servers.remove("omni").is_some()
 }
 
+/// The name our MCP server is registered under in a host's JSON config. An `omni`
+/// entry counts only when its command is the omni binary: under that name it may
+/// be someone else's server, the same test `drop_omni_server` applies.
+pub(crate) fn registered_server(config: &str, key: &str) -> Option<&'static str> {
+    // Unparsed means unknown: a quoted name alone cannot prove the entry is ours, and
+    // `install` refuses such a file rather than overwriting it (#972).
+    let val: serde_json::Value = serde_json::from_str(config).ok()?;
+    server_in(val.get(key)?)
+}
+
+/// `registered_server` on a servers map already parsed.
+pub(crate) fn server_in(servers: &serde_json::Value) -> Option<&'static str> {
+    let servers = servers.as_object()?;
+    if servers.contains_key(SERVER_KEY) {
+        return Some(SERVER_KEY);
+    }
+    servers
+        .get("omni")?
+        .get("command")?
+        .as_str()
+        .filter(|c| runs_omni_binary(c))
+        .map(|_| "omni")
+}
+
+/// A server on the old name still works; this is the checklist for moving it (#876).
+pub(crate) fn report_server_name(name: Option<&str>) {
+    if name == Some("omni") {
+        crate::agent_report!(
+            "   {:<15} {}",
+            "Name:".bright_black(),
+            "MCP server still named `omni`; `contexere init` switches it".bright_black()
+        );
+    }
+}
+
 /// Drop our MCP server from a `mcpServers` map under either name.
 pub(crate) fn drop_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
     servers.remove(SERVER_KEY).is_some() | drop_omni_server(servers)
@@ -370,6 +405,46 @@ mod tier_tests {
 #[cfg(test)]
 mod rename_tests {
     use super::*;
+
+    fn found(config: &str) -> Option<&'static str> {
+        registered_server(config, "mcpServers")
+    }
+
+    #[test]
+    fn registered_server_reads_what_init_writes() {
+        let config = r#"{"mcpServers":{"contexere":{"command":"/x/contexere"}}}"#;
+        assert_eq!(found(config), Some("contexere"));
+    }
+
+    #[test]
+    fn registered_server_reads_an_omni_install() {
+        let config = r#"{"mcpServers":{"omni":{"command":"/Users/Jane Doe/bin/omni"}}}"#;
+        assert_eq!(found(config), Some("omni"));
+    }
+
+    #[test]
+    fn registered_server_prefers_the_new_name_when_both_exist() {
+        let config =
+            r#"{"mcpServers":{"omni":{"command":"/x/omni"},"contexere":{"command":"/x/c"}}}"#;
+        assert_eq!(found(config), Some("contexere"));
+    }
+
+    #[test]
+    fn registered_server_leaves_out_a_server_someone_else_named_omni() {
+        let config = r#"{"mcpServers":{"omni":{"command":"/opt/their/tool"}}}"#;
+        assert_eq!(found(config), None);
+    }
+
+    #[test]
+    fn registered_server_ignores_the_word_outside_the_section() {
+        assert_eq!(found(r#"{"note":"omni","mcpServers":{}}"#), None);
+    }
+
+    #[test]
+    fn registered_server_does_not_guess_from_a_config_with_comments() {
+        let config = "{\n  // mine\n  \"mcpServers\": {\"omni\": {\"command\": \"/x/omni\"}}\n}";
+        assert_eq!(found(config), None);
+    }
 
     #[test]
     fn read_json_config_starts_empty_when_the_file_is_absent() {
