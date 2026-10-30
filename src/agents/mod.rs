@@ -162,7 +162,12 @@ pub(crate) fn registered_server(config: &str, key: &str) -> Option<&'static str>
     // Unparsed means unknown: a quoted name alone cannot prove the entry is ours, and
     // `install` refuses such a file rather than overwriting it (#972).
     let val: serde_json::Value = serde_json::from_str(config).ok()?;
-    let servers = val.get(key)?.as_object()?;
+    server_in(val.get(key)?)
+}
+
+/// `registered_server` on a servers map already parsed.
+pub(crate) fn server_in(servers: &serde_json::Value) -> Option<&'static str> {
+    let servers = servers.as_object()?;
     if servers.contains_key(SERVER_KEY) {
         return Some(SERVER_KEY);
     }
