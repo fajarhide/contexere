@@ -534,6 +534,31 @@ fn is_a_url_without_credentials(key: &str, literal: &str) -> bool {
         })
 }
 
+/// An absolute or `~/` path names where a secret lives, not the secret (#950).
+/// Base64 can open with `/`, so: two segments or more, path characters only
+/// (no `+`, `=`, `:`, `@`, space), and no segment of 12 or more characters
+/// mixing upper, lower and digits.
+fn names_a_path(literal: &str) -> bool {
+    let v = literal.trim().trim_end_matches([',', ';']);
+    let Some(rest) = v.strip_prefix("~/").or_else(|| v.strip_prefix('/')) else {
+        return false;
+    };
+    let segments: Vec<&str> = rest.split('/').collect();
+    let path_chars = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+    };
+    let random = |s: &str| {
+        s.len() >= 12
+            && s.chars().any(|c| c.is_ascii_uppercase())
+            && s.chars().any(|c| c.is_ascii_lowercase())
+            && s.chars().any(|c| c.is_ascii_digit())
+    };
+    (segments.len() >= 2 || v.starts_with("~/"))
+        && segments.iter().all(|s| path_chars(s) && !random(s))
+}
+
 /// A shell expansion names a value instead of holding one, so it applies to
 /// every pattern (#532). The `$` must be unquoted and open an expansion or a
 /// name: `PASSWORD=$3cr3t!` is a literal and stays redacted.
@@ -591,6 +616,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
+        || (names_a_path(literal) && is_only_punctuation(tail))
     {
         return None;
     }
@@ -1497,6 +1523,31 @@ mod tests {
                 "https://hooks.slack.com/services/T1/B2/secret",
             ),
             ("DATABASE_URL", "\"postgres://app:\"\"pw@db/x\""),
+        ] {
+            assert!(
+                redact_assignment(key, value).is_some(),
+                "{key}={value} delivered"
+            );
+        }
+    }
+
+    /// A path says where a secret lives, not what it is (#950). Base64 can start
+    /// with `/`, so anything that could be one stays hidden.
+    #[test]
+    fn keeps_a_path_to_a_secret_and_redacts_what_only_looks_like_one() {
+        let script = "KEY=/etc/app/backup_ed25519\nTOKEN_FILE=/run/secrets/api_token\nSSH_KEY=\"~/.ssh/id_ed25519\"\nPUB=/etc/app/backup.pub\n";
+        assert!(
+            redact_sensitive_assignments(script).is_none(),
+            "the path is what a runbook or a script review needs"
+        );
+        for (key, value) in [
+            ("API_TOKEN", "/aB3x9Kq2Lm8Zr4/Tv7Wc1Np6Qs0Yd5"),
+            ("SECRET", "/yQ2k8bR+Zz/Pq9wE=="),
+            ("PASSWORD", "/hunter2"),
+            ("TOKEN_FILE", "/run/secrets/x:y"),
+            ("KEY", "/home/me@host/key"),
+            ("KEY", "/tmp/a b"),
+            ("KEY", "relative/path/key"),
         ] {
             assert!(
                 redact_assignment(key, value).is_some(),
