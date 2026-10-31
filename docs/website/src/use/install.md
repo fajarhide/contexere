@@ -38,11 +38,10 @@ cargo build --release
 ```
 
 **On any agent that reads skills**, the same skill installs through the skills
-directory CLI, and is listed at
-[skills.sh/fajarhide/skills/omni](https://www.skills.sh/fajarhide/skills/omni):
+directory CLI:
 
 ```sh
-npx skills add fajarhide/skills --skill omni
+npx skills add fajarhide/contexere --skill omni
 ```
 
 Either way that installs a skill, not the binary. The skill carries the install
