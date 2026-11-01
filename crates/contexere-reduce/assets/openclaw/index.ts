@@ -155,8 +155,8 @@ function takeCommand(toolCallId: string | undefined): string {
 function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
   return {
     name: "omni_cmd",
-    label: "OMNI Command",
-    description: "Execute terminal tools (git, npm, cargo, docker, etc.) through OMNI's local semantic distillation engine to save 80-90% of token costs.",
+    label: "Contexere Command",
+    description: "Execute terminal tools (git, npm, cargo, docker, etc.) through Contexere's local semantic distillation engine to save 80-90% of token costs.",
     parameters: OmniCmdParams,
     async execute(_toolCallId: string, params: Record<string, unknown>) {
       const command = params.command as string;
@@ -177,7 +177,7 @@ function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text" as const, text: `Error running OMNI: ${message}` }],
+          content: [{ type: "text" as const, text: `Error running Contexere: ${message}` }],
           details: { error: true }
         };
       }
@@ -187,8 +187,8 @@ function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
 
 export default definePluginEntry({
   id: "omni-signal-engine",
-  name: "OMNI Semantic Signal Engine",
-  description: "Local-only semantic context filtering for OpenClaw using OMNI. Saves tokens by distilling shell output.",
+  name: "Contexere",
+  description: "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
   // A JSON Schema, not a TypeBox object. OpenClaw wants
   // `{safeParse?, parse?, validate?, jsonSchema?}` and a bare `TObject` shares
   // no property with it, so the schema was silently not the shape the host
