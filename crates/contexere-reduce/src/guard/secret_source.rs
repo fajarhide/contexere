@@ -519,7 +519,8 @@ fn names_a_secret(cell: &str) -> bool {
 
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
 /// row, and the count hidden. A row of another width is hidden whole, since its
-/// columns cannot be trusted to line up. `None` when there is nothing to hide.
+/// columns cannot be trusted to line up. `None` when there is nothing to hide, or
+/// when the output is prose whose first line happens to hold a comma (#1015).
 pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let mut lines = content.lines();
     let header = lines.next()?;
@@ -537,6 +538,23 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
     // record is withheld rather than parsed.
     let header_quoted = header.contains('"');
+    // A sentence ends in punctuation after several words. `notes:` is still a column.
+    let last = cells.last().map_or("", |c| c.trim_end());
+    if last.ends_with(['.', '!', '?', ':']) && last.split_whitespace().count() > 1 {
+        return None;
+    }
+    // A secret may hold the delimiter, so width cannot decide this: `name,token` over
+    // `alice,x,y` is still a table. A line with no delimiter is not a row, and output
+    // made mostly of those is prose, unless a quote may be spreading a record over lines.
+    let rows: Vec<&str> = content
+        .lines()
+        .skip(1)
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+    let row_shaped = rows.iter().filter(|l| l.contains(delimiter)).count();
+    if !header_quoted && !rows.iter().any(|l| l.contains('"')) && row_shaped * 2 < rows.len() {
+        return None;
+    }
     let mut out = vec![header.to_string()];
     let mut count = 0;
     for line in lines {
@@ -573,6 +591,43 @@ mod tests {
 
     /// Shapes written in good faith that printed a source without being seen
     /// (GHSA-v3fc-v69m-9v8h).
+    #[test]
+    fn prose_that_mentions_a_secret_is_not_a_table() {
+        // A sentence, then a README whose lines hold commas too.
+        let long = "A platform for securing secrets, certificates, access, and agents.\n\
+                    first plain line, with a comma\nanother, with one\none more, two more\n";
+        assert!(mask_named_columns(long).is_none());
+        // No full stop, so only the rows can tell.
+        let short = "Manage secrets, certificates, and agents\nno comma here\nnor here\none, two\n";
+        assert!(mask_named_columns(short).is_none());
+    }
+
+    #[test]
+    fn a_long_column_name_and_a_multiline_value_stay_hidden() {
+        let long = "user,token for production service account\nalice,opaque-one\nbob,opaque-two\n";
+        let (out, _) = mask_named_columns(long).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
+
+        let colon = "user,password,notes:\nalice,opaque-one,production\n";
+        let (out, _) = mask_named_columns(colon).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
+
+        let multi = "user,password\nalice,\"one\ntwo\nthree\nfour\nfive\"\n";
+        let (out, _) = mask_named_columns(multi).expect("hidden");
+        for value in ["one", "two", "three", "four", "five"] {
+            assert!(!out.contains(value), "{out}");
+        }
+    }
+
+    #[test]
+    fn one_odd_row_does_not_deliver_a_real_table() {
+        let csv = "user,password\nalice,opaque-one\nbob,opaque-two\ncarol,opaque,three\n";
+        let (out, _) = mask_named_columns(csv).expect("hidden");
+        for value in ["opaque-one", "opaque-two", "opaque,three"] {
+            assert!(!out.contains(value), "{out}");
+        }
+    }
+
     #[test]
     fn sees_the_shell_shapes_and_files_it_used_to_miss() {
         for command in [
