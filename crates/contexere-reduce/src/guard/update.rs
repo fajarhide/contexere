@@ -40,6 +40,8 @@ pub fn get_status() -> Status {
         // No curl, or no network, reads as offline.
         let output = std::process::Command::new("curl")
             .args([
+                // First, as curl requires: a user's .curlrc must not redirect the reply.
+                "-q",
                 "-fsSL",
                 "--connect-timeout",
                 "2",
