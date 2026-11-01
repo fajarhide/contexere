@@ -9,7 +9,7 @@ resolver = "3"
 
 # Read by scripts/bump_version.sh and omni-release.sh as the first `version =` line.
 [workspace.package]
-version = "0.8.3"
+version = "0.8.4"
 edition = "2024"
 authors = ["Fajar Hidayat"]
 license = "Apache-2.0"
@@ -44,7 +44,7 @@ path = "src/main.rs"
 
 [dependencies]
 # The version is what crates.io resolves; bump_version.sh keeps it equal to ours.
-contexere = { package = "contexere-reduce", path = "crates/contexere-reduce", version = "0.8.3" }
+contexere = { package = "contexere-reduce", path = "crates/contexere-reduce", version = "0.8.4" }
 colored = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 
