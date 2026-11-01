@@ -85,7 +85,7 @@ angkanya, jangan membentuk kesan.
 | perkakas | apa yang ia lakukan |
 |---|---|
 | `omni_remember` | Simpan sebuah keputusan, jebakan atau batasan |
-| `omni_recall` | Pencarian semantik lintas engram, pengetahuan dan riwayat penyulingan |
+| `omni_recall` | Pencarian lintas pengetahuan tersimpan |
 | `omni_knowledge` | Kueri atau simpan pengetahuan proyek lintas sesi |
 | `omni_insight` | Persoalan dan pola galat berulang teratas di seluruh proyek |
 | `omni_adaptive_insights` | Pola pengambilan kembali, sebagai penilaian atas keefektifan penyulingan |

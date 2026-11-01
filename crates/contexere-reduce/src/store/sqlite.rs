@@ -738,6 +738,7 @@ impl SqliteBackend {
             CREATE INDEX IF NOT EXISTS idx_engrams_project ON engrams(project_hash);
 
             -- 16. Semantic Search Virtual Tables (FTS5)
+            -- engrams is no longer written or read (#997). Kept so existing rows survive.
             CREATE VIRTUAL TABLE IF NOT EXISTS engrams_fts USING fts5(
                 label,
                 detail,
@@ -3005,30 +3006,6 @@ pub struct AgentSessionRow {
 }
 
 impl SqliteBackend {
-    pub fn persist_engram(
-        &self,
-        session_id: &str,
-        engram: &crate::session::engram::Engram,
-        category: &str,
-        project_hash: &str,
-    ) -> Result<()> {
-        let conn = self.pool.get().context("DB pool exhausted")?;
-        let id = format!("{}-{}", engram.trigger, engram.timestamp);
-        let files_json = serde_json::to_string(&engram.files).unwrap_or_else(|_| "[]".into());
-        let now = chrono::Utc::now().timestamp();
-        conn.execute(
-            "INSERT OR REPLACE INTO engrams
-             (id, session_id, trigger, label, detail, files, category, tags, project_hash, ts, last_accessed, hit_count)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '[]', ?8, ?9, ?10, 0)",
-            rusqlite::params![
-                id, session_id, engram.trigger.to_string(), engram.label,
-                engram.detail, files_json, category, project_hash,
-                engram.timestamp, now
-            ],
-        )?;
-        Ok(())
-    }
-
     pub fn search_knowledge(
         &self,
         query: &str,
@@ -3081,64 +3058,6 @@ impl SqliteBackend {
         out
     }
 
-    pub fn search_engrams(
-        &self,
-        query: &str,
-        project_hash: Option<&str>,
-        limit: usize,
-    ) -> Vec<EngramHit> {
-        let conn = match self.pool.get() {
-            Ok(c) => c,
-            Err(_) => return vec![],
-        };
-        let mut out: Vec<EngramHit> = vec![];
-        if let Some(ph) = project_hash {
-            let sql = "SELECT e.label, e.detail, e.category, e.files, e.ts, ef.rank
-                 FROM engrams_fts ef
-                 JOIN engrams e ON e.rowid = ef.rowid
-                 WHERE engrams_fts MATCH ?1 AND e.project_hash = ?2
-                 ORDER BY rank LIMIT ?3";
-            if let Ok(mut stmt) = conn.prepare(sql)
-                && let Ok(mapped) =
-                    stmt.query_map(rusqlite::params![query, ph, limit as i64], |row| {
-                        let files_json: String = row.get(3)?;
-                        Ok(EngramHit {
-                            label: row.get(0)?,
-                            detail: row.get(1)?,
-                            category: row.get(2)?,
-                            files: serde_json::from_str(&files_json).unwrap_or_default(),
-                            ts: row.get(4)?,
-                            rank: row.get::<_, f64>(5).unwrap_or(0.0).abs(),
-                        })
-                    })
-            {
-                out = mapped.filter_map(Result::ok).collect::<Vec<EngramHit>>();
-            }
-        } else {
-            let sql = "SELECT e.label, e.detail, e.category, e.files, e.ts, ef.rank
-                 FROM engrams_fts ef
-                 JOIN engrams e ON e.rowid = ef.rowid
-                 WHERE engrams_fts MATCH ?1
-                 ORDER BY rank LIMIT ?2";
-            if let Ok(mut stmt) = conn.prepare(sql)
-                && let Ok(mapped) = stmt.query_map(rusqlite::params![query, limit as i64], |row| {
-                    let files_json: String = row.get(3)?;
-                    Ok(EngramHit {
-                        label: row.get(0)?,
-                        detail: row.get(1)?,
-                        category: row.get(2)?,
-                        files: serde_json::from_str(&files_json).unwrap_or_default(),
-                        ts: row.get(4)?,
-                        rank: row.get::<_, f64>(5).unwrap_or(0.0).abs(),
-                    })
-                })
-            {
-                out = mapped.filter_map(Result::ok).collect::<Vec<EngramHit>>();
-            }
-        }
-        out
-    }
-
     pub fn unified_recall(
         &self,
         query: &str,
@@ -3154,16 +3073,6 @@ impl SqliteBackend {
                 value: k.value,
                 source: "knowledge".to_string(),
                 score: k.confidence as f64 * 10.0, // Scale confidence to match roughly with BM25 rank magnitude
-            });
-        }
-
-        let engrams = self.search_engrams(query, project_hash, limit);
-        for e in engrams {
-            results.push(RecallHit {
-                key: format!("[Engram: {}] {}", e.category, e.label),
-                value: e.detail.unwrap_or_default(),
-                source: "engram".to_string(),
-                score: e.rank,
             });
         }
 
@@ -3218,19 +3127,6 @@ impl SqliteBackend {
         .optional()
         .ok()
         .flatten()
-    }
-
-    pub fn count_engrams(&self, project_hash: &str) -> usize {
-        let conn = match self.pool.get() {
-            Ok(c) => c,
-            Err(_) => return 0,
-        };
-        conn.query_row(
-            "SELECT COUNT(*) FROM engrams WHERE project_hash = ?1",
-            rusqlite::params![project_hash],
-            |row| row.get::<_, i64>(0),
-        )
-        .unwrap_or(0) as usize
     }
 
     pub fn count_knowledge_entries(&self, project_hash: &str) -> usize {
@@ -3319,16 +3215,6 @@ pub struct KnowledgeHit {
     pub value: String,
     pub confidence: f32,
     pub project_hash: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct EngramHit {
-    pub label: String,
-    pub detail: Option<String>,
-    pub category: String,
-    pub files: Vec<String>,
-    pub ts: i64,
-    pub rank: f64,
 }
 
 #[derive(Debug, Clone)]

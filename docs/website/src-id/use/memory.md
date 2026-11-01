@@ -8,7 +8,7 @@ lama yang berbeda secara sengaja.
 
 | tingkat | apa | disimpan |
 |---|---|---|
-| **Permanen** | pengetahuan proyek, pola galat yang berulang, engram, ingatan tujuan | sampai Anda menghapusnya, kecuali ingatan tujuan yang menghormati `ttl_days` miliknya sendiri |
+| **Permanen** | pengetahuan proyek, pola galat yang berulang, ingatan tujuan | sampai Anda menghapusnya, kecuali ingatan tujuan yang menghormati `ttl_days` miliknya sendiri |
 | **Kerja, 30 hari** | sesi, baris penyulingan, berkas yang sering disentuh, arsip, indeks peristiwa, ledger | jendela bergulir |
 | **Apa adanya, 7 hari** | jejak eksekusi dan transkrip sesi | sengaja lebih pendek, dua orde besaran lebih berat per baris |
 
@@ -43,8 +43,7 @@ contexere remember 'The staging database ignores migrations run outside the depl
 ```
 
 Agent yang MCP-nya terpasang memanggil `omni_remember` sendiri, dan menarik fakta
-kembali dengan `omni_recall`, sebuah pencarian semantik lintas engram,
-pengetahuan tersimpan dan riwayat penyulingan. Keduanya diiklankan di tier MCP-only
+kembali dengan `omni_recall`, sebuah pencarian lintas pengetahuan tersimpan. Keduanya diiklankan di tier MCP-only
 dan Handoff-first. Host tier Full seperti Claude Code menulis lewat `contexere remember` di
 shell yang sudah dipasangi hook Contexere, dan mencapai `omni_recall`, yang tidak punya
 padanan CLI, dengan `OMNI_MCP_TOOLS=all`.
@@ -74,8 +73,8 @@ diiklankan secara bawaan, jadi setel `OMNI_MCP_TOOLS=all` sebelum memakainya.
 
 ## Engram
 
-Ringkasan subtugas yang selesai, ditulis seiring pekerjaan rampung, bukan
-disusun ulang belakangan.
+Ringkasan subtugas yang selesai pada sesi terakhir, ditulis seiring pekerjaan rampung,
+bukan disusun ulang belakangan.
 
 ```sh
 contexere engram

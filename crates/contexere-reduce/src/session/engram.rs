@@ -214,29 +214,6 @@ pub fn should_reinject_pinned(
     gap >= PINNED_REINJECT_INTERVAL
 }
 
-pub fn classify_engram_category(engram: &Engram) -> &'static str {
-    match engram.trigger {
-        EngramTrigger::ErrorResolved | EngramTrigger::TestPassAfterFailure => "gotcha",
-        EngramTrigger::BuildSucceeded => "progress",
-        EngramTrigger::Commit => {
-            if has_decision_keywords(&engram.label) {
-                "decision"
-            } else {
-                "progress"
-            }
-        }
-        EngramTrigger::LoopCheckpoint => "progress",
-    }
-}
-
-fn has_decision_keywords(text: &str) -> bool {
-    const KEYWORDS: &[&str] = &[
-        "switch", "migrate", "replace", "instead", "decided", "moved to",
-    ];
-    let lower = text.to_lowercase();
-    KEYWORDS.iter().any(|k| lower.contains(k))
-}
-
 /// Slices sit on ASCII boundaries: `find("-m ")` plus its three bytes.
 #[allow(clippy::string_slice)]
 fn extract_commit_msg(command: &str) -> Option<String> {
