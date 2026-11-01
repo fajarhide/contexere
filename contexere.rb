@@ -1,28 +1,28 @@
 class Contexere < Formula
   desc "The context layer for AI coding agents: less noise, fewer tokens, nothing lost"
   homepage "https://github.com/fajarhide/contexere"
-  version "0.8.2"
+  version "0.8.3"
   license "Apache-2.0"
 
   on_macos do
     on_arm do
       url "https://github.com/fajarhide/omni/releases/download/v#{version}/omni-v#{version}-aarch64-apple-darwin.tar.gz"
-      sha256 "cc5c7877bacb9cda078300af5573b4ff7f3dd806d233e0ea06b3ea75bbdd493a"
+      sha256 "6f8582e65d6c0b464b44cca4c89579eeabda696b9b59128c789b89326a62d05f"
     end
     on_intel do
       url "https://github.com/fajarhide/omni/releases/download/v#{version}/omni-v#{version}-x86_64-apple-darwin.tar.gz"
-      sha256 "4625d2d0fc65ddeabf651c7a9308a1e5fa4f711cb8d7ecc2526e78ec3e4f08bd"
+      sha256 "a894ab4276baf418986cd05567a92b9614562cc47285ea45b7fccc9a7c206014"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/fajarhide/omni/releases/download/v#{version}/omni-v#{version}-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "6c52f9b4e9b5423ba8f117f49ab669780782cdec4e8fa2fda45b685412336706"
+      sha256 "62753bc380bd492efe3c22b83f11bea746cab33402dda136fd70960c9bfbcc5f"
     end
     on_intel do
       url "https://github.com/fajarhide/omni/releases/download/v#{version}/omni-v#{version}-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "f28638d9ae31fe98dcd3e5056c50ed02120aa8778e832b2efad65c71871e7f68"
+      sha256 "c0f8e7300aff60fde4d8ff06633683b62d9792a59fb137bed99fb83dd1308fcd"
     end
   end
 
