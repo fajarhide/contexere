@@ -4,33 +4,6 @@ use serde_json::json;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 
-// Commands that mutate files, for hot-file warnings.
-fn is_mutating_command(cmd: &str) -> bool {
-    let lower = cmd.to_lowercase();
-    lower.contains("rm ")
-        || lower.contains("delete ")
-        || lower.contains("mv ")
-        || lower.contains("cp ")
-        || lower.contains("git checkout")
-        || lower.contains("git reset")
-        || lower.contains("git add")
-        || lower.contains("cargo build")
-        || lower.contains("cargo install")
-        || lower.contains("cargo clean")
-        || lower.contains("npm install")
-        || lower.contains("npm run build")
-        || lower.contains("rm -rf")
-        || lower.contains("docker build")
-        || lower.contains("docker run")
-        || lower.contains("kubectl apply")
-        || lower.contains("kubectl delete")
-        || lower.contains("write ")
-        || lower.contains("edit ")
-        || lower.contains("replace ")
-        || lower.contains("touch ")
-        || lower.contains("mkdir ")
-}
-
 #[derive(Deserialize)]
 struct PreHookInput {
     tool_input: ToolInput,
@@ -157,7 +130,15 @@ fn process_payload(
         .as_deref()
         .map(|s| crate::ledger::scope_for(s, parsed.agent_id.as_deref()));
 
-    if let Some(rewritten) = crate::cli::rewrite::rewrite_logic(cmd_str, host, scope.as_deref()) {
+    // Claude Code checks permissions against the command it runs, so a rewrite needs
+    // `allow` to run at all, and `allow` skips the user's prompt (GHSA-ggrc-wvrv-7qwq).
+    // Without one, an allow rule on the original stops matching. Its post-hook distills
+    // the same output, so only hosts where the rewrite is the way in keep it.
+    let rewrite =
+        host.is_some() || !matches!(parsed.hook_event_name.as_deref(), None | Some("PreToolUse"));
+    if rewrite
+        && let Some(rewritten) = crate::cli::rewrite::rewrite_logic(cmd_str, host, scope.as_deref())
+    {
         let mut updated_input = parsed.tool_input.clone();
         updated_input.command = Some(rewritten);
 
@@ -184,135 +165,35 @@ fn process_payload(
     }
 
     // Hints for read and search commands.
-    if let Some(target_file) = extract_target_file(cmd_str) {
-        let hot_count = if let Some(ref lock) = session {
-            if let Ok(mut state) = lock.lock() {
-                let count = state.hot_files.get(&target_file).copied().unwrap_or(0);
+    if let Some(target_file) = extract_target_file(cmd_str)
+        && let Some(ref lock) = session
+        && let Ok(mut state) = lock.lock()
+    {
+        let count = state.hot_files.get(&target_file).copied().unwrap_or(0);
 
-                let size_bytes = std::fs::metadata(&target_file)
-                    .map(|m| m.len())
-                    .unwrap_or(0);
-                // The metadata length, not a quarter of it (#589).
+        let size_bytes = std::fs::metadata(&target_file)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        // The metadata length, not a quarter of it (#589).
 
-                state.current_turn.session_id = state.session_id.clone();
-                state.current_turn.turn_number = state.command_count;
-                state.current_turn.timestamp = chrono::Utc::now().timestamp();
-                state.current_turn.file_read_bytes += size_bytes;
+        state.current_turn.session_id = state.session_id.clone();
+        state.current_turn.turn_number = state.command_count;
+        state.current_turn.timestamp = chrono::Utc::now().timestamp();
+        state.current_turn.file_read_bytes += size_bytes;
 
-                if count > 0 {
-                    state.current_turn.has_duplicate_file_reads = true;
-                    if !state.current_turn.duplicate_files.contains(&target_file) {
-                        state.current_turn.duplicate_files.push(target_file.clone());
-                    }
-                }
-
-                if size_bytes > state.current_turn.largest_single_read.1 {
-                    state.current_turn.largest_single_read = (target_file.clone(), size_bytes);
-                }
-
-                count
-            } else {
-                0
+        if count > 0 {
+            state.current_turn.has_duplicate_file_reads = true;
+            if !state.current_turn.duplicate_files.contains(&target_file) {
+                state.current_turn.duplicate_files.push(target_file.clone());
             }
-        } else {
-            0
-        };
-
-        // A mutating command on a hot file: warn.
-        if is_mutating_command(cmd_str) {
-            if hot_count > 2 {
-                let updated_input = parsed.tool_input.clone();
-                let reason = format!(
-                    "OMNI Guard: {} is a hot file (accessed {}x this session). Mutating it may have wide impact. Consider reviewing dependents with `omni context <file>`.",
-                    target_file, hot_count
-                );
-                let output = PreHookOutput {
-                    hook_specific_output: HookSpecificOutput {
-                        hook_event_name: "PreToolUse",
-                        permission_decision: "allow",
-                        permission_decision_reason: reason,
-                        updated_input,
-                    },
-                };
-                return serde_json::to_string(&output).ok();
-            }
-        } else if is_read_command(cmd_str) && hot_count > 1 {
-            // Repeated reads of one file get a hint.
-            let updated_input = parsed.tool_input.clone();
-            let reason = format!(
-                "OMNI Guard: Redundant read detected for {}. It has been accessed {}x. The file is likely already in context or unchanged. Read it only if you are verifying recent external changes.",
-                target_file, hot_count
-            );
-            let output = PreHookOutput {
-                hook_specific_output: HookSpecificOutput {
-                    hook_event_name: "PreToolUse",
-                    permission_decision: "allow",
-                    permission_decision_reason: reason,
-                    updated_input,
-                },
-            };
-            return serde_json::to_string(&output).ok();
         }
 
-        // A hint only; the command is unchanged.
-        let updated_input = parsed.tool_input.clone();
-        let reason = format!(
-            "OMNI context available for {}; call {} if needed",
-            target_file,
-            crate::legacy::tool_name("context")
-        );
-
-        let output = PreHookOutput {
-            hook_specific_output: HookSpecificOutput {
-                hook_event_name: "PreToolUse",
-                permission_decision: "allow",
-                permission_decision_reason: reason,
-                updated_input,
-            },
-        };
-        return serde_json::to_string(&output).ok();
-    }
-
-    // A mutating command with no file target may still touch a hot file.
-    if is_mutating_command(cmd_str)
-        && let Some(ref lock) = session
-        && let Ok(state) = lock.lock()
-        && !state.hot_files.is_empty()
-    {
-        let top_hot: Vec<String> = state
-            .hot_files
-            .iter()
-            .take(3)
-            .map(|(f, c)| format!("{} ({}x)", f, c))
-            .collect();
-        if !top_hot.is_empty() {
-            let updated_input = parsed.tool_input.clone();
-            let reason = format!(
-                "OMNI Guard: mutating command detected. Current hot files: {}. Review impact before proceeding.",
-                top_hot.join(", ")
-            );
-            let output = PreHookOutput {
-                hook_specific_output: HookSpecificOutput {
-                    hook_event_name: "PreToolUse",
-                    permission_decision: "allow",
-                    permission_decision_reason: reason,
-                    updated_input,
-                },
-            };
-            return serde_json::to_string(&output).ok();
+        if size_bytes > state.current_turn.largest_single_read.1 {
+            state.current_turn.largest_single_read = (target_file.clone(), size_bytes);
         }
     }
 
     None
-}
-
-fn is_read_command(cmd: &str) -> bool {
-    let lower = cmd.to_lowercase();
-    lower.contains("cat ")
-        || lower.contains("less ")
-        || lower.contains("head ")
-        || lower.contains("tail ")
-        || lower.contains("grep ")
 }
 
 fn extract_target_file(cmd: &str) -> Option<String> {
@@ -379,6 +260,7 @@ mod subagent_scope_581 {
             let mut v = serde_json::json!({
                 "session_id": "parent-1",
                 "hook_event_name": "PreToolUse",
+                "turn_id": "turn-1",
                 "tool_name": "Bash",
                 "tool_input": {"command": "git status"},
             });
@@ -489,7 +371,7 @@ mod tests {
         std::fs::create_dir_all(repo.join(".git")).unwrap();
         std::fs::write(wt.join(".git"), "gitdir: /elsewhere\n").unwrap();
         let reply = |cwd: &std::path::Path, cmd: &str| {
-            let payload = json!({"tool_input": {"command": cmd}, "cwd": cwd});
+            let payload = json!({"turn_id": "turn-1", "tool_input": {"command": cmd}, "cwd": cwd});
             process_payload(&payload.to_string(), None)
         };
 
@@ -506,6 +388,7 @@ mod tests {
     fn emits_the_reply_codex_documents_for_pretooluse() {
         let payload = json!({
             "tool_name": "shell",
+            "turn_id": "turn-1",
             "tool_input": {"command": "cargo test --all"},
             "cwd": "/tmp"
         });
@@ -527,34 +410,26 @@ mod tests {
         );
     }
 
+    /// A rewrite needs `allow`, and `allow` skips the user's prompt on Claude Code.
     #[test]
-    fn pre_hook_rewrites_git_status() {
-        let input = json!({
-            "tool_input": {
-                "command": "git status"
+    fn never_decides_a_permission_on_claude_code() {
+        for command in [
+            "git status",
+            "git push --force origin main",
+            "cat src/main.rs",
+            "grep foo notes.txt; rm -rf /tmp/zzz",
+            "bash -c 'touch x'",
+        ] {
+            for event in [json!(null), json!("PreToolUse")] {
+                let input = json!({
+                    "hook_event_name": event,
+                    "tool_name": "Bash",
+                    "tool_input": {"command": command},
+                })
+                .to_string();
+                assert_eq!(process_payload(&input, None), None, "{command}");
             }
-        })
-        .to_string();
-
-        let output = process_payload(&input, None).expect("Should rewrite");
-        assert!(output.contains("exec git status"));
-        assert!(output.contains("PreToolUse"));
-        assert!(output.contains("allow"));
-    }
-
-    #[test]
-    fn pre_hook_provides_context_hint_for_cat() {
-        let input = json!({
-            "tool_input": {
-                "command": "cat src/main.rs"
-            }
-        })
-        .to_string();
-
-        let output = process_payload(&input, None).expect("Should inject context");
-        assert!(output.contains("OMNI context available for src/main.rs"));
-        assert!(output.contains("PreToolUse"));
-        assert!(output.contains("allow"));
+        }
     }
 
     #[test]
