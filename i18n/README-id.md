@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Lapisan konteks dan token untuk agent coding.</b> Ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menyamarkan kredensial pada output yang ia tulis ulang. Tidak ada yang hilang.</em>
+    <em><b>Satu tempat untuk skill, key, dan memori semua agent yang kamu pakai.</b> Hari ini ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menyamarkan kredensial pada output yang ia tulis ulang. Tidak ada yang hilang.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi, jadi instalasi yang ada tidak perlu diubah. Contexere sedang berkembang menjadi satu tempat untuk skill, key, dan memori semua agent yang kamu pakai, di mana agent memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
+> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi, jadi instalasi yang ada tidak perlu diubah. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
 
 ## Kenapa
 

@@ -101,7 +101,7 @@ terang soal apa yang hari ini dikunci pada agent dan apa yang tidak.
 **Situasinya.** Anda menyalurkan keluaran terstruktur ke sesuatu yang menguraikan
 keluaran itu.
 
-**Yang Contexere lakukan: tidak ada.** JSON, YAML, NDJSON, CSV dan TSV lewat persis
+**Yang Contexere lakukan: tidak ada, kecuali ada secret di dalamnya.** JSON, YAML, NDJSON, CSV dan TSV lewat persis
 byte demi byte. Kompresor yang mengubah format muatan yang sebentar lagi diurai
 perintah berikutnya tidak menghemat apa pun untuk Anda, ia merusak pipeline Anda.
 

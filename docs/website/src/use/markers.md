@@ -185,7 +185,7 @@ a bug worth reporting, and it is the exact class this project cares about most.
 Most of the time, and that is the pipeline working rather than failing. Contexere hands the
 output straight back whenever taking anything would be unsafe or would not pay:
 
-- The payload is JSON, YAML, CSV or TSV. Never touched, on purpose.
+- The payload is JSON, YAML, CSV or TSV. Never shortened, on purpose. Only a secret inside it changes.
 - The command failed. A non-zero exit passes through verbatim.
 - There was no noise to remove. A `kubectl get pods` table is an enumeration where
   every row is a datum.

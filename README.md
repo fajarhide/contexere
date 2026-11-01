@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>The context and token layer for coding agents.</b> It shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
+    <em><b>The one place for the skills, keys and memory of every agent you use.</b> Today it shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
@@ -23,7 +23,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working, so existing installs need no change. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working, so existing installs need no change. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
 
 ## Why
 

@@ -7,6 +7,9 @@ exactly as they arrived.
 Four kinds are recognised: **JSON**, **YAML**, **CSV** and **TSV**. Recognising any
 of them ends the matter.
 
+One exception: a secret. A value under a key such as `password` is replaced in place, and a CSV
+or TSV column whose header names a secret is hidden. Everything around it stays as it was.
+
 This is the stage people mistake for a failure. `kubectl get pods -o json` coming back
 at full length is not Contexere missing an opportunity, it is Contexere declining one.
 
