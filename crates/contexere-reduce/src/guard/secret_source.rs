@@ -281,6 +281,8 @@ fn expand_source_variables(text: &str, extra: &[String]) -> String {
             line = written_out(&line, name, value);
         }
         let words: Vec<&str> = line.split_whitespace().collect();
+        // `env f=b true` and `f=b cmd` set it for the child, so `$f` stays what it was.
+        let changes_the_shell = words.iter().all(|w| w.contains('='));
         for (i, word) in words.iter().enumerate() {
             let (name, value) = if *word == "for" && words.get(i + 2) == Some(&"in") {
                 let values = words.iter().skip(i + 3).map(|w| trimmed(w));
@@ -294,7 +296,9 @@ fn expand_source_variables(text: &str, extra: &[String]) -> String {
             } else {
                 continue;
             };
-            known.retain(|(n, _)| n != name);
+            if changes_the_shell || *word == "for" {
+                known.retain(|(n, _)| n != name);
+            }
             if is_source(value, extra) {
                 known.push((name.to_string(), value.to_string()));
             }
@@ -578,6 +582,8 @@ mod tests {
             "for f in .env; do cat $f; done",
             "for f in notes.txt .env; do cat \"$f\"; done",
             "f=.env; cat $f; f=notes.txt",
+            "f=.env; env f=notes.txt true; cat \"$f\"",
+            "f=.env; f=notes.txt make; cat $f",
             "f=.env; cat $f",
             "f=.env; cat \"${f}\"",
             "while read l; do echo $l; done < .env",
