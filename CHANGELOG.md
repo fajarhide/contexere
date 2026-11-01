@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-01
+
+### Changed
+- **`init` exits 1 when a host it was asked for did not install**: it printed `✗ Failed` and exited 0, so a script could not tell the install had not happened. It still tries the other hosts first. If you run `init` from a script with `set -e`, a failed host now stops that script. `--all` skips Pi when its binary is not on `PATH` instead of failing, and Claude Code no longer prints `Restart Claude Code to activate` after a failed install.
+- **Benchmarks re-run on both corpora for the first time since 0.7.11**: on the frozen corpus the filters read 0.7% (was 0.8%) and the ledger 2.3% (was 2.4%), with no call larger. On the SWE-bench corpus the filters hold at 25.2% and the ledger moves from 30.3% to 30.4%. The fall on the frozen corpus is code, since the corpus hash did not change, and was not bisected to a commit. The manual's front page was still quoting figures from 0.7.9 and now matches. Reproduce with `make bench` and `CORPUS_DIR=swebench-corpus ./scripts/bench.sh`.
+
+### Fixed
+- **A credential with no issuer prefix and no named key no longer reaches the model (#981)**: redaction read the shape of the output, so `cat creds.csv` and a bare `<id> <secret>` pair were delivered whole. The pre-hook now refuses a command that prints a credential source and names what to run instead; the post-hook hands back lines, columns and field lengths only, for Bash and for `Read`; and a CSV or TSV whose header names a secret has those columns hidden under any command. Sources: `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, files named `*secret*`, `*credential*` or `*creds*`, `crontab -l`, `systemctl cat`, an unformatted `docker inspect`, also inside `ssh`, plus `OMNI_SECRET_SOURCES`.
+- **`init --openclaw` installs the plugin from the binary, not from `main`**: it downloaded the files from the repo's default branch, so any binary could install any later commit of the plugin, and the install failed offline. The plugin is now embedded, as Hermes already is. It no longer installs `package-lock.json`, since its one runtime dependency is pinned exactly and has none of its own. The update check now calls `curl`, and with `ureq` gone the binary builds 42 fewer crates. With no `curl` on `PATH`, the check reads as offline and says nothing.
+- **The pre-hook no longer approves commands on Claude Code**: it answered `allow` when it rewrote a command or attached a hint, which skipped the permission prompt, so `grep foo f; rm x` ran unasked. It now makes no permission decision there and does not rewrite; the post-hook distills the same output. Hints are gone on every host, since the reason on an `allow` never reached the model. Codex and Gemini CLI still rewrite.
+- **More ways of printing a credential file are refused**: `cat<file`, `{ ... }`, `if` and `for` bodies, a variable holding the path, `< file` into `tr` or a loop, `git show` and `git diff`, `dd`, `diff`, `jq`, a script passed to `python3 -c`, and files such as `.netrc`, `.pgpass`, `.npmrc`, `.kube/config`, `id_rsa`, `*.key`, non-certificate `*.pem` and `*.tfvars`. A hook still cannot stop a command built to evade it, and Grep's `path` is not checked yet.
+- **`contexere_run` applies the same refusal**, and redacts the output of a failed command. It had neither, and it is the only shell door on hosts with no hook.
+- **The redactor hides private key blocks, bearer tokens, JWTs, URL passwords and secrets in `"password": "x"` or `password: x`**. A value that is a type name, a placeholder or an unquoted word with no digit stays as it is.
+- **The manual's skill install line pointed at a removed copy**: `npx skills add fajarhide/skills --skill omni` stopped working when the skill was removed from `fajarhide/skills`. Both install pages now use `npx skills add fajarhide/contexere --skill omni`, which installed `SKILL.md` into an empty directory when run on 2026-11-01. They also drop the link to the skills.sh listing, which still names the removed source.
+
+### Removed
+- **`stats` no longer carries a `Hot files` line that could not print**: nothing ever wrote to the `file_access` table behind it, so the table is dropped on the next open. The Hermes warning also stops promising 27 MCP tools. That host is offered `omni_retrieve` and `omni_explain_savings`.
+- **`engrams` is no longer written or searched**: every `git commit` added a row, nothing pruned the table, and its only reader was `omni_recall`, which Claude Code and Codex are not offered. `omni_recall` now searches stored knowledge only, so hosts on the Handoff-first and MCP-only tiers lose commit labels from its results. `contexere engram` and the session-start digest read session state and do not change. Existing rows stay on disk.
+
 ## [0.8.2] - 2026-10-30
 
 ### Added
