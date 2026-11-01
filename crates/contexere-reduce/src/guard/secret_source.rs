@@ -517,6 +517,13 @@ fn names_a_secret(cell: &str) -> bool {
         || cell.split_whitespace().any(|w| w == "token")
 }
 
+/// Code, `path:line:` from grep, a URL and a dict all hold these inside a cell, and a
+/// list of column names does not.
+fn reads_as_a_column(cell: &str) -> bool {
+    let name = cell.trim().strip_suffix(':').unwrap_or(cell.trim());
+    !name.contains(['(', ')', '{', '}', '[', ']', '=', ';', ':'])
+}
+
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
 /// row, and the count hidden. A row of another width is hidden whole, since its
 /// columns cannot be trusted to line up. `None` when there is nothing to hide, or
@@ -532,7 +539,7 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
         .filter(|(_, c)| names_a_secret(c))
         .map(|(i, _)| i)
         .collect();
-    if hidden.is_empty() || cells.len() < 2 {
+    if hidden.is_empty() || cells.len() < 2 || !cells.iter().all(|c| reads_as_a_column(c)) {
         return None;
     }
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
@@ -600,6 +607,21 @@ mod tests {
         // No full stop, so only the rows can tell.
         let short = "Manage secrets, certificates, and agents\nno comma here\nnor here\none, two\n";
         assert!(mask_named_columns(short).is_none());
+    }
+
+    /// Output seen for real, or one edit away from it.
+    #[test]
+    fn code_grep_and_tool_rows_are_not_a_table() {
+        for output in [
+            "src/auth.py:12:def login(user, password, retries=3):\n    return login(user, password)\n    save(user, retries)\n",
+            "def login(user, password, retries=3):\n    check(user, password)\n",
+            "src/a.rs:3:fn check(password: &str, user: &str) -> bool {\n    check(password, user)\n",
+            "abc123 fix: hide password, token and key\ndef456 chore: bump, tidy\n",
+            "{'user': 'alice', 'password': 'x'}\nname, age\n",
+            "secrets\tpass\t4s\thttps://github.com/o/r/actions/runs/1\t\ntest\tpass\t9s\thttps://github.com/o/r/actions/runs/2\t\n",
+        ] {
+            assert!(mask_named_columns(output).is_none(), "{output}");
+        }
     }
 
     #[test]
