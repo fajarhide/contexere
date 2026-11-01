@@ -517,9 +517,6 @@ fn names_a_secret(cell: &str) -> bool {
         || cell.split_whitespace().any(|w| w == "token")
 }
 
-/// A column name is a few words. A sentence that mentions a secret is not one.
-const MAX_WORDS_IN_A_COLUMN_NAME: usize = 4;
-
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
 /// row, and the count hidden. A row of another width is hidden whole, since its
 /// columns cannot be trusted to line up. `None` when there is nothing to hide, or
@@ -532,9 +529,7 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let hidden: Vec<usize> = cells
         .iter()
         .enumerate()
-        .filter(|(_, c)| {
-            names_a_secret(c) && c.split_whitespace().count() <= MAX_WORDS_IN_A_COLUMN_NAME
-        })
+        .filter(|(_, c)| names_a_secret(c))
         .map(|(i, _)| i)
         .collect();
     if hidden.is_empty() || cells.len() < 2 {
@@ -543,16 +538,20 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
     // record is withheld rather than parsed.
     let header_quoted = header.contains('"');
+    // A sentence ends with punctuation, and a list of column names does not.
+    if header.trim_end().ends_with(['.', '!', '?', ':']) {
+        return None;
+    }
     // A secret may hold the delimiter, so width cannot decide this: `name,token` over
-    // `alice,x,y` is still a table. A line with no delimiter at all is not a row, and
-    // output made mostly of those is prose.
+    // `alice,x,y` is still a table. A line with no delimiter is not a row, and output
+    // made mostly of those is prose, unless a quote may be spreading a record over lines.
     let rows: Vec<&str> = content
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
         .collect();
     let row_shaped = rows.iter().filter(|l| l.contains(delimiter)).count();
-    if row_shaped * 2 < rows.len() {
+    if !header_quoted && !rows.iter().any(|l| l.contains('"')) && row_shaped * 2 < rows.len() {
         return None;
     }
     let mut out = vec![header.to_string()];
@@ -593,13 +592,26 @@ mod tests {
     /// (GHSA-v3fc-v69m-9v8h).
     #[test]
     fn prose_that_mentions_a_secret_is_not_a_table() {
-        // A long first cell: the description of a project, then its README.
+        // A sentence, then a README whose lines hold commas too.
         let long = "A platform for securing secrets, certificates, access, and agents.\n\
-                    first plain line, with a comma\nno comma here\none more, two more\n";
+                    first plain line, with a comma\nanother, with one\none more, two more\n";
         assert!(mask_named_columns(long).is_none());
-        // A short first cell, where only the rows can tell.
+        // No full stop, so only the rows can tell.
         let short = "Manage secrets, certificates, and agents\nno comma here\nnor here\none, two\n";
         assert!(mask_named_columns(short).is_none());
+    }
+
+    #[test]
+    fn a_long_column_name_and_a_multiline_value_stay_hidden() {
+        let long = "user,token for production service account\nalice,opaque-one\nbob,opaque-two\n";
+        let (out, _) = mask_named_columns(long).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
+
+        let multi = "user,password\nalice,\"one\ntwo\nthree\nfour\nfive\"\n";
+        let (out, _) = mask_named_columns(multi).expect("hidden");
+        for value in ["one", "two", "three", "four", "five"] {
+            assert!(!out.contains(value), "{out}");
+        }
     }
 
     #[test]
