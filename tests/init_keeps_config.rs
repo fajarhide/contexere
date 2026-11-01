@@ -69,6 +69,28 @@ fn exits_0_after_a_clean_install() {
     assert_eq!(status.code(), Some(0));
 }
 
+/// Needs no network and no Pi, which is what every fresh machine looks like (#984, #994).
+#[test]
+fn init_all_exits_0_with_no_pi_and_writes_the_embedded_plugin() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--all"])
+        .current_dir(home.path())
+        .env("HOME", home.path())
+        .env("PATH", home.path())
+        .env_remove("CLAUDE_CONFIG_DIR")
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init");
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let plugin = home.path().join(".openclaw/plugins/omni-signal-engine");
+    assert_eq!(
+        std::fs::read_to_string(plugin.join("index.ts")).expect("the plugin was written"),
+        include_str!("../plugins/openclaw/index.ts")
+    );
+}
+
 #[test]
 fn gemini_init_leaves_an_unparsed_config_alone() {
     assert_init_leaves_alone("--gemini", ".gemini/settings.json");

@@ -55,7 +55,6 @@ One SQLite file, `~/.omni/omni.db`.
 |---|---|
 | `sessions` | session state, task and domain hints |
 | `distillations` | every distillation: filter, bytes in and out, route, score, latency, agent |
-| `file_access` | hot file tracking per session |
 | `rewind_store` | compressed content by SHA-256, with a retrieval counter |
 | `session_events` | FTS5 full-text index |
 | `ledger_lines` | which lines a scope has been shown |

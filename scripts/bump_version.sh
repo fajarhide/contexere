@@ -37,6 +37,7 @@ cargo check --quiet 2>/dev/null || true
 # 4. Update openclaw plugin version
 sed -i.bak 's/"version": ".*"/"version": "'$NEW'"/' plugins/openclaw/openclaw.plugin.json
 rm -f plugins/openclaw/openclaw.plugin.json.bak
+cp plugins/openclaw/openclaw.plugin.json crates/contexere-reduce/assets/openclaw/openclaw.plugin.json
 
 # 4b. Update the Claude Code plugin version. Setting it pins the plugin, so a
 # release that forgets this leaves every installed copy on the previous one.
@@ -58,6 +59,7 @@ fi
 
 # 6. Stage and commit
 git add Cargo.toml Cargo.lock plugins/openclaw/openclaw.plugin.json \
+  crates/contexere-reduce/assets/openclaw/openclaw.plugin.json \
   plugins/claude-code/.claude-plugin/plugin.json
 git commit -m "chore: bump version to $NEW"
 

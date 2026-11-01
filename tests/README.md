@@ -1,6 +1,6 @@
-# OMNI Tests
+# Contexere tests
 
-This directory contains integration tests, fixtures, and snapshot data for the OMNI Semantic Signal Engine.
+This directory contains integration tests, fixtures, and snapshot data for Contexere.
 
 ## Structure
 
@@ -20,13 +20,13 @@ tests/
 ## Running Tests
 
 ```bash
-# All tests (147 total)
+# All tests
 cargo test
 
 # Specific suites
-cargo test --test hook_e2e            # 10 E2E tests
-cargo test --test savings_assertions  # 4 savings tests
-cargo test --test security_tests      # 6 security tests
+cargo test --test hook_e2e            # E2E tests
+cargo test --test savings_assertions  # savings tests
+cargo test --test security_tests      # security tests
 
 # Snapshot tests
 cargo test distillers::tests

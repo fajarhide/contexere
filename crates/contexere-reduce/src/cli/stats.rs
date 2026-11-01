@@ -1538,17 +1538,6 @@ fn run_detail(args: &[String], store: &Store) -> Result<()> {
         }
     }
 
-    let hot_files = store.hot_files_global(since)?;
-    if !hot_files.is_empty() {
-        println!("\n {}", "this session".bold().bright_white());
-        let files_str: Vec<String> = hot_files
-            .iter()
-            .take(3)
-            .map(|(f, c)| format!("{} ({})", f.bright_cyan(), c.to_string().bright_black()))
-            .collect();
-        println!("  Hot files:  {}", files_str.join(", "));
-    }
-
     println!();
     for note in footnotes {
         println!("  {}", note.bright_black().italic());

@@ -410,20 +410,6 @@ impl SqliteBackend {
         Ok((total, retrieved))
     }
 
-    pub fn hot_files_global(&self, since: i64) -> Result<Vec<(String, u64)>> {
-        let conn = self.pool.get().context("DB pool exhausted")?;
-        let mut stmt = conn.prepare(
-            "SELECT file_path, SUM(access_count) as cnt FROM file_access WHERE last_access >= ?1 GROUP BY file_path ORDER BY cnt DESC LIMIT 5"
-        )?;
-        let rows = stmt
-            .query_map(params![since], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, u64>(1)?))
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(rows)
-    }
-
     /// (event_count, total_original_lines, total_collapsed_lines)
     pub fn collapse_aggregate(&self, since: i64) -> Result<(u64, u64, u64)> {
         let conn = self.pool.get().context("DB pool exhausted")?;
@@ -500,14 +486,8 @@ impl SqliteBackend {
             CREATE INDEX IF NOT EXISTS idx_sessions_last_active
                 ON sessions(last_active DESC);
 
-            -- 3. File access
-            CREATE TABLE IF NOT EXISTS file_access (
-                session_id   TEXT NOT NULL,
-                file_path    TEXT NOT NULL,
-                access_count INTEGER DEFAULT 1,
-                last_access  INTEGER NOT NULL,
-                PRIMARY KEY (session_id, file_path)
-            );
+            -- 3. Nothing ever wrote to file_access.
+            DROP TABLE IF EXISTS file_access;
 
             -- 4. RewindStore
             CREATE TABLE IF NOT EXISTS rewind_store (
@@ -2240,10 +2220,6 @@ impl SqliteBackend {
             params![ts_threshold],
         );
         let _ = conn.execute(
-            "DELETE FROM file_access WHERE last_access < ?1",
-            params![ts_threshold],
-        );
-        let _ = conn.execute(
             "DELETE FROM rewind_store WHERE ts < ?1",
             params![ts_threshold],
         );
@@ -3628,7 +3604,6 @@ mod tests {
 
         assert!(tables.contains(&"sessions".to_string()));
         assert!(tables.contains(&"distillations".to_string()));
-        assert!(tables.contains(&"file_access".to_string()));
         assert!(tables.contains(&"rewind_store".to_string()));
         assert!(tables.contains(&"session_events".to_string())); // Because of fts5, session_events and its shadow tables exist
         assert!(tables.contains(&"execution_traces".to_string()));

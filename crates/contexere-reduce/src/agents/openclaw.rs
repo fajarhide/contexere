@@ -6,6 +6,29 @@ use std::path::PathBuf;
 
 pub struct OpenClawIntegration;
 
+/// The crate's own copy, so the plugin matches this binary and the crate can be
+/// published; a test keeps it equal to `plugins/openclaw`. No lockfile: the one
+/// runtime dependency is pinned exactly and has no dependencies of its own.
+const PLUGIN_FILES: &[(&str, &str)] = &[
+    (
+        "openclaw.plugin.json",
+        include_str!("../../assets/openclaw/openclaw.plugin.json"),
+    ),
+    ("index.ts", include_str!("../../assets/openclaw/index.ts")),
+    (
+        "package.json",
+        include_str!("../../assets/openclaw/package.json"),
+    ),
+    (
+        "runtime-api.ts",
+        include_str!("../../assets/openclaw/runtime-api.ts"),
+    ),
+    (
+        "tsconfig.json",
+        include_str!("../../assets/openclaw/tsconfig.json"),
+    ),
+];
+
 fn plugin_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -70,38 +93,8 @@ impl AgentIntegration for OpenClawIntegration {
         let dest = plugin_dir();
         fs::create_dir_all(&dest)?;
 
-        crate::agent_report!(
-            "  {} Downloading OpenClaw plugin files from GitHub...",
-            "↓".cyan()
-        );
-
-        for file in &[
-            "openclaw.plugin.json",
-            "index.ts",
-            "package.json",
-            "runtime-api.ts",
-            "tsconfig.json",
-        ] {
-            let url = format!(
-                "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/{}",
-                file
-            );
-            let to = dest.join(file);
-
-            let response = ureq::get(&url)
-                .call()
-                .map_err(|e| anyhow::anyhow!("Failed to download {}: {}", file, e))?;
-            let mut dest_file = fs::File::create(&to)?;
-            std::io::copy(&mut response.into_reader(), &mut dest_file)?;
-        }
-
-        // package-lock.json is optional; a 404 is fine.
-        let lock_url = "https://raw.githubusercontent.com/fajarhide/omni/main/plugins/openclaw/package-lock.json";
-        if let Ok(response) = ureq::get(lock_url).call() {
-            let to = dest.join("package-lock.json");
-            if let Ok(mut dest_file) = fs::File::create(&to) {
-                let _ = std::io::copy(&mut response.into_reader(), &mut dest_file);
-            }
+        for (name, content) in PLUGIN_FILES {
+            fs::write(dest.join(name), content)?;
         }
 
         crate::agent_report!(
@@ -241,6 +234,27 @@ impl AgentIntegration for OpenClawIntegration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Dev dependencies never reach an install, so a Dependabot bump of one stays green.
+    #[test]
+    fn ships_the_same_plugin_users_install() {
+        for (name, shipped) in PLUGIN_FILES {
+            let source = fs::read_to_string(format!("../../plugins/openclaw/{name}"))
+                .expect("plugins/openclaw ships with the repo");
+            if *name == "package.json" {
+                let runtime = |text: &str| {
+                    let mut v: Value = serde_json::from_str(text).expect("package.json parses");
+                    v.as_object_mut()
+                        .expect("an object")
+                        .remove("devDependencies");
+                    v
+                };
+                assert_eq!(runtime(shipped), runtime(&source), "copy {name} to assets/");
+            } else {
+                assert_eq!(*shipped, source, "copy {name} to assets/openclaw");
+            }
+        }
+    }
 
     const DIR: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
 

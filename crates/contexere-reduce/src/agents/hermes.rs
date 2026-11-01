@@ -29,7 +29,7 @@ pub fn validate_startup() -> Option<String> {
         if !config_str.contains("mcp_servers:") || !config_str.contains("omni:") {
             warnings.push(
                 "OMNI MCP server is NOT registered in ~/.hermes/config.yaml. \
-                 27 MCP tools (omni_retrieve, omni_loop_memory, omni_knowledge, …) \
+                 omni_retrieve and omni_explain_savings \
                  will be unavailable. Run `omni init --hermes` to fix.",
             );
         }
