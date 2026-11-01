@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-01
+
+### Fixed
+- **Output that mentions secrets in its first line is no longer blanked (#1015)**: 0.8.3 read any first line with a comma and the word "secrets" as a CSV header, so all the output after it came back as `[REDACTED]` with a count of hidden values, even on a public README. A first line that ends like a sentence is no longer a header, and most lines after it have to hold the delimiter. A table with an odd row, a long column name or a quoted multiline value is still hidden.
+
 ## [0.8.3] - 2026-11-01
 
 ### Changed
