@@ -215,7 +215,7 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
     let command = spaced_input_redirects(&command.replace("\\\n", " "));
     let spaced = command.replace('|', " | ");
     let spaced = spaced.replace("&&", "\n").replace(';', "\n");
-    let spaced = expand_source_variables(spaced, extra);
+    let spaced = expand_source_variables(&spaced, extra);
     for statement in spaced.lines() {
         let raw: Vec<&str> = statement.split_whitespace().collect();
         let stages: Vec<&[&str]> = raw.split(|w| *w == "|").collect();
@@ -268,47 +268,61 @@ fn spaced_input_redirects(command: &str) -> String {
     out
 }
 
-/// `f=.env; cat $f` and `for f in .env; do cat $f; done`, with the variable written
-/// out, so the printer sees the file. Only a value naming a source is substituted.
-fn expand_source_variables(mut text: String, extra: &[String]) -> String {
-    let words: Vec<String> = text.split_whitespace().map(str::to_string).collect();
-    let mut found: Vec<(String, String)> = Vec::new();
-    for (i, word) in words.iter().enumerate() {
-        if word == "for" && words.get(i + 2).is_some_and(|w| w == "in") {
-            if let (Some(name), Some(value)) = (words.get(i + 1), words.get(i + 3))
-                && is_source(trimmed(value), extra)
+/// `f=.env; cat $f` and `for f in a .env; do cat $f; done`, with the variable written
+/// out, so the printer sees the file. In statement order, so `f=.env; f=b; cat $f` is
+/// `cat b` and `f=.env; cat $f; f=b` still prints the source. A loop tries each value,
+/// and any one naming a source is the one written out.
+fn expand_source_variables(text: &str, extra: &[String]) -> String {
+    let mut known: Vec<(String, String)> = Vec::new();
+    let mut lines = Vec::new();
+    for line in text.lines() {
+        let mut line = line.to_string();
+        for (name, value) in &known {
+            line = written_out(&line, name, value);
+        }
+        let words: Vec<&str> = line.split_whitespace().collect();
+        for (i, word) in words.iter().enumerate() {
+            let (name, value) = if *word == "for" && words.get(i + 2) == Some(&"in") {
+                let values = words.iter().skip(i + 3).map(|w| trimmed(w));
+                let source = values.into_iter().find(|w| is_source(w, extra));
+                (words[i + 1], source.unwrap_or(""))
+            } else if let Some((name, value)) = word.split_once('=')
+                && !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
             {
-                found.push((name.clone(), trimmed(value).to_string()));
-            }
-        } else if let Some((name, value)) = word.split_once('=')
-            && !name.is_empty()
-            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-            && is_source(trimmed(value), extra)
-        {
-            found.push((name.to_string(), trimmed(value).to_string()));
-        }
-    }
-    for (name, value) in found {
-        let braced = format!("${{{name}}}");
-        text = text.replace(&braced, &value);
-        let plain = format!("${name}");
-        let mut out = String::with_capacity(text.len());
-        let mut rest = text.as_str();
-        while let Some(at) = rest.find(&plain) {
-            let (before, tail) = rest.split_at(at);
-            let after = tail.strip_prefix(plain.as_str()).unwrap_or(tail);
-            out.push_str(before);
-            if after.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
-                out.push_str(&plain);
+                (name, trimmed(value))
             } else {
-                out.push_str(&value);
+                continue;
+            };
+            known.retain(|(n, _)| n != name);
+            if is_source(value, extra) {
+                known.push((name.to_string(), value.to_string()));
             }
-            rest = after;
         }
-        out.push_str(rest);
-        text = out;
+        lines.push(line);
     }
-    text
+    lines.join("\n")
+}
+
+/// `$name` and `${name}` replaced, leaving `$name2` alone.
+fn written_out(line: &str, name: &str, value: &str) -> String {
+    let text = line.replace(&format!("${{{name}}}"), value);
+    let plain = format!("${name}");
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find(&plain) {
+        let (before, tail) = rest.split_at(at);
+        let after = tail.strip_prefix(plain.as_str()).unwrap_or(tail);
+        out.push_str(before);
+        if after.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
+            out.push_str(&plain);
+        } else {
+            out.push_str(value);
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Readers that are not plain printers of their arguments. `raw` keeps the quoting
@@ -562,6 +576,8 @@ mod tests {
             "{ cat .env; }",
             "if true; then cat .env; fi",
             "for f in .env; do cat $f; done",
+            "for f in notes.txt .env; do cat \"$f\"; done",
+            "f=.env; cat $f; f=notes.txt",
             "f=.env; cat $f",
             "f=.env; cat \"${f}\"",
             "while read l; do echo $l; done < .env",
@@ -615,6 +631,8 @@ mod tests {
             "python3 -c 'print(1)'",
             "cp .env .env.bak",
             "f=main.rs; cat $f",
+            "f=.env; f=notes.txt; cat \"$f\"",
+            "f=.env; fa=notes.txt; cat $fa",
             "for f in a.rs b.rs; do cat $f; done",
         ] {
             assert!(!printed(command), "{command}");

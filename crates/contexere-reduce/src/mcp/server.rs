@@ -120,7 +120,12 @@ fn run_with_timeout(
     if !output.status.success() {
         let code = output.status.code().unwrap_or(-1);
         let text = format!("{raw_text}{err_text}");
-        let text = crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t);
+        // Skipped on the A/B control, as the success path skips it.
+        let text = if crate::guard::env::is_passthrough() {
+            text
+        } else {
+            crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t)
+        };
         return format!("{text}\n[exit {code}]");
     }
 

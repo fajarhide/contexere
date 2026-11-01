@@ -955,7 +955,7 @@ static URL_PASSWORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::ne
 static KEY_VALUE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(concat!(
         r#"(?i)((?:^|[\s{,"'])(?:[a-z0-9_\-]*(?:password|passwd|client_secret|api_?key|access_?token|auth_?token|secret_?key|private_?key))["']?\s*:\s*)"#,
-        r#"("[^"]+"|'[^']+'|[^\s"',}]+)"#,
+        r#"("(?:[^"\\]|\\.)+"|'[^']+'|[^\s"',}]+)"#,
     ))
     .expect("a literal pattern")
 });
@@ -1046,7 +1046,9 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
                     in_private_key = false;
                     return Some(String::new());
                 }
-                if is_base64_line(trimmed) {
+                // An encrypted key's own headers come before its body.
+                let meta = trimmed.starts_with("Proc-Type:") || trimmed.starts_with("DEK-Info:");
+                if meta || is_base64_line(trimmed) {
                     return Some(String::new());
                 }
                 in_private_key = false;
@@ -1290,6 +1292,22 @@ mod tests {
             out.contains("fn after() {}") && out.contains("more text"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn hides_an_encrypted_key_and_a_value_with_an_escaped_quote() {
+        let (out, _) = super::redact_in_place(
+            "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,AB12\n\nabc+/=\n-----END RSA PRIVATE KEY-----\nkeep\n",
+        )
+        .unwrap();
+        assert!(!out.contains("abc+/=") && !out.contains("AES-128"), "{out}");
+        assert!(out.contains("keep"), "{out}");
+
+        let doc = r#"{"password":"canary9\"tail-of-it"}"#;
+        let (out, _) = super::redact_in_place(&format!("{doc}\n")).unwrap();
+        assert!(!out.contains("tail-of-it"), "{out}");
+        let v: serde_json::Value = serde_json::from_str(&out).expect("still JSON");
+        assert_eq!(v["password"], "[REDACTED]");
     }
 
     #[test]
