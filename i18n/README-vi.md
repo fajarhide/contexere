@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động, nên các bản cài sẵn không cần thay đổi gì. Contexere đang phát triển thành ranh giới thông tin xác thực cho các AI coding agent, để agent dùng khóa của bạn mà không bao giờ nhìn thấy chúng; hiện tại nó cung cấp lớp ngữ cảnh và token.
+> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động, nên các bản cài sẵn không cần thay đổi gì. Contexere đang phát triển thành một nơi duy nhất cho kỹ năng, khóa và bộ nhớ của mọi agent bạn dùng, để agent dùng khóa của bạn mà không bao giờ nhìn thấy chúng; hiện tại nó cung cấp lớp ngữ cảnh và token.
 
 ## Tại sao
 

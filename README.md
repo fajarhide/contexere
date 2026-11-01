@@ -23,7 +23,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working, so existing installs need no change. Contexere is growing into the credential boundary for AI coding agents, so your agent can use your keys without ever seeing them; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working, so existing installs need no change. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
 
 ## Why
 
