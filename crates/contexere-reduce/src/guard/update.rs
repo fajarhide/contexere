@@ -36,35 +36,34 @@ pub fn get_status() -> Status {
     {
         Some(cache.latest_version)
     } else {
-        let url = "https://api.github.com/repos/fajarhide/omni/releases/latest";
-        let agent = ureq::AgentBuilder::new()
-            .timeout_read(std::time::Duration::from_secs(2))
-            .timeout_connect(std::time::Duration::from_secs(2))
-            .build();
-
-        match agent.get(url).set("User-Agent", "omni-cli").call() {
-            Ok(response) => {
-                #[derive(Deserialize)]
-                struct GitHubRelease {
-                    tag_name: String,
-                }
-                if let Ok(release) = response.into_json::<GitHubRelease>() {
-                    let v = release.tag_name.trim_start_matches('v').to_string();
-                    let cache = UpdateCache {
-                        latest_version: v.clone(),
-                        last_checked: now,
-                    };
-                    if let Ok(json) = serde_json::to_string(&cache) {
-                        let _ = fs::create_dir_all(cache_path.parent().unwrap());
-                        let _ = fs::write(&cache_path, json);
-                    }
-                    Some(v)
-                } else {
-                    None
-                }
+        // curl rather than an HTTP crate: one best-effort call is not worth 42 crates.
+        // No curl, or no network, reads as offline.
+        let output = std::process::Command::new("curl")
+            .args([
+                "-fsSL",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "4",
+                "-H",
+                "User-Agent: contexere-cli",
+                "https://api.github.com/repos/fajarhide/contexere/releases/latest",
+            ])
+            .output()
+            .ok()
+            .filter(|o| o.status.success());
+        let latest = output.and_then(|o| latest_tag(&o.stdout));
+        if let Some(v) = &latest {
+            let cache = UpdateCache {
+                latest_version: v.clone(),
+                last_checked: now,
+            };
+            if let Ok(json) = serde_json::to_string(&cache) {
+                let _ = fs::create_dir_all(cache_path.parent().unwrap());
+                let _ = fs::write(&cache_path, json);
             }
-            Err(_) => None,
         }
+        latest
     };
 
     match latest {
@@ -79,6 +78,15 @@ pub fn get_status() -> Status {
         }
         None => Status::Latest, // offline
     }
+}
+
+fn latest_tag(body: &[u8]) -> Option<String> {
+    #[derive(Deserialize)]
+    struct GitHubRelease {
+        tag_name: String,
+    }
+    let release: GitHubRelease = serde_json::from_slice(body).ok()?;
+    Some(release.tag_name.trim_start_matches('v').to_string())
 }
 
 pub fn check() -> Option<String> {
@@ -139,6 +147,14 @@ pub fn print_notification(latest: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_version_from_a_release_and_nothing_from_anything_else() {
+        let body = br#"{"tag_name":"v0.8.3","name":"x"}"#;
+        assert_eq!(latest_tag(body).as_deref(), Some("0.8.3"));
+        assert_eq!(latest_tag(b"<html>rate limited</html>"), None);
+        assert_eq!(latest_tag(br#"{"message":"Not Found"}"#), None);
+    }
 
     #[test]
     fn detects_newer_versions() {

@@ -1,0 +1,19 @@
+{
+  "id": "omni-signal-engine",
+  "name": "OMNI Semantic Signal Engine",
+  "version": "0.8.2",
+  "description": "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
+  "requiredBinaries": ["omni"],
+  "author": "Fajar Hidayat",
+  "homepage": "https://github.com/fajarhide/omni",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "omniPath": {
+        "type": "string",
+        "description": "Path to the omni binary (defaults to 'omni' in PATH)"
+      }
+    }
+  }
+}

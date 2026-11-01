@@ -1,0 +1,35 @@
+{
+  "name": "@fajarhide/omni-signal-engine",
+  "version": "0.5.9",
+  "description": "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.52"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "openclaw": "^2026.9.6",
+    "typescript": "^7.0.2"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "compat": {
+      "pluginApi": ">=2026.4.11"
+    },
+    "build": {
+      "openclawVersion": "2026.4.11"
+    }
+  },
+  "overrides": {
+    "@hono/node-server": "2.1.3",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "hono": "4.13.13",
+    "undici": "8.12.2"
+  }
+}
