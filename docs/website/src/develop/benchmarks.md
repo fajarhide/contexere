@@ -113,7 +113,7 @@ one marker and a partially-seen reply now folds nothing.
 | rtk `pipe` | 8,486,830 to 8,307,488 | 2.1% |
 | omni, filters only | 8,486,830 to 8,428,499 | 0.7% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.8.2.
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, Contexere 0.8.2.
 <!-- omni:corpus-table:end -->
 
 A corpus anyone can rebuild, 40 SWE-bench Verified instances across 10 public repos:
@@ -142,7 +142,7 @@ CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 | rtk `pipe` | 2,259,278 to 2,192,628 | 3.0% |
 | caveman `compress` | 2,259,278 to 2,259,164 | 0.0% |
 
-Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.8.2.
+Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, Contexere 0.8.2.
 <!-- omni:swebench-table:end -->
 
 **`available` and `captured` are new, and `captured` is the figure that survives a
