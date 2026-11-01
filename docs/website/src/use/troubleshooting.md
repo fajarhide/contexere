@@ -23,7 +23,7 @@ A closed issue still bites if the fix is unreleased.
 
 ## Things that look like a bug and are not
 
-**Structured payload untouched.** JSON, YAML, CSV, TSV, base64, terraform plans and
+**Structured payload not shortened.** On the hook path, a secret inside it is still hidden. JSON, YAML, CSV, TSV, base64, terraform plans and
 anything destined for `jq` pass through by design. Not a missed opportunity.
 
 **Negative savings on small output**, roughly `-1%` to `-4%`. The marker costs more

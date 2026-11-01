@@ -24,7 +24,7 @@ Issue yang sudah ditutup tetap menggigit kalau perbaikannya belum dirilis.
 
 ## Hal yang mirip bug padahal bukan
 
-**Muatan terstruktur tidak disentuh.** JSON, YAML, CSV, TSV, base64, terraform
+**Muatan terstruktur tidak dipendekkan.** Di jalur hook, secret di dalamnya tetap disembunyikan. JSON, YAML, CSV, TSV, base64, terraform
 plan dan apa pun yang ditujukan ke `jq` lewat begitu saja, memang dirancang
 begitu. Bukan kesempatan yang terlewat.
 

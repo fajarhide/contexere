@@ -92,7 +92,7 @@ straight about what is and is not keyed on the agent today.
 
 **The situation.** You pipe structured output into something that parses it.
 
-**What Contexere does: nothing.** JSON, YAML, NDJSON, CSV and TSV pass through byte for
+**What Contexere does: nothing, unless the hook finds a secret inside.** JSON, YAML, NDJSON, CSV and TSV pass through byte for
 byte. A compressor that reformats a payload the next command is about to parse has not
 saved you anything, it has broken your pipeline.
 
