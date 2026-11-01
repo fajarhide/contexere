@@ -617,6 +617,7 @@ mod tests {
         for output in [
             "src/auth.py:12:def login(user, password, retries=3):\n    return login(user, password)\n    save(user, retries)\n",
             "def login(user, password, retries=3):\n    check(user, password)\n",
+            "check(user, password)\nfoo(a, b)\n",
             "src/a.rs:3:fn check(password: &str, user: &str) -> bool {\n    check(password, user)\n",
             "abc123 fix: hide password, token and key\ndef456 chore: bump, tidy\n",
             "{'user': 'alice', 'password': 'x'}\nname, age\n",
