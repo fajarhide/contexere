@@ -933,20 +933,132 @@ static BARE_TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(
         r"|\bgithub_pat_[A-Za-z0-9_]{36,}",
         r"|\bAKIA[0-9A-Z]{16}\b",
         r"|\bxox[bpas]-[A-Za-z0-9\-]{20,}",
+        r"|\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]+",
     ))
     .expect("a literal pattern")
 });
+
+/// `Authorization: Bearer <token>`. The scheme is kept, so the header still reads.
+static BEARER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"(?i)(\bbearer\s+)[A-Za-z0-9._~+/=\-]{16,}").expect("a literal pattern")
+});
+
+/// `scheme://user:password@host`. Only the password goes. A `$` or `{` is a
+/// placeholder rather than a value.
+static URL_PASSWORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"([a-zA-Z][a-zA-Z0-9+.\-]*://[^\s:/@]+:)[^\s/@${}<]+(@)")
+        .expect("a literal pattern")
+});
+
+/// `"password": "x"` and `password: x`, in JSON or YAML. The quote and the key stay,
+/// so a document still parses.
+static KEY_VALUE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(concat!(
+        r#"(?i)((?:^|[\s{,"'])(?:[a-z0-9_\-]*(?:password|passwd|client_secret|api_?key|access_?token|auth_?token|secret_?key|private_?key))["']?\s*:\s*)"#,
+        r#"("(?:[^"\\]|\\.)+"|'[^']+'|[^\s"',}]+)"#,
+    ))
+    .expect("a literal pattern")
+});
+
+fn is_base64_line(line: &str) -> bool {
+    line.trim()
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '=' | '-' | '_'))
+}
+
+/// Whether a value after a secret's key is one. A type name or an expression is
+/// not. An unquoted value needs a digit and has to be the whole of a YAML-shaped
+/// line, since `private_key: Ed25519Key,` in source code is a type.
+fn is_a_secret_value(value: &str, whole_line: bool) -> bool {
+    let quoted = value.starts_with(['"', '\'']);
+    let bare = value.trim_matches(['"', '\'']);
+    let lower = bare.to_ascii_lowercase();
+    if bare.len() < 4
+        || bare.contains(['$', '(', '{', '<', '*'])
+        || bare.contains("REDACTED")
+        || matches!(
+            lower.as_str(),
+            "string"
+                | "str"
+                | "null"
+                | "none"
+                | "true"
+                | "false"
+                | "password"
+                | "secret"
+                | "required"
+                | "optional"
+        )
+    {
+        return false;
+    }
+    // A short quoted word is usually a field name, as replay over the corpus showed.
+    if quoted {
+        return bare.len() >= 8 || bare.chars().any(|c| c.is_ascii_digit());
+    }
+    let camel_case = bare.starts_with(|c: char| c.is_ascii_uppercase())
+        && bare.chars().any(|c| c.is_ascii_lowercase());
+    whole_line && !camel_case && bare.chars().any(|c| c.is_ascii_digit())
+}
+
+/// The structured shapes above, in one line, with how many were hidden.
+fn redact_structured(line: &str) -> Option<(String, u32)> {
+    let mut count = 0u32;
+    let text = BEARER.replace_all(line, |c: &regex::Captures| {
+        count += 1;
+        format!("{}[REDACTED]", &c[1])
+    });
+    let text = URL_PASSWORD.replace_all(&text, |c: &regex::Captures| {
+        count += 1;
+        format!("{}[REDACTED]{}", &c[1], &c[2])
+    });
+    let whole = text.clone();
+    let text = KEY_VALUE.replace_all(&whole, |c: &regex::Captures| {
+        let found = c.get(0).map_or(0..0, |m| m.range());
+        let (before, rest) = whole.split_at(found.start);
+        let (_, after) = rest.split_at(found.len());
+        if !is_a_secret_value(&c[2], before.trim().is_empty() && after.trim().is_empty()) {
+            return c[0].to_string();
+        }
+        count += 1;
+        let quote = if c[2].starts_with('"') { "\"" } else { "" };
+        format!("{}{quote}[REDACTED]{quote}", &c[1])
+    });
+    (count > 0).then(|| (text.into_owned(), count))
+}
 
 /// Each line with its replacement when it held a credential, and the total hidden.
 fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
     let mut redacted = 0u32;
     // One scan decides whether any line is looked at twice.
     let holds_a_token = BARE_TOKEN.is_match(input);
+    let mut in_private_key = false;
 
     let lines = input
         .lines()
         .map(|line| {
             let trimmed = line.trim_end();
+            // A key spans lines, so no one line of it matches a pattern. A header inside a
+            // string is source code, and a block ends at the first line that is not base64,
+            // or an unclosed one would blank the rest of the output.
+            if in_private_key {
+                if trimmed.trim().starts_with("-----END") {
+                    in_private_key = false;
+                    return Some(String::new());
+                }
+                // An encrypted key's own headers come before its body.
+                let meta = trimmed.starts_with("Proc-Type:") || trimmed.starts_with("DEK-Info:");
+                if meta || is_base64_line(trimmed) {
+                    return Some(String::new());
+                }
+                in_private_key = false;
+            }
+            let header = trimmed.trim();
+            if header.starts_with("-----BEGIN ") && header.ends_with("PRIVATE KEY-----") {
+                in_private_key = true;
+                redacted += 1;
+                return Some("[REDACTED]".to_string());
+            }
             let assigned = redact_line(trimmed);
             let (text, count) = assigned
                 .as_ref()
@@ -954,6 +1066,13 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
                     (rewritten.as_str(), *count)
                 });
             redacted += count;
+            let structured = redact_structured(text);
+            let (text, count) = structured
+                .as_ref()
+                .map_or((text, count), |(rewritten, more)| {
+                    redacted += more;
+                    (rewritten.as_str(), count + more)
+                });
             let tokens = if holds_a_token {
                 BARE_TOKEN.find_iter(text).count()
             } else {
@@ -1121,6 +1240,109 @@ fn distill_fallback(segments: &[OutputSegment]) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// Shapes that reached the model with the secret in them (GHSA-4fjc-frjg-fj9v).
+    #[test]
+    fn hides_keys_tokens_and_passwords_in_their_usual_shapes() {
+        let secret = "canary9not9real9value";
+        for input in [
+            format!(
+                "-----BEGIN RSA PRIVATE KEY-----\n{secret}\n{secret}\n-----END RSA PRIVATE KEY-----\nafter\n"
+            ),
+            format!("Authorization: Bearer {secret}\n"),
+            format!("postgres://admin:{secret}@db.invalid/app\n"),
+            format!("{{\"password\":\"{secret}\"}}\n"),
+            format!("{{\"client_secret\": \"{secret}\", \"a\": 1}}\n"),
+            format!("password: {secret}\n"),
+            format!("db_password: '{secret}'\n"),
+            "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl canary9not9real9value\n"
+                .replace(" canary9not9real9value", ""),
+        ] {
+            let (out, count) = super::redact_in_place(&input).expect("redacted");
+            assert!(!out.contains(secret) && !out.contains("eyJzdWIi"), "{out}");
+            assert!(count > 0);
+            assert!(out.ends_with('\n'), "{out:?}");
+        }
+    }
+
+    #[test]
+    fn a_redacted_json_document_still_parses() {
+        let (out, _) = super::redact_in_place("{\"password\": \"canary9\", \"n\": 1}\n").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&out).expect("still JSON");
+        assert_eq!(v["n"], 1);
+    }
+
+    #[test]
+    fn a_private_key_block_ends_where_it_ends() {
+        let (out, _) = super::redact_in_place(
+            "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\nkeep me\n",
+        )
+        .unwrap();
+        assert!(out.contains("keep me"), "{out}");
+    }
+
+    /// An unclosed block must not take the rest of the output with it.
+    #[test]
+    fn an_unclosed_key_block_stops_at_the_first_line_that_is_not_base64() {
+        let (out, _) = super::redact_in_place(
+            "-----BEGIN PRIVATE KEY-----\nabc+/=\nfn after() {}\nmore text\n",
+        )
+        .unwrap();
+        assert!(!out.contains("abc+/="), "{out}");
+        assert!(
+            out.contains("fn after() {}") && out.contains("more text"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn hides_an_encrypted_key_and_a_value_with_an_escaped_quote() {
+        let (out, _) = super::redact_in_place(
+            "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,AB12\n\nabc+/=\n-----END RSA PRIVATE KEY-----\nkeep\n",
+        )
+        .unwrap();
+        assert!(!out.contains("abc+/=") && !out.contains("AES-128"), "{out}");
+        assert!(out.contains("keep"), "{out}");
+
+        let doc = r#"{"password":"canary9\"tail-of-it"}"#;
+        let (out, _) = super::redact_in_place(&format!("{doc}\n")).unwrap();
+        assert!(!out.contains("tail-of-it"), "{out}");
+        let v: serde_json::Value = serde_json::from_str(&out).expect("still JSON");
+        assert_eq!(v["password"], "[REDACTED]");
+    }
+
+    #[test]
+    fn a_quoted_secret_may_hold_spaces() {
+        let (out, _) =
+            super::redact_in_place("{\"password\":\"correct horse 9 battery\"}\n").unwrap();
+        assert!(!out.contains("horse"), "{out}");
+        let v: serde_json::Value = serde_json::from_str(&out).expect("still JSON");
+        assert_eq!(v["password"], "[REDACTED]");
+    }
+
+    /// Words beside a secret's name that hold no secret.
+    #[test]
+    fn leaves_placeholders_types_and_prose_alone() {
+        for input in [
+            "const H: &str = \"-----BEGIN PRIVATE KEY-----\";\nfn alpha() {}\nfn beta() {}\n",
+            "    private_key: Ed25519PrivateKey,\n",
+            "  apiKey: Base64String;\n",
+            "password: Argon2Hash\n",
+            "password: string\n",
+            "password: required\n",
+            "\"api_key\": \"apikey\"\n",
+            "\"password\": null\n",
+            "password: ${DB_PASSWORD}\n",
+            "\"api_key\": \"$API_KEY\"\n",
+            "password: getpass()\n",
+            "postgres://user:${PASS}@host/db\n",
+            "https://example.com:8080/path\n",
+            "the bearer of this note\n",
+            "-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----\n",
+            "fn check(password: &str) -> bool\n",
+        ] {
+            assert_eq!(super::redact_in_place(input), None, "{input}");
+        }
+    }
 
     /// A shell line keeps its command after a redacted value (#851).
     #[test]

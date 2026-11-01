@@ -49,6 +49,16 @@ fn run_with_timeout(
 ) -> String {
     use std::process::{Command, Stdio};
 
+    // The same refusal the pre-hook gives. Hosts without a shell hook have only this door.
+    if !crate::guard::env::is_passthrough()
+        && let Some(source) = crate::guard::secret_source::printed_source(
+            command,
+            &crate::guard::secret_source::user_sources(),
+        )
+    {
+        return crate::guard::secret_source::denial(&source);
+    }
+
     #[cfg(target_family = "windows")]
     let (shell, flag) = ("cmd", "/C");
     #[cfg(not(target_family = "windows"))]
@@ -109,7 +119,14 @@ fn run_with_timeout(
 
     if !output.status.success() {
         let code = output.status.code().unwrap_or(-1);
-        return format!("{raw_text}{err_text}\n[exit {code}]");
+        let text = format!("{raw_text}{err_text}");
+        // Skipped on the A/B control, as the success path skips it.
+        let text = if crate::guard::env::is_passthrough() {
+            text
+        } else {
+            crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t)
+        };
+        return format!("{text}\n[exit {code}]");
     }
 
     let cmd_name = command
@@ -1703,6 +1720,26 @@ mod tests {
     }
 
     #[cfg(unix)]
+    /// The only shell door on a host with no hook (GHSA-f52r-8634-rxr3).
+    #[test]
+    fn omni_run_refuses_a_credential_source_and_redacts_a_failure() {
+        let dir = tempdir().unwrap();
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let file = dir.path().join(".env");
+        std::fs::write(&file, "canary9not9real\n").unwrap();
+        let timeout = std::time::Duration::from_secs(5);
+
+        let command = format!("cat {}", file.display());
+        let out = run_with_timeout(&command, store.clone(), None, timeout);
+        assert!(!out.contains("canary9not9real"), "{out}");
+        assert!(out.contains("refused"), "{out}");
+
+        let failing = "echo DB_PASSWORD=canary9not9real; false";
+        let out = run_with_timeout(failing, store, None, timeout);
+        assert!(!out.contains("canary9not9real"), "{out}");
+        assert!(out.contains("[exit 1]"), "{out}");
+    }
+
     #[test]
     fn omni_run_gives_up_on_a_command_that_never_finishes() {
         let dir = tempdir().unwrap();

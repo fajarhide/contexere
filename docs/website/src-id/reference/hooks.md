@@ -24,12 +24,15 @@ sini yang bisa mengubah apa yang dilakukan perintah Anda.
 
 ## Apa yang dilakukan masing-masing
 
-**Pre-tool** memutuskan apakah sebuah perintah perlu dilewatkan Contexere sama sekali,
-dan bisa menulis ulangnya menjadi `contexere exec`. Tulis ulang itu membungkus
-**seluruh** string perintahnya, termasuk pengalihan keluaran, dan itu sebabnya
-berkas log di disk dari sebuah perintah yang cocok bisa ternyata versi
-sulingannya. Patahkan awalannya (`env cargo test`) ketika Anda butuh log
-mentahnya.
+**Pre-tool** menolak perintah yang akan mencetak sumber kredensial. Di Codex dan Gemini
+CLI ia juga bisa menulis ulang perintah menjadi `contexere exec`, membungkus **seluruh**
+string perintahnya, termasuk pengalihan keluaran, sehingga berkas log di disk dari sebuah
+perintah yang cocok bisa ternyata versi sulingannya. Patahkan awalannya
+(`env cargo test`) ketika Anda butuh log mentahnya.
+
+Claude Code tidak mendapat tulis ulang. Ia memeriksa izin terhadap perintah yang
+dijalankan, sehingga tulis ulang butuh `allow`, dan `allow` melewati prompt Anda. Hook
+post-tool menyuling keluaran yang sama di sana.
 
 **Post-tool** acara utamanya: keluaran mentah datang, pipeline berjalan, dan
 hasil sulingannya diserahkan kembali untuk disubstitusi host.

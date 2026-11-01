@@ -23,11 +23,14 @@ reply is rewritten, which is why nothing here can change what your command did.
 
 ## What each one does
 
-**Pre-tool** decides whether a command should be routed through Contexere at all, and can
-rewrite it into `contexere exec`. That rewrite wraps the **entire** command string,
-redirection included, which is why a matched command's log file on disk can turn out
-to be the distilled version. Break the prefix (`env cargo test`) when you need the raw
-log.
+**Pre-tool** refuses a command that would print a credential source. On Codex and Gemini
+CLI it can also rewrite a command into `contexere exec`, wrapping the **entire** command
+string, redirection included, so a matched command's log file on disk can turn out to be
+the distilled version. Break the prefix (`env cargo test`) when you need the raw log.
+
+Claude Code gets no rewrite. It checks permissions against the command it runs, so a
+rewrite would need `allow`, which skips your prompt. The post-tool hook distills the same
+output there.
 
 **Post-tool** is the main event: the raw output arrives, the pipeline runs, and the
 distilled result is handed back for the host to substitute.

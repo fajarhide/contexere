@@ -7,7 +7,7 @@
 const PRINTERS: &[&str] = &[
     "cat", "head", "tail", "less", "more", "bat", "tac", "nl", "sed", "awk", "gawk", "grep",
     "egrep", "rg", "ag", "strings", "xxd", "od", "hexdump", "base64", "cut", "sort", "uniq",
-    "column", "paste",
+    "column", "paste", "diff", "jq",
 ];
 /// A last pipeline stage that reports only a count or a digest.
 const SINKS: &[&str] = &[
@@ -30,9 +30,35 @@ const WRAPPERS: &[&str] = &[
     "nohup",
     "omni",
     "contexere",
+    "eval",
+    "{",
+    "!",
+    "if",
+    "elif",
+    "else",
+    "then",
+    "do",
+    "while",
+    "until",
 ];
 /// The first positional of these is a pattern or a script, not a file.
-const TAKES_A_PATTERN: &[&str] = &["sed", "awk", "gawk", "grep", "egrep", "rg", "ag"];
+const TAKES_A_PATTERN: &[&str] = &["sed", "awk", "gawk", "grep", "egrep", "rg", "ag", "jq"];
+/// Programs that take a script on the command line, which may open a file.
+const INTERPRETERS: &[&str] = &["python", "python3", "perl", "ruby", "node", "php"];
+/// Files that hold credentials whatever directory they sit in.
+const SOURCE_NAMES: &[&str] = &[
+    ".netrc",
+    "_netrc",
+    ".pgpass",
+    ".npmrc",
+    ".pypirc",
+    ".git-credentials",
+    ".htpasswd",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "id_dsa",
+];
 /// A file named `secret` with one of these is about secrets, not one.
 const NOT_A_CREDENTIAL_FILE: &[&str] = &[
     "rs", "py", "ts", "tsx", "js", "jsx", "mjs", "go", "rb", "java", "kt", "c", "h", "cpp", "md",
@@ -68,8 +94,27 @@ pub fn is_source(path: &str, extra: &[String]) -> bool {
         return true;
     }
     let name = name.to_lowercase();
-    if path.ends_with(".aws/credentials") || path.ends_with("gh/hosts.yml") {
+    if path.ends_with(".aws/credentials")
+        || path.ends_with("gh/hosts.yml")
+        || path.ends_with(".docker/config.json")
+        || path.ends_with(".kube/config")
+        || SOURCE_NAMES.contains(&name.as_str())
+        || name.ends_with(".tfvars")
+        || name.ends_with(".p12")
+        || name.ends_with(".pfx")
+        || (name.starts_with("service-account") && name.ends_with(".json"))
+    {
         return true;
+    }
+    // A certificate is public, and it shares the extension with its key.
+    if name.ends_with(".key") {
+        return !name.contains("pub");
+    }
+    if name.ends_with(".pem") {
+        return name.contains("key")
+            || !["cert", "chain", "pub", "ca."]
+                .iter()
+                .any(|w| name.contains(w));
     }
     if path.contains(".ssh/id_") {
         return !name.ends_with(".pub");
@@ -124,6 +169,12 @@ fn prints_nothing_of_the_file(name: &str, args: &[&str]) -> bool {
             &["--count", "--quiet", "--files-with-matches", "--silent"],
         ),
         "sed" => ("i", &["--in-place"]),
+        // These read the file into a variable; the filter decides what prints.
+        "jq" => {
+            return args
+                .iter()
+                .any(|w| *w == "--rawfile" || *w == "--slurpfile");
+        }
         _ => return false,
     };
     let mut words = args.iter();
@@ -161,9 +212,10 @@ fn is_redirection(word: &str) -> bool {
 /// quoted pattern, `grep 'a | b' .env`, which splits the stage. A hook cannot stop a
 /// command built to evade it; this catches the ones written in good faith.
 pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
-    let command = command.replace("\\\n", " ");
+    let command = spaced_input_redirects(&command.replace("\\\n", " "));
     let spaced = command.replace('|', " | ");
     let spaced = spaced.replace("&&", "\n").replace(';', "\n");
+    let spaced = expand_source_variables(&spaced, extra);
     for statement in spaced.lines() {
         let raw: Vec<&str> = statement.split_whitespace().collect();
         let stages: Vec<&[&str]> = raw.split(|w| *w == "|").collect();
@@ -180,6 +232,9 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
             if let Some(found) = remote_source(&words) {
                 return Some(found.to_string());
             }
+            if let Some(found) = other_reader(stage, &words, extra) {
+                return Some(found);
+            }
             let Some(at) = printer_position(stage) else {
                 continue;
             };
@@ -193,6 +248,146 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
                 return Some(found.to_string());
             }
         }
+    }
+    None
+}
+
+/// `cat<file` as `cat <file`. A heredoc's `<<` and process substitution stay whole.
+fn spaced_input_redirects(command: &str) -> String {
+    let chars: Vec<char> = command.chars().collect();
+    let mut out = String::with_capacity(command.len() + 4);
+    for (i, c) in chars.iter().enumerate() {
+        let single = *c == '<'
+            && (i == 0 || chars[i - 1] != '<')
+            && !matches!(chars.get(i + 1), Some('<' | '('));
+        if single {
+            out.push(' ');
+        }
+        out.push(*c);
+    }
+    out
+}
+
+/// `f=.env; cat $f` and `for f in a .env; do cat $f; done`, with the variable written
+/// out, so the printer sees the file. In statement order, so `f=.env; f=b; cat $f` is
+/// `cat b` and `f=.env; cat $f; f=b` still prints the source. A loop tries each value,
+/// and any one naming a source is the one written out.
+fn expand_source_variables(text: &str, extra: &[String]) -> String {
+    let mut known: Vec<(String, String)> = Vec::new();
+    let mut lines = Vec::new();
+    for line in text.lines() {
+        let mut line = line.to_string();
+        for (name, value) in &known {
+            line = written_out(&line, name, value);
+        }
+        let words: Vec<&str> = line.split_whitespace().collect();
+        // `env f=b true` and `f=b cmd` set it for the child, so `$f` stays what it was.
+        let changes_the_shell = words.iter().all(|w| w.contains('='));
+        for (i, word) in words.iter().enumerate() {
+            let (name, value) = if *word == "for" && words.get(i + 2) == Some(&"in") {
+                let values = words.iter().skip(i + 3).map(|w| trimmed(w));
+                let source = values.into_iter().find(|w| is_source(w, extra));
+                (words[i + 1], source.unwrap_or(""))
+            } else if let Some((name, value)) = word.split_once('=')
+                && !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            {
+                (name, trimmed(value))
+            } else {
+                continue;
+            };
+            if changes_the_shell || *word == "for" {
+                known.retain(|(n, _)| n != name);
+            }
+            if is_source(value, extra) {
+                known.push((name.to_string(), value.to_string()));
+            }
+        }
+        lines.push(line);
+    }
+    lines.join("\n")
+}
+
+/// `$name` and `${name}` replaced, leaving `$name2` alone.
+fn written_out(line: &str, name: &str, value: &str) -> String {
+    let text = line.replace(&format!("${{{name}}}"), value);
+    let plain = format!("${name}");
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find(&plain) {
+        let (before, tail) = rest.split_at(at);
+        let after = tail.strip_prefix(plain.as_str()).unwrap_or(tail);
+        out.push_str(before);
+        if after.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
+            out.push_str(&plain);
+        } else {
+            out.push_str(value);
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Readers that are not plain printers of their arguments. `raw` keeps the quoting
+/// split as it came, since an interpreter's script is one logical argument.
+fn other_reader(raw: &[&str], words: &[&str], extra: &[String]) -> Option<String> {
+    let first = program(words.iter().find(|w| !w.is_empty())?);
+    // `tr a-z A-Z <file` and `while read l; do echo $l; done <file`. Any other program
+    // reading its stdin from a file is loading it, which is what the denial recommends.
+    if PRINTERS.contains(&first) || first == "tr" || first == "done" {
+        for (i, word) in raw.iter().enumerate() {
+            let target = match *word {
+                "<" => raw.get(i + 1).copied(),
+                w if w.starts_with('<') && !w.starts_with("<<") => Some(w),
+                _ => None,
+            };
+            if let Some(path) = target.map(trimmed)
+                && is_source(path, extra)
+            {
+                return Some(path.to_string());
+            }
+        }
+    }
+    if first == "git"
+        && let Some(sub) = words.get(1)
+    {
+        let shows = matches!(*sub, "show" | "diff" | "blame")
+            || (*sub == "log" && words.iter().any(|w| *w == "-p" || *w == "--patch"));
+        if shows {
+            return words[2..]
+                .iter()
+                .map(|w| w.rsplit(':').next().unwrap_or(w))
+                .find(|w| is_source(w, extra))
+                .map(str::to_string);
+        }
+    }
+    if first == "dd" {
+        return words
+            .iter()
+            .filter_map(|w| w.strip_prefix("if="))
+            .find(|w| is_source(w, extra))
+            .map(str::to_string);
+    }
+    if first == "cp" && words.iter().any(|w| w.starts_with("/dev/std")) {
+        return words[1..]
+            .iter()
+            .find(|w| is_source(w, extra))
+            .map(|w| w.to_string());
+    }
+    // Only among the interpreter's own options: `node app.js -e x` passes `-e` to the app.
+    let script_given = words
+        .iter()
+        .skip_while(|w| w.is_empty())
+        .skip(1)
+        .take_while(|w| w.starts_with('-'))
+        .any(|w| matches!(*w, "-c" | "-e"));
+    if INTERPRETERS.contains(&first) && script_given {
+        return raw
+            .join(" ")
+            .split(|c: char| !(c.is_ascii_alphanumeric() || "._/~-".contains(c)))
+            .find(|w| is_source(w, extra))
+            .map(str::to_string);
     }
     None
 }
@@ -375,6 +570,80 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Shapes written in good faith that printed a source without being seen
+    /// (GHSA-v3fc-v69m-9v8h).
+    #[test]
+    fn sees_the_shell_shapes_and_files_it_used_to_miss() {
+        for command in [
+            "cat<.env",
+            "{ cat .env; }",
+            "if true; then cat .env; fi",
+            "for f in .env; do cat $f; done",
+            "for f in notes.txt .env; do cat \"$f\"; done",
+            "f=.env; cat $f; f=notes.txt",
+            "f=.env; env f=notes.txt true; cat \"$f\"",
+            "f=.env; f=notes.txt make; cat $f",
+            "f=.env; cat $f",
+            "f=.env; cat \"${f}\"",
+            "while read l; do echo $l; done < .env",
+            "tr a-z A-Z < .env",
+            "dd if=.env",
+            "diff .env /dev/null",
+            "cp .env /dev/stdout",
+            "git show HEAD:.env",
+            "git log -p -- .env",
+            "git diff .env",
+            "jq . .env",
+            "eval \"cat .env\"",
+            "python3 -c 'print(open(\".env\").read())'",
+            "cat ~/.netrc",
+            "cat ~/.pgpass",
+            "cat ~/.npmrc",
+            "cat ~/.docker/config.json",
+            "cat ~/.kube/config",
+            "cat id_rsa",
+            "cat deploy/key.pem",
+            "cat prod.tfvars",
+            "cat service-account.json",
+            "cat .git-credentials",
+            "cat ca.key",
+            "cat server-cert-key.pem",
+            "python3 -u -c 'print(open(\".env\").read())'",
+        ] {
+            assert!(printed(command), "{command}");
+        }
+    }
+
+    /// Reading without printing is what the denial tells the agent to do.
+    #[test]
+    fn leaves_alone_what_uses_a_source_without_printing_it() {
+        for command in [
+            "wc -l < .env",
+            ". .env",
+            "gh auth login --with-token < .npmrc",
+            "jq --rawfile x .env -n '$x | length'",
+            "git add .env",
+            "git log -- .env",
+            "git status",
+            "cat cert.pem",
+            "cat fullchain.pem",
+            "cat ca.pem",
+            "cat public.key",
+            "node server.js -e .env",
+            "python3 tool.py -c prod.key",
+            "cat id_rsa.pub",
+            "cat <<EOF",
+            "python3 -c 'print(1)'",
+            "cp .env .env.bak",
+            "f=main.rs; cat $f",
+            "f=.env; f=notes.txt; cat \"$f\"",
+            "f=.env; fa=notes.txt; cat $fa",
+            "for f in a.rs b.rs; do cat $f; done",
+        ] {
+            assert!(!printed(command), "{command}");
+        }
+    }
 
     fn printed(command: &str) -> bool {
         printed_source(command, &[]).is_some()
