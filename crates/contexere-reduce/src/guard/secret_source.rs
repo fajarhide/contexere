@@ -107,12 +107,14 @@ pub fn is_source(path: &str, extra: &[String]) -> bool {
         return true;
     }
     // A certificate is public, and it shares the extension with its key.
-    if (name.ends_with(".pem") || name.ends_with(".key"))
-        && !["cert", "chain", "pub", "ca."]
-            .iter()
-            .any(|w| name.contains(w))
-    {
-        return true;
+    if name.ends_with(".key") {
+        return !name.contains("pub");
+    }
+    if name.ends_with(".pem") {
+        return name.contains("key")
+            || !["cert", "chain", "pub", "ca."]
+                .iter()
+                .any(|w| name.contains(w));
     }
     if path.contains(".ssh/id_") {
         return !name.ends_with(".pub");
@@ -355,7 +357,14 @@ fn other_reader(raw: &[&str], words: &[&str], extra: &[String]) -> Option<String
             .find(|w| is_source(w, extra))
             .map(|w| w.to_string());
     }
-    if INTERPRETERS.contains(&first) && words.iter().any(|w| matches!(*w, "-c" | "-e")) {
+    // Only among the interpreter's own options: `node app.js -e x` passes `-e` to the app.
+    let script_given = words
+        .iter()
+        .skip_while(|w| w.is_empty())
+        .skip(1)
+        .take_while(|w| w.starts_with('-'))
+        .any(|w| matches!(*w, "-c" | "-e"));
+    if INTERPRETERS.contains(&first) && script_given {
         return raw
             .join(" ")
             .split(|c: char| !(c.is_ascii_alphanumeric() || "._/~-".contains(c)))
@@ -576,6 +585,9 @@ mod tests {
             "cat prod.tfvars",
             "cat service-account.json",
             "cat .git-credentials",
+            "cat ca.key",
+            "cat server-cert-key.pem",
+            "python3 -u -c 'print(open(\".env\").read())'",
         ] {
             assert!(printed(command), "{command}");
         }
@@ -594,6 +606,10 @@ mod tests {
             "git status",
             "cat cert.pem",
             "cat fullchain.pem",
+            "cat ca.pem",
+            "cat public.key",
+            "node server.js -e .env",
+            "python3 tool.py -c prod.key",
             "cat id_rsa.pub",
             "cat <<EOF",
             "python3 -c 'print(1)'",

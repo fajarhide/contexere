@@ -955,14 +955,21 @@ static URL_PASSWORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::ne
 static KEY_VALUE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(concat!(
         r#"(?i)((?:^|[\s{,"'])(?:[a-z0-9_\-]*(?:password|passwd|client_secret|api_?key|access_?token|auth_?token|secret_?key|private_?key))["']?\s*:\s*)"#,
-        r#"("[^"\s]+"|'[^'\s]+'|[^\s"',}]+)"#,
+        r#"("[^"]+"|'[^']+'|[^\s"',}]+)"#,
     ))
     .expect("a literal pattern")
 });
 
+fn is_base64_line(line: &str) -> bool {
+    line.trim()
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '='))
+}
+
 /// Whether a value after a secret's key is one. A type name or an expression is
-/// not, and an unquoted word needs a digit, so `password: required` stays.
-fn is_a_secret_value(value: &str) -> bool {
+/// not. An unquoted value needs a digit and has to be the whole of a YAML-shaped
+/// line, since `private_key: Ed25519Key,` in source code is a type.
+fn is_a_secret_value(value: &str, whole_line: bool) -> bool {
     let quoted = value.starts_with(['"', '\'']);
     let bare = value.trim_matches(['"', '\'']);
     let lower = bare.to_ascii_lowercase();
@@ -986,7 +993,12 @@ fn is_a_secret_value(value: &str) -> bool {
         return false;
     }
     // A short quoted word is usually a field name, as replay over the corpus showed.
-    (quoted && bare.len() >= 8) || bare.chars().any(|c| c.is_ascii_digit())
+    if quoted {
+        return bare.len() >= 8 || bare.chars().any(|c| c.is_ascii_digit());
+    }
+    let camel_case = bare.starts_with(|c: char| c.is_ascii_uppercase())
+        && bare.chars().any(|c| c.is_ascii_lowercase());
+    whole_line && !camel_case && bare.chars().any(|c| c.is_ascii_digit())
 }
 
 /// The structured shapes above, in one line, with how many were hidden.
@@ -1000,8 +1012,12 @@ fn redact_structured(line: &str) -> Option<(String, u32)> {
         count += 1;
         format!("{}[REDACTED]{}", &c[1], &c[2])
     });
-    let text = KEY_VALUE.replace_all(&text, |c: &regex::Captures| {
-        if !is_a_secret_value(&c[2]) {
+    let whole = text.clone();
+    let text = KEY_VALUE.replace_all(&whole, |c: &regex::Captures| {
+        let found = c.get(0).map_or(0..0, |m| m.range());
+        let (before, rest) = whole.split_at(found.start);
+        let (_, after) = rest.split_at(found.len());
+        if !is_a_secret_value(&c[2], before.trim().is_empty() && after.trim().is_empty()) {
             return c[0].to_string();
         }
         count += 1;
@@ -1022,14 +1038,24 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
         .lines()
         .map(|line| {
             let trimmed = line.trim_end();
-            // A key spans lines, so no one line of it matches a pattern.
-            if in_private_key
-                || (trimmed.contains("-----BEGIN") && trimmed.contains("PRIVATE KEY-----"))
-            {
-                let starts = !in_private_key;
-                in_private_key = !trimmed.contains("-----END");
-                redacted += u32::from(starts);
-                return Some(if starts { "[REDACTED]" } else { "" }.to_string());
+            // A key spans lines, so no one line of it matches a pattern. A header inside a
+            // string is source code, and a block ends at the first line that is not base64,
+            // or an unclosed one would blank the rest of the output.
+            if in_private_key {
+                if trimmed.trim().starts_with("-----END") {
+                    in_private_key = false;
+                    return Some(String::new());
+                }
+                if is_base64_line(trimmed) {
+                    return Some(String::new());
+                }
+                in_private_key = false;
+            }
+            let header = trimmed.trim();
+            if header.starts_with("-----BEGIN ") && header.ends_with("PRIVATE KEY-----") {
+                in_private_key = true;
+                redacted += 1;
+                return Some("[REDACTED]".to_string());
             }
             let assigned = redact_line(trimmed);
             let (text, count) = assigned
@@ -1252,10 +1278,37 @@ mod tests {
         assert!(out.contains("keep me"), "{out}");
     }
 
+    /// An unclosed block must not take the rest of the output with it.
+    #[test]
+    fn an_unclosed_key_block_stops_at_the_first_line_that_is_not_base64() {
+        let (out, _) = super::redact_in_place(
+            "-----BEGIN PRIVATE KEY-----\nabc+/=\nfn after() {}\nmore text\n",
+        )
+        .unwrap();
+        assert!(!out.contains("abc+/="), "{out}");
+        assert!(
+            out.contains("fn after() {}") && out.contains("more text"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_quoted_secret_may_hold_spaces() {
+        let (out, _) =
+            super::redact_in_place("{\"password\":\"correct horse 9 battery\"}\n").unwrap();
+        assert!(!out.contains("horse"), "{out}");
+        let v: serde_json::Value = serde_json::from_str(&out).expect("still JSON");
+        assert_eq!(v["password"], "[REDACTED]");
+    }
+
     /// Words beside a secret's name that hold no secret.
     #[test]
     fn leaves_placeholders_types_and_prose_alone() {
         for input in [
+            "const H: &str = \"-----BEGIN PRIVATE KEY-----\";\nfn alpha() {}\nfn beta() {}\n",
+            "    private_key: Ed25519PrivateKey,\n",
+            "  apiKey: Base64String;\n",
+            "password: Argon2Hash\n",
             "password: string\n",
             "password: required\n",
             "\"api_key\": \"apikey\"\n",
