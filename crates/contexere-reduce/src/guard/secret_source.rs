@@ -538,8 +538,9 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
     // record is withheld rather than parsed.
     let header_quoted = header.contains('"');
-    // A sentence ends with punctuation, and a list of column names does not.
-    if header.trim_end().ends_with(['.', '!', '?', ':']) {
+    // A sentence ends in punctuation after several words. `notes:` is still a column.
+    let last = cells.last().map_or("", |c| c.trim_end());
+    if last.ends_with(['.', '!', '?', ':']) && last.split_whitespace().count() > 1 {
         return None;
     }
     // A secret may hold the delimiter, so width cannot decide this: `name,token` over
@@ -605,6 +606,10 @@ mod tests {
     fn a_long_column_name_and_a_multiline_value_stay_hidden() {
         let long = "user,token for production service account\nalice,opaque-one\nbob,opaque-two\n";
         let (out, _) = mask_named_columns(long).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
+
+        let colon = "user,password,notes:\nalice,opaque-one,production\n";
+        let (out, _) = mask_named_columns(colon).expect("hidden");
         assert!(!out.contains("opaque"), "{out}");
 
         let multi = "user,password\nalice,\"one\ntwo\nthree\nfour\nfive\"\n";
