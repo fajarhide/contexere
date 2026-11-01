@@ -64,13 +64,16 @@ at seven days, so none of them can be re-derived. This one is a file. That is th
 of #704: a release-over-release delta was previously a code change and a corpus change
 added together, with no way to separate them.
 
-**0.8% from the filters. 2.4% with the ledger**, on 0.7.11. 98.8% of calls saved
-nothing, 1.2% shrank, and **no call came back larger**. Tokens, `cl100k_base` as a
-proxy for a vocabulary Anthropic does not publish: 2,404,625 to 2,384,140, 0.9%.
+**0.7% from the filters. 2.3% with the ledger**, re-run on 2026-11-01 at `318725a`,
+after 0.8.2. 99.1% of calls saved nothing, 0.9% shrank, and **no call came back
+larger**. Tokens, `cl100k_base` as a proxy for a vocabulary Anthropic does not publish:
+2,404,625 to 2,387,356, 0.7%.
 
-0.7.11 moves no figure at this precision. The ledger arm delivers 276 bytes more than
-on 0.7.10, the whole difference between the two runs, and this release's changes are
-to routing and redaction rather than to what the ledger folds.
+Against 0.7.11 both figures fell by a tenth of a point. The corpus hash is unchanged, so
+that is code: the filters deliver 10,682 bytes more and the ledger arm 10,838 more,
+nearly all of it in `other`. This run did not bisect the move to a
+commit. On the SWE-bench corpus below, the filters hold at 25.2% and the ledger arm goes
+from 30.3% to 30.4%.
 
 Both numbers fell from 0.7.9, where they read 1.4% and 3.0%, and that is the
 release rather than a regression: 0.7.10 closed thirteen classes of false claim,
@@ -91,26 +94,26 @@ one marker and a partially-seen reply now folds nothing.
 <!-- omni:corpus-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
 |---|---|---|---|---|---|---|
-| other | 6,457 | 4.81 MB | 0.8% | 2.8% | 15.9% | **12.6%** |
+| other | 6,457 | 4.81 MB | 0.6% | 2.6% | 16.0% | **12.5%** |
 | file read | 1,056 | 1.89 MB | 0.0% | 1.5% | 17.7% | **8.5%** |
 | git | 899 | 0.86 MB | 0.0% | 1.3% | 19.8% | **6.7%** |
 | search | 810 | 0.77 MB | 3.4% | 3.4% | 6.5% | **0.0%** |
 | infra | 215 | 0.14 MB | 2.4% | 2.7% | 5.5% | **5.2%** |
-| build and test | 41 | 0.02 MB | 9.0% | 10.7% | 21.7% | **8.6%** |
-| **aggregate** | 9,478 | 8.49 MB | 0.8% | 2.4% | 15.7% | **10.3%** |
+| build and test | 41 | 0.02 MB | 8.7% | 10.4% | 21.8% | **8.5%** |
+| **aggregate** | 9,478 | 8.49 MB | 0.7% | 2.3% | 15.8% | **10.2%** |
 
 | Arm | bytes | saved |
 |---|---|---|
-| headroom dedup, omni's filters | 8,486,830 to 8,061,481 | 5.0% |
-| lean-ctx `compress` | 8,486,830 to 8,076,957 | 4.8% |
-| caveman + omni's ledger | 8,486,830 to 8,174,311 | 3.7% |
-| rtk + omni's ledger | 8,486,830 to 8,174,685 | 3.7% |
-| **omni, with the ledger** | 8,486,830 to 8,281,390 | 2.4% |
+| lean-ctx `compress` | 8,486,830 to 7,982,478 | 5.9% |
+| headroom dedup, omni's filters | 8,486,830 to 8,070,147 | 4.9% |
+| caveman + omni's ledger | 8,486,830 to 8,174,823 | 3.7% |
+| rtk + omni's ledger | 8,486,830 to 8,174,200 | 3.7% |
+| **omni, with the ledger** | 8,486,830 to 8,292,228 | 2.3% |
 | caveman `compress` | 8,486,830 to 8,311,999 | 2.1% |
-| rtk `pipe` | 8,486,830 to 8,308,491 | 2.1% |
-| omni, filters only | 8,486,830 to 8,417,817 | 0.8% |
+| rtk `pipe` | 8,486,830 to 8,307,488 | 2.1% |
+| omni, filters only | 8,486,830 to 8,428,499 | 0.7% |
 
-Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, Contexere 0.7.11.
+Measured by `make bench` over 9,478 traces (8.42 MB, 70 sessions), corpus `0b63218ef78a1edb`, OMNI 0.8.2.
 <!-- omni:corpus-table:end -->
 
 A corpus anyone can rebuild, 40 SWE-bench Verified instances across 10 public repos:
@@ -123,23 +126,23 @@ CORPUS_DIR=swebench-corpus ./scripts/bench.sh
 <!-- omni:swebench-table:start -->
 | Class | Calls | Input | Filters | + ledger | Available | Captured |
 |---|---|---|---|---|---|---|
-| file read | 86 | 2.07 MB | 26.8% | 32.3% | 25.8% | **28.7%** |
+| file read | 86 | 2.07 MB | 26.8% | 32.4% | 25.8% | **29.6%** |
 | search | 80 | 0.13 MB | 11.2% | 11.2% | 46.8% | **0.0%** |
 | git | 120 | 0.06 MB | 0.0% | 2.5% | 18.3% | **13.9%** |
-| **aggregate** | 286 | 2.26 MB | 25.2% | 30.3% | 27.0% | **24.9%** |
+| **aggregate** | 286 | 2.26 MB | 25.2% | 30.4% | 27.0% | **25.7%** |
 
 | Arm | bytes | saved |
 |---|---|---|
-| lean-ctx `compress` | 2,259,278 to 852,777 | 62.3% |
-| headroom dedup, omni's filters | 2,259,278 to 1,539,608 | 31.9% |
-| **omni, with the ledger** | 2,259,278 to 1,575,607 | 30.3% |
-| omni, filters only | 2,259,278 to 1,689,234 | 25.2% |
+| lean-ctx `compress` | 2,259,278 to 626,725 | 72.3% |
+| headroom dedup, omni's filters | 2,259,278 to 1,534,951 | 32.1% |
+| **omni, with the ledger** | 2,259,278 to 1,572,199 | 30.4% |
+| omni, filters only | 2,259,278 to 1,689,268 | 25.2% |
 | rtk + omni's ledger | 2,259,278 to 2,039,856 | 9.7% |
 | caveman + omni's ledger | 2,259,278 to 2,106,392 | 6.8% |
 | rtk `pipe` | 2,259,278 to 2,192,628 | 3.0% |
 | caveman `compress` | 2,259,278 to 2,259,164 | 0.0% |
 
-Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.7.11.
+Measured by `make bench` over 286 traces (2.26 MB, 40 sessions), corpus `6d8bb2238d1a3a7b`, OMNI 0.8.2.
 <!-- omni:swebench-table:end -->
 
 **`available` and `captured` are new, and `captured` is the figure that survives a
@@ -172,10 +175,10 @@ a subcommand it knows, so it falls through to shrink mode and hands back the inp
 that works (#712).
 
 **On this corpus Contexere is last of the four rows that carry a ledger, and both halves are
-behind.** headroom's dedup takes 5.0% where ours takes 2.4% over identical filters and
+behind.** headroom's dedup takes 4.9% where ours takes 2.3% over identical filters and
 identical blocks, so that 2.6 points is the dedup engine alone. It read 0.9 points until
 #760, which is the correction at the top of this page and not a change in the code. Our filter tier is the
-weakest of the four at 0.8%, against 2.1% for rtk and caveman and 4.8% for lean-ctx,
+weakest of the four at 0.7%, against 2.1% for rtk and caveman and 5.9% for lean-ctx,
 and that shortfall is what carries `rtk + omni's ledger` and `caveman + omni's ledger`
 above our own stack: the ledger is identical in all three rows and only the filters
 underneath it differ.
@@ -186,11 +189,14 @@ getting worse. headroom's row fell with them, 5.8% to 5.0%, because that arm run
 dedup over our filters, so the gap between the two ledgers narrowed slightly, 2.8 points
 to 2.6.
 
-lean-ctx beating our filters by 4.0 points is the largest single gap here and it is not
+lean-ctx beating our filters by 5.2 points is the largest single gap here and it is not
 argued away. It is a deep compressor rather than a per-command filter, and the same
 shape showed up on the 0.7.5 corpus below at a much larger magnitude.
 
-Versions: rtk 0.45.0, lean-ctx 3.9.18, caveman `bin-v1.0.0`, headroom 0.34.0. No
+Versions: rtk 1.1.0, lean-ctx 3.12.0, headroom 0.34.0. `caveman-engine` prints no
+version, and its row is byte-identical to the 0.7.11 run. A competitor's row also moves
+when its binary is upgraded, so lean-ctx going from 4.8% to 5.9% here, and from 62.3% to
+72.3% on the SWE-bench corpus, says nothing about Contexere. No
 `lean-ctx + our ledger` row: its preview reports `compressed_bytes` and never emits the
 text, so the row could only be estimated, and an estimate beside four measurements is
 the blend this harness exists to avoid.
