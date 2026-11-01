@@ -84,7 +84,7 @@ than forming an impression.
 | tool | what it does |
 |---|---|
 | `omni_remember` | Store a decision, gotcha or constraint |
-| `omni_recall` | Semantic search across engrams, knowledge and distillation history |
+| `omni_recall` | Search across stored knowledge |
 | `omni_knowledge` | Query or store cross-session project knowledge |
 | `omni_insight` | Top recurring issues and error patterns across the project |
 | `omni_adaptive_insights` | Retrieval patterns, as a judgement on distillation effectiveness |

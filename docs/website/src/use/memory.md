@@ -8,7 +8,7 @@ purpose.
 
 | tier | what | kept |
 |---|---|---|
-| **Permanent** | project knowledge, recurring error patterns, engrams, goal memory | until you delete it, except goal memory which honours its own `ttl_days` |
+| **Permanent** | project knowledge, recurring error patterns, goal memory | until you delete it, except goal memory which honours its own `ttl_days` |
 | **Working, 30 days** | sessions, distillation rows, hot files, the archive, the event index, the ledger | rolling window |
 | **Verbatim, 7 days** | execution traces and the session transcript | shorter on purpose, two orders of magnitude heavier per row |
 
@@ -41,8 +41,7 @@ contexere remember 'The staging database ignores migrations run outside the depl
 ```
 
 Agents with MCP wired call `omni_remember` themselves, and pull facts back with
-`omni_recall`, which is a semantic search across engrams, stored knowledge and
-distillation history. Both are advertised on the MCP-only and Handoff-first tiers.
+`omni_recall`, which is a search across stored knowledge. Both are advertised on the MCP-only and Handoff-first tiers.
 A Full-tier host such as Claude Code writes through `contexere remember` in the shell Contexere
 already hooks, and reaches `omni_recall`, which has no CLI equivalent, with
 `OMNI_MCP_TOOLS=all`.
@@ -71,8 +70,8 @@ default, so set `OMNI_MCP_TOOLS=all` before reaching for it.
 
 ## Engrams
 
-Digests of finished subtasks, written as work completes rather than reconstructed
-later.
+Digests of finished subtasks in the latest session, written as work completes rather
+than reconstructed later.
 
 ```sh
 contexere engram

@@ -433,7 +433,7 @@ impl OmniServer {
 
     #[tool(
         name = "omni_recall",
-        description = "Recall cross-session memories using semantic search across Engrams, Knowledge, and Distillation history"
+        description = "Recall knowledge saved in earlier sessions. Keyword search."
     )]
     pub async fn omni_recall(&self, params: Parameters<OmniRecallParams>) -> String {
         let query = params.0.query;
