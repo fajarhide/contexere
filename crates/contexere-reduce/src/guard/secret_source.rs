@@ -517,9 +517,13 @@ fn names_a_secret(cell: &str) -> bool {
         || cell.split_whitespace().any(|w| w == "token")
 }
 
+/// A column name is a few words. A sentence that mentions a secret is not one.
+const MAX_WORDS_IN_A_COLUMN_NAME: usize = 4;
+
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
 /// row, and the count hidden. A row of another width is hidden whole, since its
-/// columns cannot be trusted to line up. `None` when there is nothing to hide.
+/// columns cannot be trusted to line up. `None` when there is nothing to hide, or
+/// when the output is prose whose first line happens to hold a comma (#1015).
 pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let mut lines = content.lines();
     let header = lines.next()?;
@@ -528,7 +532,9 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let hidden: Vec<usize> = cells
         .iter()
         .enumerate()
-        .filter(|(_, c)| names_a_secret(c))
+        .filter(|(_, c)| {
+            names_a_secret(c) && c.split_whitespace().count() <= MAX_WORDS_IN_A_COLUMN_NAME
+        })
         .map(|(i, _)| i)
         .collect();
     if hidden.is_empty() || cells.len() < 2 {
@@ -537,6 +543,18 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
     // record is withheld rather than parsed.
     let header_quoted = header.contains('"');
+    // A secret may hold the delimiter, so width cannot decide this: `name,token` over
+    // `alice,x,y` is still a table. A line with no delimiter at all is not a row, and
+    // output made mostly of those is prose.
+    let rows: Vec<&str> = content
+        .lines()
+        .skip(1)
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+    let row_shaped = rows.iter().filter(|l| l.contains(delimiter)).count();
+    if row_shaped * 2 < rows.len() {
+        return None;
+    }
     let mut out = vec![header.to_string()];
     let mut count = 0;
     for line in lines {
@@ -573,6 +591,26 @@ mod tests {
 
     /// Shapes written in good faith that printed a source without being seen
     /// (GHSA-v3fc-v69m-9v8h).
+    #[test]
+    fn prose_that_mentions_a_secret_is_not_a_table() {
+        // A long first cell: the description of a project, then its README.
+        let long = "A platform for securing secrets, certificates, access, and agents.\n\
+                    first plain line, with a comma\nno comma here\none more, two more\n";
+        assert!(mask_named_columns(long).is_none());
+        // A short first cell, where only the rows can tell.
+        let short = "Manage secrets, certificates, and agents\nno comma here\nnor here\none, two\n";
+        assert!(mask_named_columns(short).is_none());
+    }
+
+    #[test]
+    fn one_odd_row_does_not_deliver_a_real_table() {
+        let csv = "user,password\nalice,opaque-one\nbob,opaque-two\ncarol,opaque,three\n";
+        let (out, _) = mask_named_columns(csv).expect("hidden");
+        for value in ["opaque-one", "opaque-two", "opaque,three"] {
+            assert!(!out.contains(value), "{out}");
+        }
+    }
+
     #[test]
     fn sees_the_shell_shapes_and_files_it_used_to_miss() {
         for command in [
