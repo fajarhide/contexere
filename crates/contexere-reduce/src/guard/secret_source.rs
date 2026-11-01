@@ -518,10 +518,12 @@ fn names_a_secret(cell: &str) -> bool {
 }
 
 /// Code, `path:line:` from grep, a URL and a dict all hold these inside a cell, and a
-/// list of column names does not.
+/// list of column names does not. A split cuts code's brackets apart, while a column such
+/// as `last_login (UTC)` keeps its pair.
 fn reads_as_a_column(cell: &str) -> bool {
     let name = cell.trim().strip_suffix(':').unwrap_or(cell.trim());
-    !name.contains(['(', ')', '{', '}', '[', ']', '=', ';', ':'])
+    let pairs = |open, close| name.matches(open).count() == name.matches(close).count();
+    !name.contains(['=', ';', ':']) && pairs('(', ')') && pairs('[', ']') && pairs('{', '}')
 }
 
 /// A CSV or TSV whose header names a secret, with those columns hidden on every
@@ -611,7 +613,7 @@ mod tests {
 
     /// Output seen for real, or one edit away from it.
     #[test]
-    fn code_grep_and_tool_rows_are_not_a_table() {
+    fn leaves_code_grep_and_tool_rows_unmasked() {
         for output in [
             "src/auth.py:12:def login(user, password, retries=3):\n    return login(user, password)\n    save(user, retries)\n",
             "def login(user, password, retries=3):\n    check(user, password)\n",
@@ -628,6 +630,10 @@ mod tests {
     fn a_long_column_name_and_a_multiline_value_stay_hidden() {
         let long = "user,token for production service account\nalice,opaque-one\nbob,opaque-two\n";
         let (out, _) = mask_named_columns(long).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
+
+        let unit = "user,password,last_login (UTC)\nalice,opaque-one,today\n";
+        let (out, _) = mask_named_columns(unit).expect("hidden");
         assert!(!out.contains("opaque"), "{out}");
 
         let colon = "user,password,notes:\nalice,opaque-one,production\n";
