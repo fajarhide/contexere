@@ -7,8 +7,10 @@ kembali persis seperti saat datang.
 Empat jenis dikenali: **JSON**, **YAML**, **CSV** dan **TSV**. Mengenali salah
 satunya sudah menutup perkara.
 
-Satu pengecualian: secret. Nilai di bawah kunci seperti `password` diganti di tempatnya, dan kolom
-CSV atau TSV yang header-nya menyebut secret disembunyikan. Sisanya tetap seperti semula.
+Satu pengecualian, di jalur hook: secret. Nilai di bawah kunci seperti `password` diganti di
+tempatnya, dan kolom CSV atau TSV yang header-nya menyebut secret disembunyikan. Baris ber-quote
+atau tidak rata di tabel seperti itu disembunyikan utuh. `contexere exec` dan mode pipe
+mengembalikan output terstruktur apa adanya.
 
 Ini tahap yang orang kira kegagalan. `kubectl get pods -o json` yang kembali
 utuh bukan Contexere melewatkan kesempatan, itu Contexere menolak kesempatan.

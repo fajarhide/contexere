@@ -196,7 +196,7 @@ Sering, dan itu tandanya pipeline bekerja, bukan gagal. Contexere mengembalikan
 keluarannya langsung setiap kali mengambil sesuatu akan tidak aman atau tidak
 sepadan. Itu terjadi ketika:
 
-- Muatannya JSON, YAML, CSV atau TSV. Tidak pernah dipendekkan, memang disengaja. Hanya secret di dalamnya yang berubah.
+- Muatannya JSON, YAML, CSV atau TSV. Tidak pernah dipendekkan, memang disengaja. Di jalur hook, secret di dalamnya tetap disembunyikan.
 - Perintahnya gagal. Keluar dengan status bukan nol lewat apa adanya.
 - Tidak ada basa-basi untuk dibuang. Tabel `kubectl get pods` adalah pendaftaran
   yang setiap barisnya sebuah data.
