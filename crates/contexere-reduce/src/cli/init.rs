@@ -381,10 +381,18 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
     }
 
     let integrations = crate::agents::all_integrations();
+    let mut failed = Vec::new();
 
     for agent in integrations {
         if target_ids.contains(&agent.id()) {
             println!("{}", format!("🤖 {} Setup", agent.name()).bold().cyan());
+
+            // Pi alone refuses when its binary is absent, and `--all` means the
+            // hosts on this machine, so that absence must not fail the run.
+            if is_all && agent.id() == "pi" && !crate::agents::pi::is_installed() {
+                println!("  {} Skipped: Pi is not on PATH\n", "ℹ".blue());
+                continue;
+            }
 
             // `--hook` and `--mcp` each mean one half (#757).
             let outcome = match (
@@ -395,8 +403,12 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
                 ("claude", (false, true)) => crate::agents::claude::install_mcp_server(&exe_path),
                 _ => agent.install(&exe_path),
             };
+            let installed = outcome.is_ok();
             match outcome {
-                Err(e) => eprintln!("  {} Failed: {}", "✗".red(), e),
+                Err(e) => {
+                    eprintln!("  {} Failed: {}", "✗".red(), e);
+                    failed.push(agent.name());
+                }
                 // Say what this host's tier lets OMNI do, for every tier: installation is
                 // when the expectation forms (#684).
                 Ok(()) => println!(
@@ -407,7 +419,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
                 ),
             }
 
-            if agent.id() == "claude" {
+            if installed && agent.id() == "claude" {
                 println!("\n  {} Binary: {}", "ℹ".blue(), exe_path.bright_black());
                 println!(
                     "  {} Restart Claude Code to activate.\n",
@@ -418,6 +430,10 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
+    // Keep going first: one bad config must not stop the other hosts installing.
+    if !failed.is_empty() {
+        anyhow::bail!("not installed: {}", failed.join(", "));
+    }
     Ok(())
 }
 

@@ -80,3 +80,6 @@ menyentuh konfigurasi di direktori home Anda.
 Flag host yang tidak dikenali tidak selalu gagal dengan berisik: flag yang salah
 ketik pernah menjalankan mode interaktif bawaan lalu keluar dengan status 0
 sementara tidak memasang apa pun yang diminta. Baca apa yang ia cetak.
+
+`init` keluar dengan status 1 bila host yang diminta gagal terpasang, setelah mencoba
+host lainnya. `--all` melewati Pi bila binary-nya tidak ada di `PATH` Anda, bukan gagal.

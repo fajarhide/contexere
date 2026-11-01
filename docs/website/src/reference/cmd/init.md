@@ -75,3 +75,6 @@ touches your home configuration only.
 An unrecognised host flag does not always fail loudly: a misspelled one has been known
 to run the interactive default and exit 0 while installing nothing that was asked for.
 Read what it printed.
+
+`init` exits 1 when a host it was asked for did not install, after trying the others.
+`--all` skips Pi when its binary is not on your `PATH` instead of failing.

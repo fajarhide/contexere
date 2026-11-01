@@ -31,6 +31,43 @@ fn assert_init_leaves_alone(flag: &str, config: &str) {
     assert!(said.contains("not plain JSON"), "{flag} said: {said}");
 }
 
+/// A script reads the exit code, not the `Failed` line (#984).
+#[test]
+fn a_failed_host_exits_1_after_the_others_installed() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let gemini = home.path().join(".gemini/settings.json");
+    std::fs::create_dir_all(gemini.parent().expect("parent")).expect("create config dir");
+    std::fs::write(&gemini, WITH_COMMENT).expect("write fixture");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--gemini", "--claude"])
+        .env("HOME", home.path())
+        .env_remove("CLAUDE_CONFIG_DIR")
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init");
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("not installed: Gemini CLI"), "{stderr}");
+    let claude = std::fs::read_to_string(home.path().join(".claude/settings.json"))
+        .expect("the other host still installed");
+    assert!(claude.contains("--pre-hook"), "{claude}");
+}
+
+#[test]
+fn a_clean_install_exits_0() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let status = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--gemini"])
+        .env("HOME", home.path())
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init")
+        .status;
+    assert_eq!(status.code(), Some(0));
+}
+
 #[test]
 fn gemini_init_leaves_an_unparsed_config_alone() {
     assert_init_leaves_alone("--gemini", ".gemini/settings.json");

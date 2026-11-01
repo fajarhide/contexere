@@ -25,6 +25,10 @@ fn find_pi_binary() -> Option<PathBuf> {
     None
 }
 
+pub fn is_installed() -> bool {
+    find_pi_binary().is_some()
+}
+
 fn pi_settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
