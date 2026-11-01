@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi, jadi instalasi yang ada tidak perlu diubah. Contexere sedang berkembang menjadi satu tempat untuk skill, kredensial, dan memori yang dipakai setiap agent; hari ini yang dikirim adalah lapisan konteks dan token.
+> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi, jadi instalasi yang ada tidak perlu diubah. Contexere sedang berkembang menjadi pembatas kredensial untuk AI coding agent, supaya agent bisa memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
 
 ## Kenapa
 
