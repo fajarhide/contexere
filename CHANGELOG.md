@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Output that mentions secrets in its first line is no longer blanked (#1015)**: 0.8.3 read any first line with a comma and the word "secrets" as a CSV header, so all the output after it came back as `[REDACTED]` with a count of hidden values, even on a public README. A first line that ends like a sentence is no longer a header, and most lines after it have to hold the delimiter. A table with an odd row, a long column name or a quoted multiline value is still hidden.
+- **Code and tool rows are no longer read as a CSV header (#1017)**: a first line such as `def login(user, password):`, a `git log` subject, or a `gh pr checks` row for a job named `secrets` made the lines after it `[REDACTED]`. Every cell of a header must now read as a column name. Replayed over the local corpus of 9,478 traces, masked output falls from 23 to 3, and the SWE-bench corpus stays at 0 of 286.
 
 ## [0.8.3] - 2026-11-01
 
