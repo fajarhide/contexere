@@ -6,7 +6,8 @@
 //! * It calls `score_segments` through the profile the hook resolves, so a
 //!   payload is split the way production splits it, and the tier beside each
 //!   block comes from `semantic::classify_block`, which is the classifier every
-//!   scoring path uses. `scorer::classify_line` has no caller in the pipeline.
+//!   scoring path uses. `scorer::classify_line` is a second vocabulary: collapse uses
+//!   it line by line, and it does not score blocks.
 //! * It runs the shipping redactor over every block before writing it, and
 //!   refuses to run at all without the operator's own sensitive-name patterns.
 //!   This corpus is real command output: 27.2% of its traces carry an employer,
