@@ -963,7 +963,7 @@ static KEY_VALUE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|
 fn is_base64_line(line: &str) -> bool {
     line.trim()
         .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '='))
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '=' | '-' | '_'))
 }
 
 /// Whether a value after a secret's key is one. A type name or an expression is
