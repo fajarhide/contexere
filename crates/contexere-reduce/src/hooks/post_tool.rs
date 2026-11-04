@@ -209,9 +209,9 @@ enum Declined {
     /// (#725).
     KeepsAPreview,
     Structured,
-    /// `OMNI_PASSTHROUGH=1` typed in the command: the model can type it, so it skips
-    /// compression but never redaction (#1003).
-    TypedPassthrough,
+    /// `OMNI_PASSTHROUGH=1`, typed (#1003) or in the environment (#1033): it skips
+    /// compression but never redaction.
+    Passthrough,
 }
 
 /// Whether OMNI must not touch this payload, recording why. `true` means the
@@ -239,11 +239,10 @@ fn declined(
     }
 
     // The environment, or an assignment typed before the command (#534).
-    if crate::guard::env::is_passthrough() {
-        return Some(Declined::KeepsTheseBytes);
-    }
-    if crate::guard::env::command_asks_for_passthrough(&normalized.command) {
-        return Some(Declined::TypedPassthrough);
+    if crate::guard::env::is_passthrough()
+        || crate::guard::env::command_asks_for_passthrough(&normalized.command)
+    {
+        return Some(Declined::Passthrough);
     }
 
     // Before the format gate: an over-cap payload is a host preview, whatever its
@@ -509,9 +508,6 @@ fn withheld_reply(
     session: Option<&Arc<Mutex<SessionState>>>,
 ) -> Option<String> {
     use crate::guard::secret_source as source;
-    if crate::guard::env::is_passthrough() {
-        return None;
-    }
     let extra = source::user_sources();
     let named = if normalized.tool_name == "Read" {
         source::is_source(&normalized.command, &extra).then(|| normalized.command.clone())
@@ -573,7 +569,7 @@ pub fn process_payload(
     if let Some(decline) = declined(&normalized, store.as_deref()) {
         // A structured payload holding a secret is redacted in place for the model,
         // with the notice in the context message (#866). The pipe does the same (#1021).
-        if matches!(decline, Declined::Structured | Declined::TypedPassthrough)
+        if matches!(decline, Declined::Structured | Declined::Passthrough)
             && let Some((body, count)) =
                 crate::distillers::system_ops::redact_in_place(&normalized.content)
         {
@@ -597,7 +593,7 @@ pub fn process_payload(
         // The host's bytes count toward the turn, at the shared exit (#725).
         if matches!(
             decline,
-            Declined::KeepsTheseBytes | Declined::Structured | Declined::TypedPassthrough
+            Declined::KeepsTheseBytes | Declined::Structured | Declined::Passthrough
         ) && let Some(ref sess) = session
             && let Ok(mut state) = sess.lock()
         {
