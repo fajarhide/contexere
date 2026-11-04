@@ -115,11 +115,18 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         return Ok(());
     }
 
-    // Structured payloads go out byte for byte.
+    // Structured payloads go out byte for byte, except a credential, hidden in place
+    // as the hook does, with the notice on stderr so the document stays valid (#1021).
     if crate::pipeline::format::refuses_lossy_stages(&input_text)
         && let Some(kind) = crate::pipeline::format::sniff(&input_text)
     {
-        output.write_all(input_text.as_bytes())?;
+        match crate::distillers::system_ops::redact_in_place(&input_text) {
+            Some((body, count)) => {
+                output.write_all(body.as_bytes())?;
+                writeln!(error, "[OMNI: {count} sensitive value(s) redacted in place]")?;
+            }
+            None => output.write_all(input_text.as_bytes())?,
+        }
         output.flush()?;
         if let Some(s) = &store {
             s.record_passthrough(
@@ -813,6 +820,26 @@ mod tests {
 
         let out_str = String::from_utf8(out).expect("must succeed");
         assert!(out_str.contains("diff --git"));
+    }
+
+    /// A JSON payload keeps its shape and loses its secret, as on the hook path (#1021).
+    #[test]
+    fn hides_a_secret_inside_json() {
+        let input = "{\"user\":\"a\",\"password\":\"canary-xyz-123\"}\n";
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        run_inner(input.as_bytes(), &mut out, &mut err, None, None, Some("cat"))
+            .expect("must succeed");
+        let out = String::from_utf8(out).expect("utf8");
+        assert!(!out.contains("canary-xyz-123"), "{out}");
+        serde_json::from_str::<serde_json::Value>(&out).expect("still valid JSON");
+        assert!(String::from_utf8_lossy(&err).contains("redacted in place"));
+
+        let clean = "{\"user\":\"a\",\"n\":1}\n";
+        let mut out = Vec::new();
+        run_inner(clean.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
+            .expect("must succeed");
+        assert_eq!(out, clean.as_bytes(), "a clean document goes out byte for byte");
     }
 
     #[test]

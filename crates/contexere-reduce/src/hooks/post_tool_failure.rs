@@ -68,6 +68,10 @@ pub fn process_payload(
         .find(|l| !l.trim().is_empty())
         .unwrap_or(error_msg);
     let short_error = crate::util::text::safe_slice(short_error, 200);
+    // Kept in the session row and the index, so hidden first (#1003).
+    use crate::distillers::system_ops::scrub;
+    let (command, short_error) = (scrub(command), scrub(short_error));
+    let (command, short_error) = (command.as_ref(), short_error.as_ref());
 
     {
         let mut state = session.lock().unwrap_or_else(|p| p.into_inner());
@@ -120,6 +124,25 @@ mod tests {
         let state = session.lock().unwrap_or_else(|p| p.into_inner());
         assert!(!state.active_errors.is_empty());
         assert!(state.active_errors[0].contains("E0308"));
+    }
+
+    /// A failing command's credential never reaches the stored session (#1003).
+    #[test]
+    fn a_failure_stores_no_credential() {
+        let (store, _dir) = get_store();
+        let session = Arc::new(Mutex::new(SessionState::new()));
+        let input = json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_name": "Bash",
+            "tool_input": { "command": "DB_PASSWORD=canary-cmd-123 ./migrate" },
+            "tool_response": { "stderr": "API_TOKEN=canary-err-456 rejected" }
+        });
+        process_payload(&input.to_string(), store, session.clone());
+        let state = session.lock().unwrap_or_else(|p| p.into_inner());
+        let kept = serde_json::to_string(&*state).expect("state");
+        assert!(!kept.contains("canary-cmd-123"), "{kept}");
+        assert!(!kept.contains("canary-err-456"), "{kept}");
+        assert!(kept.contains("./migrate"), "{kept}");
     }
 
     #[test]

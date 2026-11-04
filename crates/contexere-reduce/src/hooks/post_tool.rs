@@ -209,6 +209,9 @@ enum Declined {
     /// (#725).
     KeepsAPreview,
     Structured,
+    /// `OMNI_PASSTHROUGH=1` typed in the command: the model can type it, so it skips
+    /// compression but never redaction (#1003).
+    TypedPassthrough,
 }
 
 /// Whether OMNI must not touch this payload, recording why. `true` means the
@@ -236,10 +239,11 @@ fn declined(
     }
 
     // The environment, or an assignment typed before the command (#534).
-    if crate::guard::env::is_passthrough()
-        || crate::guard::env::command_asks_for_passthrough(&normalized.command)
-    {
+    if crate::guard::env::is_passthrough() {
         return Some(Declined::KeepsTheseBytes);
+    }
+    if crate::guard::env::command_asks_for_passthrough(&normalized.command) {
+        return Some(Declined::TypedPassthrough);
     }
 
     // Before the format gate: an over-cap payload is a host preview, whatever its
@@ -559,9 +563,8 @@ pub fn process_payload(
     // The decline gates, each recording its reason (#442, #441).
     if let Some(decline) = declined(&normalized, store.as_deref()) {
         // A structured payload holding a secret is redacted in place for the model,
-        // with the notice in the context message (#866). `omni exec` and the pipe
-        // stay verbatim.
-        if matches!(decline, Declined::Structured)
+        // with the notice in the context message (#866). The pipe does the same (#1021).
+        if matches!(decline, Declined::Structured | Declined::TypedPassthrough)
             && let Some((body, count)) =
                 crate::distillers::system_ops::redact_in_place(&normalized.content)
         {
@@ -583,7 +586,10 @@ pub fn process_payload(
             .ok();
         }
         // The host's bytes count toward the turn, at the shared exit (#725).
-        if matches!(decline, Declined::KeepsTheseBytes | Declined::Structured)
+        if matches!(
+            decline,
+            Declined::KeepsTheseBytes | Declined::Structured | Declined::TypedPassthrough
+        )
             && let Some(ref sess) = session
             && let Ok(mut state) = sess.lock()
         {
@@ -1745,6 +1751,17 @@ Ran 6 tests across 1 file. [4.00ms]
     fn withholds_a_source_even_with_a_typed_passthrough() {
         let reply = bash_reply("OMNI_PASSTHROUGH=1 cat .env", "A=wJalrXUtnFEMIK7MDENGbPx\n");
         assert!(!reply.contains("wJalrXUt"));
+    }
+
+    /// The model can type the prefix, so it skips compression and never redaction (#1003).
+    #[test]
+    fn a_typed_passthrough_still_redacts() {
+        let reply = bash_reply(
+            "OMNI_PASSTHROUGH=1 printenv",
+            "HOME=/home/dev\nDB_PASSWORD=canary-pt-789\n",
+        );
+        assert!(!reply.contains("canary-pt-789"), "{reply}");
+        assert!(reply.contains("HOME=/home/dev"), "{reply}");
     }
 
     #[test]
