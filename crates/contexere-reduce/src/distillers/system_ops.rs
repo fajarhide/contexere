@@ -518,9 +518,10 @@ fn names_only_a_provider(key: &str) -> bool {
     !k.contains('_') && SENSITIVE_PATTERNS.contains(&format!("{k}_").as_str())
 }
 
-/// A version, `2.9.0` or `==0.40.0rc1`: two or more dotted numbers, then at most
-/// a release tag and its number. A bare integer is not one, so `api=123456` stays
-/// hidden, and neither is free text after the numbers (review of #1041).
+/// A version, `2.9.0` or `==1.0.0rc1.dev1`: two or more dotted numbers, then
+/// release tags, each with its number. A bare integer is not one, so `api=123456`
+/// stays hidden, and neither is free text or a local label after the numbers
+/// (review of #1041).
 fn looks_like_version(value: &str) -> bool {
     let v = value
         .trim()
@@ -532,19 +533,23 @@ fn looks_like_version(value: &str) -> bool {
         .next()
         .unwrap_or("");
     let parts: Vec<&str> = head.trim_end_matches('.').split('.').collect();
-    // PEP 440 and semver pre and post tags, lowercase as both print them.
-    let tag = v
-        .strip_prefix(head)
-        .unwrap_or(v)
-        .trim_start_matches(['-', '.']);
-    let number = ["alpha", "beta", "post", "pre", "dev", "rc", "a", "b"]
-        .iter()
-        .find_map(|t| tag.strip_prefix(t))
-        .map_or(tag, |n| n.trim_start_matches('.'));
-    parts.len() >= 2
-        && parts.iter().all(|p| !p.is_empty())
-        && (tag.is_empty() || number.len() < tag.len())
-        && number.chars().all(|c| c.is_ascii_digit())
+    if parts.len() < 2 || parts.iter().any(|p| p.is_empty()) {
+        return false;
+    }
+    // PEP 440 and semver pre, post and dev tags, lowercase as both print them.
+    let mut rest = v.strip_prefix(head).unwrap_or(v);
+    while !rest.is_empty() {
+        let Some(after) = ["alpha", "beta", "post", "pre", "dev", "rc", "a", "b"]
+            .iter()
+            .find_map(|t| rest.trim_start_matches(['-', '.']).strip_prefix(t))
+        else {
+            return false;
+        };
+        rest = after
+            .trim_start_matches('.')
+            .trim_start_matches(|c: char| c.is_ascii_digit());
+    }
+    true
 }
 
 /// An integer, alone or leading code: a conditional, a comment or arithmetic
@@ -1645,6 +1650,7 @@ mod tests {
             "gemini = \"0.8.3\"",
             "openai==1.0.0-beta.1",
             "anthropic==0.3.0.post1",
+            "openai==1.0.0rc1.dev1",
         ] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
@@ -1658,6 +1664,7 @@ mod tests {
             // Review of #1041: free text after the numbers is not a release tag.
             "api=1.2.Ab3dEf9Gh2Jk4Lm6",
             "openai==1.2.abcdef",
+            "openai==1.0.0+local.1",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
