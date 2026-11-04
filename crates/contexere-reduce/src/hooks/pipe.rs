@@ -872,12 +872,26 @@ mod tests {
         );
         for input in [doc.clone(), doc.replace('\n', "\r\n")] {
             let mut out = Vec::new();
-            run_inner(input.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
-                .expect("must succeed");
+            run_inner(
+                input.as_bytes(),
+                &mut out,
+                Vec::new(),
+                None,
+                None,
+                Some("cat"),
+            )
+            .expect("must succeed");
             let out = String::from_utf8(out).expect("utf8");
             assert_eq!(
                 out.lines().collect::<Vec<_>>(),
-                ["name: app", "private_key: |", "  [REDACTED]", "", "", "port: 8080"],
+                [
+                    "name: app",
+                    "private_key: |",
+                    "  [REDACTED]",
+                    "",
+                    "",
+                    "port: 8080"
+                ],
                 "{input:?}"
             );
         }

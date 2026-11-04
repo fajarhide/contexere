@@ -534,7 +534,8 @@ fn leads_with_an_integer(value: &str) -> bool {
                     .all(|c| c.is_ascii_digit() || c.is_whitespace() || "+-*/%()".contains(c)))
     };
     rest.len() < body.len()
-        && (rest.is_empty() || (code && rest.starts_with(char::is_whitespace) && code_follows(rest)))
+        && (rest.is_empty()
+            || (code && rest.starts_with(char::is_whitespace) && code_follows(rest)))
 }
 
 /// A brace expression or a Python lambda is code, not a value: React's
