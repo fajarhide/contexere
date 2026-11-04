@@ -188,8 +188,9 @@ fn read_input<R: Read, W: Write>(mut input: R, mut output: W) -> Result<Option<S
             let mut line = Vec::new();
             while std::io::BufRead::read_until(&mut rest, b'\n', &mut line)? > 0 {
                 match std::str::from_utf8(&line) {
-                    Ok(text) => output
-                        .write_all(crate::distillers::system_ops::scrub(text).as_bytes())?,
+                    Ok(text) => {
+                        output.write_all(crate::distillers::system_ops::scrub(text).as_bytes())?
+                    }
                     Err(_) => output.write_all(&line)?,
                 }
                 line.clear();
@@ -916,8 +917,15 @@ mod tests {
         let mut input = line.repeat(crate::guard::limits::MAX_INPUT / line.len() + 10);
         input.push_str("DB_PASSWORD=canary-big-1000\nlast line, no newline");
         let mut out = Vec::new();
-        run_inner(input.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
-            .expect("must succeed");
+        run_inner(
+            input.as_bytes(),
+            &mut out,
+            Vec::new(),
+            None,
+            None,
+            Some("cat"),
+        )
+        .expect("must succeed");
         let out = String::from_utf8(out).expect("utf8");
         assert!(!out.contains("canary-big-1000"));
         assert!(out.ends_with("DB_PASSWORD=[REDACTED]\nlast line, no newline"));

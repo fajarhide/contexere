@@ -128,7 +128,10 @@ fn reports_a_killed_child_as_128_plus_the_signal() {
 fn passes_the_callers_environment_through() {
     let (stdout, code) = run_exec_args(
         &["printenv", "SSH_AUTH_SOCK", "PYTHONPATH"],
-        &[("SSH_AUTH_SOCK", "/tmp/agent.sock"), ("PYTHONPATH", "/srv/lib")],
+        &[
+            ("SSH_AUTH_SOCK", "/tmp/agent.sock"),
+            ("PYTHONPATH", "/srv/lib"),
+        ],
     );
     assert_eq!(code, 0);
     assert_eq!(stdout, "/tmp/agent.sock\n/srv/lib\n");
