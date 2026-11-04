@@ -1795,15 +1795,16 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(reply.contains("HOME=/home/dev"), "{reply}");
     }
 
-    /// A failed command keeps every byte except its credential (#1035 review).
+    /// A failed command keeps every byte except its credential (#1035 review). Pi's
+    /// shape, since Claude Code's payload never sets `failed`.
     #[test]
     fn a_failed_command_still_redacts() {
         let payload = serde_json::json!({
-            "tool_name": "Bash",
-            "tool_input": { "command": "./deploy.sh" },
-            "tool_response": {
-                "stdout": "DB_PASSWORD=canary-fail-1035\nerror: deploy failed\n",
-                "stderr": "", "interrupted": false, "is_error": true
+            "toolName": "bash",
+            "toolInput": { "command": "./deploy.sh" },
+            "toolResponse": {
+                "result": "DB_PASSWORD=canary-fail-1035\nerror: deploy failed\n",
+                "isError": true
             },
         })
         .to_string();
