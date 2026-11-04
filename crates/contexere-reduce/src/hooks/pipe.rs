@@ -871,8 +871,15 @@ mod tests {
             "name: app\nprivate_key: |\n  -----BEGIN PRIVATE KEY-----\n  {body}\n  -----END PRIVATE KEY-----\nport: 8080\n"
         );
         let mut out = Vec::new();
-        run_inner(input.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
-            .expect("must succeed");
+        run_inner(
+            input.as_bytes(),
+            &mut out,
+            Vec::new(),
+            None,
+            None,
+            Some("cat"),
+        )
+        .expect("must succeed");
         assert_eq!(
             String::from_utf8(out).expect("utf8"),
             "name: app\nprivate_key: |\n  [REDACTED]\n\n\nport: 8080\n"
