@@ -123,7 +123,10 @@ mod tests {
         let out = distill_with_command(&[], input, "cat mixed.txt", None);
         assert!(!out.contains("canary9"), "{out}");
         assert!(out.contains("plain log line\n{\"ok\":true}\n"), "{out}");
-        assert!(out.starts_with("[OMNI: 1 sensitive value(s) redacted]"), "{out}");
+        assert!(
+            out.starts_with("[OMNI: 1 sensitive value(s) redacted]"),
+            "{out}"
+        );
     }
 
     /// Redaction applies whatever command printed the env (#344).

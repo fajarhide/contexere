@@ -149,7 +149,10 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     // distiller made was undone by the guardrail and the secret delivered (#1032).
     let input_text = match crate::distillers::system_ops::redact_in_place(&input_text) {
         Some((body, count)) => {
-            writeln!(error, "[OMNI: {count} sensitive value(s) redacted in place]")?;
+            writeln!(
+                error,
+                "[OMNI: {count} sensitive value(s) redacted in place]"
+            )?;
             body
         }
         None => input_text,
@@ -848,11 +851,21 @@ mod tests {
         ] {
             let mut out = Vec::new();
             let mut err = Vec::new();
-            run_inner(input.as_bytes(), &mut out, &mut err, None, None, Some("cat"))
-                .expect("must succeed");
+            run_inner(
+                input.as_bytes(),
+                &mut out,
+                &mut err,
+                None,
+                None,
+                Some("cat"),
+            )
+            .expect("must succeed");
             let out = String::from_utf8_lossy(&out);
             assert!(!out.contains("canary-1032"), "{out}");
-            assert!(out.contains("DB_PASSWORD="), "the key stays readable: {out}");
+            assert!(
+                out.contains("DB_PASSWORD="),
+                "the key stays readable: {out}"
+            );
         }
     }
 
