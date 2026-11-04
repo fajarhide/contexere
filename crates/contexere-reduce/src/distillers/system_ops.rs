@@ -511,6 +511,47 @@ fn describes_a_credential(key: &str) -> bool {
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
+/// A key that is only a provider prefix with nothing after it, `openai` or
+/// `anthropic`: in `pip freeze` that is a package name, not a variable (#1039).
+fn names_only_a_provider(key: &str) -> bool {
+    let k = key.trim().to_uppercase();
+    !k.contains('_') && SENSITIVE_PATTERNS.contains(&format!("{k}_").as_str())
+}
+
+/// A version, `2.9.0` or `==1.0.0rc1.dev1`: two or more dotted numbers, then
+/// release tags, each with its number. A bare integer is not one, so `api=123456`
+/// stays hidden, and neither is free text or a local label after the numbers
+/// (review of #1041).
+fn looks_like_version(value: &str) -> bool {
+    let v = value
+        .trim()
+        .trim_start_matches('=')
+        .trim()
+        .trim_matches(['"', '\'']);
+    let head = v
+        .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .next()
+        .unwrap_or("");
+    let parts: Vec<&str> = head.trim_end_matches('.').split('.').collect();
+    if parts.len() < 2 || parts.iter().any(|p| p.is_empty()) {
+        return false;
+    }
+    // PEP 440 and semver pre, post and dev tags, lowercase as both print them.
+    let mut rest = v.strip_prefix(head).unwrap_or(v);
+    while !rest.is_empty() {
+        let Some(after) = ["alpha", "beta", "post", "pre", "dev", "rc", "a", "b"]
+            .iter()
+            .find_map(|t| rest.trim_start_matches(['-', '.']).strip_prefix(t))
+        else {
+            return false;
+        };
+        rest = after
+            .trim_start_matches('.')
+            .trim_start_matches(|c: char| c.is_ascii_digit());
+    }
+    true
+}
+
 /// An integer, alone or leading code: a conditional, a comment or arithmetic
 /// (`100000 if p else 8000`, `12 # total`, `100000 * 2`). A word may not follow,
 /// so `"123 correct horse"` stays a password (review of #1028).
@@ -749,6 +790,9 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         return None;
     }
     if describes_a_credential(key) && leads_with_an_integer(value) {
+        return None;
+    }
+    if names_only_a_provider(key) && looks_like_version(value) {
         return None;
     }
     // Spacing and quotes survive, so the line still parses.
@@ -1590,6 +1634,37 @@ mod tests {
             "MAX_PASSWORD=123 456 789",
             "token_limit = 12 # API_TOKEN=canary-abc-123",
             "token_limit = 12 # old value sk_live_A1b2C3d4E5f6G7h8",
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
+        }
+    }
+
+    #[test]
+    fn delivers_a_pinned_provider_package() {
+        for line in [
+            "anthropic==0.40.0",
+            "openai==2.9.0",
+            "openai = 2.9.0",
+            "openai==1.0.0rc1",
+            "gemini = \"0.8.3\"",
+            "openai==1.0.0-beta.1",
+            "anthropic==0.3.0.post1",
+            "openai==1.0.0rc1.dev1",
+        ] {
+            assert_eq!(redact_sensitive_assignments(line), None, "{line}");
+        }
+        // Only a version under only a provider name.
+        for line in [
+            "openai=canary-not-a-version",
+            "openai==1",
+            "api=123456",
+            "OPENAI_API_KEY=1.2.3",
+            "openai=1.2.3 canary",
+            // Review of #1041: free text after the numbers is not a release tag.
+            "api=1.2.Ab3dEf9Gh2Jk4Lm6",
+            "openai==1.2.abcdef",
+            "openai==1.0.0+local.1",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
