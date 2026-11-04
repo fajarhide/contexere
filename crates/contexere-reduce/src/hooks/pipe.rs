@@ -123,7 +123,10 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         match crate::distillers::system_ops::redact_in_place(&input_text) {
             Some((body, count)) => {
                 output.write_all(body.as_bytes())?;
-                writeln!(error, "[OMNI: {count} sensitive value(s) redacted in place]")?;
+                writeln!(
+                    error,
+                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                )?;
             }
             None => output.write_all(input_text.as_bytes())?,
         }
@@ -828,8 +831,15 @@ mod tests {
         let input = "{\"user\":\"a\",\"password\":\"canary-xyz-123\"}\n";
         let mut out = Vec::new();
         let mut err = Vec::new();
-        run_inner(input.as_bytes(), &mut out, &mut err, None, None, Some("cat"))
-            .expect("must succeed");
+        run_inner(
+            input.as_bytes(),
+            &mut out,
+            &mut err,
+            None,
+            None,
+            Some("cat"),
+        )
+        .expect("must succeed");
         let out = String::from_utf8(out).expect("utf8");
         assert!(!out.contains("canary-xyz-123"), "{out}");
         serde_json::from_str::<serde_json::Value>(&out).expect("still valid JSON");
@@ -837,9 +847,20 @@ mod tests {
 
         let clean = "{\"user\":\"a\",\"n\":1}\n";
         let mut out = Vec::new();
-        run_inner(clean.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
-            .expect("must succeed");
-        assert_eq!(out, clean.as_bytes(), "a clean document goes out byte for byte");
+        run_inner(
+            clean.as_bytes(),
+            &mut out,
+            Vec::new(),
+            None,
+            None,
+            Some("cat"),
+        )
+        .expect("must succeed");
+        assert_eq!(
+            out,
+            clean.as_bytes(),
+            "a clean document goes out byte for byte"
+        );
     }
 
     #[test]

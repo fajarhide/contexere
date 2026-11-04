@@ -503,7 +503,11 @@ fn describes_a_credential(key: &str) -> bool {
         "STATUS", "NOAUTH",
     ];
     // Not `CODE`: `AUTH_CODE=123456` is a one-time password.
-    let k = key.trim().trim_start_matches("export ").trim().to_uppercase();
+    let k = key
+        .trim()
+        .trim_start_matches("export ")
+        .trim()
+        .to_uppercase();
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
@@ -1540,7 +1544,10 @@ mod tests {
 
     #[test]
     fn scrub_hides_a_credential_and_borrows_clean_text() {
-        assert!(matches!(super::scrub("ls -la\n"), std::borrow::Cow::Borrowed(_)));
+        assert!(matches!(
+            super::scrub("ls -la\n"),
+            std::borrow::Cow::Borrowed(_)
+        ));
         let out = super::scrub("echo ok\nDB_PASSWORD=canary-xyz-123\n");
         assert!(!out.contains("canary-xyz-123"), "{out}");
         assert!(out.starts_with("echo ok\n"), "{out}");

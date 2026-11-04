@@ -589,8 +589,7 @@ pub fn process_payload(
         if matches!(
             decline,
             Declined::KeepsTheseBytes | Declined::Structured | Declined::TypedPassthrough
-        )
-            && let Some(ref sess) = session
+        ) && let Some(ref sess) = session
             && let Ok(mut state) = sess.lock()
         {
             state.current_turn.tool_output_bytes += normalized.content.len() as u64;
