@@ -494,6 +494,62 @@ fn is_bare_pass(key: &str) -> bool {
     k.eq_ignore_ascii_case("pass")
 }
 
+/// A key that measures or reports on a credential instead of holding one:
+/// `token_limit`, `token_count`, `models_noauth` (#1022, #1009). Only a whole
+/// segment counts, so `APP_TOKEN` and `DB_AUTH` stay strong (review of #865).
+fn describes_a_credential(key: &str) -> bool {
+    const WORDS: &[&str] = &[
+        "COUNT", "LIMIT", "MAX", "MIN", "SIZE", "LEN", "LENGTH", "NUM", "TOTAL", "BUDGET", "TTL",
+        "STATUS", "NOAUTH",
+    ];
+    // Not `CODE`: `AUTH_CODE=123456` is a one-time password.
+    let k = key
+        .trim()
+        .trim_start_matches("export ")
+        .trim()
+        .to_uppercase();
+    k.split('_').any(|s| WORDS.contains(&s))
+}
+
+/// An integer, alone or leading code: a conditional, a comment or arithmetic
+/// (`100000 if p else 8000`, `12 # total`, `100000 * 2`). A word may not follow,
+/// so `"123 correct horse"` stays a password (review of #1028).
+fn leads_with_an_integer(value: &str) -> bool {
+    let v = value.trim().trim_end_matches([',', ';']).trim_end();
+    let inner = v
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')));
+    // A quoted value is a string, so only digits; code needs no quotes.
+    let (body, code) = inner.map_or((v, true), |s| (s, false));
+    let rest = body.trim_start_matches(|c: char| c.is_ascii_digit());
+    // A conditional or a comment may carry a credential of its own, `12 # API_TOKEN=x`,
+    // so neither an assignment, a field nor a long literal word may appear in it
+    // (review of #1028).
+    let holds_nothing = |r: &str| {
+        !r.contains(['=', ':'])
+            && !r
+                .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+                .any(|w| {
+                    w.len() >= 16
+                        && (w.chars().any(|c| c.is_ascii_digit())
+                            || (w.chars().any(|c| c.is_ascii_uppercase())
+                                && w.chars().any(|c| c.is_ascii_lowercase())))
+                })
+    };
+    let code_follows = |r: &str| {
+        let r = r.trim_start();
+        ((r.starts_with("if ") || r.starts_with('#') || r.starts_with("//")) && holds_nothing(r))
+            // An operator, or `123 456` would pass as a number.
+            || (r.starts_with(|c: char| "+-*/%".contains(c))
+                && r.chars()
+                    .all(|c| c.is_ascii_digit() || c.is_whitespace() || "+-*/%()".contains(c)))
+    };
+    rest.len() < body.len()
+        && (rest.is_empty()
+            || (code && rest.starts_with(char::is_whitespace) && code_follows(rest)))
+}
+
 /// A brace expression or a Python lambda is code, not a value: React's
 /// `key={item}` came back as invalid TSX (#530), and `key=lambda t: t[0]` lost
 /// the comparator of a sort (#908). Only for the weak `KEY` pattern, so a JSON
@@ -690,6 +746,9 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     }
     // Only a count, and only for the bare key (#559).
     if is_bare_pass(key) && looks_like_count(value) {
+        return None;
+    }
+    if describes_a_credential(key) && leads_with_an_integer(value) {
         return None;
     }
     // Spacing and quotes survive, so the line still parses.
@@ -1057,7 +1116,9 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
             if header.starts_with("-----BEGIN ") && header.ends_with("PRIVATE KEY-----") {
                 in_private_key = true;
                 redacted += 1;
-                return Some("[REDACTED]".to_string());
+                // Keeps its indent, or a YAML block scalar stops parsing (review of #1028).
+                let indent = trimmed.strip_suffix(header).unwrap_or("");
+                return Some(format!("{indent}[REDACTED]"));
             }
             let assigned = redact_line(trimmed);
             let (text, count) = assigned
@@ -1109,6 +1170,12 @@ pub fn redact_in_place(input: &str) -> Option<(String, u32)> {
         }
     }
     Some((out, redacted))
+}
+
+/// `input` with every credential hidden in place, or `input` itself: for text kept
+/// in the store, which must never hold what the model was not shown (#1003).
+pub fn scrub(input: &str) -> std::borrow::Cow<'_, str> {
+    redact_in_place(input).map_or(std::borrow::Cow::Borrowed(input), |(t, _)| t.into())
 }
 
 /// The payload with every sensitive assignment's value replaced, or `None` when
@@ -1478,6 +1545,51 @@ mod tests {
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
         }
         assert!(redact_sensitive_assignments("auth=302 front=200").is_some());
+    }
+
+    /// A count or a status under a name that describes a credential is delivered (#1022, #1009).
+    #[test]
+    fn a_number_under_a_name_that_describes_a_credential_is_delivered() {
+        for line in [
+            "    token_limit = 100000 if provider in (\"gemini\", \"openai\") else 8000",
+            "    token_count = 12",
+            "    token_count = 12 # total",
+            "    token_limit = 100000 * 2",
+            "models_noauth=401",
+            "status_noauth=401",
+            "TOKEN_TTL=3600",
+        ] {
+            assert_eq!(redact_sensitive_assignments(line), None, "{line}");
+        }
+        // The name alone is not enough, and neither is a number under a holding name.
+        for line in [
+            "token_limit = sk_live_A1b2C3d4E5f6G7h8",
+            "token_count = 12abcDEF34ghiJKL",
+            "AUTH_CODE=123456",
+            "APP_TOKEN=123",
+            "DB_AUTH=302",
+            // Review of #1028: a password may start with digits.
+            "MAX_PASSWORD=\"123 correct horse battery staple\"",
+            "MAX_PASSWORD=123 correct horse battery staple",
+            "MAX_PASSWORD=\"123 if you ask\"",
+            "MAX_PASSWORD=123 456 789",
+            "token_limit = 12 # API_TOKEN=canary-abc-123",
+            "token_limit = 12 # old value sk_live_A1b2C3d4E5f6G7h8",
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
+        }
+    }
+
+    #[test]
+    fn scrub_hides_a_credential_and_borrows_clean_text() {
+        assert!(matches!(
+            super::scrub("ls -la\n"),
+            std::borrow::Cow::Borrowed(_)
+        ));
+        let out = super::scrub("echo ok\nDB_PASSWORD=canary-xyz-123\n");
+        assert!(!out.contains("canary-xyz-123"), "{out}");
+        assert!(out.starts_with("echo ok\n"), "{out}");
     }
 
     /// A bare prefixed token is hidden (#862).

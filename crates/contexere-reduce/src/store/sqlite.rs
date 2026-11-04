@@ -1262,9 +1262,13 @@ impl SqliteBackend {
             Err(_) => return,
         };
 
+        // The one writer, so no caller can keep a secret the model never saw (#1003).
+        use crate::distillers::system_ops::scrub;
+        let (command, raw_input, distilled_output) =
+            (scrub(command), scrub(raw_input), scrub(distilled_output));
         let ts = chrono::Utc::now().timestamp();
         let res = conn.execute(
-            "INSERT INTO execution_traces 
+            "INSERT INTO execution_traces
              (session_id, ts, command, agent_id, project_path, raw_input, distilled_output)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
@@ -3210,6 +3214,30 @@ mod tests {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("omni.db");
         (Store::open_path(&db_path).unwrap(), dir)
+    }
+
+    /// A trace never keeps a secret the model was shown as `[REDACTED]` (#1003).
+    #[test]
+    fn a_trace_stores_no_credential() {
+        let (store, _dir) = get_temp_store();
+        store.record_trace(
+            "s",
+            "API_TOKEN=canary-c-1 ./run",
+            "a",
+            "/repo",
+            "ok\nDB_PASSWORD=canary-raw-2\n",
+            "DB_PASSWORD=canary-out-3\n",
+        );
+        let conn = store.pool.get().unwrap();
+        let row: String = conn
+            .query_row(
+                "SELECT command || raw_input || distilled_output FROM execution_traces",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!row.contains("canary"), "{row}");
+        assert!(row.contains("API_TOKEN=") && row.contains("ok\n"), "{row}");
     }
 
     /// One stored command per call; pre-#911 rows answer with their own text.
