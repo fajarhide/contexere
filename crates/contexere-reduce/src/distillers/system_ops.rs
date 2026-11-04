@@ -519,7 +519,8 @@ fn names_only_a_provider(key: &str) -> bool {
 }
 
 /// A version, `2.9.0` or `==0.40.0rc1`: two or more dotted numbers, then at most
-/// a short release suffix. A bare integer is not one, so `api=123456` stays hidden.
+/// a release tag and its number. A bare integer is not one, so `api=123456` stays
+/// hidden, and neither is free text after the numbers (review of #1041).
 fn looks_like_version(value: &str) -> bool {
     let v = value
         .trim()
@@ -531,11 +532,16 @@ fn looks_like_version(value: &str) -> bool {
         .next()
         .unwrap_or("");
     let parts: Vec<&str> = head.trim_end_matches('.').split('.').collect();
-    v.len() <= 32
-        && parts.len() >= 2
+    // PEP 440 and semver pre and post tags, lowercase as both print them.
+    let tag = v.strip_prefix(head).unwrap_or(v).trim_start_matches(['-', '.']);
+    let number = ["alpha", "beta", "post", "pre", "dev", "rc", "a", "b"]
+        .iter()
+        .find_map(|t| tag.strip_prefix(t))
+        .map_or(tag, |n| n.trim_start_matches('.'));
+    parts.len() >= 2
         && parts.iter().all(|p| !p.is_empty())
-        && v.chars()
-            .all(|c| c.is_ascii_alphanumeric() || ".+-".contains(c))
+        && (tag.is_empty() || number.len() < tag.len())
+        && number.chars().all(|c| c.is_ascii_digit())
 }
 
 /// An integer, alone or leading code: a conditional, a comment or arithmetic
@@ -1634,6 +1640,8 @@ mod tests {
             "openai = 2.9.0",
             "openai==1.0.0rc1",
             "gemini = \"0.8.3\"",
+            "openai==1.0.0-beta.1",
+            "anthropic==0.3.0.post1",
         ] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
@@ -1644,6 +1652,9 @@ mod tests {
             "api=123456",
             "OPENAI_API_KEY=1.2.3",
             "openai=1.2.3 canary",
+            // Review of #1041: free text after the numbers is not a release tag.
+            "api=1.2.Ab3dEf9Gh2Jk4Lm6",
+            "openai==1.2.abcdef",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
