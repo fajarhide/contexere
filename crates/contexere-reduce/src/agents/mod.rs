@@ -178,9 +178,9 @@ pub(crate) fn write_config(
 /// and every hook fails without a sign (#1002). A plain path stays unquoted, so
 /// existing installs compare equal.
 pub(crate) fn hook_command(exe: &str, flag: &str) -> String {
-    let plain = exe
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '\\' | '.' | '_' | '-' | ':' | '+' | '@'));
+    let plain = exe.chars().all(|c| {
+        c.is_ascii_alphanumeric() || matches!(c, '/' | '\\' | '.' | '_' | '-' | ':' | '+' | '@')
+    });
     if plain {
         return format!("{exe} {flag}");
     }
@@ -322,7 +322,10 @@ mod write_config_tests {
         write_config(&path, "{\"ours\":2}").expect("second");
         let read = |p: &std::path::Path| std::fs::read_to_string(p).expect("read");
         assert_eq!(read(&path), "{\"ours\":2}");
-        assert_eq!(read(&dir.path().join("settings.json.bak")), "{\"theirs\":1}");
+        assert_eq!(
+            read(&dir.path().join("settings.json.bak")),
+            "{\"theirs\":1}"
+        );
         let names: Vec<_> = std::fs::read_dir(dir.path())
             .expect("ls")
             .map(|e| e.expect("entry").file_name())
@@ -348,8 +351,16 @@ mod write_config_tests {
         std::fs::write(&real, "{}").expect("fixture");
         std::os::unix::fs::symlink(&real, &link).expect("symlink");
         write_config(&link, "{\"ours\":1}").expect("write");
-        assert!(std::fs::symlink_metadata(&link).expect("meta").file_type().is_symlink());
-        assert_eq!(std::fs::read_to_string(&real).expect("read"), "{\"ours\":1}");
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .expect("meta")
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            std::fs::read_to_string(&real).expect("read"),
+            "{\"ours\":1}"
+        );
     }
 }
 

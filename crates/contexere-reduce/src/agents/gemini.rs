@@ -26,7 +26,6 @@ impl AgentIntegration for GeminiIntegration {
             fs::create_dir_all(parent)?;
         }
 
-
         let mut val = super::read_json_config(&settings_path)?;
 
         if let Some(obj) = val.as_object_mut() {

@@ -659,9 +659,17 @@ name = \"Other\"
     /// omni stays.
     #[test]
     fn the_server_block_parses_for_any_path() {
-        for exe in ["/usr/local/bin/contexere", "/Users/Jane Doe/bin/contexere", "C:\\Users\\Jane Doe\\contexere.exe", "/tmp/a\"b/contexere"] {
+        for exe in [
+            "/usr/local/bin/contexere",
+            "/Users/Jane Doe/bin/contexere",
+            "C:\\Users\\Jane Doe\\contexere.exe",
+            "/tmp/a\"b/contexere",
+        ] {
             let doc: toml::Value = toml::from_str(&server_block(exe)).expect(exe);
-            assert_eq!(doc["mcp_servers"]["contexere"]["command"].as_str(), Some(exe));
+            assert_eq!(
+                doc["mcp_servers"]["contexere"]["command"].as_str(),
+                Some(exe)
+            );
         }
     }
 
