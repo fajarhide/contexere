@@ -511,15 +511,18 @@ fn describes_a_credential(key: &str) -> bool {
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
-/// An integer, alone or leading an expression: `100000 if p else 8000`.
+/// An integer, alone or leading a conditional: `100000 if p else 8000`. Nothing
+/// else may follow, so `"123 correct horse"` stays a password (review of #1028).
 fn leads_with_an_integer(value: &str) -> bool {
-    let v = value.trim().trim_matches(['"', '\'']).trim();
-    let rest = v.trim_start_matches(|c: char| c.is_ascii_digit());
-    rest.len() < v.len()
-        && rest
-            .chars()
-            .next()
-            .is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ';'))
+    let v = value.trim().trim_end_matches([',', ';']).trim_end();
+    let inner = v
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')));
+    // A quoted value is a string, so only digits; code needs no quotes.
+    let (body, code) = inner.map_or((v, true), |s| (s, false));
+    let rest = body.trim_start_matches(|c: char| c.is_ascii_digit());
+    rest.len() < body.len() && (rest.is_empty() || (code && rest.starts_with(" if ")))
 }
 
 /// A brace expression or a Python lambda is code, not a value: React's
@@ -1088,7 +1091,9 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
             if header.starts_with("-----BEGIN ") && header.ends_with("PRIVATE KEY-----") {
                 in_private_key = true;
                 redacted += 1;
-                return Some("[REDACTED]".to_string());
+                // Keeps its indent, or a YAML block scalar stops parsing (review of #1028).
+                let indent = trimmed.strip_suffix(header).unwrap_or("");
+                return Some(format!("{indent}[REDACTED]"));
             }
             let assigned = redact_line(trimmed);
             let (text, count) = assigned
@@ -1536,6 +1541,10 @@ mod tests {
             "AUTH_CODE=123456",
             "APP_TOKEN=123",
             "DB_AUTH=302",
+            // Review of #1028: a password may start with digits.
+            "MAX_PASSWORD=\"123 correct horse battery staple\"",
+            "MAX_PASSWORD=123 correct horse battery staple",
+            "MAX_PASSWORD=\"123 if you ask\"",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
