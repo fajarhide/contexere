@@ -303,7 +303,9 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
                 if let Some(inner_arr) = v.get("hooks").and_then(|v2| v2.as_array()) {
                     for hook_def in inner_arr {
                         if let Some(cmd) = hook_def.get("command").and_then(|c| c.as_str())
-                            && cmd.contains(exe_path)
+                            // Quoted when the path needs it, escapes and all (#1002).
+                            && (cmd.contains(exe_path)
+                                || cmd.contains(super::hook_command(exe_path, "").trim_end()))
                             && (cmd.contains("--hook")
                                 || cmd.contains("--post-hook")
                                 || cmd.contains("--pre-hook")
@@ -824,6 +826,15 @@ mod tests {
 
         let (post_f, sess_f, pre_f) = check_status(&val, "/different/omni");
         assert!(!post_f && !sess_f && !pre_f);
+    }
+
+    /// A quoted path with escapes still reads as installed (review of #1029).
+    #[test]
+    fn a_quoted_install_reads_as_installed() {
+        let mut val = json!({});
+        let exe = "/home/a b/$x \"q\"/contexere";
+        install_omni_hooks(&mut val, exe);
+        assert_eq!(check_status(&val, exe), (true, true, true));
     }
 
     #[test]

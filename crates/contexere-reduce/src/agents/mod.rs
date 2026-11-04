@@ -151,8 +151,7 @@ pub(crate) fn write_config(
     path: impl AsRef<std::path::Path>,
     contents: impl AsRef<[u8]>,
 ) -> std::io::Result<()> {
-    // Through a symlink to its target, so a dotfiles link stays a link.
-    let path = std::fs::canonicalize(path.as_ref()).unwrap_or_else(|_| path.as_ref().to_path_buf());
+    let path = resolve_links(path.as_ref())?;
     let sibling = |suffix: &str| {
         let mut name = path.clone().into_os_string();
         name.push(suffix);
@@ -164,13 +163,44 @@ pub(crate) fn write_config(
         std::fs::copy(&path, &backup)?;
     }
     let tmp = sibling(&format!(".tmp{}", std::process::id()));
-    std::fs::write(&tmp, contents)?;
-    if let Ok(meta) = std::fs::metadata(&path) {
-        let _ = std::fs::set_permissions(&tmp, meta.permissions());
-    }
-    std::fs::rename(&tmp, &path).inspect_err(|_| {
+    let written = (|| {
+        use std::io::Write;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        // Owner-only from the first byte: the config may hold a credential, and the
+        // original's mode is applied only after the write (review of #1029).
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        options.open(&tmp)?.write_all(contents.as_ref())?;
+        if let Ok(meta) = std::fs::metadata(&path) {
+            std::fs::set_permissions(&tmp, meta.permissions())?;
+        }
+        std::fs::rename(&tmp, &path)
+    })();
+    if written.is_err() {
         let _ = std::fs::remove_file(&tmp);
-    })
+    }
+    written
+}
+
+/// The file a path names, through any symlinks, dangling ones included: a link to a
+/// target that does not exist yet must create the target, not be replaced (review
+/// of #1029). A dotfiles link therefore stays a link.
+fn resolve_links(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    let mut path = path.to_path_buf();
+    for _ in 0..40 {
+        match std::fs::symlink_metadata(&path) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                let target = std::fs::read_link(&path)?;
+                path = match path.parent() {
+                    Some(dir) => dir.join(target),
+                    None => target,
+                };
+            }
+            _ => return Ok(path),
+        }
+    }
+    Err(std::io::Error::other("too many levels of symlinks"))
 }
 
 /// The shell command a host runs for one of our hooks. The host hands it to a
@@ -184,11 +214,11 @@ pub(crate) fn hook_command(exe: &str, flag: &str) -> String {
     if plain {
         return format!("{exe} {flag}");
     }
-    // Inside double quotes only these four keep a meaning to sh; a Windows `\` before
-    // a letter stays literal.
+    // Inside double quotes these four keep a meaning to sh, the backslash included
+    // (review of #1029); sh reads `\\` back as one.
     let mut quoted = String::with_capacity(exe.len() + 2);
     for c in exe.chars() {
-        if matches!(c, '"' | '$' | '`') {
+        if matches!(c, '"' | '$' | '`' | '\\') {
             quoted.push('\\');
         }
         quoted.push(c);
@@ -341,6 +371,18 @@ mod write_config_tests {
         assert!(!dir.path().join("config.toml.bak").exists());
     }
 
+    /// A link to a target that does not exist yet creates the target (review of #1029).
+    #[cfg(unix)]
+    #[test]
+    fn a_dangling_link_creates_its_target() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let link = dir.path().join("settings.json");
+        std::os::unix::fs::symlink("real.json", &link).expect("symlink");
+        write_config(&link, "{}").expect("write");
+        assert!(std::fs::symlink_metadata(&link).expect("meta").file_type().is_symlink());
+        assert_eq!(std::fs::read_to_string(dir.path().join("real.json")).expect("read"), "{}");
+    }
+
     /// A dotfiles symlink stays a symlink, and its target gets the edit.
     #[cfg(unix)]
     #[test]
@@ -383,7 +425,7 @@ mod hook_command_tests {
         use super::is_our_hook;
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().expect("tempdir");
-        let bin_dir = dir.path().join("dir sp $x");
+        let bin_dir = dir.path().join("dir sp $x \\$y");
         std::fs::create_dir(&bin_dir).expect("mkdir");
         let exe = bin_dir.join("contexere");
         std::fs::write(&exe, "#!/bin/sh\necho \"ran $1\"\n").expect("script");
