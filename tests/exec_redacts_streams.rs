@@ -41,8 +41,8 @@ fn hides_a_credential_on_stderr() {
 #[test]
 fn returns_while_a_background_process_holds_stderr() {
     let start = std::time::Instant::now();
-    let out = exec("sleep 20 >/dev/null & echo done; exit 3");
-    assert!(start.elapsed() < std::time::Duration::from_secs(10), "{:?}", start.elapsed());
+    let out = exec("sleep 8 >/dev/null & echo done; exit 3");
+    assert!(start.elapsed() < std::time::Duration::from_secs(5), "{:?}", start.elapsed());
     assert!(String::from_utf8_lossy(&out.stdout).contains("done"));
     assert_eq!(out.status.code(), Some(3));
 }
