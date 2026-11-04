@@ -127,7 +127,8 @@ fn reports_a_killed_child_as_128_plus_the_signal() {
 #[test]
 fn passes_the_callers_environment_through() {
     let (stdout, code) = run_exec_with_env(
-        &["printenv", "SSH_AUTH_SOCK", "PYTHONPATH"],
+        // BSD printenv takes one name, so the shell prints both.
+        &["sh", "-c", "echo \"$SSH_AUTH_SOCK\"; echo \"$PYTHONPATH\""],
         &[
             ("SSH_AUTH_SOCK", "/tmp/agent.sock"),
             ("PYTHONPATH", "/srv/lib"),
