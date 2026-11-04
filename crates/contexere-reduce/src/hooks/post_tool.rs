@@ -575,7 +575,7 @@ pub fn process_payload(
             decline,
             Declined::Structured | Declined::Passthrough | Declined::KeepsTheseBytes
         ) && let Some((body, count)) =
-                crate::distillers::system_ops::redact_in_place(&normalized.content)
+            crate::distillers::system_ops::redact_in_place(&normalized.content)
         {
             // Counted toward the turn (review of #904).
             if let Some(ref sess) = session
