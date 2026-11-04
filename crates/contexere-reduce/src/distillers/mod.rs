@@ -39,9 +39,13 @@ pub fn distill_with_command(
     // Per-line format safety before dispatch: two JSON responses beside a
     // `deleted` notice are not NDJSON, and the cloud distiller kept 17 of 460
     // bytes (#334). Free on the corpus: none of the 116 JSON-bearing traces was
-    // usefully compressed.
+    // usefully compressed. A credential is still hidden, in place, or one JSON
+    // line beside it delivered the secret (#1032).
     if input.lines().any(is_json_line) {
-        return input.to_string();
+        return match system_ops::redact_in_place(input) {
+            Some((body, n)) => format!("[OMNI: {n} sensitive value(s) redacted]\n{body}"),
+            None => input.to_string(),
+        };
     }
 
     // Credential redaction keyed on the payload, not the command: env-shaped
@@ -110,6 +114,16 @@ mod tests {
         let cmd =
             "kubectl run vmq --image=curlimages/curl --rm -i --command -- sh -c 'curl a; curl b'";
         assert_eq!(distill_with_command(&[], input, cmd, None), input);
+    }
+
+    /// A JSON line keeps its bytes, and never carries a credential past redaction (#1032).
+    #[test]
+    fn redacts_a_secret_beside_a_json_line() {
+        let input = "DB_PASSWORD=canary9\nplain log line\n{\"ok\":true}\n";
+        let out = distill_with_command(&[], input, "cat mixed.txt", None);
+        assert!(!out.contains("canary9"), "{out}");
+        assert!(out.contains("plain log line\n{\"ok\":true}\n"), "{out}");
+        assert!(out.starts_with("[OMNI: 1 sensitive value(s) redacted]"), "{out}");
     }
 
     /// Redaction applies whatever command printed the env (#344).

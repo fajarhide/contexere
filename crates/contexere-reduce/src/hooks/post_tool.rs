@@ -1795,6 +1795,17 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(reply.contains("HOME=/home/dev"), "{reply}");
     }
 
+    /// One JSON line in a log no longer lets the password through (#1032).
+    #[test]
+    fn a_json_line_does_not_carry_a_secret_through() {
+        let log: String = (0..400).map(|i| format!("INFO step {i} ok\n")).collect();
+        let reply = bash_reply(
+            "cat app.log",
+            &format!("DB_PASSWORD=canary-json-1032\n{log}{{\"ok\":true}}\n"),
+        );
+        assert!(!reply.contains("canary-json-1032"), "{reply}");
+    }
+
     #[test]
     fn hides_csv_secret_columns_under_any_command() {
         let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAIOSFODNN7EXAMPLE,wJalrXUtnFEMIK7MDENG\n";
