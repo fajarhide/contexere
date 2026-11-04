@@ -366,7 +366,7 @@ mod write_config_tests {
 
 #[cfg(test)]
 mod hook_command_tests {
-    use super::{hook_command, is_our_hook};
+    use super::hook_command;
 
     #[test]
     fn a_plain_path_is_written_as_before() {
@@ -380,6 +380,7 @@ mod hook_command_tests {
     #[cfg(unix)]
     #[test]
     fn a_path_with_a_space_runs_the_binary_it_names() {
+        use super::is_our_hook;
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().expect("tempdir");
         let bin_dir = dir.path().join("dir sp $x");
