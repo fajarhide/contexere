@@ -120,12 +120,8 @@ fn run_with_timeout(
     if !output.status.success() {
         let code = output.status.code().unwrap_or(-1);
         let text = format!("{raw_text}{err_text}");
-        // Skipped on the A/B control, as the success path skips it.
-        let text = if crate::guard::env::is_passthrough() {
-            text
-        } else {
-            crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t)
-        };
+        // Even on the A/B control: passthrough skips compression only (#1033).
+        let text = crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t);
         return format!("{text}\n[exit {code}]");
     }
 
@@ -146,14 +142,15 @@ fn run_with_timeout(
     )
     .is_err()
     {
-        return raw_text;
+        return crate::distillers::system_ops::scrub(&raw_text).into_owned();
     }
 
     let out = String::from_utf8_lossy(&distilled).to_string();
+    // stderr is appended uncompressed, never with a credential (#1035 review).
     if err_text.is_empty() {
         out
     } else {
-        format!("{out}{err_text}")
+        format!("{out}{}", crate::distillers::system_ops::scrub(&err_text))
     }
 }
 
@@ -1738,6 +1735,24 @@ mod tests {
         let out = run_with_timeout(failing, store, None, timeout);
         assert!(!out.contains("canary9not9real"), "{out}");
         assert!(out.contains("[exit 1]"), "{out}");
+    }
+
+    #[cfg(unix)]
+    /// A command that succeeds can still print a credential on stderr (#1035 review).
+    #[test]
+    fn redacts_stderr_of_a_successful_run() {
+        let dir = tempdir().expect("temp dir for the store");
+        let store =
+            Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("open the test store"));
+        let timeout = std::time::Duration::from_secs(5);
+        let out = run_with_timeout(
+            "echo built; echo DB_PASSWORD=canary-err-1035 >&2",
+            store,
+            None,
+            timeout,
+        );
+        assert!(!out.contains("canary-err-1035"), "{out}");
+        assert!(out.contains("built"), "{out}");
     }
 
     #[test]

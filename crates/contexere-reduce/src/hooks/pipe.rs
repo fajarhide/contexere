@@ -110,8 +110,19 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         )?;
     }
 
+    // Skips compression only: a model can set the variable through `exec`, so a
+    // credential is still hidden (#1033, reversing #1028's carve-out).
     if crate::guard::env::is_passthrough() {
-        output.write_all(input_text.as_bytes())?;
+        match crate::distillers::system_ops::redact_in_place(&input_text) {
+            Some((body, count)) => {
+                output.write_all(body.as_bytes())?;
+                writeln!(
+                    error,
+                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                )?;
+            }
+            None => output.write_all(input_text.as_bytes())?,
+        }
         return Ok(());
     }
 
