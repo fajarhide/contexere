@@ -1120,7 +1120,14 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
                 let indent = trimmed.strip_suffix(header).unwrap_or("");
                 return Some(format!("{indent}[REDACTED]"));
             }
-            let assigned = redact_line(trimmed);
+            // A color escape glued to the key hid it from the key check (#1038). Such
+            // a line is matched without its escapes, and loses them if it holds one.
+            let assigned = redact_line(trimmed).or_else(|| {
+                let clean = crate::pipeline::collapse::strip_ansi(trimmed);
+                (clean.len() != trimmed.len())
+                    .then(|| redact_line(&clean))
+                    .flatten()
+            });
             let (text, count) = assigned
                 .as_ref()
                 .map_or((trimmed, 0), |(rewritten, count)| {
@@ -2225,6 +2232,20 @@ mod tests {
                 assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
             }
         }
+    }
+
+    /// A color escape in front of the key no longer hides the credential (#1038).
+    #[test]
+    fn redacts_a_credential_behind_a_color_escape() {
+        let out = redact_sensitive_assignments("\x1b[32mDB_PASSWORD=canary-ansi-1038\x1b[0m\nlog line\n")
+            .expect("a credential");
+        assert!(!out.contains("canary-ansi-1038"), "{out}");
+    }
+
+    /// Color with no credential is left alone.
+    #[test]
+    fn leaves_a_colored_line_without_a_credential() {
+        assert_eq!(redact_sensitive_assignments("\x1b[32mINFO build ok\x1b[0m\n"), None);
     }
 
     /// Expansions survive, literals starting with `$` do not (#532).
