@@ -379,8 +379,16 @@ mod write_config_tests {
         let link = dir.path().join("settings.json");
         std::os::unix::fs::symlink("real.json", &link).expect("symlink");
         write_config(&link, "{}").expect("write");
-        assert!(std::fs::symlink_metadata(&link).expect("meta").file_type().is_symlink());
-        assert_eq!(std::fs::read_to_string(dir.path().join("real.json")).expect("read"), "{}");
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .expect("meta")
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("real.json")).expect("read"),
+            "{}"
+        );
     }
 
     /// A dotfiles symlink stays a symlink, and its target gets the edit.
