@@ -197,7 +197,9 @@ fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
         err.extend_from_slice(format!("\n[OMNI: {dropped} bytes of stderr omitted]\n").as_bytes());
     }
     if cut_off {
-        err.extend_from_slice(b"\n[OMNI: stderr still open after the command exited; the rest was not read]\n");
+        err.extend_from_slice(
+            b"\n[OMNI: stderr still open after the command exited; the rest was not read]\n",
+        );
     }
     err
 }
