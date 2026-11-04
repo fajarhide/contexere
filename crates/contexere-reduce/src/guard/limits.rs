@@ -1,6 +1,10 @@
 pub const MAX_INPUT: usize = 16 * 1024 * 1024;
 pub const WARN_INPUT: usize = 1024 * 1024;
 
+/// How long `exec` waits for stderr after the command exits: a background process
+/// can hold it open long after the command is done (#1037 review).
+pub const STDERR_DRAIN: std::time::Duration = std::time::Duration::from_secs(2);
+
 /// Hard ceiling on what either hook path hands back. Shared so both paths cut at
 /// the same size (#219). Cut with `truncate_with_marker`, never a bare
 /// `safe_truncate`: this is the last step, so it has to say what it removed.

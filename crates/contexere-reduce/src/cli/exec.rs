@@ -179,7 +179,7 @@ enum Chunk {
 /// command is done (#1037 review). Anything dropped is named.
 fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
     use std::sync::mpsc::RecvTimeoutError;
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + crate::guard::limits::STDERR_DRAIN;
     let (mut err, mut dropped, mut cut_off) = (Vec::new(), 0usize, false);
     loop {
         let left = deadline.saturating_duration_since(std::time::Instant::now());
@@ -204,20 +204,25 @@ fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
     err
 }
 
-/// `bytes` with every credential hidden in place, the notice on stderr. Bytes that are
-/// not UTF-8 go out as they are: the redactor reads text.
+/// `bytes` with every credential hidden in place, the notice on stderr. Redacted per
+/// run of valid UTF-8, so one bad byte (a cut at the cap, a binary blob) leaves the
+/// text around it covered (#1037 review); the invalid bytes go out as they are.
 fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
-    let redacted = std::str::from_utf8(bytes)
-        .ok()
-        .and_then(crate::distillers::system_ops::redact_in_place);
-    match redacted {
-        Some((text, count)) => {
-            out.write_all(text.as_bytes())?;
-            eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
-            Ok(())
+    let mut count = 0;
+    for chunk in bytes.utf8_chunks() {
+        match crate::distillers::system_ops::redact_in_place(chunk.valid()) {
+            Some((text, n)) => {
+                out.write_all(text.as_bytes())?;
+                count += n;
+            }
+            None => out.write_all(chunk.valid().as_bytes())?,
         }
-        None => out.write_all(bytes),
+        out.write_all(chunk.invalid())?;
     }
+    if count > 0 {
+        eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
+    }
+    Ok(())
 }
 
 /// The shell's codes, so a caller tells "not found" from a failure: 127 for a missing
@@ -238,4 +243,19 @@ fn exit_code(status: std::process::ExitStatus) -> i32 {
         return 128 + signal;
     }
     status.code().unwrap_or(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_redacted;
+
+    /// A cut inside a multibyte character no longer turns redaction off for the
+    /// whole buffer (#1037 review).
+    #[test]
+    fn redacts_text_before_a_cut_character() {
+        let bytes = b"DB_PASSWORD=canary-cut-1037\nwarn: slow \xE2\x82";
+        let mut out = Vec::new();
+        write_redacted(&mut out, bytes).expect("write to a Vec");
+        assert!(!String::from_utf8_lossy(&out).contains("canary-cut-1037"));
+    }
 }
