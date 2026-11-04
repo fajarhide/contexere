@@ -95,7 +95,7 @@ fn exec_sh_c_runs_verbatim_without_double_wrapping() {
 }
 
 /// `exec` reports what the wrapped command reports, and passes its environment (#1000).
-fn run_exec_args(args: &[&str], env: &[(&str, &str)]) -> (String, i32) {
+fn run_exec_with_env(args: &[&str], env: &[(&str, &str)]) -> (String, i32) {
     let db = tempfile::NamedTempFile::new().expect("temp db");
     let mut cmd = Command::new(omni());
     cmd.arg("exec")
@@ -114,7 +114,7 @@ fn run_exec_args(args: &[&str], env: &[(&str, &str)]) -> (String, i32) {
 
 #[test]
 fn reports_a_missing_program_as_127() {
-    let (_, code) = run_exec_args(&["no-such-program-1000"], &[]);
+    let (_, code) = run_exec_with_env(&["no-such-program-1000"], &[]);
     assert_eq!(code, 127);
 }
 
@@ -126,7 +126,7 @@ fn reports_a_killed_child_as_128_plus_the_signal() {
 
 #[test]
 fn passes_the_callers_environment_through() {
-    let (stdout, code) = run_exec_args(
+    let (stdout, code) = run_exec_with_env(
         &["printenv", "SSH_AUTH_SOCK", "PYTHONPATH"],
         &[
             ("SSH_AUTH_SOCK", "/tmp/agent.sock"),
