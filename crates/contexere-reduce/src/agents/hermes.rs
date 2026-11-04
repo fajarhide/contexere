@@ -331,7 +331,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                     .to_string(),
                 );
 
-                fs::write(&config_path, updated)?;
+                super::write_config(&config_path, updated)?;
             }
 
             if configured_compression_in_config(&config_path) {
@@ -357,7 +357,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                             )
                             .to_string(),
                         );
-                        fs::write(&config_path, updated)?;
+                        super::write_config(&config_path, updated)?;
                     }
                 }
             }
@@ -405,7 +405,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                 updated.push('\n');
             }
             updated.push_str(&format!("{}\n", config_lines.join("\n")));
-            fs::write(&omni_config_path, updated)?;
+            super::write_config(&omni_config_path, updated)?;
             actions.push(
                 format!(
                     "{} Wrote Hermes OMNI defaults to {}",
@@ -457,7 +457,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         if let Ok(config) = fs::read_to_string(&config_path)
             && let Some(updated) = remove_omni_mcp_server(&config)
         {
-            fs::write(&config_path, updated)?;
+            super::write_config(&config_path, updated)?;
             did_something = true;
             crate::agent_report!(
                 "  {} Removed the OMNI MCP server from ~/.hermes/config.yaml",
@@ -470,7 +470,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             && cfg.contains("[agents.hermes]")
         {
             let stripped = strip_toml_section(&cfg, "[agents.hermes]");
-            fs::write(&omni_cfg, stripped)?;
+            super::write_config(&omni_cfg, stripped)?;
             did_something = true;
             crate::agent_report!(
                 "  {} Removed [agents.hermes] from omni's config",

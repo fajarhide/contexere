@@ -144,6 +144,58 @@ pub(crate) fn names_us(command: &str) -> bool {
     command.contains("contexere") || command.contains("omni")
 }
 
+/// Writes a host's config file: backed up once, then replaced whole or not at
+/// all (#1006). A crash mid-write left a truncated file the host refused, and a
+/// backup taken on every run held our own previous edit by the second `init`.
+pub(crate) fn write_config(
+    path: impl AsRef<std::path::Path>,
+    contents: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    // Through a symlink to its target, so a dotfiles link stays a link.
+    let path = std::fs::canonicalize(path.as_ref()).unwrap_or_else(|_| path.as_ref().to_path_buf());
+    let sibling = |suffix: &str| {
+        let mut name = path.clone().into_os_string();
+        name.push(suffix);
+        std::path::PathBuf::from(name)
+    };
+    let backup = sibling(".bak");
+    // Only the first copy is the user's own file.
+    if path.exists() && !backup.exists() {
+        std::fs::copy(&path, &backup)?;
+    }
+    let tmp = sibling(&format!(".tmp{}", std::process::id()));
+    std::fs::write(&tmp, contents)?;
+    if let Ok(meta) = std::fs::metadata(&path) {
+        let _ = std::fs::set_permissions(&tmp, meta.permissions());
+    }
+    std::fs::rename(&tmp, &path).inspect_err(|_| {
+        let _ = std::fs::remove_file(&tmp);
+    })
+}
+
+/// The shell command a host runs for one of our hooks. The host hands it to a
+/// shell, so a path with a space is quoted, or `/dir sp/contexere` runs `/dir`
+/// and every hook fails without a sign (#1002). A plain path stays unquoted, so
+/// existing installs compare equal.
+pub(crate) fn hook_command(exe: &str, flag: &str) -> String {
+    let plain = exe
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '\\' | '.' | '_' | '-' | ':' | '+' | '@'));
+    if plain {
+        return format!("{exe} {flag}");
+    }
+    // Inside double quotes only these four keep a meaning to sh; a Windows `\` before
+    // a letter stays literal.
+    let mut quoted = String::with_capacity(exe.len() + 2);
+    for c in exe.chars() {
+        if matches!(c, '"' | '$' | '`') {
+            quoted.push('\\');
+        }
+        quoted.push(c);
+    }
+    format!("\"{quoted}\" {flag}")
+}
+
 /// Drop an `omni` MCP server whose command is the omni binary. A server someone
 /// else named `omni` is theirs and stays. Returns whether one went.
 pub(crate) fn drop_omni_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
@@ -254,6 +306,87 @@ pub fn all_integrations() -> Vec<Box<dyn AgentIntegration>> {
             .collect::<Vec<_>>(),
     );
     all
+}
+
+#[cfg(test)]
+mod write_config_tests {
+    use super::write_config;
+
+    /// The backup holds the user's file, not our edit from the run before (#1006).
+    #[test]
+    fn the_backup_is_taken_once_and_no_temp_file_is_left() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, "{\"theirs\":1}").expect("fixture");
+        write_config(&path, "{\"ours\":1}").expect("first");
+        write_config(&path, "{\"ours\":2}").expect("second");
+        let read = |p: &std::path::Path| std::fs::read_to_string(p).expect("read");
+        assert_eq!(read(&path), "{\"ours\":2}");
+        assert_eq!(read(&dir.path().join("settings.json.bak")), "{\"theirs\":1}");
+        let names: Vec<_> = std::fs::read_dir(dir.path())
+            .expect("ls")
+            .map(|e| e.expect("entry").file_name())
+            .collect();
+        assert_eq!(names.len(), 2, "{names:?}");
+    }
+
+    #[test]
+    fn a_new_file_gets_no_backup() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        write_config(&path, "a = 1\n").expect("write");
+        assert!(!dir.path().join("config.toml.bak").exists());
+    }
+
+    /// A dotfiles symlink stays a symlink, and its target gets the edit.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_config_stays_a_link() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let real = dir.path().join("real.json");
+        let link = dir.path().join("settings.json");
+        std::fs::write(&real, "{}").expect("fixture");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink");
+        write_config(&link, "{\"ours\":1}").expect("write");
+        assert!(std::fs::symlink_metadata(&link).expect("meta").file_type().is_symlink());
+        assert_eq!(std::fs::read_to_string(&real).expect("read"), "{\"ours\":1}");
+    }
+}
+
+#[cfg(test)]
+mod hook_command_tests {
+    use super::{hook_command, is_our_hook};
+
+    #[test]
+    fn a_plain_path_is_written_as_before() {
+        assert_eq!(
+            hook_command("/opt/homebrew/bin/contexere", "--pre-hook"),
+            "/opt/homebrew/bin/contexere --pre-hook"
+        );
+    }
+
+    /// The host runs the command through a shell; the path must arrive whole (#1002).
+    #[cfg(unix)]
+    #[test]
+    fn a_path_with_a_space_runs_the_binary_it_names() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin_dir = dir.path().join("dir sp $x");
+        std::fs::create_dir(&bin_dir).expect("mkdir");
+        let exe = bin_dir.join("contexere");
+        std::fs::write(&exe, "#!/bin/sh\necho \"ran $1\"\n").expect("script");
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+
+        let cmd = hook_command(&exe.to_string_lossy(), "--pre-hook");
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .output()
+            .expect("sh");
+        assert!(out.status.success(), "{cmd}: {out:?}");
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "ran --pre-hook\n");
+        assert!(is_our_hook(Some(&cmd), "contexere --pre-hook"), "{cmd}");
+    }
 }
 
 #[cfg(test)]

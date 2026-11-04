@@ -40,13 +40,10 @@ impl AgentIntegration for CodexIntegration {
         // Codex then refuses to start ("invalid transport"). Checked by transport,
         // not by name, so install repairs what an old uninstall left (#351).
         if !declares_transport(&content) {
-            content.push_str(&format!(
-                "\n[mcp_servers.contexere]\ntype = \"stdio\"\ncommand = \"{}\"\nargs = [\"--mcp\"]\n",
-                exe_path
-            ));
-            fs::write(&config_path, content)?;
+            content.push_str(&server_block(exe_path));
+            super::write_config(&config_path, content)?;
         } else if replaced {
-            fs::write(&config_path, content)?;
+            super::write_config(&config_path, content)?;
         }
 
         crate::agent_report!(
@@ -95,7 +92,7 @@ impl AgentIntegration for CodexIntegration {
             let content = legacy.unwrap_or(read);
             if had_legacy || content.contains("[mcp_servers.contexere") {
                 let new_content = strip_server(&content, "contexere");
-                fs::write(&config_path, new_content.trim_end().to_string() + "\n")?;
+                super::write_config(&config_path, new_content.trim_end().to_string() + "\n")?;
                 crate::agent_report!(
                     "  {} Removed MCP Server from {}",
                     "✓".yellow(),
@@ -263,6 +260,15 @@ impl AgentIntegration for CodexIntegration {
 
 /// True when `mcp_servers.contexere` is declared with a transport, the only state
 /// Codex starts from. A bare sub-table also declares the name.
+/// Our MCP server table. The path is a TOML string, escaped: a raw `C:\Users`
+/// reads `\U` as an escape and Codex refuses the file (#1002).
+fn server_block(exe_path: &str) -> String {
+    format!(
+        "\n[mcp_servers.contexere]\ntype = \"stdio\"\ncommand = {}\nargs = [\"--mcp\"]\n",
+        toml::Value::String(exe_path.to_string())
+    )
+}
+
 fn declares_transport(config: &str) -> bool {
     let mut in_parent = false;
     for line in config.lines() {
@@ -378,9 +384,9 @@ pub fn install_omni_hooks(exe_path: &str) -> anyhow::Result<()> {
         .as_object_mut()
         .unwrap();
 
-    let pre_cmd = format!("{} --pre-hook", exe_path);
-    let post_cmd = format!("{} --post-hook", exe_path);
-    let session_cmd = format!("{} --session-start", exe_path);
+    let pre_cmd = super::hook_command(exe_path, "--pre-hook");
+    let post_cmd = super::hook_command(exe_path, "--post-hook");
+    let session_cmd = super::hook_command(exe_path, "--session-start");
 
     // Codex runs handlers inside a matcher group's `hooks` array; a flat
     // `{"command": ...}` entry parses and never runs (#364).
@@ -399,7 +405,7 @@ pub fn install_omni_hooks(exe_path: &str) -> anyhow::Result<()> {
         &session_cmd,
     );
 
-    fs::write(&hooks_path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(&hooks_path, serde_json::to_string_pretty(&val)?)?;
     Ok(())
 }
 
@@ -475,7 +481,7 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
         }
     }
 
-    fs::write(&hooks_path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(&hooks_path, serde_json::to_string_pretty(&val)?)?;
     Ok(())
 }
 
@@ -651,6 +657,14 @@ name = \"Other\"
 
     /// #876: the server an omni install registered goes; one someone else named
     /// omni stays.
+    #[test]
+    fn the_server_block_parses_for_any_path() {
+        for exe in ["/usr/local/bin/contexere", "/Users/Jane Doe/bin/contexere", "C:\\Users\\Jane Doe\\contexere.exe", "/tmp/a\"b/contexere"] {
+            let doc: toml::Value = toml::from_str(&server_block(exe)).expect(exe);
+            assert_eq!(doc["mcp_servers"]["contexere"]["command"].as_str(), Some(exe));
+        }
+    }
+
     #[test]
     fn strips_only_the_omni_server_omni_wrote() {
         let ours = "[mcp_servers.omni]\ntype = \"stdio\"\ncommand = \"/opt/homebrew/bin/omni\"\nargs = [\"--mcp\"]\n\n[mcp_servers.other]\ncommand = \"x\"\n";

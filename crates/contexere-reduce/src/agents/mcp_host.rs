@@ -148,7 +148,7 @@ impl AgentIntegration for &'static McpHost {
             }
         }
 
-        fs::write(&path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Configured MCP Server in {} settings",
             "✓".green(),
@@ -174,7 +174,7 @@ impl AgentIntegration for &'static McpHost {
             super::drop_server(servers);
         }
 
-        fs::write(&path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Removed MCP Server from {} settings",
             "✓".yellow(),

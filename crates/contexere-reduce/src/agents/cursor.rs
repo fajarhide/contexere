@@ -22,7 +22,7 @@ impl AgentIntegration for CursorIntegration {
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let (mcp_path, mut mcp_val) = initialize_mcp_config()?;
         install_mcp_server(&mut mcp_val, exe_path);
-        fs::write(&mcp_path, serde_json::to_string_pretty(&mcp_val)?)?;
+        super::write_config(&mcp_path, serde_json::to_string_pretty(&mcp_val)?)?;
         crate::agent_report!(
             "  {} Configured MCP Server in ~/.cursor/mcp.json",
             "✓".green()
@@ -45,7 +45,7 @@ impl AgentIntegration for CursorIntegration {
             let content = fs::read_to_string(&mcp_path)?;
             if let Ok(mut val) = serde_json::from_str::<Value>(&content) {
                 remove_mcp_server(&mut val);
-                fs::write(&mcp_path, serde_json::to_string_pretty(&val)?)?;
+                super::write_config(&mcp_path, serde_json::to_string_pretty(&val)?)?;
                 crate::agent_report!(
                     "  {} Removed MCP Server from ~/.cursor/mcp.json",
                     "✓".yellow()
@@ -399,9 +399,9 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
         .as_object_mut()
         .unwrap();
 
-    let pre_cmd = format!("{} --pre-hook", exe_path);
-    let post_cmd = format!("{} --post-hook", exe_path);
-    let hook_cmd = format!("{} --hook", exe_path);
+    let pre_cmd = super::hook_command(exe_path, "--pre-hook");
+    let post_cmd = super::hook_command(exe_path, "--post-hook");
+    let hook_cmd = super::hook_command(exe_path, "--hook");
 
     // Drop every OMNI entry first: a moved binary leaves one command, and the
     // pre-#340 `afterFileEdit` registration is purged on upgrade.
@@ -430,7 +430,7 @@ fn install_omni_hooks_at(hooks_path: &PathBuf, exe_path: &str) -> anyhow::Result
         ensure_hook(hooks.entry(event).or_insert_with(|| json!([])), cmd);
     }
 
-    fs::write(hooks_path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(hooks_path, serde_json::to_string_pretty(&val)?)?;
     Ok(())
 }
 
@@ -466,7 +466,7 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
         retain_non_omni(hooks);
     }
 
-    fs::write(&hooks_path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(&hooks_path, serde_json::to_string_pretty(&val)?)?;
     Ok(())
 }
 
