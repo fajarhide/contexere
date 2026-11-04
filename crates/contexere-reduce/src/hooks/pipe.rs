@@ -145,6 +145,16 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         return Ok(());
     }
 
+    // Text too: every fallback below hands back `input_text`, so a redaction the
+    // distiller made was undone by the guardrail and the secret delivered (#1032).
+    let input_text = match crate::distillers::system_ops::redact_in_place(&input_text) {
+        Some((body, count)) => {
+            writeln!(error, "[OMNI: {count} sensitive value(s) redacted in place]")?;
+            body
+        }
+        None => input_text,
+    };
+
     let project_path = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
@@ -823,6 +833,27 @@ mod tests {
 
         let out_str = String::from_utf8(out).expect("must succeed");
         assert!(out_str.contains("diff --git"));
+    }
+
+    /// Text loses its secret too, with or without a JSON line, short or long: the
+    /// guardrail handed the raw input back and undid the redaction (#1032).
+    #[test]
+    fn hides_a_secret_in_text_whatever_the_guardrail_does() {
+        let log: String = (0..400).map(|i| format!("INFO step {i} ok\n")).collect();
+        for input in [
+            "DB_PASSWORD=canary-1032\nplain log line\n".to_string(),
+            "DB_PASSWORD=canary-1032\nplain log line\n{\"ok\":true}\n".to_string(),
+            format!("DB_PASSWORD=canary-1032\n{log}"),
+            format!("DB_PASSWORD=canary-1032\n{log}{{\"ok\":true}}\n"),
+        ] {
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            run_inner(input.as_bytes(), &mut out, &mut err, None, None, Some("cat"))
+                .expect("must succeed");
+            let out = String::from_utf8_lossy(&out);
+            assert!(!out.contains("canary-1032"), "{out}");
+            assert!(out.contains("DB_PASSWORD="), "the key stays readable: {out}");
+        }
     }
 
     /// A JSON payload keeps its shape and loses its secret, as on the hook path (#1021).
