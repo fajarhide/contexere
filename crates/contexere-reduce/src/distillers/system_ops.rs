@@ -526,12 +526,16 @@ fn looks_like_version(value: &str) -> bool {
         .trim_start_matches('=')
         .trim()
         .trim_matches(['"', '\'']);
-    let head = v.split(|c: char| !(c.is_ascii_digit() || c == '.')).next().unwrap_or("");
+    let head = v
+        .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .next()
+        .unwrap_or("");
     let parts: Vec<&str> = head.trim_end_matches('.').split('.').collect();
     v.len() <= 32
         && parts.len() >= 2
         && parts.iter().all(|p| !p.is_empty())
-        && v.chars().all(|c| c.is_ascii_alphanumeric() || ".+-".contains(c))
+        && v.chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".+-".contains(c))
 }
 
 /// An integer, alone or leading code: a conditional, a comment or arithmetic
