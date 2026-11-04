@@ -1740,9 +1740,11 @@ mod tests {
     #[cfg(unix)]
     /// A command that succeeds can still print a credential on stderr (#1035 review).
     #[test]
-    fn omni_run_redacts_stderr_of_a_success() {
-        let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+    fn redacts_stderr_of_a_successful_run() {
+        let dir = tempdir().expect("temp dir for the store");
+        let store = Arc::new(
+            Store::open_path(&dir.path().join("omni.db")).expect("open the test store"),
+        );
         let timeout = std::time::Duration::from_secs(5);
         let out = run_with_timeout(
             "echo built; echo DB_PASSWORD=canary-err-1035 >&2",

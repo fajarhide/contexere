@@ -34,7 +34,7 @@ fn payload() -> String {
 }
 
 #[test]
-fn the_pipe_hides_a_secret_under_passthrough() {
+fn hides_a_secret_on_the_pipe_under_passthrough() {
     let out = run(&[], &payload());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.contains(SECRET), "{stdout}");
@@ -42,7 +42,7 @@ fn the_pipe_hides_a_secret_under_passthrough() {
 }
 
 #[test]
-fn exec_hides_a_secret_under_passthrough() {
+fn hides_a_secret_on_exec_under_passthrough() {
     let dir = tempfile::tempdir().expect("tempdir");
     let file = dir.path().join("p.txt");
     std::fs::write(&file, payload()).expect("write fixture");
@@ -54,7 +54,7 @@ fn exec_hides_a_secret_under_passthrough() {
 }
 
 #[test]
-fn the_hook_hides_a_secret_under_passthrough() {
+fn hides_a_secret_on_the_hook_under_passthrough() {
     let input = serde_json::json!({
         "hook_event_name": "PostToolUse",
         "tool_name": "Bash",

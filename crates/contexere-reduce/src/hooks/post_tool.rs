@@ -1806,7 +1806,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// A failed command keeps every byte except its credential (#1035 review). Pi's
     /// shape, since Claude Code's payload never sets `failed`.
     #[test]
-    fn a_failed_command_still_redacts() {
+    fn redacts_a_failed_commands_output() {
         let payload = serde_json::json!({
             "toolName": "bash",
             "toolInput": { "command": "./deploy.sh" },
