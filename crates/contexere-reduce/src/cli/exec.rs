@@ -82,13 +82,20 @@ pub fn run_exec(
         std::process::exit(exit_code(status));
     }
 
+    // stderr is captured too: inherited, it reached the caller with any credential
+    // in it (#1036). Read on its own thread so neither pipe can fill and deadlock.
     let mut child = command
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()
         .unwrap_or_else(|e| spawn_failed(&cmd_name, &e));
 
     let mut child_stdout = child.stdout.take().expect("Failed to open stdout");
+    let mut child_stderr = child.stderr.take().expect("Failed to open stderr");
+    let stderr_reader = std::thread::spawn(move || {
+        let mut err = Vec::new();
+        child_stderr.read_to_end(&mut err).map(|_| err)
+    });
 
     let status = {
         // Drain stdout before `wait()` to avoid a full-pipe deadlock. A failed command
@@ -98,6 +105,10 @@ pub fn run_exec(
         // Reaped before a read error returns, or the child is left a zombie.
         let status = child.wait()?;
         read?;
+        let err = stderr_reader
+            .join()
+            .map_err(|_| anyhow::anyhow!("stderr reader panicked"))??;
+        write_redacted(&mut std::io::stderr().lock(), &err)?;
         if status.success() {
             let stdout = std::io::stdout().lock();
             let stderr = std::io::stderr().lock();
@@ -110,8 +121,9 @@ pub fn run_exec(
                 Some(&cmd_name),
             )?;
         } else {
+            // Verbatim apart from a credential: never distilled (#122), never leaked (#1036).
             let mut stdout = std::io::stdout().lock();
-            stdout.write_all(&buf)?;
+            write_redacted(&mut stdout, &buf)?;
             stdout.flush()?;
         }
         status
@@ -120,12 +132,28 @@ pub fn run_exec(
     if !status.success() {
         if let (Some(sess), Some(st)) = (&session, &store) {
             let tracker = crate::session::tracker::SessionTracker::new(sess.clone(), st.clone());
-            tracker.track_error(""); // stderr is inherited, so we just track the failure
+            tracker.track_error(""); // stderr went to the caller, so only the failure is tracked
         }
         std::process::exit(exit_code(status));
     }
 
     Ok(())
+}
+
+/// `bytes` with every credential hidden in place, the notice on stderr. Bytes that are
+/// not UTF-8 go out as they are: the redactor reads text.
+fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
+    let redacted = std::str::from_utf8(bytes)
+        .ok()
+        .and_then(crate::distillers::system_ops::redact_in_place);
+    match redacted {
+        Some((text, count)) => {
+            out.write_all(text.as_bytes())?;
+            eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
+            Ok(())
+        }
+        None => out.write_all(bytes),
+    }
 }
 
 /// The shell's codes, so a caller tells "not found" from a failure: 127 for a missing
