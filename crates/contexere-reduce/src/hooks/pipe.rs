@@ -931,7 +931,10 @@ mod tests {
         let kept = read_input(input.as_bytes(), Vec::new(), &mut err)
             .expect("reads")
             .expect("text");
-        assert!(kept.len() <= max && kept.ends_with('\n'), "a line was cut in half");
+        assert!(
+            kept.len() <= max && kept.ends_with('\n'),
+            "a line was cut in half"
+        );
         assert!(!kept.contains("canary-big-1000"));
         let dropped = input.len() - kept.len();
         assert_eq!(
