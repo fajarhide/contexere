@@ -2237,15 +2237,19 @@ mod tests {
     /// A color escape in front of the key no longer hides the credential (#1038).
     #[test]
     fn redacts_a_credential_behind_a_color_escape() {
-        let out = redact_sensitive_assignments("\x1b[32mDB_PASSWORD=canary-ansi-1038\x1b[0m\nlog line\n")
-            .expect("a credential");
+        let out =
+            redact_sensitive_assignments("\x1b[32mDB_PASSWORD=canary-ansi-1038\x1b[0m\nlog line\n")
+                .expect("a credential");
         assert!(!out.contains("canary-ansi-1038"), "{out}");
     }
 
     /// Color with no credential is left alone.
     #[test]
     fn leaves_a_colored_line_without_a_credential() {
-        assert_eq!(redact_sensitive_assignments("\x1b[32mINFO build ok\x1b[0m\n"), None);
+        assert_eq!(
+            redact_sensitive_assignments("\x1b[32mINFO build ok\x1b[0m\n"),
+            None
+        );
     }
 
     /// Expansions survive, literals starting with `$` do not (#532).
