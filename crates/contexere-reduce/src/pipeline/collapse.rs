@@ -24,7 +24,7 @@ pub struct CollapseResult {
 }
 
 /// Strips ANSI escapes without a regex, for the hot path.
-fn strip_ansi(line: &str) -> Cow<'_, str> {
+pub(crate) fn strip_ansi(line: &str) -> Cow<'_, str> {
     if !line.contains('\x1b') {
         return Cow::Borrowed(line);
     }

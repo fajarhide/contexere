@@ -1120,7 +1120,22 @@ fn redact_each_line(input: &str) -> (Vec<Option<String>>, u32) {
                 let indent = trimmed.strip_suffix(header).unwrap_or("");
                 return Some(format!("{indent}[REDACTED]"));
             }
-            let assigned = redact_line(trimmed);
+            // A color escape glued to the key hid it from the key check (#1038). The line
+            // is redacted as written first, so a whole value stays whole (#1040 review:
+            // `DB_PASSWORD=x \x1b[32mB=y`); escapes left after that are stripped and the
+            // line checked again, so a plain credential beside a colored one cannot end
+            // the search. A line loses its color only when that second pass finds one.
+            let first = redact_line(trimmed);
+            let after = first.as_ref().map_or(trimmed, |(t, _)| t.as_str());
+            let assigned = if after.contains('\x1b') {
+                let clean = crate::pipeline::collapse::strip_ansi(after);
+                match redact_line(&clean) {
+                    Some((text, n)) => Some((text, n.max(first.as_ref().map_or(0, |f| f.1)))),
+                    None => first,
+                }
+            } else {
+                first
+            };
             let (text, count) = assigned
                 .as_ref()
                 .map_or((trimmed, 0), |(rewritten, count)| {
@@ -2225,6 +2240,41 @@ mod tests {
                 assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
             }
         }
+    }
+
+    /// A color escape in front of the key no longer hides the credential (#1038).
+    #[test]
+    fn redacts_a_credential_behind_a_color_escape() {
+        let out =
+            redact_sensitive_assignments("\x1b[32mDB_PASSWORD=canary-ansi-1038\x1b[0m\nlog line\n")
+                .expect("a credential");
+        assert!(!out.contains("canary-ansi-1038"), "{out}");
+    }
+
+    /// A plain credential beside a colored one does not stop the colored one being
+    /// found (#1040 review).
+    #[test]
+    fn redacts_a_colored_credential_beside_a_plain_one() {
+        let line = "DB_PASSWORD=first-secret \x1b[32mAPI_TOKEN=second-secret-1040\x1b[0m ./app &\n";
+        let out = redact_sensitive_assignments(line).expect("a credential");
+        assert!(!out.contains("second-secret-1040"), "{out}");
+    }
+
+    /// A colored word inside one value stays hidden with the rest of it (#1040 review).
+    #[test]
+    fn keeps_a_whole_value_hidden_across_a_color_escape() {
+        let out = redact_sensitive_assignments("DB_PASSWORD=correct \x1b[32mB=horse-1040\x1b[0m\n")
+            .expect("a credential");
+        assert!(!out.contains("horse-1040"), "{out}");
+    }
+
+    /// Color with no credential is left alone.
+    #[test]
+    fn leaves_a_colored_line_without_a_credential() {
+        assert_eq!(
+            redact_sensitive_assignments("\x1b[32mINFO build ok\x1b[0m\n"),
+            None
+        );
     }
 
     /// Expansions survive, literals starting with `$` do not (#532).
