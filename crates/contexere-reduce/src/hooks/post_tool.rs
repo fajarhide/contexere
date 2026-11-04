@@ -1736,7 +1736,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
     /// A JSON reply stays whole when stderr carries a warning (#999).
     #[test]
-    fn a_warning_on_stderr_does_not_unmake_json() {
+    fn preserves_json_when_stderr_has_a_warning() {
         let rows: Vec<String> = (0..600)
             .map(|i| format!("  \"item_{i}\": {{\"id\": {i}, \"state\": \"ok\"}}"))
             .collect();
