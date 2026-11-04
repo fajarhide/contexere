@@ -94,8 +94,10 @@ pub fn run_exec(
         // Drain stdout before `wait()` to avoid a full-pipe deadlock. A failed command
         // passes through verbatim, never distilled into apparent success (#122).
         let mut buf = Vec::new();
-        child_stdout.read_to_end(&mut buf)?;
+        let read = child_stdout.read_to_end(&mut buf);
+        // Reaped before a read error returns, or the child is left a zombie.
         let status = child.wait()?;
+        read?;
         if status.success() {
             let stdout = std::io::stdout().lock();
             let stderr = std::io::stderr().lock();
