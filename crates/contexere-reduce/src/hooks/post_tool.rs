@@ -276,8 +276,17 @@ fn declined(
         return Some(Declined::KeepsAPreview);
     }
     // Structured payloads skip every lossy stage, through `refuses_lossy_stages` (#699).
-    if crate::pipeline::format::refuses_lossy_stages(&normalized.content)
-        && let Some(kind) = format::sniff(&normalized.content)
+    // Judged on stdout alone: one deprecation warning on stderr made an 8,920 byte
+    // JSON object read as text, and it came back as 104 bytes (#999).
+    let stdout = normalized
+        .raw_response
+        .as_ref()
+        .and_then(|r| r.get("stdout"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&normalized.content);
+    if crate::pipeline::format::refuses_lossy_stages(stdout)
+        && let Some(kind) = format::sniff(stdout)
     {
         if let Some(s) = store {
             s.record_passthrough(
@@ -1724,6 +1733,29 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(!carries_our_marker(theirs), "false positive on real output");
     }
     use super::*;
+
+    /// A JSON reply stays whole when stderr carries a warning (#999).
+    #[test]
+    fn a_warning_on_stderr_does_not_unmake_json() {
+        let rows: Vec<String> = (0..600)
+            .map(|i| format!("  \"item_{i}\": {{\"id\": {i}, \"state\": \"ok\"}}"))
+            .collect();
+        let stdout = format!("{{\n{}\n}}\n", rows.join(",\n"));
+        let payload = |stderr: &str| {
+            serde_json::json!({
+                "tool_name": "Bash",
+                "tool_input": { "command": "curl -s https://api.example.com/items" },
+                "tool_response": { "stdout": stdout, "stderr": stderr, "interrupted": false },
+            })
+            .to_string()
+        };
+        assert_eq!(process_payload(&payload(""), None, None), None);
+        assert_eq!(
+            process_payload(&payload("WARNING: something deprecated\n"), None, None),
+            None,
+            "the host keeps the document when stderr has a line"
+        );
+    }
 
     fn bash_reply(command: &str, stdout: &str) -> String {
         let payload = serde_json::json!({
