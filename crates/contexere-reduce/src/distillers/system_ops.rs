@@ -511,8 +511,9 @@ fn describes_a_credential(key: &str) -> bool {
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
-/// An integer, alone or leading a conditional: `100000 if p else 8000`. Nothing
-/// else may follow, so `"123 correct horse"` stays a password (review of #1028).
+/// An integer, alone or leading code: a conditional, a comment or arithmetic
+/// (`100000 if p else 8000`, `12 # total`, `100000 * 2`). A word may not follow,
+/// so `"123 correct horse"` stays a password (review of #1028).
 fn leads_with_an_integer(value: &str) -> bool {
     let v = value.trim().trim_end_matches([',', ';']).trim_end();
     let inner = v
@@ -522,7 +523,18 @@ fn leads_with_an_integer(value: &str) -> bool {
     // A quoted value is a string, so only digits; code needs no quotes.
     let (body, code) = inner.map_or((v, true), |s| (s, false));
     let rest = body.trim_start_matches(|c: char| c.is_ascii_digit());
-    rest.len() < body.len() && (rest.is_empty() || (code && rest.starts_with(" if ")))
+    let code_follows = |r: &str| {
+        let r = r.trim_start();
+        r.starts_with("if ")
+            || r.starts_with('#')
+            || r.starts_with("//")
+            // An operator, or `123 456` would pass as a number.
+            || (r.starts_with(|c: char| "+-*/%".contains(c))
+                && r.chars()
+                    .all(|c| c.is_ascii_digit() || c.is_whitespace() || "+-*/%()".contains(c)))
+    };
+    rest.len() < body.len()
+        && (rest.is_empty() || (code && rest.starts_with(char::is_whitespace) && code_follows(rest)))
 }
 
 /// A brace expression or a Python lambda is code, not a value: React's
@@ -1528,6 +1540,8 @@ mod tests {
         for line in [
             "    token_limit = 100000 if provider in (\"gemini\", \"openai\") else 8000",
             "    token_count = 12",
+            "    token_count = 12 # total",
+            "    token_limit = 100000 * 2",
             "models_noauth=401",
             "status_noauth=401",
             "TOKEN_TTL=3600",
@@ -1545,6 +1559,7 @@ mod tests {
             "MAX_PASSWORD=\"123 correct horse battery staple\"",
             "MAX_PASSWORD=123 correct horse battery staple",
             "MAX_PASSWORD=\"123 if you ask\"",
+            "MAX_PASSWORD=123 456 789",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");

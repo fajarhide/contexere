@@ -867,23 +867,20 @@ mod tests {
     #[test]
     fn a_hidden_key_keeps_its_yaml_block_indent() {
         let body = format!("MIIEv{}", "QIBADANBgkqhkiG9w0BAQEFAASC".repeat(2));
-        let input = format!(
+        let doc = format!(
             "name: app\nprivate_key: |\n  -----BEGIN PRIVATE KEY-----\n  {body}\n  -----END PRIVATE KEY-----\nport: 8080\n"
         );
-        let mut out = Vec::new();
-        run_inner(
-            input.as_bytes(),
-            &mut out,
-            Vec::new(),
-            None,
-            None,
-            Some("cat"),
-        )
-        .expect("must succeed");
-        assert_eq!(
-            String::from_utf8(out).expect("utf8"),
-            "name: app\nprivate_key: |\n  [REDACTED]\n\n\nport: 8080\n"
-        );
+        for input in [doc.clone(), doc.replace('\n', "\r\n")] {
+            let mut out = Vec::new();
+            run_inner(input.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
+                .expect("must succeed");
+            let out = String::from_utf8(out).expect("utf8");
+            assert_eq!(
+                out.lines().collect::<Vec<_>>(),
+                ["name: app", "private_key: |", "  [REDACTED]", "", "", "port: 8080"],
+                "{input:?}"
+            );
+        }
     }
 
     #[test]
