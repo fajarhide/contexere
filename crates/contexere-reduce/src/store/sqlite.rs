@@ -3237,7 +3237,7 @@ mod tests {
             )
             .unwrap();
         assert!(!row.contains("canary"), "{row}");
-        assert!(row.contains("./run") && row.contains("ok\n"), "{row}");
+        assert!(row.contains("API_TOKEN=") && row.contains("ok\n"), "{row}");
     }
 
     /// One stored command per call; pre-#911 rows answer with their own text.

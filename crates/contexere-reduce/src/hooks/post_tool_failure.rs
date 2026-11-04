@@ -142,7 +142,7 @@ mod tests {
         let kept = serde_json::to_string(&*state).expect("state");
         assert!(!kept.contains("canary-cmd-123"), "{kept}");
         assert!(!kept.contains("canary-err-456"), "{kept}");
-        assert!(kept.contains("./migrate"), "{kept}");
+        assert!(kept.contains("DB_PASSWORD="), "{kept}");
     }
 
     #[test]
