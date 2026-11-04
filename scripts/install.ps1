@@ -58,6 +58,32 @@ try {
     exit 1
 }
 
+# Verify against the release's SHA256SUMS; anything missing or different stops the
+# install, since an unchecked binary is not installed (#1001).
+$Asset = "omni-$Version-$Platform.zip"
+try {
+    $Sums = (Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$Version/SHA256SUMS" -UseBasicParsing).Content
+} catch {
+    Write-Error "[omni] Could not fetch SHA256SUMS for $Version; refusing to install an unchecked binary."
+    exit 1
+}
+if ($Sums -is [byte[]]) { $Sums = [System.Text.Encoding]::UTF8.GetString($Sums) }
+$Expected = $null
+foreach ($Line in ($Sums -split "`n")) {
+    $Parts = $Line.Trim() -split '\s+'
+    if ($Parts.Count -ge 2 -and $Parts[1].TrimStart('*') -eq $Asset) { $Expected = $Parts[0].ToLower() }
+}
+if (-not $Expected) {
+    Write-Error "[omni] SHA256SUMS has no line for $Asset; refusing to install an unchecked binary."
+    exit 1
+}
+$Actual = (Get-FileHash -Algorithm SHA256 -Path $ZipFile).Hash.ToLower()
+if ($Expected -ne $Actual) {
+    Write-Error "[omni] SHA-256 mismatch. Expected $Expected, got $Actual. The download may be corrupted."
+    exit 1
+}
+Write-Host "[omni] Checksum verified" -ForegroundColor Green
+
 Write-Host "[omni] Extracting archive..." -ForegroundColor Cyan
 Expand-Archive -Path $ZipFile -DestinationPath $TmpDir -Force
 

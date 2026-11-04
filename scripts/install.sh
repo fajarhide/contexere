@@ -67,30 +67,30 @@ download_and_install() {
         error "Download failed. Check that version ${version} exists at:\n  $url"
     fi
 
-    # Verify SHA-256 if available
-    local sha_url="${url}.sha256"
-    if curl -fsSL "$sha_url" -o "$tmpdir/omni.tar.gz.sha256" 2>/dev/null; then
-        info "Verifying SHA-256 checksum..."
-        local expected actual
-        expected=$(awk '{print $1}' "$tmpdir/omni.tar.gz.sha256")
-
-        # Cross-platform: sha256sum (Linux) or shasum -a 256 (macOS)
-        if command -v sha256sum >/dev/null 2>&1; then
-            actual=$(sha256sum "$tmpdir/omni.tar.gz" | awk '{print $1}')
-        elif command -v shasum >/dev/null 2>&1; then
-            actual=$(shasum -a 256 "$tmpdir/omni.tar.gz" | awk '{print $1}')
-        else
-            warn "No SHA-256 tool found — skipping checksum verification"
-            actual="$expected"
-        fi
-
-        if [ "$expected" != "$actual" ]; then
-            error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/omni/issues"
-        fi
-        ok "Checksum verified ✓"
-    else
-        warn "SHA-256 file not available — skipping checksum verification"
+    # Verify against the release's SHA256SUMS. Missing list, missing line, no hash
+    # tool or a mismatch all stop the install: an unchecked binary is not installed (#1001).
+    local sums_url="https://github.com/$REPO/releases/download/${version}/SHA256SUMS"
+    local asset="omni-${version}-${platform}.tar.gz"
+    if ! curl -fsSL "$sums_url" -o "$tmpdir/SHA256SUMS"; then
+        error "Could not fetch SHA256SUMS for ${version}; refusing to install an unchecked binary."
     fi
+    local expected actual
+    expected=$(awk -v f="$asset" '$2 == f || $2 == "*" f {print $1}' "$tmpdir/SHA256SUMS")
+    if [ -z "$expected" ]; then
+        error "SHA256SUMS has no line for ${asset}; refusing to install an unchecked binary."
+    fi
+    # Cross-platform: sha256sum (Linux) or shasum -a 256 (macOS)
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$tmpdir/omni.tar.gz" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$tmpdir/omni.tar.gz" | awk '{print $1}')
+    else
+        error "No sha256sum or shasum found; install one, or use brew, to verify the download."
+    fi
+    if [ "$expected" != "$actual" ]; then
+        error "SHA-256 mismatch!\n  Expected: $expected\n  Got:      $actual\n\n  The download may be corrupted. Try again or report at:\n  https://github.com/fajarhide/contexere/issues"
+    fi
+    ok "Checksum verified"
 
     # Extract
     tar xzf "$tmpdir/omni.tar.gz" -C "$tmpdir"
