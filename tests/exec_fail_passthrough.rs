@@ -93,3 +93,47 @@ fn exec_sh_c_runs_verbatim_without_double_wrapping() {
         "both statements must run in order, got: {out:?}"
     );
 }
+
+/// `exec` reports what the wrapped command reports, and passes its environment (#1000).
+fn run_exec_with_env(args: &[&str], env: &[(&str, &str)]) -> (String, i32) {
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let mut cmd = Command::new(omni());
+    cmd.arg("exec")
+        .args(args)
+        .env("OMNI_DB_PATH", db.path())
+        .env("OMNI_QUIET", "1");
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let out = cmd.output().expect("spawn omni exec");
+    (
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        out.status.code().unwrap_or(-1),
+    )
+}
+
+#[test]
+fn reports_a_missing_program_as_127() {
+    let (_, code) = run_exec_with_env(&["no-such-program-1000"], &[]);
+    assert_eq!(code, 127);
+}
+
+#[test]
+fn reports_a_killed_child_as_128_plus_the_signal() {
+    let (_, code) = run_exec("kill -9 $$");
+    assert_eq!(code, 137);
+}
+
+#[test]
+fn passes_the_callers_environment_through() {
+    let (stdout, code) = run_exec_with_env(
+        // BSD printenv takes one name, so the shell prints both.
+        &["sh", "-c", "echo \"$SSH_AUTH_SOCK\"; echo \"$PYTHONPATH\""],
+        &[
+            ("SSH_AUTH_SOCK", "/tmp/agent.sock"),
+            ("PYTHONPATH", "/srv/lib"),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert_eq!(stdout, "/tmp/agent.sock\n/srv/lib\n");
+}
