@@ -1795,6 +1795,14 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(reply.contains("HOME=/home/dev"), "{reply}");
     }
 
+    #[test]
+    fn hides_csv_secret_columns_under_any_command() {
+        let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAIOSFODNN7EXAMPLE,wJalrXUtnFEMIK7MDENG\n";
+        let reply = bash_reply("python3 export.py", csv);
+        assert!(!reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"));
+        assert!(reply.contains("alice"));
+    }
+
     /// A failed command keeps every byte except its credential (#1035 review). Pi's
     /// shape, since Claude Code's payload never sets `failed`.
     #[test]
@@ -1811,14 +1819,6 @@ Ran 6 tests across 1 file. [4.00ms]
         let reply = process_payload(&payload, None, None).expect("a rewrite");
         assert!(!reply.contains("canary-fail-1035"), "{reply}");
         assert!(reply.contains("error: deploy failed"), "{reply}");
-    }
-
-    #[test]
-    fn hides_csv_secret_columns_under_any_command() {
-        let csv = "User Name,Access Key Id,Secret Access Key\nalice,AKIAIOSFODNN7EXAMPLE,wJalrXUtnFEMIK7MDENG\n";
-        let reply = bash_reply("python3 export.py", csv);
-        assert!(!reply.contains("wJalrXUt") && !reply.contains("AKIAIOSF"));
-        assert!(reply.contains("alice"));
     }
 
     #[test]
