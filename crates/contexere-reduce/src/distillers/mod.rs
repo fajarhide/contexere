@@ -123,7 +123,10 @@ mod tests {
         let out = distill_with_command(&[], input, "cat mixed.txt", None);
         assert!(!out.contains("canary9"), "{out}");
         let lines: Vec<&str> = out.lines().collect();
-        assert!(lines.ends_with(&["plain log line", "{\"ok\":true}"]), "{out}");
+        assert!(
+            lines.ends_with(&["plain log line", "{\"ok\":true}"]),
+            "{out}"
+        );
         assert!(
             out.starts_with("[OMNI: 1 sensitive value(s) redacted]"),
             "{out}"
