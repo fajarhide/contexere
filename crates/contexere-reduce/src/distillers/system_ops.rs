@@ -523,11 +523,23 @@ fn leads_with_an_integer(value: &str) -> bool {
     // A quoted value is a string, so only digits; code needs no quotes.
     let (body, code) = inner.map_or((v, true), |s| (s, false));
     let rest = body.trim_start_matches(|c: char| c.is_ascii_digit());
+    // A conditional or a comment may carry a credential of its own, `12 # API_TOKEN=x`,
+    // so neither an assignment, a field nor a long literal word may appear in it
+    // (review of #1028).
+    let holds_nothing = |r: &str| {
+        !r.contains(['=', ':'])
+            && !r
+                .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+                .any(|w| {
+                    w.len() >= 16
+                        && (w.chars().any(|c| c.is_ascii_digit())
+                            || (w.chars().any(|c| c.is_ascii_uppercase())
+                                && w.chars().any(|c| c.is_ascii_lowercase())))
+                })
+    };
     let code_follows = |r: &str| {
         let r = r.trim_start();
-        r.starts_with("if ")
-            || r.starts_with('#')
-            || r.starts_with("//")
+        ((r.starts_with("if ") || r.starts_with('#') || r.starts_with("//")) && holds_nothing(r))
             // An operator, or `123 456` would pass as a number.
             || (r.starts_with(|c: char| "+-*/%".contains(c))
                 && r.chars()
@@ -1561,6 +1573,8 @@ mod tests {
             "MAX_PASSWORD=123 correct horse battery staple",
             "MAX_PASSWORD=\"123 if you ask\"",
             "MAX_PASSWORD=123 456 789",
+            "token_limit = 12 # API_TOKEN=canary-abc-123",
+            "token_limit = 12 # old value sk_live_A1b2C3d4E5f6G7h8",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
