@@ -35,3 +35,14 @@ fn hides_a_credential_on_stderr() {
         assert!(stderr.contains("warn: slow"), "{stderr}");
     }
 }
+
+/// A background process holding stderr does not keep `exec` from returning (#1037
+/// review): it waits two seconds after the command exits, then names what it left.
+#[test]
+fn returns_while_a_background_process_holds_stderr() {
+    let start = std::time::Instant::now();
+    let out = exec("sleep 20 >/dev/null & echo done; exit 3");
+    assert!(start.elapsed() < std::time::Duration::from_secs(10), "{:?}", start.elapsed());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("done"));
+    assert_eq!(out.status.code(), Some(3));
+}

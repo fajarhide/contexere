@@ -82,20 +82,22 @@ pub fn run_exec(
         std::process::exit(exit_code(status));
     }
 
-    // stderr is captured too: inherited, it reached the caller with any credential
-    // in it (#1036). Read on its own thread so neither pipe can fill and deadlock.
+    // stderr is captured when no person can answer it: inherited, it reached an agent
+    // with any credential in it (#1036). With stdin at a terminal it stays live, or a
+    // prompt written to stderr is never seen (#1037 review).
+    let capture_stderr = !std::io::IsTerminal::is_terminal(&std::io::stdin());
     let mut child = command
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(if capture_stderr {
+            Stdio::piped()
+        } else {
+            Stdio::inherit()
+        })
         .spawn()
         .unwrap_or_else(|e| spawn_failed(&cmd_name, &e));
 
     let mut child_stdout = child.stdout.take().expect("Failed to open stdout");
-    let mut child_stderr = child.stderr.take().expect("Failed to open stderr");
-    let stderr_reader = std::thread::spawn(move || {
-        let mut err = Vec::new();
-        child_stderr.read_to_end(&mut err).map(|_| err)
-    });
+    let stderr_chunks = child.stderr.take().map(spawn_stderr_reader);
 
     let status = {
         // Drain stdout before `wait()` to avoid a full-pipe deadlock. A failed command
@@ -105,10 +107,10 @@ pub fn run_exec(
         // Reaped before a read error returns, or the child is left a zombie.
         let status = child.wait()?;
         read?;
-        let err = stderr_reader
-            .join()
-            .map_err(|_| anyhow::anyhow!("stderr reader panicked"))??;
-        write_redacted(&mut std::io::stderr().lock(), &err)?;
+        if let Some(chunks) = stderr_chunks {
+            let err = collect_stderr(&chunks);
+            write_redacted(&mut std::io::stderr().lock(), &err)?;
+        }
         if status.success() {
             let stdout = std::io::stdout().lock();
             let stderr = std::io::stderr().lock();
@@ -138,6 +140,66 @@ pub fn run_exec(
     }
 
     Ok(())
+}
+
+/// Reads stderr on its own thread, so neither pipe fills and deadlocks, and sends on
+/// at most `MAX_INPUT` bytes; past that it keeps reading, so the child never blocks,
+/// and sends only how much it dropped.
+fn spawn_stderr_reader(mut err: std::process::ChildStderr) -> std::sync::mpsc::Receiver<Chunk> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut chunk = vec![0; 8192];
+        let mut room = crate::guard::limits::MAX_INPUT;
+        while let Ok(n) = err.read(&mut chunk) {
+            if n == 0 {
+                break;
+            }
+            let keep = room.min(n);
+            room -= keep;
+            let sent = if keep > 0 {
+                tx.send(Chunk::Bytes(chunk[..keep].to_vec()))
+            } else {
+                Ok(())
+            };
+            if sent.is_err() || (n > keep && tx.send(Chunk::Dropped(n - keep)).is_err()) {
+                break;
+            }
+        }
+    });
+    rx
+}
+
+enum Chunk {
+    Bytes(Vec<u8>),
+    Dropped(usize),
+}
+
+/// What the child wrote to stderr, as capped by the reader, waited for at most two
+/// seconds after it exited: a background process can hold stderr open long after the
+/// command is done (#1037 review). Anything dropped is named.
+fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
+    use std::sync::mpsc::RecvTimeoutError;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let (mut err, mut dropped, mut cut_off) = (Vec::new(), 0usize, false);
+    loop {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        match chunks.recv_timeout(left) {
+            Ok(Chunk::Bytes(bytes)) => err.extend_from_slice(&bytes),
+            Ok(Chunk::Dropped(n)) => dropped += n,
+            Err(RecvTimeoutError::Timeout) => {
+                cut_off = true;
+                break;
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    if dropped > 0 {
+        err.extend_from_slice(format!("\n[OMNI: {dropped} bytes of stderr omitted]\n").as_bytes());
+    }
+    if cut_off {
+        err.extend_from_slice(b"\n[OMNI: stderr still open after the command exited; the rest was not read]\n");
+    }
+    err
 }
 
 /// `bytes` with every credential hidden in place, the notice on stderr. Bytes that are
