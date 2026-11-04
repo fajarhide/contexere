@@ -90,7 +90,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
 
     let start_time = Instant::now();
 
-    let input_text = match read_input(input, &mut output)? {
+    let input_text = match read_input(input, &mut output, &mut error)? {
         Some(text) => text,
         None => return Ok(()), // Binary data was passed through directly
     };
@@ -156,6 +156,19 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         return Ok(());
     }
 
+    // Text too: every fallback below hands back `input_text`, so a redaction the
+    // distiller made was undone by the guardrail and the secret delivered (#1032).
+    let input_text = match crate::distillers::system_ops::redact_in_place(&input_text) {
+        Some((body, count)) => {
+            writeln!(
+                error,
+                "[OMNI: {count} sensitive value(s) redacted in place]"
+            )?;
+            body
+        }
+        None => input_text,
+    };
+
     let project_path = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
@@ -178,24 +191,47 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     Ok(())
 }
 
-fn read_input<R: Read, W: Write>(mut input: R, mut output: W) -> Result<Option<String>> {
+fn read_input<R: Read, W: Write, E: Write>(
+    mut input: R,
+    mut output: W,
+    mut error: E,
+) -> Result<Option<String>> {
+    let max = crate::guard::limits::MAX_INPUT;
     let mut buffer = Vec::new();
     let mut chunk = vec![0; 8192];
-    let mut total_read = 0;
 
     loop {
         let n = input.read(&mut chunk)?;
         if n == 0 {
             break;
         }
-
-        total_read += n;
-        if total_read > crate::guard::limits::MAX_INPUT {
-            // Capped at 16 MB.
-            buffer.extend_from_slice(&chunk[..n]);
+        buffer.extend_from_slice(&chunk[..n]);
+        if buffer.len() > max {
+            // Past 16 MB the input is cut at the last whole line and the rest is read
+            // and dropped in bounded memory, with a marker saying how much. It used to
+            // stop mid-line, exit 0, with no marker (#1000). What is kept goes through
+            // the normal path, so redaction sees it whole (review of #1031).
+            let cut = buffer
+                .get(..=max)
+                .and_then(|head| head.iter().rposition(|&b| b == b'\n'))
+                .map_or(max, |at| at + 1);
+            let mut dropped = (buffer.len() - cut) as u64;
+            buffer.truncate(cut);
+            // One line longer than the cap: never split a character, or the text reads as
+            // binary and skips redaction.
+            if let Err(e) = std::str::from_utf8(&buffer)
+                && e.error_len().is_none()
+            {
+                dropped += (buffer.len() - e.valid_up_to()) as u64;
+                buffer.truncate(e.valid_up_to());
+            }
+            dropped += std::io::copy(&mut input, &mut std::io::sink())?;
+            writeln!(
+                error,
+                "[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]"
+            )?;
             break;
         }
-        buffer.extend_from_slice(&chunk[..n]);
     }
 
     match std::str::from_utf8(&buffer) {
@@ -836,6 +872,37 @@ mod tests {
         assert!(out_str.contains("diff --git"));
     }
 
+    /// Text loses its secret too, with or without a JSON line, short or long: the
+    /// guardrail handed the raw input back and undid the redaction (#1032).
+    #[test]
+    fn hides_a_secret_in_text_whatever_the_guardrail_does() {
+        let log: String = (0..400).map(|i| format!("INFO step {i} ok\n")).collect();
+        for input in [
+            "DB_PASSWORD=canary-1032\nplain log line\n".to_string(),
+            "DB_PASSWORD=canary-1032\nplain log line\n{\"ok\":true}\n".to_string(),
+            format!("DB_PASSWORD=canary-1032\n{log}"),
+            format!("DB_PASSWORD=canary-1032\n{log}{{\"ok\":true}}\n"),
+        ] {
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            run_inner(
+                input.as_bytes(),
+                &mut out,
+                &mut err,
+                None,
+                None,
+                Some("cat"),
+            )
+            .expect("must succeed");
+            let out = String::from_utf8_lossy(&out);
+            assert!(!out.contains("canary-1032"), "{out}");
+            assert!(
+                out.contains("DB_PASSWORD="),
+                "the key stays readable: {out}"
+            );
+        }
+    }
+
     /// A JSON payload keeps its shape and loses its secret, as on the hook path (#1021).
     #[test]
     fn hides_a_secret_inside_json() {
@@ -906,6 +973,41 @@ mod tests {
                 "{input:?}"
             );
         }
+    }
+
+    /// Past the 16 MB cap the input ends at a whole line and says what it dropped (#1000).
+    #[test]
+    fn cuts_oversized_input_at_a_line_and_says_so() {
+        let max = crate::guard::limits::MAX_INPUT;
+        let line = "build step finished with no news to report at all\n";
+        let mut input = line.repeat(max / line.len() + 10);
+        input.push_str("DB_PASSWORD=canary-big-1000\n");
+        let mut err = Vec::new();
+        let kept = read_input(input.as_bytes(), Vec::new(), &mut err)
+            .expect("reads")
+            .expect("text");
+        assert!(
+            kept.len() <= max && kept.ends_with('\n'),
+            "a line was cut in half"
+        );
+        assert!(!kept.contains("canary-big-1000"));
+        let dropped = input.len() - kept.len();
+        assert_eq!(
+            String::from_utf8(err).expect("utf8"),
+            format!("[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]\n")
+        );
+    }
+
+    /// One line longer than the cap is cut on a character, so it stays text and is redacted.
+    #[test]
+    fn cuts_one_huge_line_on_a_character() {
+        let max = crate::guard::limits::MAX_INPUT;
+        // One ASCII byte first, so the cap falls inside a two-byte character.
+        let input = format!("a{}", "é".repeat(max / 2 + 7));
+        let kept = read_input(input.as_bytes(), Vec::new(), Vec::new())
+            .expect("reads")
+            .expect("still text");
+        assert!(kept.len() <= max && input.starts_with(&kept));
     }
 
     #[test]

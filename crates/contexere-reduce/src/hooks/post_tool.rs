@@ -703,6 +703,14 @@ pub fn process_payload(
 
     let mut final_out = final_out;
     let mut rewind_hash = String::new();
+    // What every fallback below hands back: the command's bytes, credentials hidden.
+    // Restoring `content` itself delivered the secret the distiller had redacted
+    // (#1032 review: `DB_PASSWORD=error:x` tripped the failure guard).
+    let restored = if holds_a_secret {
+        crate::distillers::system_ops::scrub(&content).into_owned()
+    } else {
+        content.to_string()
+    };
 
     // The ledger (#394), after the filters, since repetition survives them. Gated
     // on structured payloads and on the host's session id, never a minted one
@@ -722,7 +730,7 @@ pub fn process_payload(
     {
         (distilled_lines, distilled_len)
     } else {
-        final_out = content.to_string();
+        final_out = restored.clone();
         (content.lines().count(), content.len())
     };
 
@@ -752,7 +760,7 @@ pub fn process_payload(
                 &crate::hooks::normalize::stats_agent_id(&normalized.agent),
             );
         }
-        final_out = content.to_string();
+        final_out = restored.clone();
     }
 
     // The same chain resolver as above, or a chain records a profile that never ran (#339).
@@ -855,7 +863,7 @@ pub fn process_payload(
                 route = Route::Rewind;
             }
         } else {
-            final_out = content.to_string();
+            final_out = restored.clone();
             route = Route::Passthrough;
             rewind_hash.clear();
         }
@@ -1793,6 +1801,28 @@ Ran 6 tests across 1 file. [4.00ms]
         );
         assert!(!reply.contains("canary-pt-789"), "{reply}");
         assert!(reply.contains("HOME=/home/dev"), "{reply}");
+    }
+
+    /// One JSON line in a log no longer lets the password through (#1032).
+    #[test]
+    fn a_json_line_does_not_carry_a_secret_through() {
+        let log: String = (0..400).map(|i| format!("INFO step {i} ok\n")).collect();
+        let reply = bash_reply(
+            "cat app.log",
+            &format!("DB_PASSWORD=canary-json-1032\n{log}{{\"ok\":true}}\n"),
+        );
+        assert!(!reply.contains("canary-json-1032"), "{reply}");
+    }
+
+    /// A value that reads as a failure is still hidden: the failure guard used to restore
+    /// the raw content once redaction removed its only `error:` (#1034 review).
+    #[test]
+    fn a_secret_holding_error_is_not_restored() {
+        let reply = bash_reply(
+            "cat app.log",
+            "DB_PASSWORD=error:canary-err-1034\nplain log line\n{\"ok\":true}\n",
+        );
+        assert!(!reply.contains("canary-err-1034"), "{reply}");
     }
 
     #[test]

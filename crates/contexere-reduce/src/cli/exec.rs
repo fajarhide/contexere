@@ -49,7 +49,7 @@ pub fn run_exec(
         format!("{} {}", cmd, cmd_args.join(" "))
     };
 
-    let (mut child, cmd_name) = if needs_shell {
+    let mut command = if needs_shell {
         #[cfg(target_family = "windows")]
         let mut c = Command::new("cmd");
         #[cfg(target_family = "windows")]
@@ -60,32 +60,33 @@ pub fn run_exec(
         #[cfg(not(target_family = "windows"))]
         c.arg("-c");
 
-        let c = c
-            .env_clear()
-            .envs(crate::guard::env::sanitize_env())
-            .arg(&full_cmd)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "omni exec: failed to execute shell command '{}': {}",
-                    full_cmd,
-                    e
-                )
-            })?;
-        (c, full_cmd)
+        c.arg(&full_cmd);
+        c
     } else {
-        let c = Command::new(cmd)
-            .env_clear()
-            .envs(crate::guard::env::sanitize_env())
-            .args(cmd_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| anyhow::anyhow!("omni exec: failed to execute '{}': {}", cmd, e))?;
-        (c, full_cmd)
+        let mut c = Command::new(cmd);
+        c.args(cmd_args);
+        c
     };
+    // The child gets the caller's environment untouched: stripping SSH_AUTH_SOCK,
+    // NODE_OPTIONS or PYTHONPATH broke git, node and venvs, and protected nothing, since
+    // the same command runs without exec (#1000). The MCP run tool keeps its denylist.
+    let cmd_name = full_cmd;
+
+    // A person at a terminal sees output as it comes; nothing is billed, so nothing
+    // is distilled. `docker logs -f` showed nothing until exit (#1000).
+    if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        let status = command
+            .stderr(Stdio::inherit())
+            .status()
+            .unwrap_or_else(|e| spawn_failed(&cmd_name, &e));
+        std::process::exit(exit_code(status));
+    }
+
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap_or_else(|e| spawn_failed(&cmd_name, &e));
 
     let mut child_stdout = child.stdout.take().expect("Failed to open stdout");
 
@@ -93,8 +94,10 @@ pub fn run_exec(
         // Drain stdout before `wait()` to avoid a full-pipe deadlock. A failed command
         // passes through verbatim, never distilled into apparent success (#122).
         let mut buf = Vec::new();
-        child_stdout.read_to_end(&mut buf)?;
+        let read = child_stdout.read_to_end(&mut buf);
+        // Reaped before a read error returns, or the child is left a zombie.
         let status = child.wait()?;
+        read?;
         if status.success() {
             let stdout = std::io::stdout().lock();
             let stderr = std::io::stderr().lock();
@@ -119,8 +122,28 @@ pub fn run_exec(
             let tracker = crate::session::tracker::SessionTracker::new(sess.clone(), st.clone());
             tracker.track_error(""); // stderr is inherited, so we just track the failure
         }
-        std::process::exit(status.code().unwrap_or(1));
+        std::process::exit(exit_code(status));
     }
 
     Ok(())
+}
+
+/// The shell's codes, so a caller tells "not found" from a failure: 127 for a missing
+/// program and 126 for one that cannot run, where exec said 1 (#1000).
+fn spawn_failed(cmd: &str, e: &std::io::Error) -> ! {
+    eprintln!("contexere exec: {cmd}: {e}");
+    std::process::exit(if e.kind() == std::io::ErrorKind::NotFound {
+        127
+    } else {
+        126
+    });
+}
+
+/// 128 plus the signal for a killed child, as a shell reports it; `kill -9` is 137, not 1.
+fn exit_code(status: std::process::ExitStatus) -> i32 {
+    #[cfg(unix)]
+    if let Some(signal) = std::os::unix::process::ExitStatusExt::signal(&status) {
+        return 128 + signal;
+    }
+    status.code().unwrap_or(1)
 }
