@@ -533,7 +533,10 @@ fn looks_like_version(value: &str) -> bool {
         .unwrap_or("");
     let parts: Vec<&str> = head.trim_end_matches('.').split('.').collect();
     // PEP 440 and semver pre and post tags, lowercase as both print them.
-    let tag = v.strip_prefix(head).unwrap_or(v).trim_start_matches(['-', '.']);
+    let tag = v
+        .strip_prefix(head)
+        .unwrap_or(v)
+        .trim_start_matches(['-', '.']);
     let number = ["alpha", "beta", "post", "pre", "dev", "rc", "a", "b"]
         .iter()
         .find_map(|t| tag.strip_prefix(t))
