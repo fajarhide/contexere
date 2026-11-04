@@ -947,7 +947,8 @@ mod tests {
     #[test]
     fn cuts_one_huge_line_on_a_character() {
         let max = crate::guard::limits::MAX_INPUT;
-        let input = "é".repeat(max / 2 + 7);
+        // One ASCII byte first, so the cap falls inside a two-byte character.
+        let input = format!("a{}", "é".repeat(max / 2 + 7));
         let kept = read_input(input.as_bytes(), Vec::new(), Vec::new())
             .expect("reads")
             .expect("still text");
