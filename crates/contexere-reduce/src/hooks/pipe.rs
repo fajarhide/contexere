@@ -179,12 +179,24 @@ fn read_input<R: Read, W: Write>(mut input: R, mut output: W) -> Result<Option<S
         }
 
         total_read += n;
-        if total_read > crate::guard::limits::MAX_INPUT {
-            // Capped at 16 MB.
-            buffer.extend_from_slice(&chunk[..n]);
-            break;
-        }
         buffer.extend_from_slice(&chunk[..n]);
+        if total_read > crate::guard::limits::MAX_INPUT {
+            // Past 16 MB nothing is distilled, and nothing is cut either: the rest is
+            // copied through as it arrives. It used to stop here, mid-line, exit 0 (#1000).
+            // Line by line, so a credential is still hidden; each line keeps its own ending.
+            let mut rest = std::io::BufReader::new(std::io::Cursor::new(buffer).chain(input));
+            let mut line = Vec::new();
+            while std::io::BufRead::read_until(&mut rest, b'\n', &mut line)? > 0 {
+                match std::str::from_utf8(&line) {
+                    Ok(text) => output
+                        .write_all(crate::distillers::system_ops::scrub(text).as_bytes())?,
+                    Err(_) => output.write_all(&line)?,
+                }
+                line.clear();
+            }
+            output.flush()?;
+            return Ok(None);
+        }
     }
 
     match std::str::from_utf8(&buffer) {
@@ -895,6 +907,21 @@ mod tests {
                 "{input:?}"
             );
         }
+    }
+
+    /// Past the 16 MB cap nothing is cut, and a credential is still hidden (#1000).
+    #[test]
+    fn passes_oversized_input_through_whole() {
+        let line = "build step finished with no news to report at all\n";
+        let mut input = line.repeat(crate::guard::limits::MAX_INPUT / line.len() + 10);
+        input.push_str("DB_PASSWORD=canary-big-1000\nlast line, no newline");
+        let mut out = Vec::new();
+        run_inner(input.as_bytes(), &mut out, Vec::new(), None, None, Some("cat"))
+            .expect("must succeed");
+        let out = String::from_utf8(out).expect("utf8");
+        assert!(!out.contains("canary-big-1000"));
+        assert!(out.ends_with("DB_PASSWORD=[REDACTED]\nlast line, no newline"));
+        assert_eq!(out.matches(line).count(), input.matches(line).count());
     }
 
     #[test]
