@@ -2273,7 +2273,8 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn does_not_mistake_stdout_plus_stderr_for_a_capped_payload() {
         let cap = crate::guard::limits::HOST_OUTPUT_CAP;
-        let line = "Downloading a package from the registry, please wait...\n";
+        // No comma: one per line reads as a two-column CSV now that stdout is judged alone (#999).
+        let line = "Downloading a package from the registry please wait...\n";
         let stdout: String = line.repeat(cap * 3 / 4 / line.len());
         let stderr: String = line.repeat(cap / 2 / line.len());
 
