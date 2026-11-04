@@ -142,14 +142,15 @@ fn run_with_timeout(
     )
     .is_err()
     {
-        return raw_text;
+        return crate::distillers::system_ops::scrub(&raw_text).into_owned();
     }
 
     let out = String::from_utf8_lossy(&distilled).to_string();
+    // stderr is appended uncompressed, never with a credential (#1035 review).
     if err_text.is_empty() {
         out
     } else {
-        format!("{out}{err_text}")
+        format!("{out}{}", crate::distillers::system_ops::scrub(&err_text))
     }
 }
 
@@ -1734,6 +1735,23 @@ mod tests {
         let out = run_with_timeout(failing, store, None, timeout);
         assert!(!out.contains("canary9not9real"), "{out}");
         assert!(out.contains("[exit 1]"), "{out}");
+    }
+
+    #[cfg(unix)]
+    /// A command that succeeds can still print a credential on stderr (#1035 review).
+    #[test]
+    fn omni_run_redacts_stderr_of_a_success() {
+        let dir = tempdir().unwrap();
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let timeout = std::time::Duration::from_secs(5);
+        let out = run_with_timeout(
+            "echo built; echo DB_PASSWORD=canary-err-1035 >&2",
+            store,
+            None,
+            timeout,
+        );
+        assert!(!out.contains("canary-err-1035"), "{out}");
+        assert!(out.contains("built"), "{out}");
     }
 
     #[test]

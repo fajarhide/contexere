@@ -569,8 +569,12 @@ pub fn process_payload(
     if let Some(decline) = declined(&normalized, store.as_deref()) {
         // A structured payload holding a secret is redacted in place for the model,
         // with the notice in the context message (#866). The pipe does the same (#1021).
-        if matches!(decline, Declined::Structured | Declined::Passthrough)
-            && let Some((body, count)) =
+        // A failed command too: it passes through uncompressed, never with its
+        // credential (#1035 review).
+        if matches!(
+            decline,
+            Declined::Structured | Declined::Passthrough | Declined::KeepsTheseBytes
+        ) && let Some((body, count)) =
                 crate::distillers::system_ops::redact_in_place(&normalized.content)
         {
             // Counted toward the turn (review of #904).
@@ -1789,6 +1793,23 @@ Ran 6 tests across 1 file. [4.00ms]
         );
         assert!(!reply.contains("canary-pt-789"), "{reply}");
         assert!(reply.contains("HOME=/home/dev"), "{reply}");
+    }
+
+    /// A failed command keeps every byte except its credential (#1035 review).
+    #[test]
+    fn a_failed_command_still_redacts() {
+        let payload = serde_json::json!({
+            "tool_name": "Bash",
+            "tool_input": { "command": "./deploy.sh" },
+            "tool_response": {
+                "stdout": "DB_PASSWORD=canary-fail-1035\nerror: deploy failed\n",
+                "stderr": "", "interrupted": false, "is_error": true
+            },
+        })
+        .to_string();
+        let reply = process_payload(&payload, None, None).expect("a rewrite");
+        assert!(!reply.contains("canary-fail-1035"), "{reply}");
+        assert!(reply.contains("error: deploy failed"), "{reply}");
     }
 
     #[test]
