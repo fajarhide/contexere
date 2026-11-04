@@ -112,7 +112,7 @@ impl AgentIntegration for OpenClawIntegration {
             if let Some(parent) = cfg_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(&cfg_path, serde_json::to_string_pretty(&config)?)?;
+            super::write_config(&cfg_path, serde_json::to_string_pretty(&config)?)?;
             crate::agent_report!(
                 "  {} Added the plugin to plugins.load.paths in ~/.openclaw/openclaw.json",
                 "✓".green()
@@ -152,7 +152,7 @@ impl AgentIntegration for OpenClawIntegration {
                     paths.len() != before
                 });
             if removed {
-                fs::write(&cfg_path, serde_json::to_string_pretty(&config)?)?;
+                super::write_config(&cfg_path, serde_json::to_string_pretty(&config)?)?;
                 crate::agent_report!(
                     "  {} Removed the plugin from plugins.load.paths",
                     "✓".yellow()

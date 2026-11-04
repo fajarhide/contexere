@@ -359,9 +359,6 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
 
     if is_uninstall {
         let (path, mut val) = crate::agents::claude::initialize_settings()?;
-        if path.exists() {
-            crate::agents::claude::backup_settings(&path)?;
-        }
 
         crate::agents::claude::remove_omni_hooks(&mut val);
 
@@ -371,11 +368,11 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             && let Ok(mut mcp_val) = serde_json::from_str::<Value>(&content)
         {
             crate::agents::claude::remove_mcp_entries(&mut mcp_val);
-            let _ = fs::write(&mcp_path, serde_json::to_string_pretty(&mcp_val)?);
+            let _ = crate::agents::write_config(&mcp_path, serde_json::to_string_pretty(&mcp_val)?);
         }
 
         let new_content = serde_json::to_string_pretty(&val)?;
-        fs::write(&path, new_content)?;
+        crate::agents::write_config(&path, new_content)?;
         println!("✓ Contexere hooks and MCP server uninstalled from Claude");
         return Ok(());
     }

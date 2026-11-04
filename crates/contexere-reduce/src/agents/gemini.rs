@@ -26,8 +26,6 @@ impl AgentIntegration for GeminiIntegration {
             fs::create_dir_all(parent)?;
         }
 
-        let _ = backup_settings(&settings_path);
-
         let mut val = super::read_json_config(&settings_path)?;
 
         if let Some(obj) = val.as_object_mut() {
@@ -51,7 +49,7 @@ impl AgentIntegration for GeminiIntegration {
 
         install_omni_hooks(&mut val, exe_path);
 
-        fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Configured {} + {} in ~/.gemini/settings.json",
             "✓".green(),
@@ -82,7 +80,7 @@ impl AgentIntegration for GeminiIntegration {
 
         remove_omni_hooks(&mut val);
 
-        fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Removed MCP Server + Hooks from ~/.gemini/settings.json",
             "✓".yellow()
@@ -199,15 +197,6 @@ fn get_settings_path() -> PathBuf {
         .join(".gemini/settings.json")
 }
 
-fn backup_settings(path: &PathBuf) -> anyhow::Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-    let backup_path = path.with_extension("json.bak");
-    fs::copy(path, backup_path)?;
-    Ok(())
-}
-
 pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
     let obj = match val.as_object_mut() {
         Some(o) => o,
@@ -257,8 +246,8 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
         }));
     };
 
-    let pre_cmd = format!("{} --pre-hook", exe_path);
-    let post_cmd = format!("{} --post-hook", exe_path);
+    let pre_cmd = super::hook_command(exe_path, "--pre-hook");
+    let post_cmd = super::hook_command(exe_path, "--post-hook");
 
     // BeforeTool / AfterTool, matched on Gemini's own tool name: the shell tool is
     // `run_shell_command`, and a `Bash` matcher never fired (#351).

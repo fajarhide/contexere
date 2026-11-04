@@ -40,7 +40,7 @@ impl AgentIntegration for ClaudeIntegration {
             let content = fs::read_to_string(&settings_path)?;
             if let Ok(mut val) = serde_json::from_str::<Value>(&content) {
                 remove_omni_hooks(&mut val);
-                fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
+                super::write_config(&settings_path, serde_json::to_string_pretty(&val)?)?;
                 crate::agent_report!("  {} Removed Hooks from Claude settings", "✓".yellow());
             }
         }
@@ -87,7 +87,7 @@ impl AgentIntegration for ClaudeIntegration {
                 }
 
                 if changed {
-                    fs::write(&mcp_path, serde_json::to_string_pretty(&val)?)?;
+                    super::write_config(&mcp_path, serde_json::to_string_pretty(&val)?)?;
                     crate::agent_report!("  {} Removed MCP Server from .claude.json", "✓".yellow());
                 }
             }
@@ -278,15 +278,6 @@ pub fn get_claude_json_path() -> PathBuf {
         .join(".claude.json")
 }
 
-pub fn backup_settings(path: &PathBuf) -> anyhow::Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-    let backup_path = path.with_extension("json.bak");
-    fs::copy(path, backup_path)?;
-    Ok(())
-}
-
 pub fn initialize_settings() -> anyhow::Result<(PathBuf, Value)> {
     let path = get_settings_path();
 
@@ -312,7 +303,9 @@ pub fn check_status(val: &Value, exe_path: &str) -> (bool, bool, bool) {
                 if let Some(inner_arr) = v.get("hooks").and_then(|v2| v2.as_array()) {
                     for hook_def in inner_arr {
                         if let Some(cmd) = hook_def.get("command").and_then(|c| c.as_str())
-                            && cmd.contains(exe_path)
+                            // Quoted when the path needs it, escapes and all (#1002).
+                            && (cmd.contains(exe_path)
+                                || cmd.contains(super::hook_command(exe_path, "").trim_end()))
                             && (cmd.contains("--hook")
                                 || cmd.contains("--post-hook")
                                 || cmd.contains("--pre-hook")
@@ -495,11 +488,11 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
         }));
     };
 
-    let pre_cmd = format!("{} --pre-hook", exe_path);
-    let post_cmd = format!("{} --post-hook", exe_path);
-    let session_cmd = format!("{} --session-start", exe_path);
-    let compact_cmd = format!("{} --pre-compact", exe_path);
-    let hook_cmd = format!("{} --hook", exe_path);
+    let pre_cmd = super::hook_command(exe_path, "--pre-hook");
+    let post_cmd = super::hook_command(exe_path, "--post-hook");
+    let session_cmd = super::hook_command(exe_path, "--session-start");
+    let compact_cmd = super::hook_command(exe_path, "--pre-compact");
+    let hook_cmd = super::hook_command(exe_path, "--hook");
 
     ensure_hook(
         hooks.entry("PreToolUse").or_insert_with(|| json!([])),
@@ -551,10 +544,9 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
 /// so `omni init --hook` installs only hooks, as it always promised (#757).
 pub fn install_hooks(exe_path: &str) -> anyhow::Result<()> {
     let (path, mut val) = initialize_settings()?;
-    let _ = backup_settings(&path);
 
     install_omni_hooks(&mut val, exe_path);
-    fs::write(&path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(&path, serde_json::to_string_pretty(&val)?)?;
     crate::agent_report!(
         "  {} {} installed in Claude settings",
         "✓".green(),
@@ -634,7 +626,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
         }
     }
 
-    fs::write(&path, serde_json::to_string_pretty(&val)?)?;
+    super::write_config(&path, serde_json::to_string_pretty(&val)?)?;
     Ok(())
 }
 
@@ -834,6 +826,15 @@ mod tests {
 
         let (post_f, sess_f, pre_f) = check_status(&val, "/different/omni");
         assert!(!post_f && !sess_f && !pre_f);
+    }
+
+    /// A quoted path with escapes still reads as installed (review of #1029).
+    #[test]
+    fn a_quoted_install_reads_as_installed() {
+        let mut val = json!({});
+        let exe = "/home/a b/$x \"q\"/contexere";
+        install_omni_hooks(&mut val, exe);
+        assert_eq!(check_status(&val, exe), (true, true, true));
     }
 
     #[test]

@@ -43,7 +43,7 @@ impl AgentIntegration for ClineIntegration {
         // Purge rather than install: earlier versions wrote Claude Code's event
         // names, which Cline never emits (#351).
         remove_omni_hooks(&mut val);
-        fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Configured {} in Cline settings (MCP tier: no per-tool hook on this host)",
             "✓".green(),
@@ -69,7 +69,7 @@ impl AgentIntegration for ClineIntegration {
         }
         remove_omni_hooks(&mut val);
 
-        fs::write(&settings_path, serde_json::to_string_pretty(&val)?)?;
+        super::write_config(&settings_path, serde_json::to_string_pretty(&val)?)?;
         crate::agent_report!(
             "  {} Removed MCP Server + Hooks from Cline settings",
             "✓".yellow()
