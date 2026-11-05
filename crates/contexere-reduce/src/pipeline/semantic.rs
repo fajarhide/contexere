@@ -284,6 +284,12 @@ fn is_a_shell_eval_error(line: &str) -> bool {
         .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// Whether a line is a traceback's header or a frame's location. The ledger keeps these
+/// unfolded with the failure itself, since a repeated error with no location is no help.
+pub fn locates_a_failure(line: &str) -> bool {
+    is_a_python_traceback_line(&line.to_lowercase())
+}
+
 /// `Traceback (most recent call last):` and a frame's `File "...", line N`.
 /// Tool-agnostic because a script run over `ssh` or behind `tar` still prints
 /// them, and without them the caret row survived while the location did not (#1051).
