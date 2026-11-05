@@ -2222,7 +2222,11 @@ impl SqliteBackend {
         let claimed = self.pool.get().ok().and_then(|conn| {
             // A read first: the upsert takes the write lock even when it changes nothing.
             let last: i64 = conn
-                .query_row("SELECT last_run FROM upkeep WHERE task = 'prune'", [], |r| r.get(0))
+                .query_row(
+                    "SELECT last_run FROM upkeep WHERE task = 'prune'",
+                    [],
+                    |r| r.get(0),
+                )
                 .unwrap_or(0);
             if last > chrono::Utc::now().timestamp() - 86400 {
                 return None;
@@ -3387,7 +3391,10 @@ mod tests {
         assert!(!store.prune_if_due(30), "second call the same day does not");
         assert_eq!(events(&store), 1);
 
-        let conn = store.pool.get().expect("open connection to rewind the clock");
+        let conn = store
+            .pool
+            .get()
+            .expect("open connection to rewind the clock");
         conn.execute("UPDATE upkeep SET last_run = last_run - 86400", [])
             .expect("rewind the last run");
         drop(conn);
