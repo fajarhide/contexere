@@ -809,10 +809,11 @@ fn names_line_numbers(arg: &str) -> bool {
         && end.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// A line's identity in the ledger: trimmed, so `sed -n` and `cat` of a line
-/// agree, and hashed to keep the index small.
+/// A line's identity in the ledger, hashed to keep the index small. Only the end
+/// is trimmed, for the newline, CR and trailing spaces: indentation is content in
+/// YAML and Python, and a reindented block was folded as identical (#1007).
 pub fn line_key(line: &str) -> String {
-    crate::util::text::short_hash(line.trim())
+    crate::util::text::short_hash(line.trim_end())
 }
 
 #[cfg(test)]
