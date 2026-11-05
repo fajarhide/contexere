@@ -1685,11 +1685,15 @@ mod tests {
         };
         let cmd = "cat .github/workflows/ci.yml";
         Ledger::new(&store, "s1").from(cmd).project(&block("    "));
-        let again = Ledger::new(&store, "s1")
-            .from(cmd)
-            .project(&format!("{}{}", fresh_block("new step"), block("        ")));
+        let again = Ledger::new(&store, "s1").from(cmd).project(&format!(
+            "{}{}",
+            fresh_block("new step"),
+            block("        ")
+        ));
         assert!(
-            again.as_deref().is_none_or(|v| !v.contains("lines identical")),
+            again
+                .as_deref()
+                .is_none_or(|v| !v.contains("lines identical")),
             "{again:?}"
         );
         // Line endings and trailing spaces still do not split a line's identity.
