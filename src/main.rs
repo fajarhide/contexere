@@ -40,6 +40,14 @@ fn detect_pipe_command() -> Option<String> {
     env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
 }
 
+/// After the hook's reply is flushed. Synchronous, so one hook a day pays for it:
+/// the thread it ran on before died with the process, part way through (#1004).
+fn prune_if_due(store: &Store) {
+    const SESSION_RETENTION_DAYS: u32 = 30;
+    let _ = io::Write::flush(&mut io::stdout());
+    store.prune_if_due(SESSION_RETENTION_DAYS);
+}
+
 fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
     match Store::open() {
         Ok(store) => {
@@ -248,7 +256,8 @@ fn main() {
         Mode::PostHook => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
-                let _ = hooks::dispatcher::run(s, ss);
+                let _ = hooks::dispatcher::run(Arc::clone(&s), ss);
+                prune_if_due(&s);
             }
         }
 
@@ -265,12 +274,8 @@ fn main() {
         Mode::SessionStart => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
-                let s_clone = Arc::clone(&s);
-                std::thread::spawn(move || {
-                    const SESSION_RETENTION_DAYS: u32 = 30;
-                    s_clone.cleanup_old(SESSION_RETENTION_DAYS);
-                });
-                let _ = hooks::dispatcher::run(s, ss);
+                let _ = hooks::dispatcher::run(Arc::clone(&s), ss);
+                prune_if_due(&s);
             }
         }
 

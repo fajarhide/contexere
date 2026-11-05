@@ -897,6 +897,14 @@ impl SqliteBackend {
             "CREATE INDEX IF NOT EXISTS idx_fold_markers_handle ON fold_markers(handle)",
             [],
         );
+        // When each upkeep task last ran, so parallel hooks claim it once (#1004).
+        let _ = conn.execute(
+            "CREATE TABLE IF NOT EXISTS upkeep (
+                task     TEXT PRIMARY KEY,
+                last_run INTEGER NOT NULL
+            )",
+            [],
+        );
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_fold_markers_ts ON fold_markers(ts)",
             [],
@@ -2207,6 +2215,33 @@ impl SqliteBackend {
         Ok(())
     }
 
+    /// Runs `cleanup_old` at most once a day, from whichever hook gets here first.
+    /// Every host fires the post-hook; only Claude Code and Codex fire session
+    /// start, so pruning there alone left other hosts' databases growing (#1004).
+    pub fn prune_if_due(&self, days: u32) -> bool {
+        let claimed = self.pool.get().ok().and_then(|conn| {
+            // A read first: the upsert takes the write lock even when it changes nothing.
+            let last: i64 = conn
+                .query_row("SELECT last_run FROM upkeep WHERE task = 'prune'", [], |r| r.get(0))
+                .unwrap_or(0);
+            if last > chrono::Utc::now().timestamp() - 86400 {
+                return None;
+            }
+            conn.execute(
+                "INSERT INTO upkeep (task, last_run) VALUES ('prune', strftime('%s','now'))
+                 ON CONFLICT(task) DO UPDATE SET last_run = excluded.last_run
+                 WHERE last_run <= excluded.last_run - 86400",
+                [],
+            )
+            .ok()
+        });
+        if claimed != Some(1) {
+            return false;
+        }
+        self.cleanup_old(days);
+        true
+    }
+
     pub fn cleanup_old(&self, days: u32) {
         let conn = match self.pool.get() {
             Ok(c) => c,
@@ -3327,6 +3362,37 @@ mod tests {
         let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
         assert_eq!(count("SELECT COUNT(*) FROM retrieve_events"), 1);
         assert_eq!(count("SELECT COUNT(*) FROM retrieval_feedback"), 2);
+    }
+
+    #[test]
+    fn prunes_once_a_day() {
+        let (store, _dir) = get_temp_store();
+        let old_event = |store: &Store| {
+            store.record_retrieve_event("omni retrieve", "aaaa", "a");
+            let conn = store.pool.get().expect("open connection to age the event");
+            conn.execute("UPDATE retrieve_events SET ts = ts - 40 * 86400", [])
+                .expect("age the event");
+        };
+        let events = |store: &Store| -> i64 {
+            let conn = store.pool.get().expect("open connection to count events");
+            conn.query_row("SELECT COUNT(*) FROM retrieve_events", [], |r| r.get(0))
+                .expect("count events")
+        };
+
+        old_event(&store);
+        assert!(store.prune_if_due(30), "first call of the day prunes");
+        assert_eq!(events(&store), 0);
+
+        old_event(&store);
+        assert!(!store.prune_if_due(30), "second call the same day does not");
+        assert_eq!(events(&store), 1);
+
+        let conn = store.pool.get().expect("open connection to rewind the clock");
+        conn.execute("UPDATE upkeep SET last_run = last_run - 86400", [])
+            .expect("rewind the last run");
+        drop(conn);
+        assert!(store.prune_if_due(30), "a day later it prunes again");
+        assert_eq!(events(&store), 0);
     }
 
     fn get_temp_store() -> (Store, tempfile::TempDir) {
