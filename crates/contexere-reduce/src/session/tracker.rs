@@ -51,7 +51,7 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        thread::spawn(move || {
+        (move || {
             let paths = extract_file_paths(&out);
             let cmd_paths = extract_file_paths(&cmd);
             let errors = extract_errors(&out);
@@ -156,8 +156,9 @@ impl SessionTracker {
             }
 
             store.index_event(&session_locked.session_id, "Command", &cmd);
-            save_async(session.clone(), store.clone());
-        });
+            drop(session_locked);
+            save(&session, &store);
+        })();
     }
 
     pub fn track_error(&self, error_msg: &str) {
@@ -165,13 +166,11 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        thread::spawn(move || {
-            if let Ok(mut lock) = session.lock() {
-                lock.add_error(&err);
-                store.index_event(&lock.session_id, "Error", &err);
-            }
-            save_async(session.clone(), store.clone());
-        });
+        if let Ok(mut lock) = session.lock() {
+            lock.add_error(&err);
+            store.index_event(&lock.session_id, "Error", &err);
+        }
+        save(&session, &store);
     }
 }
 
@@ -409,14 +408,10 @@ pub fn detect_python_toolchain(working_dir: &Path) -> Option<String> {
     None
 }
 
-fn save_async(session: Arc<Mutex<SessionState>>, store: Arc<Store>) {
-    thread::spawn(move || {
-        let s = match session.lock() {
-            Ok(l) => l.clone(),
-            Err(_) => return,
-        };
+fn save(session: &Mutex<SessionState>, store: &Store) {
+    if let Ok(s) = session.lock() {
         store.upsert_session(&s);
-    });
+    }
 }
 
 #[cfg(test)]
