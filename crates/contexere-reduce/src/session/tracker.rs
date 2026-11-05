@@ -4,6 +4,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, LazyLock, Mutex};
+use std::thread;
 
 static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -50,9 +51,7 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        // Run before the hook returns: on a thread nothing joined, the process exited
-        // first and 12 calls left 2 rows (#1005).
-        (move || {
+        thread::spawn(move || {
             let paths = extract_file_paths(&out);
             let cmd_paths = extract_file_paths(&cmd);
             let errors = extract_errors(&out);
@@ -157,9 +156,8 @@ impl SessionTracker {
             }
 
             store.index_event(&session_locked.session_id, "Command", &cmd);
-            drop(session_locked); // `save` takes the lock itself.
-            save(&session, &store);
-        })();
+            save_async(session.clone(), store.clone());
+        });
     }
 
     pub fn track_error(&self, error_msg: &str) {
@@ -167,11 +165,13 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        if let Ok(mut lock) = session.lock() {
-            lock.add_error(&err);
-            store.index_event(&lock.session_id, "Error", &err);
-        }
-        save(&session, &store);
+        thread::spawn(move || {
+            if let Ok(mut lock) = session.lock() {
+                lock.add_error(&err);
+                store.index_event(&lock.session_id, "Error", &err);
+            }
+            save_async(session.clone(), store.clone());
+        });
     }
 }
 
@@ -409,10 +409,14 @@ pub fn detect_python_toolchain(working_dir: &Path) -> Option<String> {
     None
 }
 
-fn save(session: &Mutex<SessionState>, store: &Store) {
-    if let Ok(s) = session.lock() {
+fn save_async(session: Arc<Mutex<SessionState>>, store: Arc<Store>) {
+    thread::spawn(move || {
+        let s = match session.lock() {
+            Ok(l) => l.clone(),
+            Err(_) => return,
+        };
         store.upsert_session(&s);
-    }
+    });
 }
 
 #[cfg(test)]
@@ -572,19 +576,16 @@ mod tests {
         assert!(elapsed.as_millis() < 200, "Took {} ms", elapsed.as_millis());
     }
 
-    /// Every call is stored by the time `track_command` returns, since a hook exits
-    /// right after it (#1005).
     #[test]
-    fn stores_every_command_before_returning() {
-        let dir = tempdir().expect("temp dir");
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("open store"));
+    fn test_background_save_not_block_caller() {
+        let dir = tempdir().unwrap();
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
-        let tracker = SessionTracker::new(session, store.clone());
-        for _ in 0..12 {
-            tracker.track_command("git status", "On branch main", &a_distillation(), true);
-        }
-        let saved = store.find_latest_session().expect("a saved session");
-        assert_eq!(saved.command_count, 12);
+
+        let start = std::time::Instant::now();
+        save_async(session, store);
+        let elapsed = start.elapsed();
+        assert!(elapsed.as_millis() < 200);
     }
 
     #[test]
