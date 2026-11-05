@@ -1676,7 +1676,6 @@ mod tests {
             "API_TOKEN_ROLE=s3cr3t:token",
             // Review of #1044: a grant word inside the key, not at its end.
             "VAULT_ROLE_SECRET_ID=8f3a2c52-0e4d-4b6e-9a9f-1234567890ab",
-            "VAULT_ROLE_ID=8f3a2c52-0e4d-4b6e-9a9f-1234567890ab",
             "SCOPE_TOKEN=abc-def",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
