@@ -150,12 +150,18 @@ mod tests {
 
     #[test]
     fn says_nothing_when_stderr_is_not_a_terminal() {
-        assert_eq!(old_name_notice(Path::new("/opt/homebrew/bin/omni"), false), None);
+        assert_eq!(
+            old_name_notice(Path::new("/opt/homebrew/bin/omni"), false),
+            None
+        );
     }
 
     #[test]
     fn says_nothing_under_the_new_name() {
-        assert_eq!(old_name_notice(Path::new("/opt/homebrew/bin/contexere"), true), None);
+        assert_eq!(
+            old_name_notice(Path::new("/opt/homebrew/bin/contexere"), true),
+            None
+        );
     }
 
     #[test]
