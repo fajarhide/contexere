@@ -284,7 +284,11 @@ mod tests {
     fn starts_a_new_session_with_an_id() {
         let dir = tempfile::tempdir().expect("temp dir");
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
-        assert!(!session_for(&store, "this-agent-1042", "/repo/a").session_id.is_empty());
+        assert!(
+            !session_for(&store, "this-agent-1042", "/repo/a")
+                .session_id
+                .is_empty()
+        );
     }
     #[test]
     fn addresses_a_path_the_same_with_or_without_a_trailing_slash() {
