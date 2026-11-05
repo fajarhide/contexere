@@ -84,7 +84,7 @@ pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
 pub fn session_for_project(store: &Store, project_path: &str) -> SessionState {
     store
         .find_latest_session_for_project(&detect_agent_id(), &project_hash(project_path))
-        .unwrap_or_else(SessionState::new)
+        .unwrap_or_default()
 }
 
 pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
