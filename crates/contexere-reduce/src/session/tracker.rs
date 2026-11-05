@@ -571,10 +571,20 @@ mod tests {
 
         let conn = store.pool.get().unwrap();
         let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
-        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"), 12);
-        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"), 1);
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"),
+            12
+        );
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"),
+            1
+        );
         let saved: String = conn
-            .query_row("SELECT state_json FROM sessions WHERE id = ?1", [&id], |r| r.get(0))
+            .query_row(
+                "SELECT state_json FROM sessions WHERE id = ?1",
+                [&id],
+                |r| r.get(0),
+            )
             .expect("the session is saved");
         let saved: SessionState = serde_json::from_str(&saved).unwrap();
         assert_eq!(saved.command_count, 12);
