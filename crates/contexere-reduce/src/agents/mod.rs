@@ -241,10 +241,68 @@ pub(crate) fn drop_omni_server(servers: &mut serde_json::Map<String, serde_json:
 /// entry counts only when its command is the omni binary: under that name it may
 /// be someone else's server, the same test `drop_omni_server` applies.
 pub(crate) fn registered_server(config: &str, key: &str) -> Option<&'static str> {
-    // Unparsed means unknown: a quoted name alone cannot prove the entry is ours, and
-    // `install` refuses such a file rather than overwriting it (#972).
-    let val: serde_json::Value = serde_json::from_str(config).ok()?;
+    // Unparsed means unknown: a quoted name alone cannot prove the entry is ours. A
+    // file with comments is parsed without them, so a real entry still counts (#985).
+    let val: serde_json::Value = serde_json::from_str(config)
+        .or_else(|_| serde_json::from_str(&plain_json(config)))
+        .ok()?;
     server_in(val.get(key)?)
+}
+
+/// JSON with the comments and trailing commas Zed and VS Code accept, made plain
+/// for reading (#985). Never written back: that would drop the user's comments,
+/// which is why `read_json_config` still refuses such a file (#972).
+pub(crate) fn plain_json(text: &str) -> String {
+    // Comments first, so a comment between a trailing comma and its bracket is gone
+    // by the time the comma is judged.
+    outside_strings(&outside_strings(text, true), false)
+}
+
+/// One pass over `text` that copies strings untouched and, outside them, drops
+/// comments (`comments`) or trailing commas (otherwise).
+fn outside_strings(text: &str, comments: bool) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    let mut in_string = false;
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            match c {
+                '\\' => out.extend(chars.next()),
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match (c, chars.peek()) {
+            ('"', _) => {
+                in_string = true;
+                out.push(c);
+            }
+            ('/', Some('/')) if comments => {
+                while chars.next_if(|&n| n != '\n').is_some() {}
+            }
+            ('/', Some('*')) if comments => {
+                chars.next();
+                let mut prev = '\0';
+                for n in chars.by_ref() {
+                    if prev == '*' && n == '/' {
+                        break;
+                    }
+                    prev = n;
+                }
+                out.push(' ');
+            }
+            (',', _) if !comments => {
+                let next = chars.clone().find(|n| !n.is_whitespace());
+                if !matches!(next, Some('}' | ']')) {
+                    out.push(c);
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 /// `registered_server` on a servers map already parsed.
@@ -636,9 +694,34 @@ mod rename_tests {
     }
 
     #[test]
-    fn registered_server_does_not_guess_from_a_config_with_comments() {
-        let config = "{\n  // mine\n  \"mcpServers\": {\"omni\": {\"command\": \"/x/omni\"}}\n}";
+    fn registered_server_reads_a_real_entry_in_a_config_with_comments() {
+        let config = "{\n  // mine\n  /* block, with \"quotes\" */\n  \"mcpServers\": {\n    \"other\": {\"url\": \"https://x.test/a//b\", \"note\": \"/* not a comment */\"},\n    \"omni\": {\"command\": \"/x/omni\",},\n  },\n}";
+        assert_eq!(found(config), Some("omni"));
+    }
+
+    #[test]
+    fn registered_server_does_not_count_a_commented_out_entry() {
+        let config = "{\n  \"mcpServers\": {\n    // \"contexere\": {\"command\": \"/x/contexere\"},\n    /* \"omni\": {\"command\": \"/x/omni\"} */\n  },\n}";
         assert_eq!(found(config), None);
+    }
+
+    #[test]
+    fn plain_json_keeps_strings_whole() {
+        let config = r#"{"a": "x // y", "b": "p /* q */ r", "c": "esc \" // still a string", "d": [1, 2,]}"#;
+        let val: serde_json::Value =
+            serde_json::from_str(&plain_json(config)).expect("plain JSON");
+        assert_eq!(val["a"], "x // y");
+        assert_eq!(val["b"], "p /* q */ r");
+        assert_eq!(val["c"], "esc \" // still a string");
+        assert_eq!(val["d"], serde_json::json!([1, 2]));
+    }
+
+    #[test]
+    fn plain_json_drops_a_trailing_comma_behind_a_comment() {
+        let config = "{\"a\": 1, // last\n}";
+        let val: serde_json::Value =
+            serde_json::from_str(&plain_json(config)).expect("plain JSON");
+        assert_eq!(val, serde_json::json!({"a": 1}));
     }
 
     #[test]
