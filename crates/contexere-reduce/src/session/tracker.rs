@@ -542,10 +542,10 @@ mod tests {
     /// the calls return, as the next hook would.
     #[test]
     fn records_every_command_before_returning() {
-        let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+        let dir = tempdir().expect("a temp dir");
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("a store"));
         let session = Arc::new(Mutex::new(SessionState::new()));
-        let id = session.lock().unwrap().session_id.clone();
+        let id = session.lock().expect("the session lock").session_id.clone();
         let tracker = SessionTracker::new(session, Arc::clone(&store));
         let res = DistillResult {
             output: String::new(),
@@ -567,27 +567,25 @@ mod tests {
         for i in 0..12 {
             tracker.track_command(&format!("git status {i}"), "On branch main", &res, true);
         }
-        tracker.track_error("boom");
+        let conn = store.pool.get().expect("a connection to read back");
+        let count = |sql: &str| -> i64 {
+            conn.query_row(sql, [], |r| r.get(0))
+                .expect("a count query")
+        };
+        let saved_count = || -> u64 {
+            let json: String = conn
+                .query_row("SELECT state_json FROM sessions WHERE id = ?1", [&id], |r| r.get(0))
+                .expect("the session is saved");
+            serde_json::from_str::<SessionState>(&json)
+                .expect("the saved state parses")
+                .command_count as u64
+        };
+        // Before `track_error`, which saves the session too (#1052 review).
+        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"), 12);
+        assert_eq!(saved_count(), 12);
 
-        let conn = store.pool.get().unwrap();
-        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
-        assert_eq!(
-            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"),
-            12
-        );
-        assert_eq!(
-            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"),
-            1
-        );
-        let saved: String = conn
-            .query_row(
-                "SELECT state_json FROM sessions WHERE id = ?1",
-                [&id],
-                |r| r.get(0),
-            )
-            .expect("the session is saved");
-        let saved: SessionState = serde_json::from_str(&saved).unwrap();
-        assert_eq!(saved.command_count, 12);
+        tracker.track_error("boom");
+        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"), 1);
     }
 
     #[test]
