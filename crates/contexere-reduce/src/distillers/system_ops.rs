@@ -515,7 +515,11 @@ fn describes_a_credential(key: &str) -> bool {
 /// (#1043). Only with a value of plain names, so the key alone never delivers.
 fn names_a_grant(key: &str) -> bool {
     const WORDS: &[&str] = &["POLICY", "POLICIES", "SCOPE", "SCOPES", "ROLE", "ROLES"];
-    let k = key.trim().trim_start_matches("export ").trim().to_uppercase();
+    let k = key
+        .trim()
+        .trim_start_matches("export ")
+        .trim()
+        .to_uppercase();
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
@@ -800,8 +804,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     if describes_a_credential(key) && leads_with_an_integer(value) {
         return None;
     }
-    if names_a_grant(key)
-        && (looks_like_plain_identifier(value) || looks_like_list_of_names(value))
+    if names_a_grant(key) && (looks_like_plain_identifier(value) || looks_like_list_of_names(value))
     {
         return None;
     }
