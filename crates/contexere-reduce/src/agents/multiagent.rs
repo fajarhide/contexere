@@ -83,10 +83,16 @@ pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
 /// session of any project let one agent's hook read and overwrite another's (#1005).
 // `new`, not `default`: `Default` leaves the id empty, so every fallback would share
 // one row (#1042 review).
-#[allow(clippy::unwrap_or_default)]
 pub fn session_for_project(store: &Store, project_path: &str) -> SessionState {
+    session_for(store, &detect_agent_id(), project_path)
+}
+
+/// `session_for_project` with the agent passed in, so tests never read the
+/// process-wide environment another test is changing (#1042 review).
+#[allow(clippy::unwrap_or_default)]
+fn session_for(store: &Store, agent_id: &str, project_path: &str) -> SessionState {
     store
-        .find_latest_session_for_project(&detect_agent_id(), &project_hash(project_path))
+        .find_latest_session_for_project(agent_id, &project_hash(project_path))
         .unwrap_or_else(SessionState::new)
 }
 
@@ -230,12 +236,12 @@ mod tests {
         store.upsert_session(&other);
         let json = serde_json::to_string(&other).expect("serialise");
         store.sync_agent_session(
-            &detect_agent_id(),
+            "this-agent-1042",
             &other.session_id,
             &project_hash("/repo/a"),
             &json,
         );
-        let loaded = session_for_project(&store, "/repo/b");
+        let loaded = session_for(&store, "this-agent-1042", "/repo/b");
         assert_ne!(loaded.session_id, other.session_id);
     }
 
@@ -253,9 +259,9 @@ mod tests {
     fn reloads_this_agents_session_in_this_project() {
         let dir = tempfile::tempdir().expect("temp dir");
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
-        let mine = saved_for(&store, &detect_agent_id(), "/repo/a");
+        let mine = saved_for(&store, "this-agent-1042", "/repo/a");
         assert_eq!(
-            session_for_project(&store, "/repo/a").session_id,
+            session_for(&store, "this-agent-1042", "/repo/a").session_id,
             mine.session_id
         );
     }
@@ -267,7 +273,7 @@ mod tests {
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
         let theirs = saved_for(&store, "another-agent-1042", "/repo/a");
         assert_ne!(
-            session_for_project(&store, "/repo/a").session_id,
+            session_for(&store, "this-agent-1042", "/repo/a").session_id,
             theirs.session_id
         );
     }
@@ -278,7 +284,7 @@ mod tests {
     fn starts_a_new_session_with_an_id() {
         let dir = tempfile::tempdir().expect("temp dir");
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
-        assert!(!session_for_project(&store, "/repo/a").session_id.is_empty());
+        assert!(!session_for(&store, "this-agent-1042", "/repo/a").session_id.is_empty());
     }
     #[test]
     fn addresses_a_path_the_same_with_or_without_a_trailing_slash() {
