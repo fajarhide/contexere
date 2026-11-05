@@ -511,6 +511,14 @@ fn describes_a_credential(key: &str) -> bool {
     k.split('_').any(|s| WORDS.contains(&s))
 }
 
+/// A key that names what a credential grants, `token_policies` or `oauth_scopes`
+/// (#1043). Only with a value of plain names, so the key alone never delivers.
+fn names_a_grant(key: &str) -> bool {
+    const WORDS: &[&str] = &["POLICY", "POLICIES", "SCOPE", "SCOPES", "ROLE", "ROLES"];
+    let k = key.trim().trim_start_matches("export ").trim().to_uppercase();
+    k.split('_').any(|s| WORDS.contains(&s))
+}
+
 /// A key that is only a provider prefix with nothing after it, `openai` or
 /// `anthropic`: in `pip freeze` that is a package name, not a variable (#1039).
 fn names_only_a_provider(key: &str) -> bool {
@@ -790,6 +798,11 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         return None;
     }
     if describes_a_credential(key) && leads_with_an_integer(value) {
+        return None;
+    }
+    if names_a_grant(key)
+        && (looks_like_plain_identifier(value) || looks_like_list_of_names(value))
+    {
         return None;
     }
     if names_only_a_provider(key) && looks_like_version(value) {
@@ -1634,6 +1647,29 @@ mod tests {
             "MAX_PASSWORD=123 456 789",
             "token_limit = 12 # API_TOKEN=canary-abc-123",
             "token_limit = 12 # old value sk_live_A1b2C3d4E5f6G7h8",
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
+        }
+    }
+
+    #[test]
+    fn delivers_the_names_a_credential_grants() {
+        for line in [
+            "  token_policies  = [\"github-ci-prod\", \"default\"]",
+            "  token_policies  = [\"github-ci-prod\", \"default\"],",
+            "token_policies = \"default\"",
+            "oauth_scopes = [\"read\", \"write\"]",
+            "API_KEY_ROLE=viewer",
+        ] {
+            assert_eq!(redact_sensitive_assignments(line), None, "{line}");
+        }
+        // The name alone is not enough: a value with entropy stays hidden.
+        for line in [
+            "token_policies = [\"sk_live_A1b2C3d4E5f6G7h8\"]",
+            "token_policies = \"Xy9-kQ2pLm\"",
+            "oauth_scopes = [\"read\", \"ghp_A1b2C3d4E5f6\"]",
+            "API_TOKEN_ROLE=s3cr3t:token",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
