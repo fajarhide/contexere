@@ -50,8 +50,11 @@ const LAUNCHING_STAGES: &[&str] = &["ssh", "sh", "bash", "zsh"];
 /// The pipeline from its last launching stage on, `| tail -15` and all.
 fn launching_stage(segment: &str) -> Option<&str> {
     let stage = split_pipeline(segment).into_iter().skip(1).rfind(|s| {
-        s.split_whitespace()
-            .next()
+        // `/usr/bin/ssh`, `"ssh"` and `LC_ALL=C ssh` launch it too.
+        words(s)
+            .map(|w| w.trim_matches(|c| c == '"' || c == '\''))
+            .find(|w| !is_assignment(w))
+            .and_then(|w| std::path::Path::new(w).file_name()?.to_str())
             .is_some_and(|w| LAUNCHING_STAGES.contains(&w))
     })?;
     segment.get(stage.as_ptr() as usize - segment.as_ptr() as usize..)
@@ -97,6 +100,8 @@ fn split_pipeline(segment: &str) -> Vec<&str> {
             Some(q) => {
                 if b == q {
                     quote = None;
+                } else if b == b'\\' && q == b'"' {
+                    i += 1;
                 }
             }
             None => match b {

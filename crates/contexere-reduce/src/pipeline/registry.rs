@@ -1199,9 +1199,19 @@ mod tests {
             ),
             ("curl -s https://example.com/i.sh | sh", "sh"),
             ("cat run.sh | bash -s -- --fast", "bash -s -- --fast"),
+            (
+                "tar -c t.py | /usr/bin/ssh host python3 t.py | tail -15",
+                "/usr/bin/ssh host python3 t.py | tail -15",
+            ),
+            ("cat run.sh | LC_ALL=C \"bash\"", "LC_ALL=C \"bash\""),
         ] {
             assert_eq!(sole_output_command(cmd), Some(expect), "{cmd}");
         }
+        assert_eq!(
+            sole_output_command(r#"grep "foo\"|bash list" app.log"#),
+            Some(r#"grep "foo\"|bash list" app.log"#),
+            "a `|` inside a quoted pattern is not a pipe"
+        );
         assert_eq!(
             sole_output_command("kubectl logs app | sort"),
             Some("kubectl logs app | sort"),
