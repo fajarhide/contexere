@@ -211,7 +211,12 @@ mod tests {
         other.add_command("cargo test");
         store.upsert_session(&other);
         let json = serde_json::to_string(&other).expect("serialise");
-        store.sync_agent_session(&detect_agent_id(), &other.session_id, &project_hash("/repo/a"), &json);
+        store.sync_agent_session(
+            &detect_agent_id(),
+            &other.session_id,
+            &project_hash("/repo/a"),
+            &json,
+        );
         let loaded = session_for_project(&store, "/repo/b");
         assert_ne!(loaded.session_id, other.session_id);
     }
