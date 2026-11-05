@@ -51,12 +51,15 @@ fn prune_if_due(store: &Store) {
         return;
     }
     if let Ok(exe) = env::current_exe() {
-        let _ = std::process::Command::new(exe)
-            .arg("--upkeep")
+        let mut cmd = std::process::Command::new(exe);
+        cmd.arg("--upkeep")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn();
+            .stderr(std::process::Stdio::null());
+        // CREATE_NO_WINDOW: a hook run without a console would otherwise open one.
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+        let _ = cmd.spawn();
     }
 }
 
