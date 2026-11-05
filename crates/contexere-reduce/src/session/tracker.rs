@@ -574,18 +574,28 @@ mod tests {
         };
         let saved_count = || -> u64 {
             let json: String = conn
-                .query_row("SELECT state_json FROM sessions WHERE id = ?1", [&id], |r| r.get(0))
+                .query_row(
+                    "SELECT state_json FROM sessions WHERE id = ?1",
+                    [&id],
+                    |r| r.get(0),
+                )
                 .expect("the session is saved");
             serde_json::from_str::<SessionState>(&json)
                 .expect("the saved state parses")
                 .command_count as u64
         };
         // Before `track_error`, which saves the session too (#1052 review).
-        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"), 12);
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"),
+            12
+        );
         assert_eq!(saved_count(), 12);
 
         tracker.track_error("boom");
-        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"), 1);
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"),
+            1
+        );
     }
 
     #[test]
