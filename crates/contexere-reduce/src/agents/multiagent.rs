@@ -97,7 +97,12 @@ pub fn remember_session(store: &Store, state: &SessionState) {
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| ".".to_string());
     let json = serde_json::to_string(state).unwrap_or_else(|_| "{}".to_string());
-    store.sync_agent_session(&detect_agent_id(), &state.session_id, &project_hash(&cwd), &json);
+    store.sync_agent_session(
+        &detect_agent_id(),
+        &state.session_id,
+        &project_hash(&cwd),
+        &json,
+    );
 }
 
 pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
@@ -249,7 +254,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
         let mine = saved_for(&store, &detect_agent_id(), "/repo/a");
-        assert_eq!(session_for_project(&store, "/repo/a").session_id, mine.session_id);
+        assert_eq!(
+            session_for_project(&store, "/repo/a").session_id,
+            mine.session_id
+        );
     }
 
     /// Another agent's session in the same project is not loaded (#1042 review).
@@ -258,7 +266,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
         let theirs = saved_for(&store, "another-agent-1042", "/repo/a");
-        assert_ne!(session_for_project(&store, "/repo/a").session_id, theirs.session_id);
+        assert_ne!(
+            session_for_project(&store, "/repo/a").session_id,
+            theirs.session_id
+        );
     }
 
     /// With nothing saved, a new session has a real id, so two fallbacks never share
