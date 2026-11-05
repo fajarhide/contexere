@@ -1672,6 +1672,34 @@ mod tests {
         assert!(again.contains("identical to an earlier run"), "{again}");
     }
 
+    /// Indentation is content in YAML and Python: a re-run that moved a block from
+    /// 4 to 8 spaces is not "identical to an earlier run" (#1007).
+    #[test]
+    fn a_reindented_block_is_not_identical() {
+        let (store, _d) = temp_store();
+        let block = |pad: &str| -> String {
+            (0..40)
+                .map(|i| format!("{pad}- name: step-{i}\n{pad}  run: make check-{i}\n"))
+                .collect()
+        };
+        let cmd = "cat .github/workflows/ci.yml";
+        Ledger::new(&store, "s1").from(cmd).project(&block("    "));
+        let again = Ledger::new(&store, "s1")
+            .from(cmd)
+            .project(&format!("{}{}", fresh_block("new step"), block("        ")));
+        assert!(
+            again.as_deref().is_none_or(|v| !v.contains("lines identical")),
+            "{again:?}"
+        );
+        // Line endings and trailing spaces still do not split a line's identity.
+        let crlf = block("    ").replace('\n', "  \r\n");
+        let same = Ledger::new(&store, "s1")
+            .from(cmd)
+            .project(&format!("{}{crlf}", fresh_block("crlf")))
+            .expect("the same lines with CRLF still fold");
+        assert!(same.contains("lines identical"), "{same}");
+    }
+
     /// A `Read` window lives in `offset`/`limit`, not the path, so only the flag
     /// separates these arms (#796).
     #[test]
