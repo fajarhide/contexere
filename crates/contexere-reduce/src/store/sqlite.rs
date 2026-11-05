@@ -2215,34 +2215,42 @@ impl SqliteBackend {
         Ok(())
     }
 
-    /// Runs `cleanup_old` at most once a day, from whichever hook gets here first.
-    /// Every host fires the post-hook; only Claude Code and Codex fire session
-    /// start, so pruning there alone left other hosts' databases growing (#1004).
+    /// Whether a daily prune is due. A read, so a hook can ask without the write lock.
+    pub fn prune_due(&self) -> bool {
+        let Ok(conn) = self.pool.get() else {
+            return false;
+        };
+        let last: i64 = conn
+            .query_row("SELECT last_run FROM upkeep WHERE task = 'prune'", [], |r| {
+                r.get(0)
+            })
+            .unwrap_or(0);
+        last <= chrono::Utc::now().timestamp() - 86400
+    }
+
+    /// Runs `cleanup_old` at most once a day across every process on this database.
+    /// Every host reaches a hook or the MCP server; only Claude Code and Codex fire
+    /// session start, which pruned alone before (#1004).
     pub fn prune_if_due(&self, days: u32) -> bool {
-        let claimed = self.pool.get().ok().and_then(|conn| {
-            // A read first: the upsert takes the write lock even when it changes nothing.
-            let last: i64 = conn
-                .query_row(
-                    "SELECT last_run FROM upkeep WHERE task = 'prune'",
-                    [],
-                    |r| r.get(0),
-                )
-                .unwrap_or(0);
-            if last > chrono::Utc::now().timestamp() - 86400 {
-                return None;
-            }
-            conn.execute(
-                "INSERT INTO upkeep (task, last_run) VALUES ('prune', strftime('%s','now'))
-                 ON CONFLICT(task) DO UPDATE SET last_run = excluded.last_run
-                 WHERE last_run <= excluded.last_run - 86400",
-                [],
-            )
-            .ok()
-        });
-        if claimed != Some(1) {
+        let Ok(conn) = self.pool.get() else {
+            return false;
+        };
+        // The claim is a one-hour lease: one caller wins it, a run that dies part way
+        // is retried an hour later, and only a finished run moves the next a day out.
+        let claimed = conn.execute(
+            "INSERT INTO upkeep (task, last_run) VALUES ('prune', strftime('%s','now') - 86400 + 3600)
+             ON CONFLICT(task) DO UPDATE SET last_run = excluded.last_run
+             WHERE last_run <= strftime('%s','now') - 86400",
+            [],
+        );
+        if claimed.ok() != Some(1) {
             return false;
         }
         self.cleanup_old(days);
+        let _ = conn.execute(
+            "UPDATE upkeep SET last_run = strftime('%s','now') WHERE task = 'prune'",
+            [],
+        );
         true
     }
 
@@ -3391,6 +3399,15 @@ mod tests {
         assert!(!store.prune_if_due(30), "second call the same day does not");
         assert_eq!(events(&store), 1);
 
+        let conn = store.pool.get().expect("open connection to leave a claim");
+        conn.execute(
+            "UPDATE upkeep SET last_run = strftime('%s','now') - 86400 + 3600",
+            [],
+        )
+        .expect("leave an abandoned claim");
+        drop(conn);
+        assert!(!store.prune_due(), "an abandoned claim holds for an hour");
+
         let conn = store
             .pool
             .get()
@@ -3400,6 +3417,30 @@ mod tests {
         drop(conn);
         assert!(store.prune_if_due(30), "a day later it prunes again");
         assert_eq!(events(&store), 0);
+    }
+
+    /// One store per thread, as each hook is its own process.
+    #[test]
+    fn parallel_callers_prune_once() {
+        let (_store, dir) = get_temp_store();
+        let db = dir.path().join("omni.db");
+        let gate = std::sync::Arc::new(std::sync::Barrier::new(16));
+        let threads: Vec<_> = (0..16)
+            .map(|_| {
+                let (db, gate) = (db.clone(), gate.clone());
+                std::thread::spawn(move || {
+                    let store = Store::open_path(&db).expect("open the shared database");
+                    gate.wait();
+                    store.prune_if_due(30)
+                })
+            })
+            .collect();
+        let pruned = threads
+            .into_iter()
+            .map(|t| t.join().expect("caller thread"))
+            .filter(|&ran| ran)
+            .count();
+        assert_eq!(pruned, 1);
     }
 
     fn get_temp_store() -> (Store, tempfile::TempDir) {

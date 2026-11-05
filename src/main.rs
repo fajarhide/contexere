@@ -17,6 +17,7 @@ enum Mode {
     SessionStart,
     PreCompact,
     PreHook,
+    Upkeep,
     Cli,
 }
 
@@ -30,6 +31,7 @@ fn detect_mode(args: &[String]) -> Mode {
             "--session-start" | "--before-agent-start" => return Mode::SessionStart,
             "--pre-compact" => return Mode::PreCompact,
             "--pre-hook" => return Mode::PreHook,
+            "--upkeep" => return Mode::Upkeep,
             _ => {}
         }
     }
@@ -40,12 +42,22 @@ fn detect_pipe_command() -> Option<String> {
     env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
 }
 
-/// After the hook's reply is flushed. Synchronous, so one hook a day pays for it:
-/// the thread it ran on before died with the process, part way through (#1004).
+const SESSION_RETENTION_DAYS: u32 = 30;
+
+/// Hands a due prune to a detached `--upkeep` process, so no hook waits on it:
+/// hosts wait for the hook process to exit, and a thread dies with it (#1004).
 fn prune_if_due(store: &Store) {
-    const SESSION_RETENTION_DAYS: u32 = 30;
-    let _ = io::Write::flush(&mut io::stdout());
-    store.prune_if_due(SESSION_RETENTION_DAYS);
+    if !store.prune_due() {
+        return;
+    }
+    if let Ok(exe) = env::current_exe() {
+        let _ = std::process::Command::new(exe)
+            .arg("--upkeep")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+    }
 }
 
 fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
@@ -286,9 +298,18 @@ fn main() {
             }
         }
 
+        Mode::Upkeep => {
+            if let Ok(store) = Store::open() {
+                store.prune_if_due(SESSION_RETENTION_DAYS);
+            }
+        }
+
         Mode::Mcp => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
+                // The server outlives the prune, so a thread is enough here.
+                let upkeep = Arc::clone(&s);
+                std::thread::spawn(move || upkeep.prune_if_due(SESSION_RETENTION_DAYS));
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 if let Err(e) = rt.block_on(async { mcp::server::run(s, ss).await }) {
                     eprintln!("[omni] MCP Server error: {}", e);
