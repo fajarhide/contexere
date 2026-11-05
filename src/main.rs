@@ -17,6 +17,7 @@ enum Mode {
     SessionStart,
     PreCompact,
     PreHook,
+    Upkeep,
     Cli,
 }
 
@@ -30,6 +31,7 @@ fn detect_mode(args: &[String]) -> Mode {
             "--session-start" | "--before-agent-start" => return Mode::SessionStart,
             "--pre-compact" => return Mode::PreCompact,
             "--pre-hook" => return Mode::PreHook,
+            "--upkeep" => return Mode::Upkeep,
             _ => {}
         }
     }
@@ -38,6 +40,27 @@ fn detect_mode(args: &[String]) -> Mode {
 
 fn detect_pipe_command() -> Option<String> {
     env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
+}
+
+const SESSION_RETENTION_DAYS: u32 = 30;
+
+/// Hands a due prune to a detached `--upkeep` process, so no hook waits on it:
+/// hosts wait for the hook process to exit, and a thread dies with it (#1004).
+fn prune_if_due(store: &Store) {
+    if !store.prune_due() {
+        return;
+    }
+    if let Ok(exe) = env::current_exe() {
+        let mut cmd = std::process::Command::new(exe);
+        cmd.arg("--upkeep")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        // CREATE_NO_WINDOW: a hook run without a console would otherwise open one.
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+        let _ = cmd.spawn();
+    }
 }
 
 fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
@@ -248,7 +271,8 @@ fn main() {
         Mode::PostHook => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
-                let _ = hooks::dispatcher::run(s, ss);
+                let _ = hooks::dispatcher::run(Arc::clone(&s), ss);
+                prune_if_due(&s);
             }
         }
 
@@ -265,12 +289,8 @@ fn main() {
         Mode::SessionStart => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
-                let s_clone = Arc::clone(&s);
-                std::thread::spawn(move || {
-                    const SESSION_RETENTION_DAYS: u32 = 30;
-                    s_clone.cleanup_old(SESSION_RETENTION_DAYS);
-                });
-                let _ = hooks::dispatcher::run(s, ss);
+                let _ = hooks::dispatcher::run(Arc::clone(&s), ss);
+                prune_if_due(&s);
             }
         }
 
@@ -281,9 +301,18 @@ fn main() {
             }
         }
 
+        Mode::Upkeep => {
+            if let Ok(store) = Store::open() {
+                store.prune_if_due(SESSION_RETENTION_DAYS);
+            }
+        }
+
         Mode::Mcp => {
             let (store, session) = init_globals();
             if let (Some(s), Some(ss)) = (store, session) {
+                // The server outlives the prune, so a thread is enough here.
+                let upkeep = Arc::clone(&s);
+                std::thread::spawn(move || upkeep.prune_if_due(SESSION_RETENTION_DAYS));
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 if let Err(e) = rt.block_on(async { mcp::server::run(s, ss).await }) {
                     eprintln!("[omni] MCP Server error: {}", e);
