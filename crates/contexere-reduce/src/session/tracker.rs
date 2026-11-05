@@ -4,7 +4,6 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, LazyLock, Mutex};
-use std::thread;
 
 static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -538,19 +537,20 @@ mod tests {
         assert_eq!(task.unwrap(), "fixing rust tests");
     }
 
+    /// A hook process exits as soon as it answers, so a write left on a thread was
+    /// lost: 0 of 60 hook runs recorded their command (#1005). Read right after
+    /// the calls return, as the next hook would.
     #[test]
-    fn tracks_command_non_blocking() {
+    fn records_every_command_before_returning() {
         let dir = tempdir().unwrap();
         let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
         let session = Arc::new(Mutex::new(SessionState::new()));
-
-        let tracker = SessionTracker::new(session, store);
-
-        let start = std::time::Instant::now();
+        let id = session.lock().unwrap().session_id.clone();
+        let tracker = SessionTracker::new(session, Arc::clone(&store));
         let res = DistillResult {
-            output: "".to_string(),
+            output: String::new(),
             route: crate::pipeline::Route::Keep,
-            filter_name: "".to_string(),
+            filter_name: String::new(),
             score: 0.0,
             context_score: 0.0,
             input_bytes: 0,
@@ -564,23 +564,20 @@ mod tests {
             filtered_tokens: 0,
             delivered_bytes: 0,
         };
+        for i in 0..12 {
+            tracker.track_command(&format!("git status {i}"), "On branch main", &res, true);
+        }
+        tracker.track_error("boom");
 
-        tracker.track_command("git status", "On branch main", &res, true);
-        let elapsed = start.elapsed();
-        // Should be extremely fast because thread spawns
-        assert!(elapsed.as_millis() < 200, "Took {} ms", elapsed.as_millis());
-    }
-
-    #[test]
-    fn test_background_save_not_block_caller() {
-        let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
-        let session = Arc::new(Mutex::new(SessionState::new()));
-
-        let start = std::time::Instant::now();
-        save_async(session, store);
-        let elapsed = start.elapsed();
-        assert!(elapsed.as_millis() < 200);
+        let conn = store.pool.get().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"), 12);
+        assert_eq!(count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"), 1);
+        let saved: String = conn
+            .query_row("SELECT state_json FROM sessions WHERE id = ?1", [&id], |r| r.get(0))
+            .expect("the session is saved");
+        let saved: SessionState = serde_json::from_str(&saved).unwrap();
+        assert_eq!(saved.command_count, 13 - 1);
     }
 
     #[test]
