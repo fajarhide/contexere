@@ -79,6 +79,14 @@ pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
     store.sync_agent_session(&agent_id, &state.session_id, &proj_hash, &state_json);
 }
 
+/// The session this agent last used in `project_path`, or a new one. The newest
+/// session of any project let one agent's hook read and overwrite another's (#1005).
+pub fn session_for_project(store: &Store, project_path: &str) -> SessionState {
+    store
+        .find_latest_session_for_project(&detect_agent_id(), &project_hash(project_path))
+        .unwrap_or_else(SessionState::new)
+}
+
 pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
     let proj_hash = project_hash(project_path);
     let my_agent = detect_agent_id();
@@ -193,6 +201,20 @@ pub fn auto_learn_project_patterns(
 
 #[cfg(test)]
 mod tests {
+
+    /// One project's session never loads in another (#1005).
+    #[test]
+    fn loads_the_session_of_this_project_only() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
+        let mut other = SessionState::new();
+        other.add_command("cargo test");
+        store.upsert_session(&other);
+        let json = serde_json::to_string(&other).expect("serialise");
+        store.sync_agent_session(&detect_agent_id(), &other.session_id, &project_hash("/repo/a"), &json);
+        let loaded = session_for_project(&store, "/repo/b");
+        assert_ne!(loaded.session_id, other.session_id);
+    }
     #[test]
     fn addresses_a_path_the_same_with_or_without_a_trailing_slash() {
         assert_eq!(project_hash("/foo/bar"), project_hash("/foo/bar/"));
