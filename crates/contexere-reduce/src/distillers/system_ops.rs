@@ -496,7 +496,8 @@ fn is_bare_pass(key: &str) -> bool {
 
 /// A key that measures or reports on a credential instead of holding one:
 /// `token_limit`, `token_count`, `models_noauth` (#1022, #1009). Only a whole
-/// segment counts, so `APP_TOKEN` and `DB_AUTH` stay strong (review of #865).
+/// segment counts, so `APP_TOKEN` and `DB_AUTH` stay strong (review of #865), and
+/// only at the end or before a unit, so `API_TOKEN_TTL_SECRET` stays hidden (#1049).
 fn describes_a_credential(key: &str) -> bool {
     const WORDS: &[&str] = &[
         "COUNT", "LIMIT", "MAX", "MIN", "SIZE", "LEN", "LENGTH", "NUM", "TOTAL", "BUDGET", "TTL",
@@ -508,7 +509,13 @@ fn describes_a_credential(key: &str) -> bool {
         .trim_start_matches("export ")
         .trim()
         .to_uppercase();
-    k.split('_').any(|s| WORDS.contains(&s))
+    const UNITS: &[&str] = &["MS", "SECS", "SECONDS", "MINUTES", "HOURS", "DAYS", "BYTES"];
+    let mut segments = k.rsplit('_');
+    match segments.next() {
+        Some(last) if UNITS.contains(&last) => segments.next().is_some_and(|s| WORDS.contains(&s)),
+        Some(last) => WORDS.contains(&last),
+        None => false,
+    }
 }
 
 /// A key that names what a credential grants, `token_policies` or `oauth_scopes`
@@ -1634,6 +1641,8 @@ mod tests {
             "models_noauth=401",
             "status_noauth=401",
             "TOKEN_TTL=3600",
+            "TOKEN_TTL_SECONDS=3600",
+            "MAX_TOKEN_COUNT=12",
         ] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
@@ -1651,6 +1660,10 @@ mod tests {
             "MAX_PASSWORD=123 456 789",
             "token_limit = 12 # API_TOKEN=canary-abc-123",
             "token_limit = 12 # old value sk_live_A1b2C3d4E5f6G7h8",
+            // #1049: a describing word in the middle, a credential at the end.
+            "API_TOKEN_TTL_SECRET=99887766",
+            "SECRET_COUNT_KEY=482913",
+            "AUTH_LIMIT_PIN=4821",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
