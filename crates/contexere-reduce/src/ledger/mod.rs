@@ -1676,7 +1676,7 @@ mod tests {
     /// Indentation is content in YAML and Python: a re-run that moved a block from
     /// 4 to 8 spaces is not "identical to an earlier run" (#1007).
     #[test]
-    fn a_reindented_block_is_not_identical() {
+    fn delivers_a_reindented_block_as_new() {
         let (store, _d) = temp_store();
         let block = |pad: &str| -> String {
             (0..40)
