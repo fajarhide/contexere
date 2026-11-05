@@ -282,14 +282,23 @@ fn outside_strings(text: &str, comments: bool) -> String {
             ('/', Some('/')) if comments => while chars.next_if(|&n| n != '\n').is_some() {},
             ('/', Some('*')) if comments => {
                 chars.next();
-                let mut prev = '\0';
+                let mut body = String::new();
+                let mut closed = false;
                 for n in chars.by_ref() {
-                    if prev == '*' && n == '/' {
+                    if body.ends_with('*') && n == '/' {
+                        closed = true;
                         break;
                     }
-                    prev = n;
+                    body.push(n);
                 }
-                out.push(' ');
+                // An unfinished comment is a broken file: keep it, so the parse fails
+                // and `doctor` does not call the file fine (review of #1046).
+                if closed {
+                    out.push(' ');
+                } else {
+                    out.push_str("/*");
+                    out.push_str(&body);
+                }
             }
             (',', _) if !comments => {
                 let next = chars.clone().find(|n| !n.is_whitespace());
@@ -692,19 +701,19 @@ mod rename_tests {
     }
 
     #[test]
-    fn registered_server_reads_a_real_entry_in_a_config_with_comments() {
+    fn reads_a_real_entry_in_a_config_with_comments() {
         let config = "{\n  // mine\n  /* block, with \"quotes\" */\n  \"mcpServers\": {\n    \"other\": {\"url\": \"https://x.test/a//b\", \"note\": \"/* not a comment */\"},\n    \"omni\": {\"command\": \"/x/omni\",},\n  },\n}";
         assert_eq!(found(config), Some("omni"));
     }
 
     #[test]
-    fn registered_server_does_not_count_a_commented_out_entry() {
+    fn leaves_out_a_commented_out_entry() {
         let config = "{\n  \"mcpServers\": {\n    // \"contexere\": {\"command\": \"/x/contexere\"},\n    /* \"omni\": {\"command\": \"/x/omni\"} */\n  },\n}";
         assert_eq!(found(config), None);
     }
 
     #[test]
-    fn plain_json_keeps_strings_whole() {
+    fn keeps_strings_whole_when_dropping_comments() {
         let config =
             r#"{"a": "x // y", "b": "p /* q */ r", "c": "esc \" // still a string", "d": [1, 2,]}"#;
         let val: serde_json::Value = serde_json::from_str(&plain_json(config)).expect("plain JSON");
@@ -715,7 +724,13 @@ mod rename_tests {
     }
 
     #[test]
-    fn plain_json_drops_a_trailing_comma_behind_a_comment() {
+    fn refuses_a_file_with_an_unfinished_block_comment() {
+        let config = r#"{"mcpServers":{"contexere":{"command":"/x/c"}}} /* unfinished"#;
+        assert_eq!(found(config), None);
+    }
+
+    #[test]
+    fn drops_a_trailing_comma_behind_a_comment() {
         let config = "{\"a\": 1, // last\n}";
         let val: serde_json::Value = serde_json::from_str(&plain_json(config)).expect("plain JSON");
         assert_eq!(val, serde_json::json!({"a": 1}));
