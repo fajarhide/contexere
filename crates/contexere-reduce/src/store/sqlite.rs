@@ -2109,7 +2109,10 @@ impl SqliteBackend {
             return;
         };
         let ts = chrono::Utc::now().timestamp();
-        let Ok(tx) = conn.transaction() else {
+        // Immediate: a deferred read upgraded to a write fails busy under parallel
+        // hooks, and 4 of 32 calls lost their rows (#1004).
+        let Ok(tx) = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        else {
             return;
         };
         // One `fold_id` for every row of this call (#665); `MAX(id)` is a rowid lookup.
@@ -2178,14 +2181,10 @@ impl SqliteBackend {
         let Ok(conn) = self.pool.get() else {
             return 0;
         };
-        // Subagent scopes `<session>/<agent>` go too (#807). `substr`, not `LIKE`, so
-        // `_` or `%` in an id cannot widen the delete.
-        conn.execute(
-            "DELETE FROM ledger_lines
-              WHERE scope = ?1 OR substr(scope, 1, length(?1) + 1) = ?1 || '/'",
-            params![session],
-        )
-        .unwrap_or(0)
+        // Subagent scopes `<session>/<agent>` go too (#807). A range, not `LIKE`, so
+        // `_` or `%` in an id cannot widen the delete, and not `substr`, which scanned
+        // 4.4M rows under the write lock (#1004). `0` is the byte after `/`.
+        conn.execute(LEDGER_FORGET, params![session]).unwrap_or(0)
     }
 
     /// Pages in the file and how many are free, or `None`. Pruned pages stay on the
@@ -2255,9 +2254,33 @@ impl SqliteBackend {
             params![ts_threshold],
         );
         // A source a surviving line still points at stays, however old its own `ts`.
+        // The scan of `ledger_lines` is a read, so it no longer holds the write lock
+        // (#1004). A line written since refreshed its source's `ts`, which the delete
+        // checks again.
+        let unnamed: Vec<i64> = conn
+            .prepare(
+                "SELECT id FROM ledger_sources WHERE ts < ?1
+                   AND id NOT IN (SELECT source_id FROM ledger_lines)",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(params![ts_threshold], |r| r.get(0))?
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Ok(tx) = conn.unchecked_transaction() {
+            if let Ok(mut stmt) =
+                tx.prepare_cached("DELETE FROM ledger_sources WHERE id = ?1 AND ts < ?2")
+            {
+                for id in unnamed {
+                    let _ = stmt.execute(params![id, ts_threshold]);
+                }
+            }
+            let _ = tx.commit();
+        }
+        // No prune before #1004. Not `retrieval_feedback`: a missing row there reads
+        // as "never recalled" (#1045 review).
         let _ = conn.execute(
-            "DELETE FROM ledger_sources WHERE ts < ?1
-               AND id NOT IN (SELECT source_id FROM ledger_lines)",
+            "DELETE FROM retrieve_events WHERE ts < ?1",
             params![ts_threshold],
         );
 
@@ -2464,7 +2487,7 @@ impl SqliteBackend {
         .context("summing token savings with reuse")
     }
 
-    /// How many times `tool` handed memory back, all time (#272).
+    /// How many times `tool` handed memory back within the 30-day retention (#272, #1004).
     pub fn count_memory_reads(&self, tool: &str) -> i64 {
         let Ok(conn) = self.pool.get() else {
             return 0;
@@ -3205,10 +3228,106 @@ pub struct RecallHit {
     pub score: f64,
 }
 
+const LEDGER_FORGET: &str = "DELETE FROM ledger_lines
+  WHERE scope = ?1 OR (scope >= ?1 || '/' AND scope < ?1 || '0')";
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn forgets_a_session_and_its_subagents_by_key() {
+        let (store, _dir) = get_temp_store();
+        for scope in ["s1", "s1/agent", "s10", "s1x/agent", "s_", "s"] {
+            store.ledger_record(scope, &["h".to_string()], "a", "cat x");
+        }
+        assert_eq!(store.ledger_forget("s1"), 2);
+        let conn = store.pool.get().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT scope FROM ledger_lines ORDER BY scope")
+            .unwrap();
+        let left: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert_eq!(left, ["s", "s10", "s1x/agent", "s_"]);
+        // A scan held the write lock for over a second on 4.4M rows (#1004).
+        let plan: Vec<String> = conn
+            .prepare(&format!("EXPLAIN QUERY PLAN {LEDGER_FORGET}"))
+            .unwrap()
+            .query_map(["s1"], |r| r.get::<_, String>(3))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert!(plan.iter().all(|p| !p.starts_with("SCAN")), "{plan:?}");
+    }
+
+    /// One store per thread, as each hook is its own process: 28 of 32 folds were
+    /// recorded across 39 parallel hooks (#1004).
+    #[test]
+    fn parallel_hooks_record_every_fold() {
+        let (store, dir) = get_temp_store();
+        let db = dir.path().join("omni.db");
+        let threads: Vec<_> = (0..24)
+            .map(|_| {
+                let db = db.clone();
+                std::thread::spawn(move || {
+                    let store = Store::open_path(&db).unwrap();
+                    for _ in 0..5 {
+                        let fold = FoldRecord {
+                            source_agent: "a".to_string(),
+                            origin: "project",
+                            lines: 1,
+                            bytes: 1,
+                            whole_output: false,
+                            payload_bytes: 1,
+                        };
+                        store.ledger_record_folds("/p", "a", "s", "Bash", &[fold], &[]);
+                    }
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        let conn = store.pool.get().unwrap();
+        let rows: i64 = conn
+            .query_row(
+                "SELECT COUNT(DISTINCT fold_id) FROM ledger_folds",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 24 * 5);
+    }
+
+    #[test]
+    fn prunes_old_retrieve_events_and_keeps_feedback() {
+        let (store, _dir) = get_temp_store();
+        store.record_retrieve_event("omni retrieve", "aaaa", "a");
+        store.record_retrieve_event("omni retrieve", "bbbb", "a");
+        let conn = store.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO retrieval_feedback (query, hit_source, hit_key, project_hash, ts)
+             VALUES ('q', 's', 'k', 'p', strftime('%s','now') - 40 * 86400),
+                    ('q', 's', 'k', 'p', strftime('%s','now'))",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE retrieve_events SET ts = ts - 40 * 86400 WHERE hash = 'aaaa'",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        store.cleanup_old(30);
+        let conn = store.pool.get().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM retrieve_events"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM retrieval_feedback"), 2);
+    }
 
     fn get_temp_store() -> (Store, tempfile::TempDir) {
         let dir = tempdir().unwrap();
