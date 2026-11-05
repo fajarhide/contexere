@@ -512,7 +512,8 @@ fn describes_a_credential(key: &str) -> bool {
 }
 
 /// A key that names what a credential grants, `token_policies` or `oauth_scopes`
-/// (#1043). Only with a value of plain names, so the key alone never delivers.
+/// (#1043). Only the last segment counts, so `VAULT_ROLE_SECRET_ID` still holds a
+/// secret (#1044 review), and only with a value of plain names.
 fn names_a_grant(key: &str) -> bool {
     const WORDS: &[&str] = &["POLICY", "POLICIES", "SCOPE", "SCOPES", "ROLE", "ROLES"];
     let k = key
@@ -520,7 +521,7 @@ fn names_a_grant(key: &str) -> bool {
         .trim_start_matches("export ")
         .trim()
         .to_uppercase();
-    k.split('_').any(|s| WORDS.contains(&s))
+    k.rsplit('_').next().is_some_and(|s| WORDS.contains(&s))
 }
 
 /// A key that is only a provider prefix with nothing after it, `openai` or
@@ -1673,6 +1674,10 @@ mod tests {
             "token_policies = \"Xy9-kQ2pLm\"",
             "oauth_scopes = [\"read\", \"ghp_A1b2C3d4E5f6\"]",
             "API_TOKEN_ROLE=s3cr3t:token",
+            // Review of #1044: a grant word inside the key, not at its end.
+            "VAULT_ROLE_SECRET_ID=8f3a2c52-0e4d-4b6e-9a9f-1234567890ab",
+            "VAULT_ROLE_ID=8f3a2c52-0e4d-4b6e-9a9f-1234567890ab",
+            "SCOPE_TOKEN=abc-def",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.contains("[REDACTED]"), "{line} came back as {out}");
