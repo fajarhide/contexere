@@ -157,10 +157,7 @@ fn is_critical(lower_text: &str, tool_family: Option<&str>) -> bool {
                 }
             }
             "pytest" | "python" => {
-                if lower_text.contains("traceback (most recent call last):")
-                    || lower_text.contains("failed (")
-                    || lower_text.contains("fatal error")
-                {
+                if lower_text.contains("failed (") || lower_text.contains("fatal error") {
                     return true;
                 }
             }
@@ -195,6 +192,8 @@ fn is_critical(lower_text: &str, tool_family: Option<&str>) -> bool {
         || lower_text.contains("imagepullbackoff")
         || lower_text.contains("errimagepull")
         || lower_text.lines().any(is_a_shell_eval_error)
+        // A Python traceback from any command, not just `python` first (#1051).
+        || lower_text.lines().any(is_a_python_traceback_line)
         || mentions_failure_as_a_verdict(lower_text)
         || states_a_severity(lower_text)
 }
@@ -280,6 +279,17 @@ fn is_a_shell_eval_error(line: &str) -> bool {
     line.strip_prefix("(eval):")
         .and_then(|rest| rest.split_once(':'))
         .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// `Traceback (most recent call last):` and a frame's `File "...", line N`.
+/// Tool-agnostic because a script run over `ssh` or behind `tar` still prints
+/// them, and without them the caret row survived while the location did not (#1051).
+fn is_a_python_traceback_line(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("traceback (most recent call last):")
+        || t.strip_prefix("file \"")
+            .and_then(|rest| rest.split_once("\", line "))
+            .is_some_and(|(_, n)| n.bytes().next().is_some_and(|b| b.is_ascii_digit()))
 }
 
 /// Whether `failed` appears as a verdict: not inside an identifier, and not after
@@ -641,5 +651,31 @@ mod tests {
             elapsed < std::time::Duration::from_millis(200),
             "1,000 classifications took {elapsed:?}; a regex is being compiled per call again"
         );
+    }
+
+    /// #1051. A traceback printed by a script run behind `tar | ssh` routed as
+    /// `tar`, so the python-only rule never fired: the caret row and the error
+    /// survived while `Traceback` and the `File ..., line N` frame were dropped.
+    #[test]
+    fn a_python_traceback_frame_is_critical_from_any_command() {
+        for line in [
+            "Traceback (most recent call last):",
+            "  File \"/tmp/q7/tb_repro.py\", line 5, in <module>",
+            "  File \"<stdin>\", line 1, in <module>",
+        ] {
+            assert!(
+                is_critical(&line.to_lowercase(), Some("tar")),
+                "a traceback line tiered as context: {line:?}"
+            );
+        }
+        for prose in [
+            "File \"notes.txt\" was saved",
+            "  file a bug against the tracker, line by line",
+        ] {
+            assert!(
+                !is_critical(&prose.to_lowercase(), Some("tar")),
+                "prose tiered Critical: {prose:?}"
+            );
+        }
     }
 }
