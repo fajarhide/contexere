@@ -4669,4 +4669,32 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "a count is not an answer here, got: {delivered}"
         );
     }
+
+    /// A traceback printed over `ssh` keeps its frame, whatever fed the `ssh` (#1051).
+    #[test]
+    fn a_traceback_behind_a_piped_ssh_keeps_its_frame() {
+        let tar = "tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.x'\n";
+        let tb = "Traceback (most recent call last):\n  File \"/tmp/q7/t.py\", line 5, in <module>\n    assert expected in got, (expected, sorted(got))\n           ^^^^^^^^^^^^^^^\nAssertionError: (('loop-offscreen', 'div#spinner'), [('ease-in', 'div#box')])\n";
+        let content = format!("{tar}{tar}{tar}{tb}");
+        let payload = json!({
+            "tool_name": "Bash",
+            "tool_input": {"command": "tar -c t.py | ssh host 'cd /tmp/q7 && tar -x && python3 t.py' 2>&1 | tail -15"},
+            "tool_response": bash_response(&content),
+        })
+        .to_string();
+        let shown = process_payload(&payload, None, None).map_or(content.clone(), |out| {
+            let v: serde_json::Value = serde_json::from_str(&out).expect("valid hook json");
+            v["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
+                .as_str()
+                .expect("stdout is a string")
+                .to_string()
+        });
+        for line in [
+            "Traceback (most recent call last):",
+            "File \"/tmp/q7/t.py\", line 5, in <module>",
+            "assert expected in got",
+        ] {
+            assert!(shown.contains(line), "lost {line:?}: {shown}");
+        }
+    }
 }
