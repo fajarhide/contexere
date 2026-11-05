@@ -79,6 +79,38 @@ pub fn sync_session(store: &Store, session: &Arc<Mutex<SessionState>>) {
     store.sync_agent_session(&agent_id, &state.session_id, &proj_hash, &state_json);
 }
 
+/// The session this agent last used in `project_path`, or a new one. The newest
+/// session of any project let one agent's hook read and overwrite another's (#1005).
+// `new`, not `default`: `Default` leaves the id empty, so every fallback would share
+// one row (#1042 review).
+pub fn session_for_project(store: &Store, project_path: &str) -> SessionState {
+    session_for(store, &detect_agent_id(), project_path)
+}
+
+/// `session_for_project` with the agent passed in, so tests never read the
+/// process-wide environment another test is changing (#1042 review).
+#[allow(clippy::unwrap_or_default)]
+fn session_for(store: &Store, agent_id: &str, project_path: &str) -> SessionState {
+    store
+        .find_latest_session_for_project(agent_id, &project_hash(project_path))
+        .unwrap_or_else(SessionState::new)
+}
+
+/// Maps `state` to this agent and the current project, so `session_for_project` finds
+/// it next time. Paths that save without the hook dispatcher need it (#1042 review).
+pub fn remember_session(store: &Store, state: &SessionState) {
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string());
+    let json = serde_json::to_string(state).unwrap_or_else(|_| "{}".to_string());
+    store.sync_agent_session(
+        &detect_agent_id(),
+        &state.session_id,
+        &project_hash(&cwd),
+        &json,
+    );
+}
+
 pub fn build_peer_context(store: &Store, project_path: &str) -> Option<String> {
     let proj_hash = project_hash(project_path);
     let my_agent = detect_agent_id();
@@ -193,6 +225,71 @@ pub fn auto_learn_project_patterns(
 
 #[cfg(test)]
 mod tests {
+
+    /// One project's session never loads in another (#1005).
+    #[test]
+    fn loads_the_session_of_this_project_only() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
+        let mut other = SessionState::new();
+        other.add_command("cargo test");
+        store.upsert_session(&other);
+        let json = serde_json::to_string(&other).expect("serialise");
+        store.sync_agent_session(
+            "this-agent-1042",
+            &other.session_id,
+            &project_hash("/repo/a"),
+            &json,
+        );
+        let loaded = session_for(&store, "this-agent-1042", "/repo/b");
+        assert_ne!(loaded.session_id, other.session_id);
+    }
+
+    fn saved_for(store: &Store, agent: &str, project: &str) -> SessionState {
+        let mut state = SessionState::new();
+        state.add_command("git status");
+        store.upsert_session(&state);
+        let json = serde_json::to_string(&state).expect("serialise");
+        store.sync_agent_session(agent, &state.session_id, &project_hash(project), &json);
+        state
+    }
+
+    /// This agent's own session in this project comes back (#1042 review).
+    #[test]
+    fn reloads_this_agents_session_in_this_project() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
+        let mine = saved_for(&store, "this-agent-1042", "/repo/a");
+        assert_eq!(
+            session_for(&store, "this-agent-1042", "/repo/a").session_id,
+            mine.session_id
+        );
+    }
+
+    /// Another agent's session in the same project is not loaded (#1042 review).
+    #[test]
+    fn skips_another_agents_session_in_this_project() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
+        let theirs = saved_for(&store, "another-agent-1042", "/repo/a");
+        assert_ne!(
+            session_for(&store, "this-agent-1042", "/repo/a").session_id,
+            theirs.session_id
+        );
+    }
+
+    /// With nothing saved, a new session has a real id, so two fallbacks never share
+    /// a row (#1042 review).
+    #[test]
+    fn starts_a_new_session_with_an_id() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let store = Store::open_path(&dir.path().join("omni.db")).expect("open store");
+        assert!(
+            !session_for(&store, "this-agent-1042", "/repo/a")
+                .session_id
+                .is_empty()
+        );
+    }
     #[test]
     fn addresses_a_path_the_same_with_or_without_a_trailing_slash() {
         assert_eq!(project_hash("/foo/bar"), project_hash("/foo/bar/"));

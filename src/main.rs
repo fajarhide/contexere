@@ -43,9 +43,11 @@ fn detect_pipe_command() -> Option<String> {
 fn init_globals() -> (Option<Arc<Store>>, Option<Arc<Mutex<SessionState>>>) {
     match Store::open() {
         Ok(store) => {
-            let session = store
-                .find_latest_session()
-                .unwrap_or_else(SessionState::new);
+            // This project's session for this agent, never the newest of any (#1005).
+            let cwd = env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| ".".to_string());
+            let session = contexere::agents::multiagent::session_for_project(&store, &cwd);
             let store_arc = Arc::new(store);
             let session_arc = Arc::new(Mutex::new(session));
             (Some(store_arc), Some(session_arc))

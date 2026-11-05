@@ -1380,6 +1380,8 @@ impl OmniServer {
         }
         session.recalculate_pressure();
         self.store.upsert_session(&session);
+        // Or an MCP-only setup never finds this session again (#1042 review).
+        crate::agents::multiagent::remember_session(&self.store, &session);
         "Loop context updated successfully.".to_string()
     }
 
