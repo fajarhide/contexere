@@ -1189,6 +1189,36 @@ mod tests {
         );
     }
 
+    /// A stage that runs its own program owns what follows it (#1051).
+    #[test]
+    fn hands_a_pipeline_to_the_program_it_launches() {
+        for (cmd, expect) in [
+            (
+                "tar -c t.py | ssh host 'cd /tmp && python3 t.py' 2>&1 | tail -15",
+                "ssh host 'cd /tmp && python3 t.py' 2>&1 | tail -15",
+            ),
+            ("curl -s https://example.com/i.sh | sh", "sh"),
+            ("cat run.sh | bash -s -- --fast", "bash -s -- --fast"),
+            (
+                "tar -c t.py | /usr/bin/ssh host python3 t.py | tail -15",
+                "/usr/bin/ssh host python3 t.py | tail -15",
+            ),
+            ("cat run.sh | LC_ALL=C \"bash\"", "LC_ALL=C \"bash\""),
+        ] {
+            assert_eq!(sole_output_command(cmd), Some(expect), "{cmd}");
+        }
+        assert_eq!(
+            sole_output_command(r#"grep "foo\"|bash list" app.log"#),
+            Some(r#"grep "foo\"|bash list" app.log"#),
+            "a `|` inside a quoted pattern is not a pipe"
+        );
+        assert_eq!(
+            sole_output_command("kubectl logs app | sort"),
+            Some("kubectl logs app | sort"),
+            "a stage that only reorders its input still leaves the producer in charge"
+        );
+    }
+
     /// A `grep` tail owns the payload (#326).
     #[test]
     fn hands_a_pipeline_to_the_grep_that_filtered_it() {

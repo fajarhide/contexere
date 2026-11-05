@@ -35,7 +35,29 @@ pub fn sole_output_command(command: &str) -> Option<&str> {
         }
     };
     let producer = strip_assignments(producer);
-    Some(owning_tail(producer).unwrap_or(producer))
+    Some(
+        owning_tail(producer)
+            .or_else(|| launching_stage(producer))
+            .unwrap_or(producer),
+    )
+}
+
+/// Stages that run a program of their own, so what follows is that program's
+/// output and not what fed it: `tar -c . | ssh host python3 t.py` printed a
+/// traceback that the `tar` route cut to its last two lines (#1051).
+const LAUNCHING_STAGES: &[&str] = &["ssh", "sh", "bash", "zsh"];
+
+/// The pipeline from its last launching stage on, `| tail -15` and all.
+fn launching_stage(segment: &str) -> Option<&str> {
+    let stage = split_pipeline(segment).into_iter().skip(1).rfind(|s| {
+        // `/usr/bin/ssh`, `"ssh"` and `LC_ALL=C ssh` launch it too.
+        words(s)
+            .map(|w| w.trim_matches(|c| c == '"' || c == '\''))
+            .find(|w| !is_assignment(w))
+            .and_then(|w| std::path::Path::new(w).file_name()?.to_str())
+            .is_some_and(|w| LAUNCHING_STAGES.contains(&w))
+    })?;
+    segment.get(stage.as_ptr() as usize - segment.as_ptr() as usize..)
 }
 
 /// The trailing stage when it owns the payload: a reshaper or a filter. A name
@@ -78,6 +100,8 @@ fn split_pipeline(segment: &str) -> Vec<&str> {
             Some(q) => {
                 if b == q {
                     quote = None;
+                } else if b == b'\\' && q == b'"' {
+                    i += 1;
                 }
             }
             None => match b {
