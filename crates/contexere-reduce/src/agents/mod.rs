@@ -279,9 +279,7 @@ fn outside_strings(text: &str, comments: bool) -> String {
                 in_string = true;
                 out.push(c);
             }
-            ('/', Some('/')) if comments => {
-                while chars.next_if(|&n| n != '\n').is_some() {}
-            }
+            ('/', Some('/')) if comments => while chars.next_if(|&n| n != '\n').is_some() {},
             ('/', Some('*')) if comments => {
                 chars.next();
                 let mut prev = '\0';
@@ -707,9 +705,9 @@ mod rename_tests {
 
     #[test]
     fn plain_json_keeps_strings_whole() {
-        let config = r#"{"a": "x // y", "b": "p /* q */ r", "c": "esc \" // still a string", "d": [1, 2,]}"#;
-        let val: serde_json::Value =
-            serde_json::from_str(&plain_json(config)).expect("plain JSON");
+        let config =
+            r#"{"a": "x // y", "b": "p /* q */ r", "c": "esc \" // still a string", "d": [1, 2,]}"#;
+        let val: serde_json::Value = serde_json::from_str(&plain_json(config)).expect("plain JSON");
         assert_eq!(val["a"], "x // y");
         assert_eq!(val["b"], "p /* q */ r");
         assert_eq!(val["c"], "esc \" // still a string");
@@ -719,8 +717,7 @@ mod rename_tests {
     #[test]
     fn plain_json_drops_a_trailing_comma_behind_a_comment() {
         let config = "{\"a\": 1, // last\n}";
-        let val: serde_json::Value =
-            serde_json::from_str(&plain_json(config)).expect("plain JSON");
+        let val: serde_json::Value = serde_json::from_str(&plain_json(config)).expect("plain JSON");
         assert_eq!(val, serde_json::json!({"a": 1}));
     }
 
