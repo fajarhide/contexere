@@ -2221,9 +2221,11 @@ impl SqliteBackend {
             return false;
         };
         let last: i64 = conn
-            .query_row("SELECT last_run FROM upkeep WHERE task = 'prune'", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT last_run FROM upkeep WHERE task = 'prune'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap_or(0);
         last <= chrono::Utc::now().timestamp() - 86400
     }
