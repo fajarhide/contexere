@@ -3266,24 +3266,28 @@ mod tests {
         assert!(plan.iter().all(|p| !p.starts_with("SCAN")), "{plan:?}");
     }
 
+    /// One store per thread, as each hook is its own process: 28 of 32 folds were
+    /// recorded across 39 parallel hooks (#1004).
     #[test]
     fn parallel_hooks_record_every_fold() {
-        let (store, _dir) = get_temp_store();
-        let store = std::sync::Arc::new(store);
-        let threads: Vec<_> = (0..16)
-            .map(|i| {
-                let store = std::sync::Arc::clone(&store);
+        let (store, dir) = get_temp_store();
+        let db = dir.path().join("omni.db");
+        let threads: Vec<_> = (0..24)
+            .map(|_| {
+                let db = db.clone();
                 std::thread::spawn(move || {
-                    let fold = FoldRecord {
-                        source_agent: "a".to_string(),
-                        origin: "project",
-                        lines: 1,
-                        bytes: 1,
-                        whole_output: false,
-                        payload_bytes: 1,
-                    };
-                    store.ledger_record_folds("/p", "a", "s", "Bash", &[fold], &[]);
-                    i
+                    let store = Store::open_path(&db).unwrap();
+                    for _ in 0..5 {
+                        let fold = FoldRecord {
+                            source_agent: "a".to_string(),
+                            origin: "project",
+                            lines: 1,
+                            bytes: 1,
+                            whole_output: false,
+                            payload_bytes: 1,
+                        };
+                        store.ledger_record_folds("/p", "a", "s", "Bash", &[fold], &[]);
+                    }
                 })
             })
             .collect();
@@ -3296,7 +3300,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(rows, 16);
+        assert_eq!(rows, 24 * 5);
     }
 
     #[test]
