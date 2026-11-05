@@ -809,10 +809,11 @@ fn names_line_numbers(arg: &str) -> bool {
         && end.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// A line's identity in the ledger: trimmed, so `sed -n` and `cat` of a line
-/// agree, and hashed to keep the index small.
+/// A line's identity in the ledger, hashed to keep the index small. Only the end
+/// is trimmed, for the newline, CR and trailing spaces: indentation is content in
+/// YAML and Python, and a reindented block was folded as identical (#1007).
 pub fn line_key(line: &str) -> String {
-    crate::util::text::short_hash(line.trim())
+    crate::util::text::short_hash(line.trim_end())
 }
 
 #[cfg(test)]
@@ -1670,6 +1671,38 @@ mod tests {
             .project(&format!("{}{shown}", fresh_block("new match")))
             .expect("a re-run of the same command still folds");
         assert!(again.contains("identical to an earlier run"), "{again}");
+    }
+
+    /// Indentation is content in YAML and Python: a re-run that moved a block from
+    /// 4 to 8 spaces is not "identical to an earlier run" (#1007).
+    #[test]
+    fn delivers_a_reindented_block_as_new() {
+        let (store, _d) = temp_store();
+        let block = |pad: &str| -> String {
+            (0..40)
+                .map(|i| format!("{pad}- name: step-{i}\n{pad}  run: make check-{i}\n"))
+                .collect()
+        };
+        let cmd = "cat .github/workflows/ci.yml";
+        Ledger::new(&store, "s1").from(cmd).project(&block("    "));
+        let again = Ledger::new(&store, "s1").from(cmd).project(&format!(
+            "{}{}",
+            fresh_block("new step"),
+            block("        ")
+        ));
+        assert!(
+            again
+                .as_deref()
+                .is_none_or(|v| !v.contains("lines identical")),
+            "{again:?}"
+        );
+        // Line endings and trailing spaces still do not split a line's identity.
+        let crlf = block("    ").replace('\n', "  \r\n");
+        let same = Ledger::new(&store, "s1")
+            .from(cmd)
+            .project(&format!("{}{crlf}", fresh_block("crlf")))
+            .expect("the same lines with CRLF still fold");
+        assert!(same.contains("lines identical"), "{same}");
     }
 
     /// A `Read` window lives in `offset`/`limit`, not the path, so only the flag
