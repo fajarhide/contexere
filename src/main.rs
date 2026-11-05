@@ -202,6 +202,12 @@ fn main() {
     restore_default_sigpipe();
 
     let args: Vec<String> = env::args().collect();
+    if let Some(argv0) = args.first()
+        && let Some(notice) =
+            legacy::old_name_notice(std::path::Path::new(argv0), io::stderr().is_terminal())
+    {
+        eprintln!("{}", notice.bright_black());
+    }
 
     if args.len() == 1 && !io::stdin().is_terminal() {
         let store_arc = Store::open().map(Arc::new).ok();

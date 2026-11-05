@@ -45,6 +45,15 @@ fn is_omni_name(argv0: &Path) -> bool {
     argv0.file_stem().is_some_and(|s| s == "omni")
 }
 
+/// The one line a person who types `omni` sees, on stderr (#876 step 1). Only at a
+/// terminal: a hook, a pipe consumer or a host's MCP client reads the same bytes as
+/// before, so nothing that parses our output changes.
+pub fn old_name_notice(argv0: &Path, stderr_is_terminal: bool) -> Option<&'static str> {
+    (stderr_is_terminal && is_omni_name(argv0)).then_some(
+        "omni is now contexere. This name keeps working; `contexere doctor` lists what still uses it.",
+    )
+}
+
 /// The MCP tool prefix and server key of the name this process runs under.
 pub fn mcp_name() -> &'static str {
     if invoked_as_omni() {
@@ -131,6 +140,15 @@ mod tests {
         assert!(is_omni_name("omni.exe".as_ref()));
         assert!(!is_omni_name("/home/omni/bin/contexere".as_ref()));
         assert!(!is_omni_name("omnibus".as_ref()));
+    }
+
+    #[test]
+    fn tells_a_person_at_a_terminal_and_nobody_else() {
+        let omni = Path::new("/opt/homebrew/bin/omni");
+        assert!(old_name_notice(omni, true).is_some_and(|n| n.contains("contexere doctor")));
+        // A hook, a pipe or an MCP client has no terminal on stderr.
+        assert_eq!(old_name_notice(omni, false), None);
+        assert_eq!(old_name_notice(Path::new("/opt/homebrew/bin/contexere"), true), None);
     }
 
     #[test]
