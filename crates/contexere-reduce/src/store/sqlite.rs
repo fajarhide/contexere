@@ -2111,7 +2111,8 @@ impl SqliteBackend {
         let ts = chrono::Utc::now().timestamp();
         // Immediate: a deferred read upgraded to a write fails busy under parallel
         // hooks, and 4 of 32 calls lost their rows (#1004).
-        let Ok(tx) = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate) else {
+        let Ok(tx) = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        else {
             return;
         };
         // One `fold_id` for every row of this call (#665); `MAX(id)` is a rowid lookup.
@@ -2183,8 +2184,7 @@ impl SqliteBackend {
         // Subagent scopes `<session>/<agent>` go too (#807). A range, not `LIKE`, so
         // `_` or `%` in an id cannot widen the delete, and not `substr`, which scanned
         // 4.4M rows under the write lock (#1004). `0` is the byte after `/`.
-        conn.execute(LEDGER_FORGET, params![session])
-            .unwrap_or(0)
+        conn.execute(LEDGER_FORGET, params![session]).unwrap_or(0)
     }
 
     /// Pages in the file and how many are free, or `None`. Pruned pages stay on the
@@ -3296,9 +3296,11 @@ mod tests {
         }
         let conn = store.pool.get().unwrap();
         let rows: i64 = conn
-            .query_row("SELECT COUNT(DISTINCT fold_id) FROM ledger_folds", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(DISTINCT fold_id) FROM ledger_folds",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(rows, 24 * 5);
     }
