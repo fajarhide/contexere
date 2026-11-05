@@ -2268,21 +2268,19 @@ impl SqliteBackend {
             })
             .unwrap_or_default();
         if let Ok(tx) = conn.unchecked_transaction() {
-            for id in unnamed {
-                let _ = tx.execute(
-                    "DELETE FROM ledger_sources WHERE id = ?1 AND ts < ?2",
-                    params![id, ts_threshold],
-                );
+            if let Ok(mut stmt) =
+                tx.prepare_cached("DELETE FROM ledger_sources WHERE id = ?1 AND ts < ?2")
+            {
+                for id in unnamed {
+                    let _ = stmt.execute(params![id, ts_threshold]);
+                }
             }
             let _ = tx.commit();
         }
-        // Event logs with no prune before #1004.
+        // No prune before #1004. Not `retrieval_feedback`: a missing row there reads
+        // as "never recalled" (#1045 review).
         let _ = conn.execute(
             "DELETE FROM retrieve_events WHERE ts < ?1",
-            params![ts_threshold],
-        );
-        let _ = conn.execute(
-            "DELETE FROM retrieval_feedback WHERE ts < ?1",
             params![ts_threshold],
         );
 
@@ -3306,7 +3304,7 @@ mod tests {
     }
 
     #[test]
-    fn prunes_old_retrieve_events_and_feedback() {
+    fn prunes_old_retrieve_events_and_keeps_feedback() {
         let (store, _dir) = get_temp_store();
         store.record_retrieve_event("omni retrieve", "aaaa", "a");
         store.record_retrieve_event("omni retrieve", "bbbb", "a");
@@ -3328,7 +3326,7 @@ mod tests {
         let conn = store.pool.get().unwrap();
         let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
         assert_eq!(count("SELECT COUNT(*) FROM retrieve_events"), 1);
-        assert_eq!(count("SELECT COUNT(*) FROM retrieval_feedback"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM retrieval_feedback"), 2);
     }
 
     fn get_temp_store() -> (Store, tempfile::TempDir) {
