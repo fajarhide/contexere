@@ -133,7 +133,10 @@ fn is_blank_or_decorative(lines: &[&str]) -> bool {
 /// Whether one line states a failure, tool-agnostically. Shared with the ledger,
 /// which must never fold a failure (#458).
 pub fn carries_failure(line: &str) -> bool {
-    is_critical(&line.to_lowercase(), None)
+    let lower = line.to_lowercase();
+    // A traceback header or frame is kept as Critical but is not the failure itself, or the
+    // fidelity check would accept frames with the error cut off (review of #1056).
+    !is_a_python_traceback_line(&lower) && is_critical(&lower, None)
 }
 
 #[allow(clippy::collapsible_match)]
@@ -657,23 +660,29 @@ mod tests {
     /// `tar`, so the python-only rule never fired: the caret row and the error
     /// survived while `Traceback` and the `File ..., line N` frame were dropped.
     #[test]
-    fn a_python_traceback_frame_is_critical_from_any_command() {
+    fn keeps_a_python_traceback_frame_from_any_command() {
         for line in [
             "Traceback (most recent call last):",
             "  File \"/tmp/q7/tb_repro.py\", line 5, in <module>",
             "  File \"<stdin>\", line 1, in <module>",
         ] {
-            assert!(
-                is_critical(&line.to_lowercase(), Some("tar")),
+            assert_eq!(
+                classify_block(&[line], Some("tar")).0,
+                SemanticClass::Critical,
                 "a traceback line tiered as context: {line:?}"
+            );
+            assert!(
+                !carries_failure(line),
+                "a frame is kept, but it is not the failure the fidelity check looks for: {line:?}"
             );
         }
         for prose in [
             "File \"notes.txt\" was saved",
             "  file a bug against the tracker, line by line",
         ] {
-            assert!(
-                !is_critical(&prose.to_lowercase(), Some("tar")),
+            assert_ne!(
+                classify_block(&[prose], Some("tar")).0,
+                SemanticClass::Critical,
                 "prose tiered Critical: {prose:?}"
             );
         }
