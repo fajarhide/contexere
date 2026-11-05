@@ -54,7 +54,7 @@ fn launching_stage(segment: &str) -> Option<&str> {
             .next()
             .is_some_and(|w| LAUNCHING_STAGES.contains(&w))
     })?;
-    Some(&segment[stage.as_ptr() as usize - segment.as_ptr() as usize..])
+    segment.get(stage.as_ptr() as usize - segment.as_ptr() as usize..)
 }
 
 /// The trailing stage when it owns the payload: a reshaper or a filter. A name
