@@ -148,7 +148,10 @@ mod tests {
         assert!(old_name_notice(omni, true).is_some_and(|n| n.contains("contexere doctor")));
         // A hook, a pipe or an MCP client has no terminal on stderr.
         assert_eq!(old_name_notice(omni, false), None);
-        assert_eq!(old_name_notice(Path::new("/opt/homebrew/bin/contexere"), true), None);
+        assert_eq!(
+            old_name_notice(Path::new("/opt/homebrew/bin/contexere"), true),
+            None
+        );
     }
 
     #[test]
