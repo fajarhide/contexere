@@ -1,0 +1,1 @@
+- **The session tracker's writes are no longer lost at exit (#1005)**: the tracker recorded commands, errors and the session state on threads nobody joined, and a hook process exits as soon as it answers. In a benchmark of 60 post-hook runs, 0 commands were recorded. The writes now happen before the hook returns: 60 of 60 recorded, p50 latency 13.0 to 14.6 ms on a Linux box.

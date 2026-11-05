@@ -4,7 +4,6 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, LazyLock, Mutex};
-use std::thread;
 
 static FILE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -51,7 +50,7 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        thread::spawn(move || {
+        (move || {
             let paths = extract_file_paths(&out);
             let cmd_paths = extract_file_paths(&cmd);
             let errors = extract_errors(&out);
@@ -156,8 +155,9 @@ impl SessionTracker {
             }
 
             store.index_event(&session_locked.session_id, "Command", &cmd);
-            save_async(session.clone(), store.clone());
-        });
+            drop(session_locked);
+            save(&session, &store);
+        })();
     }
 
     pub fn track_error(&self, error_msg: &str) {
@@ -165,13 +165,11 @@ impl SessionTracker {
         let session = self.session.clone();
         let store = self.store.clone();
 
-        thread::spawn(move || {
-            if let Ok(mut lock) = session.lock() {
-                lock.add_error(&err);
-                store.index_event(&lock.session_id, "Error", &err);
-            }
-            save_async(session.clone(), store.clone());
-        });
+        if let Ok(mut lock) = session.lock() {
+            lock.add_error(&err);
+            store.index_event(&lock.session_id, "Error", &err);
+        }
+        save(&session, &store);
     }
 }
 
@@ -409,14 +407,10 @@ pub fn detect_python_toolchain(working_dir: &Path) -> Option<String> {
     None
 }
 
-fn save_async(session: Arc<Mutex<SessionState>>, store: Arc<Store>) {
-    thread::spawn(move || {
-        let s = match session.lock() {
-            Ok(l) => l.clone(),
-            Err(_) => return,
-        };
+fn save(session: &Mutex<SessionState>, store: &Store) {
+    if let Ok(s) = session.lock() {
         store.upsert_session(&s);
-    });
+    }
 }
 
 #[cfg(test)]
@@ -543,19 +537,20 @@ mod tests {
         assert_eq!(task.unwrap(), "fixing rust tests");
     }
 
+    /// A hook process exits as soon as it answers, so a write left on a thread was
+    /// lost: 0 of 60 hook runs recorded their command (#1005). Read right after
+    /// the calls return, as the next hook would.
     #[test]
-    fn tracks_command_non_blocking() {
-        let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
+    fn records_every_command_before_returning() {
+        let dir = tempdir().expect("a temp dir");
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("a store"));
         let session = Arc::new(Mutex::new(SessionState::new()));
-
-        let tracker = SessionTracker::new(session, store);
-
-        let start = std::time::Instant::now();
+        let id = session.lock().expect("the session lock").session_id.clone();
+        let tracker = SessionTracker::new(session, Arc::clone(&store));
         let res = DistillResult {
-            output: "".to_string(),
+            output: String::new(),
             route: crate::pipeline::Route::Keep,
-            filter_name: "".to_string(),
+            filter_name: String::new(),
             score: 0.0,
             context_score: 0.0,
             input_bytes: 0,
@@ -569,23 +564,38 @@ mod tests {
             filtered_tokens: 0,
             delivered_bytes: 0,
         };
+        for i in 0..12 {
+            tracker.track_command(&format!("git status {i}"), "On branch main", &res, true);
+        }
+        let conn = store.pool.get().expect("a connection to read back");
+        let count = |sql: &str| -> i64 {
+            conn.query_row(sql, [], |r| r.get(0))
+                .expect("a count query")
+        };
+        let saved_count = || -> u64 {
+            let json: String = conn
+                .query_row(
+                    "SELECT state_json FROM sessions WHERE id = ?1",
+                    [&id],
+                    |r| r.get(0),
+                )
+                .expect("the session is saved");
+            serde_json::from_str::<SessionState>(&json)
+                .expect("the saved state parses")
+                .command_count as u64
+        };
+        // Before `track_error`, which saves the session too (#1052 review).
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Command'"),
+            12
+        );
+        assert_eq!(saved_count(), 12);
 
-        tracker.track_command("git status", "On branch main", &res, true);
-        let elapsed = start.elapsed();
-        // Should be extremely fast because thread spawns
-        assert!(elapsed.as_millis() < 200, "Took {} ms", elapsed.as_millis());
-    }
-
-    #[test]
-    fn test_background_save_not_block_caller() {
-        let dir = tempdir().unwrap();
-        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).unwrap());
-        let session = Arc::new(Mutex::new(SessionState::new()));
-
-        let start = std::time::Instant::now();
-        save_async(session, store);
-        let elapsed = start.elapsed();
-        assert!(elapsed.as_millis() < 200);
+        tracker.track_error("boom");
+        assert_eq!(
+            count("SELECT COUNT(*) FROM session_events WHERE event_type = 'Error'"),
+            1
+        );
     }
 
     #[test]
