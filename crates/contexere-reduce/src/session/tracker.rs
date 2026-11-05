@@ -577,7 +577,7 @@ mod tests {
             .query_row("SELECT state_json FROM sessions WHERE id = ?1", [&id], |r| r.get(0))
             .expect("the session is saved");
         let saved: SessionState = serde_json::from_str(&saved).unwrap();
-        assert_eq!(saved.command_count, 13 - 1);
+        assert_eq!(saved.command_count, 12);
     }
 
     #[test]
