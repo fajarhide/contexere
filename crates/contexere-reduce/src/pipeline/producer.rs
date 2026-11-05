@@ -49,10 +49,11 @@ const LAUNCHING_STAGES: &[&str] = &["ssh", "sh", "bash", "zsh"];
 
 /// The pipeline from its last launching stage on, `| tail -15` and all.
 fn launching_stage(segment: &str) -> Option<&str> {
-    let stage = split_pipeline(segment)
-        .into_iter()
-        .skip(1)
-        .rfind(|s| s.split_whitespace().next().is_some_and(|w| LAUNCHING_STAGES.contains(&w)))?;
+    let stage = split_pipeline(segment).into_iter().skip(1).rfind(|s| {
+        s.split_whitespace()
+            .next()
+            .is_some_and(|w| LAUNCHING_STAGES.contains(&w))
+    })?;
     Some(&segment[stage.as_ptr() as usize - segment.as_ptr() as usize..])
 }
 
