@@ -3,6 +3,38 @@
 One document. Standards, architecture and workflow, for humans and for AI assistants
 alike, because there is no useful version of this that differs between the two.
 
+## Working with an AI agent
+
+Most changes here are written with an agent, and that is welcome. The agent does not
+know where this project is going unless you tell it, so give it this file and
+[AGENTS.md](AGENTS.md) first. Most agents read AGENTS.md on their own; for one that
+does not, point it there. Then hold it to these steps:
+
+1. **Start from an issue.** Pick one from the
+   [Now / Next / Later board](https://github.com/users/fajarhide/projects/2), or open
+   one with a reproduction before any code exists (see "Reporting a bug" below). An
+   agent that finds a second problem while working files it as its own issue instead
+   of fixing it in the same branch.
+2. **Read where the project is going.** [Direction](docs/website/src/develop/direction.md)
+   holds the three rules that win every conflict: never fabricate, never lose the answer
+   quietly, then compress. "What Contexere is trying to be" below holds the hook budget
+   and the fail-open rule. A change that saves bytes by breaking one of those is a
+   regression, however good the number looks.
+3. **Stay inside the issue.** No drive-by refactors, renames or new dependencies the
+   issue did not ask for. A smaller diff gets reviewed sooner.
+4. **Prove it.** A test that fails without the change and passes with it: revert the fix,
+   watch the test go red, restore it. For a distiller, the raw and distilled output side
+   by side. Then `make ci`, the whole gate, not a subset.
+5. **No number you did not measure.** A savings or speed figure in a PR, the changelog or
+   the docs comes from a run you can show ("Measure before you build").
+6. **Read the review before merging.** Validate each automated and human comment against
+   the code, then fix it or reply with the reason ("Pull requests").
+7. **Say an agent wrote it**, in one line of the PR body, and that you read the diff. You
+   are the author either way.
+
+Do not let an agent paste real terminal output into an issue or PR without reading it
+first: it carries hostnames, account ids and keys more often than people expect.
+
 ## Get it building
 
 ```bash
