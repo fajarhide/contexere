@@ -4,8 +4,8 @@ Semua subperintah, dikelompokkan seperti `contexere --help` mengelompokkannya:
 menurut apa yang sedang Anda coba lakukan, bukan menurut abjad.
 
 ```
-omni <COMMAND> [FLAGS]
-cmd | omni                # suling keluaran perintah apa pun lewat pipa
+contexere <COMMAND> [FLAGS]
+cmd | contexere                # suling keluaran perintah apa pun lewat pipa
 ```
 
 ## Pemasangan
@@ -63,6 +63,6 @@ menyatakan himpunan flag yang ia terima. `cli::check_flags` menolak apa pun di
 luar himpunan itu, dan itulah yang mencegah `contexere stats --detial` mencetak
 ikhtisar bawaan lalu keluar dengan status 0.
 
-Bantuan per perintah itu nyata dan layak dibaca: `omni <perintah> --help`. Kalau
+Bantuan per perintah itu nyata dan layak dibaca: `contexere <perintah> --help`. Kalau
 rujukan ini dan bantuannya berbeda, yang tercatat di sini adalah apa yang
 diterima kode sumbernya.

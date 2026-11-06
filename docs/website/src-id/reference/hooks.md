@@ -12,7 +12,7 @@ Titik masuk yang dipanggil host agent. Anda tidak pernah mengetik ini;
 | `contexere --session-end` | Sesi berakhir |
 | `contexere --pre-compact` | Sebelum host memadatkan percakapan |
 | `contexere --mcp` | Jalan sebagai server MCP lewat stdio |
-| `cmd \| omni` | Mode pipa, tanpa host sama sekali |
+| `cmd \| contexere` | Mode pipa, tanpa host sama sekali |
 
 ## Satu panggilan, dua hook
 

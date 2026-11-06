@@ -3,7 +3,7 @@
 **Agent AI Anda membayar untuk membaca keluaran yang sama berulang kali. Contexere
 menghentikan itu.**
 
-OMNI sekarang bernama Contexere, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi. Contexere sedang berkembang menjadi satu tempat untuk skill, key, dan memori semua agent yang kamu pakai, di mana agent memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
+OMNI sekarang bernama Contexere, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; [pindah dari nama lama](use/install.md#pindah-dari-nama-omni) cukup `contexere init --<host>` untuk setiap agent. Contexere sedang berkembang menjadi satu tempat untuk skill, key, dan memori semua agent yang kamu pakai, di mana agent memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
 
 Contexere adalah satu program kecil yang duduk di antara terminal Anda dan agent
 Anda. Jalannya lokal, tidak perlu API key, dan setelah terpasang Anda tidak
@@ -16,7 +16,7 @@ brew install fajarhide/tap/contexere && contexere init
 Di dalam Claude Code cukup dua baris, sisanya diurus agent:
 
 ```
-/plugin marketplace add fajarhide/omni
+/plugin marketplace add fajarhide/contexere
 /plugin install omni@omni
 ```
 
@@ -209,6 +209,6 @@ jalankan `contexere stats` setelah beberapa hari.
 
 [Discord](https://discord.gg/zHTuvZhF2M) untuk pertanyaan, terutama untuk kasus
 yang paling dipedulikan proyek ini: Contexere menyatakan hasil yang tidak didukung
-masukannya. [Issue tracker](https://github.com/fajarhide/omni/issues) juga bisa.
+masukannya. [Issue tracker](https://github.com/fajarhide/contexere/issues) juga bisa.
 Laporan yang memuat keluaran mentah dan keluaran hasil olahan berdampingan akan
 diperbaiki lewat jalur mana pun.

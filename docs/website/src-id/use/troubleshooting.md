@@ -16,7 +16,7 @@ daripada apa pun di halaman ini.
 Lalu periksa jalur mana yang berjalan, karena keduanya tidak sama:
 
 ```sh
-contexere --version && ls -la "$(which omni)"   # binary yang terpasang, bukan checkout Anda
+contexere --version && ls -la "$(which contexere)"   # binary yang terpasang, bukan checkout Anda
 contexere doctor
 ```
 
@@ -49,7 +49,7 @@ pembaca berkas milik agent Anda, berkas skill dan system prompt ada di luarnya.
 **Jangan menilai Contexere dari keluaran yang Anda baca lewat Contexere.** Sebuah
 `cargo test` yang dibaca lewat hook pernah melaporkan "1 failed" untuk suite yang
 oleh cargo sendiri disebut 398 lulus. Alihkan ke sebuah berkas dengan
-`OMNI_PASSTHROUGH=1` sebelum membuat klaim apa pun tentang sebuah hasil.
+`CONTEXERE_PASSTHROUGH=1` sebelum membuat klaim apa pun tentang sebuah hasil.
 
 **Jangan mem-`grep` keluaran sulingannya.** Mem-`grep` menyembunyikan judul grup
 yang sering justru membuat keluarannya ternyata tidak kehilangan apa pun. Hasil
@@ -62,7 +62,7 @@ memberi masukan ke penilainya, jadi perintah yang sama bisa disuling berbeda di
 dua run. Isolasi:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db contexere exec <perintah>
+CONTEXERE_DB_PATH=/tmp/probe.db contexere exec <perintah>
 ```
 
 **Reproduksi yang gagal bukan sebuah vonis.** Kalau sebuah bug tidak muncul lagi,
@@ -99,7 +99,7 @@ ms terhadap basis data yang baru dan 61 ms terhadap yang 205 MB.
 
 **`contexere exec` tampak menggantung.**
 Basis data bersama yang hangat membuat penulisan berbaris antre. Beri ia miliknya
-sendiri dengan `OMNI_DB_PATH`.
+sendiri dengan `CONTEXERE_DB_PATH`.
 
 ## Melaporkannya
 
@@ -121,7 +121,7 @@ Reproduksi pada perintah sintetis kalau bisa, supaya tidak ada yang perlu
 disamarkan. Keluaran terminal sungguhan membawa nama host, id akun dan alamat
 internal lebih sering daripada dugaan orang.
 
-Tracker: <https://github.com/fajarhide/omni/issues>
+Tracker: <https://github.com/fajarhide/contexere/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, kalau Anda lebih suka bertanya sebelum
 melapor.

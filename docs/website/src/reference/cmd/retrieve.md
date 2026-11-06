@@ -17,7 +17,7 @@ It returns the original bytes. Not a summary, not a re-run of your command, and 
 approximation.
 
 Works on every host, in any session, whether or not MCP is wired. Agents with the MCP
-server registered call `omni_retrieve` instead and never have to ask you.
+server registered call `contexere_retrieve` instead and never have to ask you.
 
 ## What can go wrong
 

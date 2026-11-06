@@ -111,7 +111,7 @@ have. If the output is identical with and without it, Contexere was not involved
 
 **Reading a file through your shell may arrive distilled.** Since the hook really does
 rewrite Bash output, a `cat` or `sed` of a source file can come back folded. Use your
-agent's file-reading tool, or `OMNI_PASSTHROUGH=1`, when you need exact bytes.
+agent's file-reading tool, or `CONTEXERE_PASSTHROUGH=1`, when you need exact bytes.
 
 **A matched command may be rewritten before it runs.** The pre-hook turns some
 commands into `contexere exec`, redirection included, so the log file you later read is the

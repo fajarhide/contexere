@@ -7,20 +7,20 @@ iterations that would otherwise reset.
 ## Setting a loop up
 
 ```sh
-export OMNI_LOOP_ID=$(uuidgen)
-export OMNI_LOOP_GOAL="Migrate the billing service off the legacy queue"
-export OMNI_LOOP_BUDGET=100000
-export OMNI_LOOP_ITERATION=0
+export CONTEXERE_LOOP_ID=$(uuidgen)
+export CONTEXERE_LOOP_GOAL="Migrate the billing service off the legacy queue"
+export CONTEXERE_LOOP_BUDGET=100000
+export CONTEXERE_LOOP_ITERATION=0
 ```
 
 | variable | constraint |
 |---|---|
-| `OMNI_LOOP_ID` | alphanumeric and dash, 64 characters |
-| `OMNI_LOOP_GOAL` | 500 characters, no shell metacharacters |
-| `OMNI_LOOP_BUDGET` | token budget per iteration, up to 10M |
-| `OMNI_LOOP_ITERATION` | current iteration, default 0 |
-| `OMNI_SUBAGENT=1` | sub-agent mode |
-| `OMNI_AGENT_ID` | identity, so traces stay separable |
+| `CONTEXERE_LOOP_ID` | alphanumeric and dash, 64 characters |
+| `CONTEXERE_LOOP_GOAL` | 500 characters, no shell metacharacters |
+| `CONTEXERE_LOOP_BUDGET` | token budget per iteration, up to 10M |
+| `CONTEXERE_LOOP_ITERATION` | current iteration, default 0 |
+| `CONTEXERE_SUBAGENT=1` | sub-agent mode |
+| `CONTEXERE_AGENT_ID` | identity, so traces stay separable |
 
 ## Budget
 
@@ -33,8 +33,8 @@ The budget is estimated context window usage per iteration, not a spend limit.
 | large refactor, 20 to 100 | 80,000 | aggressive distillation, predictive warnings |
 | marathon, 100+ | 60,000 | maximum compression, loop memory persistence |
 
-Warnings fire at 65% and critical at 82%, adjustable with `OMNI_PRESSURE_WARN` and
-`OMNI_PRESSURE_CRITICAL`.
+Warnings fire at 65% and critical at 82%, adjustable with `CONTEXERE_PRESSURE_WARN` and
+`CONTEXERE_PRESSURE_CRITICAL`.
 
 > Do not set a budget above 1M: warnings will never fire before real exhaustion. Do not
 > set one below 30K: the agent will compact constantly and lose short-term memory.
@@ -46,16 +46,16 @@ preserves test detail, "debug" keeps error context, "refactor" compresses harder
 
 None of these are advertised by default. Contexere tells a host about the tools its tier
 actually uses, and the loop tools are outside that set, so an orchestrator that calls them
-needs `OMNI_MCP_TOOLS=all` in its environment. `contexere doctor` prints which set is in force.
+needs `CONTEXERE_MCP_TOOLS=all` in its environment. `contexere doctor` prints which set is in force.
 The MCP tools reference has the per-tier lists.
 
 | tool | when |
 |---|---|
-| `omni_loop_status` | once before each iteration, the cheapest full picture |
-| `omni_budget_status` | before anything expensive |
-| `omni_set_loop_context` | when the goal or scope shifts mid-loop |
-| `omni_loop_memory` | read and write memory that survives a session restart |
-| `omni_verify` | as a checker, to evaluate the maker's recent work |
+| `contexere_loop_status` | once before each iteration, the cheapest full picture |
+| `contexere_budget_status` | before anything expensive |
+| `contexere_set_loop_context` | when the goal or scope shifts mid-loop |
+| `contexere_loop_memory` | read and write memory that survives a session restart |
+| `contexere_verify` | as a checker, to evaluate the maker's recent work |
 
 ## Maker and checker
 
@@ -65,15 +65,15 @@ Two agents, one shared context layer.
 LOOP_ID=$(uuidgen)
 
 # the loop tools are outside the default advertised set
-export OMNI_MCP_TOOLS=all
+export CONTEXERE_MCP_TOOLS=all
 
 # maker
-export OMNI_AGENT_ID=maker OMNI_LOOP_ID=$LOOP_ID
+export CONTEXERE_AGENT_ID=maker CONTEXERE_LOOP_ID=$LOOP_ID
 claude "Implement: $GOAL"
 
 # checker
-export OMNI_AGENT_ID=checker OMNI_SUBAGENT=1
-RESULT=$(claude "Verify the implementation of: $GOAL. Use the omni_verify tool.")
+export CONTEXERE_AGENT_ID=checker CONTEXERE_SUBAGENT=1
+RESULT=$(claude "Verify the implementation of: $GOAL. Use the contexere_verify tool.")
 
 case "$RESULT" in
   *PASS*) echo "verification passed" ;;
@@ -81,8 +81,8 @@ case "$RESULT" in
 esac
 ```
 
-Distinct `OMNI_AGENT_ID` values are what keep the two from contaminating each other.
-Traces are tagged by agent, so `omni_verify` can read across sessions while writes stay
+Distinct `CONTEXERE_AGENT_ID` values are what keep the two from contaminating each other.
+Traces are tagged by agent, so `contexere_verify` can read across sessions while writes stay
 isolated.
 
 Four things that make it work: give the checker specific measurable criteria, keep
@@ -98,7 +98,7 @@ contexere stats --json          # for an orchestrator to read
 contexere doctor                # health
 ```
 
-`contexere handoff` is **not** a CLI subcommand. It was removed. The `omni_handoff` MCP tool
+`contexere handoff` is **not** a CLI subcommand. It was removed. The `contexere_handoff` MCP tool
 is unchanged, so session export is reachable from an MCP client rather than a shell.
 
 ## A caution about the numbers

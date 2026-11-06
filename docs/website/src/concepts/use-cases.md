@@ -160,7 +160,7 @@ prefix of every request of every session. Unlike output, a prefix byte is not pa
 it is re-read on every request after the first.
 
 **What Contexere does.** It advertises the tools your host's tier actually uses, nine instead
-of twenty-five, with `OMNI_MCP_TOOLS=all` to restore the rest and `contexere doctor` naming
+of twenty-five, with `CONTEXERE_MCP_TOOLS=all` to restore the rest and `contexere doctor` naming
 which set is in force.
 
 **The number: 4,940 bytes off every request.** Measured across 229 sessions: sixteen of

@@ -84,7 +84,7 @@ contexere remember 'The staging database ignores migrations run outside the depl
 ```
 
 Menyimpan sebuah fakta di ingatan permanen, bisa diambil kembali lewat
-`omni_recall` atau lewat suntikan konteks sesi.
+`contexere_recall` atau lewat suntikan konteks sesi.
 
 Layak disimpan: sebuah keputusan dan alasannya, sebuah jebakan, sebuah batasan
 yang tidak disebut berkas mana pun. Tidak layak disimpan: apa pun yang sudah

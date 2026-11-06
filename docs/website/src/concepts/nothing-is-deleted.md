@@ -13,7 +13,7 @@ contexere retrieve <handle>
 ```
 
 That works from any shell, in any session, on any host, and it does not re-run your
-command. Where MCP is wired, the agent can do it itself with the `omni_retrieve` tool
+command. Where MCP is wired, the agent can do it itself with the `contexere_retrieve` tool
 without asking you.
 
 ## Why this is the load-bearing rule

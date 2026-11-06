@@ -25,15 +25,15 @@ irm omni.weekndlabs.com/install.ps1 | iex
 **Dari sumber**, yang butuh toolchain sesuai pin di `rust-toolchain.toml`:
 
 ```sh
-git clone https://github.com/fajarhide/omni
-cd omni
+git clone https://github.com/fajarhide/contexere
+cd contexere
 cargo build --release
 ```
 
 **Dari dalam Claude Code**, kalau Anda lebih suka agent yang mengurus sisanya:
 
 ```
-/plugin marketplace add fajarhide/omni
+/plugin marketplace add fajarhide/contexere
 /plugin install omni@omni
 ```
 
@@ -121,11 +121,25 @@ brew upgrade contexere
 Dipasang sebelum 0.8.2 sebagai `omni`? Formula-nya kini bernama `contexere`, dan Homebrew melewati formula yang berganti nama dari sebuah tap sampai kamu mempercayainya. `brew upgrade` lalu tidak berkata apa-apa dan tetap di versi lama. Jalankan sekali:
 
 ```sh
-brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/omni
+brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/contexere
 ```
 
 Jalankan ulang `contexere init` sesudahnya kalau sebuah rilis mengubah kontrak
 hook-nya. Changelog menyebut kapan itu terjadi.
+
+## Pindah dari nama omni
+
+Contexere bernama OMNI sampai 0.8.0, dan nama lamanya masih berfungsi. Nama lama berhenti berfungsi di 0.9.0 ([#1067](https://github.com/fajarhide/contexere/issues/1067)):
+
+| nama lama | menjadi | yang perlu Anda lakukan |
+| --- | --- | --- |
+| perintah `omni` | `contexere` | jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai (`--claude`, `--codex`, `--cursor` dan seterusnya); setiap kali jalan, ia menulis ulang hook dan entri MCP agent itu |
+| setelan `OMNI_*` | `CONTEXERE_*` | ganti namanya di profil shell atau CI; `CONTEXERE_*` sudah menang kalau keduanya diset |
+| tool MCP `omni_*` | `contexere_*` | tidak ada, setelah `contexere init` mengganti entri MCP-nya |
+| marker `[OMNI` | `[CONTEXERE` | perbarui skrip atau skill buatan Anda yang mencocokkan awalan itu |
+| direktori `~/.omni` | `~/.contexere` | tidak ada; riwayat Anda tetap utuh |
+
+`contexere doctor` menampilkan semua yang di mesin Anda masih memakai nama lama, jadi Anda tahu agent mana yang tersisa.
 
 ## Cabut
 

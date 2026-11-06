@@ -40,11 +40,11 @@ every prompt rather than drifting off task over a long session.
 contexere remember 'The staging database ignores migrations run outside the deploy job'
 ```
 
-Agents with MCP wired call `omni_remember` themselves, and pull facts back with
-`omni_recall`, which is a search across stored knowledge. Both are advertised on the MCP-only and Handoff-first tiers.
+Agents with MCP wired call `contexere_remember` themselves, and pull facts back with
+`contexere_recall`, which is a search across stored knowledge. Both are advertised on the MCP-only and Handoff-first tiers.
 A Full-tier host such as Claude Code writes through `contexere remember` in the shell Contexere
-already hooks, and reaches `omni_recall`, which has no CLI equivalent, with
-`OMNI_MCP_TOOLS=all`.
+already hooks, and reaches `contexere_recall`, which has no CLI equivalent, with
+`CONTEXERE_MCP_TOOLS=all`.
 
 Store what is not derivable from the code: a decision and its reason, a gotcha, a
 constraint that no file states. Do not store what the repository already records.
@@ -63,10 +63,10 @@ contexere session --transcript
 contexere session --health
 ```
 
-For moving to a machine or a host that shares no database, `omni_handoff` exports the
+For moving to a machine or a host that shares no database, `contexere_handoff` exports the
 current session state as portable markdown you can paste into a new session. It is an
 MCP tool only; the CLI subcommand was removed. It is outside the set advertised by
-default, so set `OMNI_MCP_TOOLS=all` before reaching for it.
+default, so set `CONTEXERE_MCP_TOOLS=all` before reaching for it.
 
 ## Engrams
 
@@ -85,9 +85,9 @@ contexere query errors in last 5 commands
 contexere patterns                # errors that keep coming back across sessions
 ```
 
-`omni_insight` ranks the same recurring issues project-wide, and is an MCP tool with no
+`contexere_insight` ranks the same recurring issues project-wide, and is an MCP tool with no
 CLI equivalent, and it is outside the default advertised set, so it needs
-`OMNI_MCP_TOOLS=all`. It was listed in the block above as though you could run it.
+`CONTEXERE_MCP_TOOLS=all`. It was listed in the block above as though you could run it.
 
 ## What it cannot do
 

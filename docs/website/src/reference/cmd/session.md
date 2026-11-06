@@ -42,10 +42,10 @@ not lose the project context.
 
 `--inject` is the manual form of that, for a host wired to consume it.
 
-For crossing to a machine that shares no database, use the `omni_handoff` MCP tool,
+For crossing to a machine that shares no database, use the `contexere_handoff` MCP tool,
 which exports the state as portable markdown. The CLI subcommand of that name was
 removed; the MCP tool is unchanged. It is outside the default advertised set, so it
-needs `OMNI_MCP_TOOLS=all`.
+needs `CONTEXERE_MCP_TOOLS=all`.
 
 ## Retention
 

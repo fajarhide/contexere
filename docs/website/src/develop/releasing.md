@@ -24,7 +24,7 @@ git commit -am "docs(changelog): cut x.y.z"
 make bump VERSION=x.y.z
 ```
 
-A correctly cut build prints `omni vx.y.z [AHEAD/RC]` with no `UNRELEASED` line. Verify
+A correctly cut build prints `contexere vx.y.z [AHEAD/RC]` with no `UNRELEASED` line. Verify
 that before pushing the tag.
 
 **The half of that line to trust afterwards is the missing `UNRELEASED`, not the

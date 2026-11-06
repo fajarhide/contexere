@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere がノイズの多い cargo test の結果を判定だけに蒸留し、そのあと contexere stats を実行する様子" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは引き続き使えるので、既存のインストールは変更不要です。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
+> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
 
 ## なぜ必要か
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-既存のインストールは `omni` という名前のまま動作します。同じプログラムです。
+既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。エージェントごとに `contexere init --<host>` を実行すると移行できます。
 
 ## 使い方
 
@@ -78,10 +78,10 @@ contexere stats     # 自分の履歴で Contexere が節約した量
 | ティア | エージェント |
 |---|---|
 | **Full** (モデルが読む前にツール出力を書き換える) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| contexere` 経由) |
-| **Handoff-first** (`omni_run` を通してエージェントが実行するものを短くする) | Cursor, Windsurf |
-| **MCP-only** (メモリとリコール、加えて `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (`contexere_run` を通してエージェントが実行するものを短くする) | Cursor, Windsurf |
+| **MCP-only** (メモリとリコール、加えて `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex は信頼したフックしか実行しません。`contexere init --codex` のあと、`codex` を一度起動して承認してください ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex は信頼したフックしか実行しません。`contexere init --codex` のあと、`codex` を一度起動して承認してください ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## ドキュメント
 
@@ -94,7 +94,7 @@ Issue と Pull Request を歓迎します。まず [CONTRIBUTING.md](../CONTRIBU
 
 ## セキュリティ
 
-公開の Issue は立てないでください。[非公開で報告](https://github.com/fajarhide/omni/security/advisories/new)してください。詳細は [SECURITY.md](../SECURITY.md) にあります。
+公開の Issue は立てないでください。[非公開で報告](https://github.com/fajarhide/contexere/security/advisories/new)してください。詳細は [SECURITY.md](../SECURITY.md) にあります。
 
 ## ライセンス
 

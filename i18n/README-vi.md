@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere chưng cất một lần chạy cargo test nhiều nhiễu xuống còn kết luận, rồi chạy contexere stats" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động, nên các bản cài sẵn không cần thay đổi gì. Kỹ năng, khóa mà agent dùng mà không bao giờ nhìn thấy, và bộ nhớ giữa các agent đang được phát triển; hiện tại nó cung cấp lớp ngữ cảnh và token.
+> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài sẵn sang. Kỹ năng, khóa mà agent dùng mà không bao giờ nhìn thấy, và bộ nhớ giữa các agent đang được phát triển; hiện tại nó cung cấp lớp ngữ cảnh và token.
 
 ## Tại sao
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Các bản cài sẵn vẫn hoạt động dưới tên `omni`, đó là cùng một chương trình.
+Các bản cài sẵn vẫn hoạt động dưới tên `omni`, cùng một chương trình, đến bản 0.9.0. Chạy `contexere init --<host>` cho từng agent để chuyển sang.
 
 ## Sử dụng
 
@@ -78,10 +78,10 @@ Sau `init`, các Hook tự chạy. Không cần gõ thêm tiền tố nào.
 | Tầng | Agent |
 |---|---|
 | **Full** (viết lại output công cụ trước khi model đọc) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (qua `cmd \| contexere`) |
-| **Handoff-first** (rút ngắn những gì agent chạy qua `omni_run`) | Cursor, Windsurf |
-| **MCP-only** (bộ nhớ và recall, cộng thêm `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (rút ngắn những gì agent chạy qua `contexere_run`) | Cursor, Windsurf |
+| **MCP-only** (bộ nhớ và recall, cộng thêm `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex chỉ chạy các hook mà nó tin tưởng: sau `contexere init --codex`, hãy khởi động `codex` một lần và duyệt chúng ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex chỉ chạy các hook mà nó tin tưởng: sau `contexere init --codex`, hãy khởi động `codex` một lần và duyệt chúng ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## Tài liệu
 
@@ -94,7 +94,7 @@ Chào đón issue và pull request. Hãy bắt đầu từ [CONTRIBUTING.md](../
 
 ## Bảo mật
 
-Đừng mở issue công khai. [Báo cáo riêng tư](https://github.com/fajarhide/omni/security/advisories/new); chi tiết ở [SECURITY.md](../SECURITY.md).
+Đừng mở issue công khai. [Báo cáo riêng tư](https://github.com/fajarhide/contexere/security/advisories/new); chi tiết ở [SECURITY.md](../SECURITY.md).
 
 ## Giấy phép
 

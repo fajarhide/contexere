@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere 把嘈杂的 cargo test 输出蒸馏成结论，然后运行 contexere stats" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令仍然可用，现有安装无需任何改动。技能、智能体无需看到即可使用的密钥以及跨智能体记忆即将推出；目前发布的是上下文与 token 层。
+> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令可用到 0.9.0；为你使用的每个智能体运行 `contexere init --<host>` 即可迁移现有安装。技能、智能体无需看到即可使用的密钥以及跨智能体记忆即将推出；目前发布的是上下文与 token 层。
 
 ## 为什么需要它
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-现有安装继续以 `omni` 这个名字工作，它是同一个程序。
+现有安装在 0.9.0 之前继续以 `omni` 这个名字工作，它是同一个程序。为每个智能体运行 `contexere init --<host>` 即可迁移。
 
 ## 使用
 
@@ -78,10 +78,10 @@ contexere stats     # Contexere 在你自己的历史记录上节省了多少
 | 层级 | 智能体 |
 |---|---|
 | **Full** (在模型读取之前重写工具输出) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider（通过 `cmd \| contexere`） |
-| **Handoff-first** (缩短智能体经由 `omni_run` 执行的内容) | Cursor, Windsurf |
-| **MCP-only** (记忆与召回，外加 `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (缩短智能体经由 `contexere_run` 执行的内容) | Cursor, Windsurf |
+| **MCP-only** (记忆与召回，外加 `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex 只运行它信任的 Hook：执行 `contexere init --codex` 之后，启动一次 `codex` 并批准它们 ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex 只运行它信任的 Hook：执行 `contexere init --codex` 之后，启动一次 `codex` 并批准它们 ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## 文档
 
@@ -94,7 +94,7 @@ Codex 只运行它信任的 Hook：执行 `contexere init --codex` 之后，启�
 
 ## 安全
 
-请不要公开提交 Issue。请[私下报告](https://github.com/fajarhide/omni/security/advisories/new)；详情见 [SECURITY.md](../SECURITY.md)。
+请不要公开提交 Issue。请[私下报告](https://github.com/fajarhide/contexere/security/advisories/new)；详情见 [SECURITY.md](../SECURITY.md)。
 
 ## 许可证
 

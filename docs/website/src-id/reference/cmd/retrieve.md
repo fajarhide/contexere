@@ -17,7 +17,7 @@ Ia mengembalikan byte aslinya. Bukan ringkasan, bukan menjalankan ulang perintah
 Anda, dan bukan perkiraan.
 
 Bekerja di semua host, di sesi mana pun, dengan atau tanpa MCP terpasang. Agent
-yang server MCP-nya terdaftar memanggil `omni_retrieve` sebagai gantinya dan
+yang server MCP-nya terdaftar memanggil `contexere_retrieve` sebagai gantinya dan
 tidak pernah perlu bertanya ke Anda.
 
 ## Apa yang bisa salah

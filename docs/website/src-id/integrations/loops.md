@@ -8,20 +8,20 @@ begitu akan direset.
 ## Menyiapkan sebuah loop
 
 ```sh
-export OMNI_LOOP_ID=$(uuidgen)
-export OMNI_LOOP_GOAL="Migrate the billing service off the legacy queue"
-export OMNI_LOOP_BUDGET=100000
-export OMNI_LOOP_ITERATION=0
+export CONTEXERE_LOOP_ID=$(uuidgen)
+export CONTEXERE_LOOP_GOAL="Migrate the billing service off the legacy queue"
+export CONTEXERE_LOOP_BUDGET=100000
+export CONTEXERE_LOOP_ITERATION=0
 ```
 
 | variabel | batasan |
 |---|---|
-| `OMNI_LOOP_ID` | alfanumerik dan tanda hubung, 64 karakter |
-| `OMNI_LOOP_GOAL` | 500 karakter, tanpa metakarakter shell |
-| `OMNI_LOOP_BUDGET` | anggaran token per iterasi, sampai 10 juta |
-| `OMNI_LOOP_ITERATION` | iterasi saat ini, bawaannya 0 |
-| `OMNI_SUBAGENT=1` | mode subagent |
-| `OMNI_AGENT_ID` | identitas, supaya jejaknya tetap bisa dipisah |
+| `CONTEXERE_LOOP_ID` | alfanumerik dan tanda hubung, 64 karakter |
+| `CONTEXERE_LOOP_GOAL` | 500 karakter, tanpa metakarakter shell |
+| `CONTEXERE_LOOP_BUDGET` | anggaran token per iterasi, sampai 10 juta |
+| `CONTEXERE_LOOP_ITERATION` | iterasi saat ini, bawaannya 0 |
+| `CONTEXERE_SUBAGENT=1` | mode subagent |
+| `CONTEXERE_AGENT_ID` | identitas, supaya jejaknya tetap bisa dipisah |
 
 ## Anggaran
 
@@ -36,7 +36,7 @@ belanja.
 | maraton, 100 ke atas | 60.000 | kompresi maksimum, ingatan loop yang bertahan |
 
 Peringatan menyala di 65% dan kritis di 82%, bisa disetel dengan
-`OMNI_PRESSURE_WARN` dan `OMNI_PRESSURE_CRITICAL`.
+`CONTEXERE_PRESSURE_WARN` dan `CONTEXERE_PRESSURE_CRITICAL`.
 
 > Jangan setel anggaran di atas 1 juta: peringatannya tidak akan pernah menyala
 > sebelum kehabisan sungguhan. Jangan setel di bawah 30 ribu: agent-nya akan
@@ -50,17 +50,17 @@ memuat "test" mempertahankan detail test, "debug" menyimpan konteks galat,
 
 Tidak satu pun dari perkakas ini diiklankan secara bawaan. Contexere hanya memberi tahu host
 tentang perkakas yang memang dipakai tier-nya, dan perkakas loop berada di luar set itu,
-jadi orkestrator yang memanggilnya membutuhkan `OMNI_MCP_TOOLS=all` di environment-nya.
+jadi orkestrator yang memanggilnya membutuhkan `CONTEXERE_MCP_TOOLS=all` di environment-nya.
 `contexere doctor` menyebutkan set mana yang sedang berlaku. Daftar per tier ada di rujukan
 perkakas MCP.
 
 | perkakas | kapan |
 |---|---|
-| `omni_loop_status` | sekali sebelum tiap iterasi, gambaran lengkap termurah |
-| `omni_budget_status` | sebelum apa pun yang mahal |
-| `omni_set_loop_context` | ketika tujuan atau cakupannya bergeser di tengah loop |
-| `omni_loop_memory` | baca dan tulis ingatan yang selamat dari restart sesi |
-| `omni_verify` | sebagai pemeriksa, untuk menilai pekerjaan terkini si pembuat |
+| `contexere_loop_status` | sekali sebelum tiap iterasi, gambaran lengkap termurah |
+| `contexere_budget_status` | sebelum apa pun yang mahal |
+| `contexere_set_loop_context` | ketika tujuan atau cakupannya bergeser di tengah loop |
+| `contexere_loop_memory` | baca dan tulis ingatan yang selamat dari restart sesi |
+| `contexere_verify` | sebagai pemeriksa, untuk menilai pekerjaan terkini si pembuat |
 
 ## Pembuat dan pemeriksa
 
@@ -70,15 +70,15 @@ Dua agent, satu lapisan konteks bersama.
 LOOP_ID=$(uuidgen)
 
 # perkakas loop berada di luar set bawaan yang diiklankan
-export OMNI_MCP_TOOLS=all
+export CONTEXERE_MCP_TOOLS=all
 
 # pembuat
-export OMNI_AGENT_ID=maker OMNI_LOOP_ID=$LOOP_ID
+export CONTEXERE_AGENT_ID=maker CONTEXERE_LOOP_ID=$LOOP_ID
 claude "Implement: $GOAL"
 
 # pemeriksa
-export OMNI_AGENT_ID=checker OMNI_SUBAGENT=1
-RESULT=$(claude "Verify the implementation of: $GOAL. Use the omni_verify tool.")
+export CONTEXERE_AGENT_ID=checker CONTEXERE_SUBAGENT=1
+RESULT=$(claude "Verify the implementation of: $GOAL. Use the contexere_verify tool.")
 
 case "$RESULT" in
   *PASS*) echo "verification passed" ;;
@@ -86,8 +86,8 @@ case "$RESULT" in
 esac
 ```
 
-Nilai `OMNI_AGENT_ID` yang berbeda itulah yang menjaga keduanya tidak saling
-mengotori. Jejaknya ditandai per agent, jadi `omni_verify` bisa membaca lintas
+Nilai `CONTEXERE_AGENT_ID` yang berbeda itulah yang menjaga keduanya tidak saling
+mengotori. Jejaknya ditandai per agent, jadi `contexere_verify` bisa membaca lintas
 sesi sementara penulisannya tetap terisolasi.
 
 Empat hal yang membuatnya bekerja: beri pemeriksanya kriteria yang spesifik dan
@@ -105,7 +105,7 @@ contexere doctor                # kesehatan
 ```
 
 `contexere handoff` **bukan** subperintah CLI. Ia sudah dihapus. Perkakas MCP
-`omni_handoff` tidak berubah, jadi ekspor sesi bisa dijangkau dari klien MCP,
+`contexere_handoff` tidak berubah, jadi ekspor sesi bisa dijangkau dari klien MCP,
 bukan dari shell.
 
 ## Peringatan soal angkanya

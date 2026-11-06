@@ -31,13 +31,13 @@
 
   // A reader who arrived through a translated README used to land here with no
   // way back to their own language. The four that are still README-only point at
-  // GitHub with absolute URLs: those files live in the omni repository, not in
+  // GitHub with absolute URLs: those files live in the contexere repository, not in
   // the site, so no relative path from /docs/ reaches them.
   //
   // English and Indonesian are the exception since #539: both are real books, so
   // their entries stay inside the manual and `manual: true` marks them as the two
   // that do not leave for GitHub.
-  var REPO = 'https://github.com/fajarhide/omni/blob/main/';
+  var REPO = 'https://github.com/fajarhide/contexere/blob/main/';
   var LANGS = [
     { code: 'EN', label: 'English', manual: true },
     { code: 'ID', label: 'Bahasa Indonesia', manual: true },

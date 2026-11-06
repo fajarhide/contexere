@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere가 시끄러운 cargo test 결과를 판정만 남기도록 증류한 뒤 contexere stats를 실행하는 모습" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 계속 동작하므로 기존 설치는 바꿀 필요가 없습니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
+> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
 
 ## 왜 필요한가
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-기존 설치는 `omni`라는 이름으로 계속 동작합니다. 같은 프로그램입니다.
+기존 설치는 0.9.0까지 `omni`라는 이름으로 동작합니다. 같은 프로그램입니다. 에이전트마다 `contexere init --<host>`를 실행하면 옮겨집니다.
 
 ## 사용법
 
@@ -78,10 +78,10 @@ contexere stats     # 내 기록에서 Contexere가 절감한 양
 | 티어 | 에이전트 |
 |---|---|
 | **Full** (모델이 읽기 전에 도구 출력을 다시 씀) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (`cmd \| contexere` 사용) |
-| **Handoff-first** (`omni_run`을 통해 에이전트가 실행하는 것을 줄임) | Cursor, Windsurf |
-| **MCP-only** (메모리와 리콜, 그리고 `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (`contexere_run`을 통해 에이전트가 실행하는 것을 줄임) | Cursor, Windsurf |
+| **MCP-only** (메모리와 리콜, 그리고 `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex는 신뢰하는 hook만 실행합니다. `contexere init --codex` 후 `codex`를 한 번 실행해 승인하세요 ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex는 신뢰하는 hook만 실행합니다. `contexere init --codex` 후 `codex`를 한 번 실행해 승인하세요 ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## 문서
 
@@ -94,7 +94,7 @@ Issue와 Pull Request를 환영합니다. [CONTRIBUTING.md](../CONTRIBUTING.md)�
 
 ## 보안
 
-공개 Issue를 열지 마세요. [비공개로 제보](https://github.com/fajarhide/omni/security/advisories/new)해 주세요. 자세한 내용은 [SECURITY.md](../SECURITY.md)에 있습니다.
+공개 Issue를 열지 마세요. [비공개로 제보](https://github.com/fajarhide/contexere/security/advisories/new)해 주세요. 자세한 내용은 [SECURITY.md](../SECURITY.md)에 있습니다.
 
 ## 라이선스
 

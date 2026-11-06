@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere يقطّر مخرجات cargo test المزعجة إلى الحكم النهائي، ثم يشغّل contexere stats" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` ما زال يعمل، فلا تحتاج التثبيتات الحالية إلى أي تغيير. المهارات، والمفاتيح التي يستخدمها وكيلك دون أن يراها أبدًا، والذاكرة بين الوكلاء في الطريق؛ وما يقدّمه اليوم هو طبقة السياق والتوكنات.
+> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. المهارات، والمفاتيح التي يستخدمها وكيلك دون أن يراها أبدًا، والذاكرة بين الوكلاء في الطريق؛ وما يقدّمه اليوم هو طبقة السياق والتوكنات.
 
 ## لماذا
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-التثبيتات الحالية تستمر في العمل باسم `omni`، وهو البرنامج نفسه.
+التثبيتات الحالية تستمر في العمل باسم `omni`، وهو البرنامج نفسه، حتى الإصدار 0.9.0. شغّل `contexere init --<host>` لكل وكيل لنقلها.
 
 ## الاستخدام
 
@@ -78,10 +78,10 @@ contexere stats     # ما وفّره Contexere من سجلّك أنت
 | المستوى | الوكلاء |
 |---|---|
 | **Full** (يعيد كتابة مخرجات الأدوات قبل أن يقرأها النموذج) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (عبر `cmd \| contexere`) |
-| **Handoff-first** (يختصر ما يشغّله الوكيل عبر `omni_run`) | Cursor, Windsurf |
-| **MCP-only** (الذاكرة والاستدعاء، إضافة إلى `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (يختصر ما يشغّله الوكيل عبر `contexere_run`) | Cursor, Windsurf |
+| **MCP-only** (الذاكرة والاستدعاء، إضافة إلى `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-يشغّل Codex الـ hooks التي يثق بها فقط: بعد `contexere init --codex` شغّل `codex` مرة واحدة ووافق عليها ([#359](https://github.com/fajarhide/omni/issues/359)).
+يشغّل Codex الـ hooks التي يثق بها فقط: بعد `contexere init --codex` شغّل `codex` مرة واحدة ووافق عليها ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## التوثيق
 
@@ -94,7 +94,7 @@ contexere stats     # ما وفّره Contexere من سجلّك أنت
 
 ## الأمان
 
-لا تفتح Issue عامًا. [أبلغ بشكل خاص](https://github.com/fajarhide/omni/security/advisories/new)؛ التفاصيل في [SECURITY.md](../SECURITY.md).
+لا تفتح Issue عامًا. [أبلغ بشكل خاص](https://github.com/fajarhide/contexere/security/advisories/new)؛ التفاصيل في [SECURITY.md](../SECURITY.md).
 
 ## الرخصة
 

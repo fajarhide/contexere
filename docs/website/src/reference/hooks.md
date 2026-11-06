@@ -12,7 +12,7 @@ into the host's configuration.
 | `contexere --session-end` | Session ends |
 | `contexere --pre-compact` | Before the host compacts the conversation |
 | `contexere --mcp` | Run as an MCP server over stdio |
-| `cmd \| omni` | Pipe mode, no host involved |
+| `cmd \| contexere` | Pipe mode, no host involved |
 
 ## One call, both hooks
 

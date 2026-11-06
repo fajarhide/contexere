@@ -50,7 +50,7 @@ sesi memberi masukan ke penilainya. Beri setiap penyelidikan basis datanya
 sendiri:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db contexere exec <perintah>
+CONTEXERE_DB_PATH=/tmp/probe.db contexere exec <perintah>
 ```
 
 Basis data bersama yang hangat juga membuat penulisan berbaris antre, dan itu

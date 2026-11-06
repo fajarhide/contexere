@@ -30,7 +30,7 @@ cargo test --test savings_assertions    # per-filter savings thresholds
 cargo test --test security_tests
 cargo test distillers::tests            # snapshots
 cargo insta review                      # approve snapshot changes
-tests/smoke_test.sh ./target/debug/omni
+tests/smoke_test.sh ./target/debug/contexere
 ```
 
 `tests/fixtures/` holds 45 realistic tool outputs. Add real output from the real tool,

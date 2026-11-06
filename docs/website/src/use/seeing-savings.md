@@ -126,7 +126,7 @@ contexere patterns                    # errors that keep coming back
 contexere patterns --tool cargo
 ```
 
-`omni_history` gives the same per-call rows to an MCP client, on the tiers that advertise
+`contexere_history` gives the same per-call rows to an MCP client, on the tiers that advertise
 it. On a Full-tier host it costs more in the prefix than it earns, so the route there is
 `contexere stats --view detail`, which folds repeated commands into one row with a count. There
 is no `contexere history` subcommand; this page listed one until 0.7.4.
@@ -141,4 +141,4 @@ forms are listed in its own help.
 > Never read `sqlite3` output through the Bash hook while investigating Contexere. The
 > pipeline can fold the rows you are trying to count, and a `LIKE` filter that catches
 > the wrong rows has already put a wrong figure into a published issue. List the rows
-> before quoting any aggregate over them, and set `OMNI_PASSTHROUGH=1`.
+> before quoting any aggregate over them, and set `CONTEXERE_PASSTHROUGH=1`.
