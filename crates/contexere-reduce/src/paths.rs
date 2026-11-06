@@ -59,6 +59,11 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
     if legacy.exists() {
         return adopt_legacy(&new, &legacy);
     }
+    // Another process renamed `~/.omni` between the two checks, before its link
+    // appeared: use the moved tree rather than fall through to XDG.
+    if new.exists() {
+        return new;
+    }
     if let Some(p) = env::var_os(xdg_var).filter(|p| !p.is_empty()) {
         let base = PathBuf::from(p);
         let (new, old) = (base.join("contexere"), base.join("omni"));

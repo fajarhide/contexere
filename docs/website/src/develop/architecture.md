@@ -49,7 +49,7 @@ repeated inputs emit different bytes.
 
 ## The database
 
-One SQLite file, `~/.contexere/contexere.db`.
+One SQLite file, `~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni).
 
 | table | holds |
 |---|---|

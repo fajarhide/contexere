@@ -92,6 +92,6 @@ CLI equivalent, and it is outside the default advertised set, so it needs
 ## What it cannot do
 
 It is per machine. There is no sync, no server, and no shared store between people.
-`~/.contexere/contexere.db` is the whole of it, and a remote archive was
+`~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni) is the whole of it, and a remote archive was
 [explicitly not built](../develop/direction.md#non-goals) rather than merely not built
 yet.

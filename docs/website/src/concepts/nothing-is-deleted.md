@@ -56,7 +56,7 @@ number in [Benchmarks](../develop/benchmarks.md) names the window it was measure
 
 ## Where it lives
 
-`~/.contexere/contexere.db`, a single SQLite file. It never leaves the machine.
+`~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni), a single SQLite file. It never leaves the machine.
 
 ```sh
 contexere stats            # what it has been doing

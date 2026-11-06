@@ -1,5 +1,8 @@
 //! #1063: the first run of a Contexere build moves an `omni` install's
 //! `~/.omni` to `~/.contexere`, and `stats` still reads the old history.
+//! Unix only: `dirs::home_dir()` ignores `HOME` on Windows, so a fake home there
+//! would be the developer's real profile.
+#![cfg(unix)]
 
 use std::io::Write;
 use std::path::Path;
@@ -65,7 +68,6 @@ fn moves_the_omni_home_and_keeps_its_history() {
         "~/.omni was not moved to ~/.contexere"
     );
     assert_eq!(after, before, "stats lost the old history in the move");
-    #[cfg(unix)]
     assert!(
         std::fs::symlink_metadata(&old)
             .expect("old path")

@@ -96,7 +96,7 @@ persentase.
 **Baris terminal bukan token.** Keluaran yang ditulis ke TTY dibaca manusia,
 bukan model. Pada satu pemasangan, baris seperti itu 73% dari seluruh byte yang
 diklaim Contexere sudah dihemat. `stats` sekarang mengecualikannya, begitu juga
-harness benchmark-nya, tapi siapa pun yang mengueri `~/.contexere/contexere.db` langsung
+harness benchmark-nya, tapi siapa pun yang mengueri `~/.contexere/contexere.db` (`omni.db` pada instalasi yang di-upgrade dari omni) langsung
 harus menyaring `agent_id` sendiri.
 
 **Angka tinggi pantas dicurigai.** Cacat terburuk di proyek ini melaporkan

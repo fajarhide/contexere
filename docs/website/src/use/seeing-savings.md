@@ -136,7 +136,7 @@ forms are listed in its own help.
 
 ## Querying the database directly
 
-`~/.contexere/contexere.db` is plain SQLite and there is nothing stopping you.
+`~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni) is plain SQLite and there is nothing stopping you.
 
 > Never read `sqlite3` output through the Bash hook while investigating Contexere. The
 > pipeline can fold the rows you are trying to count, and a `LIKE` filter that catches

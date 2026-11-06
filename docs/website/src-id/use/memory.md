@@ -96,7 +96,7 @@ Anda bisa menjalankannya.
 ## Yang tidak bisa ia lakukan
 
 Ia per mesin. Tidak ada sinkronisasi, tidak ada server, dan tidak ada penyimpanan
-bersama antar orang. `~/.contexere/contexere.db` adalah keseluruhannya, dan arsip jarak
+bersama antar orang. `~/.contexere/contexere.db` (`omni.db` pada instalasi yang di-upgrade dari omni) adalah keseluruhannya, dan arsip jarak
 jauh
 [secara eksplisit tidak dibangun](https://omni.weekndlabs.com/docs/develop/direction#non-goals),
 bukan sekadar belum dibangun.

@@ -90,7 +90,7 @@ hang against the live one.
 
 ## Before you write any of it
 
-Measure the workload. `~/.contexere/contexere.db` prices a proposal in one query, and the answer
+Measure the workload. `~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni) prices a proposal in one query, and the answer
 is often the opposite of the request.
 
 "Improve the python3 distiller" turned into two facts in two queries: `python3` was
