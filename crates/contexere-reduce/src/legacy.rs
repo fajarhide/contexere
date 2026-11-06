@@ -45,12 +45,13 @@ fn is_omni_name(argv0: &Path) -> bool {
     argv0.file_stem().is_some_and(|s| s == "omni")
 }
 
-/// The one line a person who types `omni` sees, on stderr (#876 step 1). Stdout is
+/// The one line a person who types `omni` sees, on stderr (#876 step 1), naming the
+/// release that removes the name (#1066). Stdout is
 /// never touched, and with stderr off a terminal (a hook, a host's MCP client) the
 /// line is not printed at all, so nothing that parses our output changes.
 pub fn old_name_notice(argv0: &Path, stderr_is_terminal: bool) -> Option<&'static str> {
     (stderr_is_terminal && is_omni_name(argv0)).then_some(
-        "omni is now contexere. This name keeps working; `contexere doctor` lists what still uses it.",
+        "omni is now contexere. This name stops working in 0.9.0; `contexere doctor` lists what still uses it.",
     )
 }
 
@@ -146,6 +147,8 @@ mod tests {
     fn tells_a_person_typing_omni_at_a_terminal() {
         let notice = old_name_notice(Path::new("/opt/homebrew/bin/omni"), true);
         assert!(notice.is_some_and(|n| n.contains("contexere doctor")));
+        // #1066: the notice names the release that removes the old name.
+        assert!(notice.is_some_and(|n| n.contains("stops working in 0.9.0")));
     }
 
     #[test]
