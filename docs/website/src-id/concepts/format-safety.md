@@ -49,7 +49,7 @@ Satu baris tidak membuktikan apa pun.
 ## Mematikannya, dan kapan perlu
 
 ```sh
-OMNI_PASSTHROUGH=1 <perintah Anda>
+CONTEXERE_PASSTHROUGH=1 <perintah Anda>
 ```
 
 Melewati pipeline sepenuhnya. Pakai ketika Anda sedang menelusuri Contexere itu
@@ -62,7 +62,7 @@ ia mewarisi lingkungan host dan tidak pernah melihat variabel yang Anda tulis di
 depan sebuah perintah. Yang ia lihat adalah string perintahnya, jadi Contexere membaca
 penugasan variabelnya di situ. Dua akibat yang layak diketahui: hanya penugasan
 **di depan** yang dihitung, posisi yang sama dengan yang akan dipakai shell, dan
-`echo OMNI_PASSTHROUGH=1` menyebut namanya tanpa menyetel apa pun sehingga tetap
+`echo CONTEXERE_PASSTHROUGH=1` menyebut namanya tanpa menyetel apa pun sehingga tetap
 disuling. Meng-export-nya untuk satu sesi penuh bekerja seperti biasa.
 
 Ini variabel lingkungan paling berguna di sini, dan hal pertama yang harus diraih

@@ -8,9 +8,9 @@
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 <img src="../media/demo.gif" alt="Contexere mendistilasi hasil cargo test yang bising sampai ke verdict-nya, lalu contexere stats" width="820" />
@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi, jadi instalasi yang ada tidak perlu diubah. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
+> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; jalankan `contexere init` sekali untuk memindahkan instalasi yang ada. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
 
 ## Kenapa
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, yaitu program yang sama.
+Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, program yang sama, sampai 0.9.0. Jalankan `contexere init` sekali untuk memindahkannya.
 
 ## Penggunaan
 
@@ -78,10 +78,10 @@ Setelah `init`, Hook berjalan sendiri. Tidak ada yang perlu diberi awalan.
 | Tier | Agent |
 |---|---|
 | **Full** (menulis ulang output tool sebelum model membacanya) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (lewat `cmd \| contexere`) |
-| **Handoff-first** (memendekkan apa yang dijalankan agent lewat `omni_run`) | Cursor, Windsurf |
-| **MCP-only** (memori dan recall, plus `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (memendekkan apa yang dijalankan agent lewat `contexere_run`) | Cursor, Windsurf |
+| **MCP-only** (memori dan recall, plus `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex hanya menjalankan hook yang ia percaya: setelah `contexere init --codex`, jalankan `codex` sekali dan setujui hook-nya ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex hanya menjalankan hook yang ia percaya: setelah `contexere init --codex`, jalankan `codex` sekali dan setujui hook-nya ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## Dokumentasi
 
@@ -94,7 +94,7 @@ Issue dan pull request diterima. Mulai dari [CONTRIBUTING.md](../CONTRIBUTING.md
 
 ## Keamanan
 
-Jangan buka issue publik. [Laporkan secara privat](https://github.com/fajarhide/omni/security/advisories/new); rinciannya ada di [SECURITY.md](../SECURITY.md).
+Jangan buka issue publik. [Laporkan secara privat](https://github.com/fajarhide/contexere/security/advisories/new); rinciannya ada di [SECURITY.md](../SECURITY.md).
 
 ## Lisensi
 

@@ -38,7 +38,7 @@ Archived content is capped at 64 KB per block. That cap came from a measurement:
 archiving every lossy distillation cost 83.1 MB over 30 days, and the cap brought it
 to 13.3 MB while still covering 3,604 of 3,657 rows.
 
-Benchmark traces are pruned at seven days (`OMNI_TRACE_RETENTION_DAYS`). That prune
+Benchmark traces are pruned at seven days (`CONTEXERE_TRACE_RETENTION_DAYS`). That prune
 is why no published figure can be re-derived a week after it was measured.
 
 ## Tokens
@@ -74,7 +74,7 @@ the prefix. Contexere rewrites only the newest tool result, which is the tail, s
 before it stays byte for byte.
 
 Measured, not argued: a paired run on Claude Code with omni 0.7.10, 20 pairs, the same
-six-command workload with the hook on and with `OMNI_PASSTHROUGH=1`, one machine.
+six-command workload with the hook on and with `CONTEXERE_PASSTHROUGH=1`, one machine.
 
 | | with Contexere | without | |
 |---|---|---|---|

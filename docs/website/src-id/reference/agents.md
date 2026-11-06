@@ -9,8 +9,8 @@ sebelum menilai apakah Contexere layak berada di sana.
 | tingkat | host | yang Anda dapat |
 |---|---|---|
 | **Penuh** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (pipa) | Host menerapkan tulis ulang Contexere, jadi model membaca keluaran sulingan dari tool bawaannya sendiri. |
-| **Handoff dulu** | Cursor, Windsurf | Host tidak bisa menulis ulang keluaran tool bawaannya. `omni_run` menyuling apa pun yang dilewatkan melaluinya, dan `contexere init --cursor` memasang aturan yang membuat agent meraihnya. |
-| **MCP saja** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Ingatan, pemanggilan kembali dan keadaan sesi, ditambah `omni_run`. Keluaran tool milik host tidak pernah ditulis ulang, jadi `omni_run` satu-satunya jalan agar model membaca lebih sedikit. |
+| **Handoff dulu** | Cursor, Windsurf | Host tidak bisa menulis ulang keluaran tool bawaannya. `contexere_run` menyuling apa pun yang dilewatkan melaluinya, dan `contexere init --cursor` memasang aturan yang membuat agent meraihnya. |
+| **MCP saja** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Ingatan, pemanggilan kembali dan keadaan sesi, ditambah `contexere_run`. Keluaran tool milik host tidak pernah ditulis ulang, jadi `contexere_run` satu-satunya jalan agar model membaca lebih sedikit. |
 
 ```sh
 contexere doctor     # mencetak tingkat untuk setiap host yang terpasang
@@ -68,7 +68,7 @@ sungguhan.
 
 Ia juga host tempat `contexere init` memasang dua hal dan hanya satu di antaranya yang
 bekerja. Hook-lah yang memendekkan keluaran. Server MCP adalah kemudahan yang menaruh
-`omni_retrieve` dan `omni_explain_savings` di tempat yang bisa dipanggil agent, dan di
+`contexere_retrieve` dan `contexere_explain_savings` di tempat yang bisa dipanggil agent, dan di
 host ini ia sebuah pertukaran dengan cache prompt: dua definisi itu berukuran 471 byte
 JSON di awal setiap request, dan host membuang seluruh cache ketika sebuah server MCP
 tersambung atau terputus sementara perkakasnya sudah dimuat, yang bisa terjadi sendiri
@@ -106,11 +106,11 @@ dan matriks CI-nya menyertakan `windows-latest`.
 Beri masing-masing identitasnya sendiri supaya angkanya tetap bisa dipisah:
 
 ```sh
-OMNI_AGENT_ID=claude ...
-OMNI_AGENT_ID=cursor ...
+CONTEXERE_AGENT_ID=claude ...
+CONTEXERE_AGENT_ID=cursor ...
 ```
 
-`omni_agents` melaporkan agent mana yang sedang aktif di proyeknya. Setiap baris
+`contexere_agents` melaporkan agent mana yang sedang aktif di proyeknya. Setiap baris
 penyulingan membawa id-nya, dan angka apa pun yang mencampurnya sedang
 menggambarkan sebuah campuran, bukan sebuah produk.
 

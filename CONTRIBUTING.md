@@ -28,8 +28,10 @@ The project was called OMNI until 0.8.0 (#876). Write **Contexere** in anything 
 person reads: docs, help text, output titles, issues, PRs and commit messages. The
 binary is `contexere`.
 
-Some old names stay on purpose, because something reads them. Do not rename these
-without the migration plan in #876:
+Some old names stay on purpose, because something reads them. They go in 0.9.0
+(#1067), after 0.8.6 announces it; until then do not rename these outside that plan.
+User docs already teach the new names (`contexere`, `CONTEXERE_*`, `contexere_*`) and
+list these once, in the manual's install page under "Moving off the omni name":
 
 | Kept | Why |
 | --- | --- |
@@ -160,7 +162,7 @@ rather than in each author remembering, so it holds for all 12 by construction.
 
 ## There is no signal layer any more
 
-The TOML filter layer, `signals/`, `omni learn` and `omni doctor --test-filter` were
+The TOML filter layer, `signals/`, `contexere learn` and `contexere doctor --test-filter` were
 all retired in 0.7.4 (#505). Measured over 6,656 recorded commands the layer moved
 2,018 bytes, 0.031% of the corpus, and infrastructure commands scored better without
 it. It cost 5 to 7 ms of a 10 ms hook budget, about a third of the total, and removing

@@ -169,7 +169,7 @@ menyebut isi yang tidak tersimpan. Dan yang dicatat adalah apa yang **dikirim**,
 bukan apa yang datang: deretan yang berubah jadi penanda tidak pernah sampai ke
 agent, jadi mencatatnya akan membuat kemunculan berikutnya mengklaim
 `already shown` untuk byte yang tidak diterima siapa pun. Itu cacat sungguhan
-([#465](https://github.com/fajarhide/omni/issues/465)) dan ia memotong dua arah,
+([#465](https://github.com/fajarhide/contexere/issues/465)) dan ia memotong dua arah,
 karena asal sesi ditagih sepertiga dari asal proyek, sehingga klaim yang salah
 tadi juga membuat ledger tiga kali lebih gampang melipat.
 
@@ -215,7 +215,7 @@ agent yang memutuskan apakah isinya sepadan dengan satu pengambilan. Itu
 pertukaran yang jadi tumpuan seluruh rancangan ini: kasus terburuknya bukan
 "jawabannya hilang", melainkan "jawabannya berharga satu kali bolak-balik".
 
-Kalau MCP terpasang, agent memanggil `omni_retrieve` sendiri. Kalau tidak, ia
+Kalau MCP terpasang, agent memanggil `contexere_retrieve` sendiri. Kalau tidak, ia
 menjalankan perintah shell yang dicetak penandanya.
 
 ### Lupa
@@ -261,9 +261,9 @@ baris, dan pembaca membacanya sebagai sesi *Anda*, padahal belum tentu, lalu
 sebagai klaim bahwa isinya sudah pernah diterima. Penanda run sekarang berbunyi
 `not shown here` dan menyatakan satu-satunya hal yang perlu ditindaklanjuti
 pembaca, yaitu bahwa byte itu tidak pernah sampai
-([#567](https://github.com/fajarhide/omni/issues/567)).
+([#567](https://github.com/fajarhide/contexere/issues/567)).
 
-Sejak [#509](https://github.com/fajarhide/omni/issues/509) agent dicatat di setiap
+Sejak [#509](https://github.com/fajarhide/contexere/issues/509) agent dicatat di setiap
 baris, dan belum ada yang dikunci padanya. Pengukuran yang memutuskan itu:
 mengunci cakupan pada `(proyek, agent)` akan mengakhiri kasus lintas agent
 sekaligus penggunaan ulang di dalamnya yang memang gratis, dan korpus mengatakan

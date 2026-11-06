@@ -114,7 +114,7 @@ the dropped part was archived; without one, the marker still says what was remov
 [OMNI: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
 ```
 
-The command printed a credential source, so you get its shape and never its bytes. A command that prints one is normally refused before it runs, with what to run instead. Sources are `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, files named `*secret*`, `*credential*` or `*creds*`, `crontab -l`, `systemctl cat`, an unformatted `docker inspect`, also inside `ssh`, plus `OMNI_SECRET_SOURCES`. Loading a value without printing it still works: `. file`, `jq --rawfile`, `wc -l`, `stat`, `shasum`, `cmp`.
+The command printed a credential source, so you get its shape and never its bytes. A command that prints one is normally refused before it runs, with what to run instead. Sources are `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, files named `*secret*`, `*credential*` or `*creds*`, `crontab -l`, `systemctl cat`, an unformatted `docker inspect`, also inside `ssh`, plus `CONTEXERE_SECRET_SOURCES`. Loading a value without printing it still works: `. file`, `jq --rawfile`, `wc -l`, `stat`, `shasum`, `cmp`.
 
 ```
 [OMNI: 2 sensitive value(s) redacted]
@@ -198,7 +198,7 @@ contexere retrieve <handle>
 ```
 
 Works on every host, with or without MCP. Agents with the MCP server wired can call
-`omni_retrieve` themselves without asking you.
+`contexere_retrieve` themselves without asking you.
 
 One boundary a handle cannot promise: the archive is a rolling 30 day window, so
 `contexere retrieve` on content older than that will not resolve. Verbatim traces are

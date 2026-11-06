@@ -46,9 +46,9 @@ berganti host tidak menghilangkan konteks proyeknya.
 mengonsumsinya.
 
 Untuk menyeberang ke mesin yang tidak berbagi basis data, pakai perkakas MCP
-`omni_handoff`, yang mengekspor keadaannya sebagai markdown yang bisa dibawa.
+`contexere_handoff`, yang mengekspor keadaannya sebagai markdown yang bisa dibawa.
 Subperintah CLI dengan nama itu sudah dihapus; perkakas MCP-nya tidak berubah. Ia
-berada di luar set bawaan yang diiklankan, jadi ia butuh `OMNI_MCP_TOOLS=all`.
+berada di luar set bawaan yang diiklankan, jadi ia butuh `CONTEXERE_MCP_TOOLS=all`.
 
 ## Retensi
 

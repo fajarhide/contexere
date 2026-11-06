@@ -47,7 +47,7 @@ Output is not deterministic against a warm database, because session history fee
 the scorer. Give each probe its own:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db contexere exec <command>
+CONTEXERE_DB_PATH=/tmp/probe.db contexere exec <command>
 ```
 
 A warm shared database also serialises writes, which is the usual reason `contexere exec`

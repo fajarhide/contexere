@@ -4,8 +4,8 @@ Every subcommand, grouped the way `contexere --help` groups them: by what you ar
 to do, not alphabetically.
 
 ```
-omni <COMMAND> [FLAGS]
-cmd | omni                # distill any command's output through a pipe
+contexere <COMMAND> [FLAGS]
+cmd | contexere                # distill any command's output through a pipe
 ```
 
 ## Set up
@@ -62,5 +62,5 @@ A match on the first argument routes the subcommand and hands the module the raw
 set. `cli::check_flags` rejects anything outside that set, which is what stops
 `contexere stats --detial` printing the default overview and exiting 0.
 
-Per-command help is real and worth reading: `omni <command> --help`. Where this
+Per-command help is real and worth reading: `contexere <command> --help`. Where this
 reference and the help disagree, this records what the source accepts.

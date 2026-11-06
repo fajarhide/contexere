@@ -52,7 +52,7 @@ mcp_servers:
     command: "/opt/homebrew/bin/omni"
     args: ["--mcp"]
     env:
-      OMNI_AGENT_ID: "hermes"
+      CONTEXERE_AGENT_ID: "hermes"
 
 compression:
   enabled: true
@@ -64,7 +64,7 @@ Three things have to be true: `plugins.enabled` contains `omni-signal-engine`,
 `mcp_servers.omni` points at the real binary, and `compression.enabled` is on so
 Hermes' own compaction and Contexere's pressure warnings line up rather than fighting.
 
-`OMNI_AGENT_ID: "hermes"` matters more than it looks. Without it, Hermes' rows blend
+`CONTEXERE_AGENT_ID: "hermes"` matters more than it looks. Without it, Hermes' rows blend
 with every other host's and no figure about either is meaningful.
 
 ## Verify
@@ -90,8 +90,8 @@ npm output. Confirm with `contexere stats`.
 > Read the list rather than a number written down. This guide has said 27, which came
 > from grepping the server source and counted a filter name as a tool, and then 25, which
 > is the whole surface and not what a host is told about. Hermes is a Full-tier host, so
-> it is advertised `omni_retrieve` and `omni_explain_savings`, the two that pay for their
-> place in the prefix of every request. `OMNI_MCP_TOOLS=all` serves the whole surface.
+> it is advertised `contexere_retrieve` and `contexere_explain_savings`, the two that pay for their
+> place in the prefix of every request. `CONTEXERE_MCP_TOOLS=all` serves the whole surface.
 
 ## Where Contexere helps and where it does not
 
@@ -103,10 +103,10 @@ npm output. Confirm with `contexere stats`.
 | `kubectl -o json`, terraform plans | nothing, deliberately. Structured payloads pass through. |
 | short commands | nothing, or slightly negative. The marker costs more than the saving. |
 
-Use the MCP tools as Hermes' controls over all of it: `omni_explain_savings` to see
-what a recent command actually cost, `omni_retrieve` to get folded content back, and
-`omni_budget` to see where the session's tokens went. That tool is outside the set
-advertised by default, so it needs `OMNI_MCP_TOOLS=all`.
+Use the MCP tools as Hermes' controls over all of it: `contexere_explain_savings` to see
+what a recent command actually cost, `contexere_retrieve` to get folded content back, and
+`contexere_budget` to see where the session's tokens went. That tool is outside the set
+advertised by default, so it needs `CONTEXERE_MCP_TOOLS=all`.
 
 ## After a Hermes upgrade
 

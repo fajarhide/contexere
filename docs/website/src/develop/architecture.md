@@ -79,7 +79,7 @@ The CI matrix includes `windows-latest`, and four rules keep it green:
    first. The ledger splits with `split_inclusive('\n')` rather than `lines()` for
    exactly this reason: `lines()` drops the terminator, so rebuilding with `\n` would
    silently rewrite every CRLF payload on Windows.
-3. **No assuming the binary is `./omni`.** Use `std::env::consts::EXE_SUFFIX`.
+3. **No assuming the binary is `./contexere`.** Use `std::env::consts::EXE_SUFFIX`.
 4. **Environment variables are case-insensitive on Windows.** Use
    `eq_ignore_ascii_case` when reading `std::env::vars()`.
 

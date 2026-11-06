@@ -132,7 +132,7 @@ contexere patterns                    # galat yang terus kembali
 contexere patterns --tool cargo
 ```
 
-`omni_history` memberi baris per panggilan yang sama ke klien MCP, di tier yang
+`contexere_history` memberi baris per panggilan yang sama ke klien MCP, di tier yang
 mengiklankannya. Di host tier Full biayanya di awal request lebih besar daripada
 hasilnya, jadi jalurnya di sana adalah `contexere stats --view detail`, yang menggabung
 perintah berulang jadi satu baris berhitung. Tidak ada subperintah `contexere history`;
@@ -149,4 +149,4 @@ Bentuk yang didukung ada di bantuannya sendiri.
 > menyelidiki Contexere. Pipeline-nya bisa melipat baris yang sedang Anda hitung, dan
 > filter `LIKE` yang menangkap baris keliru sudah pernah memasukkan angka salah
 > ke sebuah issue yang terbit. Daftarkan barisnya sebelum mengutip agregat apa
-> pun atasnya, dan setel `OMNI_PASSTHROUGH=1`.
+> pun atasnya, dan setel `CONTEXERE_PASSTHROUGH=1`.

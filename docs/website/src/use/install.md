@@ -25,15 +25,15 @@ irm omni.weekndlabs.com/install.ps1 | iex
 **From source**, which needs the toolchain pinned in `rust-toolchain.toml`:
 
 ```sh
-git clone https://github.com/fajarhide/omni
-cd omni
+git clone https://github.com/fajarhide/contexere
+cd contexere
 cargo build --release
 ```
 
 **From inside Claude Code**, if you would rather have the agent do the rest:
 
 ```
-/plugin marketplace add fajarhide/omni
+/plugin marketplace add fajarhide/contexere
 /plugin install omni@omni
 ```
 
@@ -115,11 +115,25 @@ brew upgrade contexere
 Installed before 0.8.2 as `omni`? The formula is now `contexere`, and Homebrew skips a renamed formula from a tap until you trust it. `brew upgrade` then says nothing and stays on the old version. Run this once:
 
 ```sh
-brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/omni
+brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/contexere
 ```
 
 Re-run `contexere init` afterwards if a release changes the hook contract. The changelog
 says when that happens.
+
+## Moving off the omni name
+
+Contexere was called OMNI until 0.8.0, and the old names still work. They stop working in 0.9.0 ([#1067](https://github.com/fajarhide/contexere/issues/1067)):
+
+| old name | becomes | what to do |
+| --- | --- | --- |
+| the `omni` command | `contexere` | run `contexere init` once; it rewrites every hook and MCP entry that still calls `omni` |
+| `OMNI_*` settings | `CONTEXERE_*` | rename them in your shell profile or CI; `CONTEXERE_*` already wins when both are set |
+| `omni_*` MCP tools | `contexere_*` | nothing, once `contexere init` has replaced the MCP entry |
+| the `[OMNI` marker | `[CONTEXERE` | update any script or skill of your own that matches the prefix |
+| the `~/.omni` directory | `~/.contexere` | nothing; your history is kept |
+
+`contexere doctor` lists everything on your machine that still uses an old name.
 
 ## Remove it
 

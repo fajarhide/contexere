@@ -14,7 +14,7 @@ contexere retrieve <handle>
 
 Itu jalan dari shell mana pun, di sesi mana pun, di host mana pun, dan ia tidak
 menjalankan ulang perintah Anda. Kalau MCP terpasang, agent bisa melakukannya
-sendiri lewat perkakas `omni_retrieve` tanpa bertanya ke Anda.
+sendiri lewat perkakas `contexere_retrieve` tanpa bertanya ke Anda.
 
 ## Kenapa aturan ini yang menanggung beban
 

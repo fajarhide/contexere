@@ -78,7 +78,7 @@ cannot answer on its own.
 contexere remember 'The staging database ignores migrations run outside the deploy job'
 ```
 
-Stores a fact in persistent memory, retrievable later through `omni_recall` or the
+Stores a fact in persistent memory, retrievable later through `contexere_recall` or the
 session context injection.
 
 Worth storing: a decision and its reason, a gotcha, a constraint no file states. Not

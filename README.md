@@ -8,9 +8,9 @@
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
 
-[![CI](https://github.com/fajarhide/omni/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/omni/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fajarhide/omni)](https://github.com/fajarhide/omni/releases)
-[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/omni)](https://github.com/fajarhide/omni/blob/main/LICENSE)
+[![CI](https://github.com/fajarhide/contexere/actions/workflows/ci.yml/badge.svg)](https://github.com/fajarhide/contexere/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fajarhide/contexere)](https://github.com/fajarhide/contexere/releases)
+[![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
 ```bash
@@ -23,7 +23,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working, so existing installs need no change. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init` once to move an existing install across. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
 
 ## Why
 
@@ -64,7 +64,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Existing installs keep working under `omni`, which is the same program.
+Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init` once to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
 
 ## Usage
 
@@ -83,10 +83,10 @@ After `init`, the hooks run on their own. There is nothing to prefix.
 | Tier | Agents |
 |---|---|
 | **Full** (rewrites tool output before the model reads it) | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (via `cmd \| contexere`) |
-| **Handoff-first** (shortens what the agent runs through `omni_run`) | Cursor, Windsurf |
-| **MCP-only** (memory and recall, plus `omni_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
+| **Handoff-first** (shortens what the agent runs through `contexere_run`) | Cursor, Windsurf |
+| **MCP-only** (memory and recall, plus `contexere_run`) | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity |
 
-Codex runs only hooks it trusts: after `contexere init --codex`, start `codex` once and approve them ([#359](https://github.com/fajarhide/omni/issues/359)).
+Codex runs only hooks it trusts: after `contexere init --codex`, start `codex` once and approve them ([#359](https://github.com/fajarhide/contexere/issues/359)).
 
 ## Documentation
 
@@ -99,7 +99,7 @@ Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.
 
 ## Security
 
-Do not open a public issue. [Report privately](https://github.com/fajarhide/omni/security/advisories/new); details in [SECURITY.md](SECURITY.md).
+Do not open a public issue. [Report privately](https://github.com/fajarhide/contexere/security/advisories/new); details in [SECURITY.md](SECURITY.md).
 
 ## License
 

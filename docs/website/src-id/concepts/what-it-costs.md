@@ -40,7 +40,7 @@ mengarsipkan setiap penyulingan yang kehilangan data berongkos 83,1 MB selama 30
 hari, dan batas tersebut menurunkannya ke 13,3 MB sambil tetap mencakup 3.604
 dari 3.657 baris.
 
-Jejak benchmark dipangkas pada hari ketujuh (`OMNI_TRACE_RETENTION_DAYS`).
+Jejak benchmark dipangkas pada hari ketujuh (`CONTEXERE_TRACE_RETENTION_DAYS`).
 Pemangkasan itu alasan tidak ada angka yang diterbitkan bisa diturunkan ulang
 seminggu setelah ia diukur.
 
@@ -80,7 +80,7 @@ semua yang ada sebelumnya tetap sama byte demi byte.
 
 Diukur, bukan diperdebatkan: uji berpasangan di Claude Code dengan omni 0.7.10, 20
 pasangan, workload enam perintah yang sama dengan hook menyala dan dengan
-`OMNI_PASSTHROUGH=1`, satu mesin.
+`CONTEXERE_PASSTHROUGH=1`, satu mesin.
 
 | | dengan Contexere | tanpa | |
 |---|---|---|---|

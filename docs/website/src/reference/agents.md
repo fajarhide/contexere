@@ -9,8 +9,8 @@ place.
 | tier | hosts | what you get |
 |---|---|---|
 | **Full** | Claude Code, Codex CLI, Gemini CLI, OpenClaw, Hermes, Pi, Aider (pipe) | The host applies Contexere's rewrite, so the model reads distilled output from its own built-in tools. |
-| **Handoff-first** | Cursor, Windsurf | The host cannot rewrite built-in tool output. `omni_run` distils anything routed through it, and `contexere init --cursor` installs the rule that makes the agent reach for it. |
-| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Memory, recall and session state, plus `omni_run`. The host's own tool output is never rewritten, so `omni_run` is the only path by which the model reads less. |
+| **Handoff-first** | Cursor, Windsurf | The host cannot rewrite built-in tool output. `contexere_run` distils anything routed through it, and `contexere init --cursor` installs the rule that makes the agent reach for it. |
+| **MCP-only** | Cline, Roo, OpenCode, VS Code, Zed, Copilot, Antigravity | Memory, recall and session state, plus `contexere_run`. The host's own tool output is never rewritten, so `contexere_run` is the only path by which the model reads less. |
 
 ```sh
 contexere doctor     # prints the tier for every installed host
@@ -63,7 +63,7 @@ executed on a real session.
 
 It is also the host where `contexere init` installs two things and only one of them does the
 work. The hooks are what shortens output. The MCP server is a convenience that puts
-`omni_retrieve` and `omni_explain_savings` where the agent can call them, and on this
+`contexere_retrieve` and `contexere_explain_savings` where the agent can call them, and on this
 host it is a trade against the prompt cache: those two definitions are 471 bytes of JSON
 in the prefix of every request, and the host discards the whole cache when an MCP server
 connects or disconnects with its tools loaded, which a server process can do by exiting
@@ -99,11 +99,11 @@ the CI matrix includes `windows-latest`.
 Give each its own identity so the numbers stay separable:
 
 ```sh
-OMNI_AGENT_ID=claude ...
-OMNI_AGENT_ID=cursor ...
+CONTEXERE_AGENT_ID=claude ...
+CONTEXERE_AGENT_ID=cursor ...
 ```
 
-`omni_agents` reports which agents are currently active on the project. Every
+`contexere_agents` reports which agents are currently active on the project. Every
 distillation row carries the id, and any figure that blends them is describing a mix
 rather than a product.
 

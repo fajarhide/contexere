@@ -6,7 +6,7 @@ is where most suspicions end.
 ## First, is Contexere even involved
 
 ```sh
-OMNI_PASSTHROUGH=1 <the command>
+CONTEXERE_PASSTHROUGH=1 <the command>
 ```
 
 Identical output with and without it means Contexere did nothing. That is the end of the
@@ -15,7 +15,7 @@ investigation, and it settles more cases than anything else here.
 Then check which path ran, because they are not the same:
 
 ```sh
-contexere --version && ls -la "$(which omni)"   # the installed binary, not your checkout
+contexere --version && ls -la "$(which contexere)"   # the installed binary, not your checkout
 contexere doctor
 ```
 
@@ -44,7 +44,7 @@ and the system prompt are outside it.
 
 **Do not judge Contexere by output you read through Contexere.** A `cargo test` read through the
 hook once reported "1 failed" for a suite cargo itself called 398 passed. Redirect to
-a file with `OMNI_PASSTHROUGH=1` before making any claim about a result.
+a file with `CONTEXERE_PASSTHROUGH=1` before making any claim about a result.
 
 **Do not grep the distilled output.** Grepping hides the group headers that often make
 output lossless after all. A 116 line search result looked like it had dropped every
@@ -55,7 +55,7 @@ indented under it. Read the whole thing.
 scorer, so the same command can distill differently on two runs. Isolate it:
 
 ```sh
-OMNI_DB_PATH=/tmp/probe.db contexere exec <command>
+CONTEXERE_DB_PATH=/tmp/probe.db contexere exec <command>
 ```
 
 **A failed reproduction is not a verdict.** If a bug does not reproduce, read the
@@ -91,7 +91,7 @@ Expected, and it grows with database size rather than payload size: about 21 ms
 against a fresh database and 61 ms against a 205 MB one.
 
 **`contexere exec` appears to hang.**
-A warm shared database serialises writes. Give it its own with `OMNI_DB_PATH`.
+A warm shared database serialises writes. Give it its own with `CONTEXERE_DB_PATH`.
 
 ## Reporting it
 
@@ -110,6 +110,6 @@ Reproduce on a synthetic command where you can, so there is nothing to redact. R
 terminal output carries hostnames, account ids and internal addresses more often than
 people expect.
 
-Tracker: <https://github.com/fajarhide/omni/issues>
+Tracker: <https://github.com/fajarhide/contexere/issues>
 
 Discord: <https://discord.gg/zHTuvZhF2M>, if you would rather ask before filing.

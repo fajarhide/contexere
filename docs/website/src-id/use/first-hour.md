@@ -108,7 +108,7 @@ diingatkan padanya alih-alih melantur. `contexere goal show` untuk memeriksa,
 ## Matikan untuk satu perintah
 
 ```sh
-OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
+CONTEXERE_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
 Hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang
@@ -120,7 +120,7 @@ itu, Contexere tidak terlibat.
 **Membaca berkas lewat shell Anda bisa tiba dalam bentuk sulingan.** Karena
 hook-nya memang benar-benar menulis ulang keluaran Bash, `cat` atau `sed` atas
 sebuah berkas sumber bisa kembali terlipat. Pakai perkakas pembaca berkas milik
-agent Anda, atau `OMNI_PASSTHROUGH=1`, ketika Anda butuh byte yang persis.
+agent Anda, atau `CONTEXERE_PASSTHROUGH=1`, ketika Anda butuh byte yang persis.
 
 **Perintah yang cocok bisa ditulis ulang sebelum ia berjalan.** Pre-hook mengubah
 sebagian perintah menjadi `contexere exec`, termasuk pengalihan keluarannya, sehingga

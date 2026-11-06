@@ -53,7 +53,7 @@ mcp_servers:
     command: "/opt/homebrew/bin/omni"
     args: ["--mcp"]
     env:
-      OMNI_AGENT_ID: "hermes"
+      CONTEXERE_AGENT_ID: "hermes"
 
 compression:
   enabled: true
@@ -66,7 +66,7 @@ Tiga hal harus benar: `plugins.enabled` memuat `omni-signal-engine`,
 menyala supaya pemadatan Hermes sendiri dan peringatan tekanan Contexere sejalan, bukan
 saling berkelahi.
 
-`OMNI_AGENT_ID: "hermes"` lebih penting daripada kelihatannya. Tanpa itu, baris
+`CONTEXERE_AGENT_ID: "hermes"` lebih penting daripada kelihatannya. Tanpa itu, baris
 milik Hermes bercampur dengan milik semua host lain dan tidak ada angka tentang
 keduanya yang berarti.
 
@@ -94,8 +94,8 @@ tool-nya dengan keluaran npm mentah. Pastikan dengan `contexere stats`.
 > menyebut 27, yang datang dari mem-`grep` kode sumber server dan menghitung nama
 > penyaring sebagai perkakas, lalu 25, yang adalah seluruh permukaannya dan bukan
 > yang diberitahukan ke host. Hermes host tingkat Penuh, jadi yang diiklankan
-> kepadanya `omni_retrieve` dan `omni_explain_savings`, dua yang membayar
-> tempatnya di prefiks setiap permintaan. `OMNI_MCP_TOOLS=all` menyajikan seluruh
+> kepadanya `contexere_retrieve` dan `contexere_explain_savings`, dua yang membayar
+> tempatnya di prefiks setiap permintaan. `CONTEXERE_MCP_TOOLS=all` menyajikan seluruh
 > permukaannya.
 
 ## Di mana Contexere membantu dan di mana tidak
@@ -109,10 +109,10 @@ tool-nya dengan keluaran npm mentah. Pastikan dengan `contexere stats`.
 | perintah pendek | nol, atau sedikit negatif. Penandanya berongkos lebih mahal daripada penghematannya. |
 
 Pakai perkakas MCP-nya sebagai kendali Hermes atas semua itu:
-`omni_explain_savings` untuk melihat berapa sebenarnya ongkos sebuah perintah
-terkini, `omni_retrieve` untuk mengambil kembali isi yang terlipat, dan
-`omni_budget` untuk melihat token sesinya pergi ke mana. Perkakas itu berada di luar
-set yang diiklankan secara bawaan, jadi ia butuh `OMNI_MCP_TOOLS=all`.
+`contexere_explain_savings` untuk melihat berapa sebenarnya ongkos sebuah perintah
+terkini, `contexere_retrieve` untuk mengambil kembali isi yang terlipat, dan
+`contexere_budget` untuk melihat token sesinya pergi ke mana. Perkakas itu berada di luar
+set yang diiklankan secara bawaan, jadi ia butuh `CONTEXERE_MCP_TOOLS=all`.
 
 ## Setelah Hermes di-upgrade
 

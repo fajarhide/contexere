@@ -172,7 +172,7 @@ setiap request di setiap sesi. Berbeda dengan keluaran, byte di awal tidak dibay
 ia dibaca ulang di setiap request sesudahnya.
 
 **Yang Contexere lakukan.** Ia hanya mengiklankan perkakas yang memang dipakai tier host Anda,
-sembilan alih-alih dua puluh lima, dengan `OMNI_MCP_TOOLS=all` untuk mengembalikan sisanya
+sembilan alih-alih dua puluh lima, dengan `CONTEXERE_MCP_TOOLS=all` untuk mengembalikan sisanya
 dan `contexere doctor` yang menyebut set mana yang sedang berlaku.
 
 **Angkanya: 4.940 byte hilang dari setiap request.** Diukur di 229 sesi: enam belas dari

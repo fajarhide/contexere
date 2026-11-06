@@ -2,7 +2,7 @@
 
 **Your AI agent pays to read the same output over and over. Contexere stops that.**
 
-OMNI is now Contexere, Latin for "to weave together" and the root of "context". The `omni` command keeps working. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
+OMNI is now Contexere, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; [moving off the old name](use/install.md#moving-off-the-omni-name) takes one `contexere init`. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
 
 One small program between your terminal and your agent. Local, no API key, no proxy.
 Install it and you never type its name again.
@@ -14,7 +14,7 @@ brew install fajarhide/tap/contexere && contexere init
 Inside Claude Code, two lines and the agent does the rest:
 
 ```
-/plugin marketplace add fajarhide/omni
+/plugin marketplace add fajarhide/contexere
 /plugin install omni@omni
 ```
 
@@ -179,5 +179,5 @@ If you want a number that describes your machine rather than someone else's, run
 
 [Discord](https://discord.gg/zHTuvZhF2M) for questions, and especially for the case this
 project cares about most: Contexere stating a result its input does not support. The
-[issue tracker](https://github.com/fajarhide/omni/issues) works too. A report with the raw
+[issue tracker](https://github.com/fajarhide/contexere/issues) works too. A report with the raw
 and distilled output side by side gets fixed either way.

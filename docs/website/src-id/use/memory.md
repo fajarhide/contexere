@@ -42,11 +42,11 @@ sesi yang panjang.
 contexere remember 'The staging database ignores migrations run outside the deploy job'
 ```
 
-Agent yang MCP-nya terpasang memanggil `omni_remember` sendiri, dan menarik fakta
-kembali dengan `omni_recall`, sebuah pencarian lintas pengetahuan tersimpan. Keduanya diiklankan di tier MCP-only
+Agent yang MCP-nya terpasang memanggil `contexere_remember` sendiri, dan menarik fakta
+kembali dengan `contexere_recall`, sebuah pencarian lintas pengetahuan tersimpan. Keduanya diiklankan di tier MCP-only
 dan Handoff-first. Host tier Full seperti Claude Code menulis lewat `contexere remember` di
-shell yang sudah dipasangi hook Contexere, dan mencapai `omni_recall`, yang tidak punya
-padanan CLI, dengan `OMNI_MCP_TOOLS=all`.
+shell yang sudah dipasangi hook Contexere, dan mencapai `contexere_recall`, yang tidak punya
+padanan CLI, dengan `CONTEXERE_MCP_TOOLS=all`.
 
 Simpan yang tidak bisa diturunkan dari kodenya: sebuah keputusan dan alasannya,
 sebuah jebakan, sebuah batasan yang tidak disebut berkas mana pun. Jangan simpan
@@ -66,10 +66,10 @@ contexere session --transcript
 contexere session --health
 ```
 
-Untuk pindah ke mesin atau host yang tidak berbagi basis data, `omni_handoff`
+Untuk pindah ke mesin atau host yang tidak berbagi basis data, `contexere_handoff`
 mengekspor keadaan sesi saat ini sebagai markdown yang bisa dibawa dan ditempel
 ke sesi baru. Ia hanya perkakas MCP; subperintah CLI-nya sudah dihapus. Ia berada di luar set yang
-diiklankan secara bawaan, jadi setel `OMNI_MCP_TOOLS=all` sebelum memakainya.
+diiklankan secara bawaan, jadi setel `CONTEXERE_MCP_TOOLS=all` sebelum memakainya.
 
 ## Engram
 
@@ -88,9 +88,9 @@ contexere query errors in last 5 commands
 contexere patterns                # galat yang terus kembali lintas sesi
 ```
 
-`omni_insight` memeringkat persoalan berulang yang sama untuk seluruh proyek, dan
+`contexere_insight` memeringkat persoalan berulang yang sama untuk seluruh proyek, dan
 ia perkakas MCP tanpa padanan CLI, dan berada di luar set bawaan yang diiklankan,
-jadi ia butuh `OMNI_MCP_TOOLS=all`. Ia sempat dicantumkan di blok di atas seolah
+jadi ia butuh `CONTEXERE_MCP_TOOLS=all`. Ia sempat dicantumkan di blok di atas seolah
 Anda bisa menjalankannya.
 
 ## Yang tidak bisa ia lakukan
