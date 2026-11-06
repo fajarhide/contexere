@@ -130,6 +130,21 @@ fn is_blank_or_decorative(lines: &[&str]) -> bool {
     })
 }
 
+/// Whether a line is a Python traceback's header or a frame's `File "...", line N`. The
+/// ledger keeps these unfolded with the failure, since a repeated error with no location
+/// tells the agent nothing it can act on (#1059).
+pub fn locates_a_failure(line: &str) -> bool {
+    // Python 3.13+ colours a frame mid-line under FORCE_COLOR, so strip the whole line;
+    // the ledger still keeps the original bytes.
+    let t = crate::pipeline::collapse::strip_ansi(line)
+        .trim_start()
+        .to_lowercase();
+    t.starts_with("traceback (most recent call last):")
+        || t.strip_prefix("file \"")
+            .and_then(|rest| rest.split_once("\", line "))
+            .is_some_and(|(_, n)| n.bytes().next().is_some_and(|b| b.is_ascii_digit()))
+}
+
 /// Whether one line states a failure, tool-agnostically. Shared with the ledger,
 /// which must never fold a failure (#458).
 pub fn carries_failure(line: &str) -> bool {
@@ -641,5 +656,32 @@ mod tests {
             elapsed < std::time::Duration::from_millis(200),
             "1,000 classifications took {elapsed:?}; a regex is being compiled per call again"
         );
+    }
+
+    /// #1059. The lines that say where a traceback failed, and prose that only looks like them.
+    #[test]
+    fn locates_a_traceback_header_and_frame_but_not_prose() {
+        for line in [
+            "Traceback (most recent call last):",
+            "  File \"/app/jobs.py\", line 42, in run",
+            "  File \"<stdin>\", line 1, in <module>",
+            // Python 3.15 with FORCE_COLOR=1: escapes inside the frame, not only before it.
+            "  File \x1b[35m\"<string>\"\x1b[0m, line \x1b[35m2\x1b[0m, in <module>",
+            "\x1b[1mTraceback (most recent call last):\x1b[0m",
+        ] {
+            assert!(
+                locates_a_failure(line),
+                "a traceback location was missed: {line:?}"
+            );
+        }
+        for prose in [
+            "File \"notes.txt\" was saved",
+            "  file a bug against the tracker, line by line",
+        ] {
+            assert!(
+                !locates_a_failure(prose),
+                "prose taken for a location: {prose:?}"
+            );
+        }
     }
 }

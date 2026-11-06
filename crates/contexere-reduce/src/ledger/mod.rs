@@ -351,7 +351,7 @@ impl<'a> Ledger<'a> {
             _ => HashMap::new(),
         };
         // Never folded: a failure line, because a repeated error means the bug is
-        // still there (#458); and a diff's changed lines, which are a new fact even
+        // still there (#458), with the traceback lines that locate it (#1059); and a diff's changed lines, which are a new fact even
         // if shown before (#788), read past `--color` and `@@@`. Marking them unseen
         // splits the run so the rest still folds. Keyed by hash for the 10 ms budget.
         let is_diff = lines
@@ -362,6 +362,7 @@ impl<'a> Ledger<'a> {
             .zip(lines.iter())
             .filter(|(_, line)| {
                 crate::pipeline::semantic::carries_failure(line)
+                    || crate::pipeline::semantic::locates_a_failure(line)
                     || (is_diff && without_ansi_prefix(line).starts_with(['+', '-', '@']))
             })
             .map(|(hash, _)| hash)
@@ -2228,6 +2229,44 @@ mod tests {
         assert!(
             second.contains("[OMNI:"),
             "the repeated context should still fold, or this proves nothing: {second}"
+        );
+    }
+
+    /// A repeated traceback keeps its header and its frame's location, not only the
+    /// error line, or the agent sees the failure and not where it is (#1059).
+    #[test]
+    fn never_folds_the_location_of_a_repeated_traceback() {
+        let (store, _d) = temp_store();
+        let context: String = (0..40)
+            .map(|i| format!("worker {i}: picked job {i} from the queue and started it\n"))
+            .collect();
+        let payload = format!(
+            "{context}Traceback (most recent call last):\n  File \"/app/jobs.py\", line 42, in run\n    assign(shift)\nValueError: shift 42 has no owner\n"
+        );
+        assert!(
+            payload.len() > MIN_WHOLE_OUTPUT_FOLD,
+            "fixture must clear the coverage floor, or no fold happens at all"
+        );
+
+        let ledger = Ledger::new(&store, "s1");
+        ledger.project(&payload);
+        let second = ledger
+            .project(&payload)
+            .expect("a full repeat still folds something");
+
+        for kept in [
+            "Traceback (most recent call last):",
+            "File \"/app/jobs.py\", line 42, in run",
+            "ValueError: shift 42 has no owner",
+        ] {
+            assert!(
+                second.contains(kept),
+                "folded on the re-run: {kept:?}\n{second}"
+            );
+        }
+        assert!(
+            second.contains("[OMNI:"),
+            "the repeated worker lines should still fold, or this proves nothing: {second}"
         );
     }
 
