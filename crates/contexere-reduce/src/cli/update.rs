@@ -63,7 +63,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     "ℹ️".blue()
                 );
                 println!(
-                    "   Please download the latest release from: https://github.com/fajarhide/omni/releases"
+                    "   Please download the latest release from: https://github.com/fajarhide/contexere/releases"
                 );
                 return Ok(());
             }

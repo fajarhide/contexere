@@ -13,7 +13,7 @@ fi
 
 # Strip leading 'v' for consistency, then re-add
 VERSION="${VERSION#v}"
-BASE_URL="https://github.com/fajarhide/omni/releases/download/v${VERSION}"
+BASE_URL="https://github.com/fajarhide/contexere/releases/download/v${VERSION}"
 
 SHA256SUMS_URL="${BASE_URL}/SHA256SUMS"
 TMP_SUMS=$(mktemp)
@@ -29,7 +29,7 @@ fi
 fetch_sha() {
     local target="$1"
     local sha
-    sha=$(grep "omni-v${VERSION}-${target}.tar.gz" "$TMP_SUMS" | awk '{print $1}')
+    sha=$(grep "contexere-v${VERSION}-${target}.tar.gz" "$TMP_SUMS" | awk '{print $1}')
     if [ -z "$sha" ]; then
         echo "ERROR: Could not find SHA for ${target} in SHA256SUMS" >&2
         return 1

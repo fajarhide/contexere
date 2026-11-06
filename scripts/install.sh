@@ -1,13 +1,13 @@
 #!/bin/bash
 # OMNI — Universal Install Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/omni/main/scripts/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/contexere/main/scripts/install.sh | sh
 #
 # Installs the latest OMNI binary to ~/.local/bin/omni
 # Supports: macOS (arm64, x86_64), Linux (arm64, x86_64)
 
 set -euo pipefail
 
-REPO="fajarhide/omni"
+REPO="fajarhide/contexere"
 INSTALL_DIR="${OMNI_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${OMNI_VERSION:-latest}"
 
@@ -58,19 +58,25 @@ resolve_version() {
 download_and_install() {
     local platform="$1"
     local version="$2"
-    local url="https://github.com/$REPO/releases/download/${version}/omni-${version}-${platform}.tar.gz"
-    local tmpdir
+    local tmpdir asset="" url name
     tmpdir=$(mktemp -d)
 
-    info "Downloading omni ${version} for ${platform}..."
-    if ! curl -fsSL "$url" -o "$tmpdir/omni.tar.gz"; then
-        error "Download failed. Check that version ${version} exists at:\n  $url"
+    # `contexere-…` from 0.8.6; a pinned older release only has `omni-…` (#1062).
+    info "Downloading contexere ${version} for ${platform}..."
+    for name in contexere omni; do
+        url="https://github.com/$REPO/releases/download/${version}/${name}-${version}-${platform}.tar.gz"
+        if curl -fsSL "$url" -o "$tmpdir/omni.tar.gz" 2>/dev/null; then
+            asset="${name}-${version}-${platform}.tar.gz"
+            break
+        fi
+    done
+    if [ -z "$asset" ]; then
+        error "Download failed. Check that version ${version} exists at:\n  https://github.com/$REPO/releases/tag/${version}"
     fi
 
     # Verify against the release's SHA256SUMS. Missing list, missing line, no hash
     # tool or a mismatch all stop the install: an unchecked binary is not installed (#1001).
     local sums_url="https://github.com/$REPO/releases/download/${version}/SHA256SUMS"
-    local asset="omni-${version}-${platform}.tar.gz"
     if ! curl -fsSL "$sums_url" -o "$tmpdir/SHA256SUMS"; then
         error "Could not fetch SHA256SUMS for ${version}; refusing to install an unchecked binary."
     fi

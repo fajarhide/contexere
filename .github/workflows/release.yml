@@ -83,24 +83,33 @@ jobs:
           mkdir -p dist
           cp target/${{ matrix.target }}/release/${{ matrix.binary }} dist/
           cd dist
-          # The archive keeps its omni-* name and an `omni` entry beside `contexere`, so
-          # install.sh fetched from an older main, and every hook that calls `omni`,
-          # still find what they expect after the rename (#876).
+          # `contexere-*` is the name from 0.8.6. A byte-identical `omni-*` copy ships
+          # for one release, so an installed `install.sh` or `omni update` that asks
+          # for the old name on the latest release still finds it; 0.9.0 drops it
+          # (#1062). The `omni` entry beside `contexere` keeps every hook that calls
+          # `omni` working (#876).
+          base=contexere-${{ github.ref_name }}-${{ matrix.target }}
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp ${{ matrix.binary }} ${{ matrix.legacy }}
-            7z a omni-${{ github.ref_name }}-${{ matrix.target }}.zip ${{ matrix.binary }} ${{ matrix.legacy }}
-            sha256sum omni-${{ github.ref_name }}-${{ matrix.target }}.zip > omni-${{ github.ref_name }}-${{ matrix.target }}.zip.sha256
+            ext=zip
+            7z a $base.$ext ${{ matrix.binary }} ${{ matrix.legacy }}
           else
             ln ${{ matrix.binary }} ${{ matrix.legacy }}
-            tar czf omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz ${{ matrix.binary }} ${{ matrix.legacy }}
-            sha256sum omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz > omni-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256
+            ext=tar.gz
+            tar czf $base.$ext ${{ matrix.binary }} ${{ matrix.legacy }}
           fi
+          cp $base.$ext omni-${{ github.ref_name }}-${{ matrix.target }}.$ext
+          for f in $base.$ext omni-${{ github.ref_name }}-${{ matrix.target }}.$ext; do
+            sha256sum $f > $f.sha256
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: omni-${{ matrix.target }}
-          path: dist/omni-${{ github.ref_name }}-${{ matrix.target }}.*
+          name: contexere-${{ matrix.target }}
+          path: |
+            dist/contexere-${{ github.ref_name }}-${{ matrix.target }}.*
+            dist/omni-${{ github.ref_name }}-${{ matrix.target }}.*
 
   release:
     name: Create Release
