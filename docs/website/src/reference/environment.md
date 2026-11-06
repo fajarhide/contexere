@@ -119,7 +119,6 @@ config is not a mystery.
 | `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Stamped at build time, reported by `contexere version` |
 | `OMNI_UNRELEASED_ENTRIES` | Computed by `build.rs` from `CHANGELOG.md`, so a binary built from an untagged tree says so in `contexere doctor` |
 | `CONTEXERE_PI_PACKAGE_SOURCE` | Package source for the Pi agent integration |
-| `CONTEXERE_DATA_HOME_UNSET_FOR_TEST` | Test fixture only |
 
 ## Benchmarking
 

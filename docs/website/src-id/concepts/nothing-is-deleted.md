@@ -58,7 +58,7 @@ waktu pengukurannya.
 
 ## Di mana ia tinggal
 
-`~/.omni/omni.db`, satu berkas SQLite. Ia tidak pernah meninggalkan mesin Anda.
+`~/.contexere/contexere.db`, satu berkas SQLite. Ia tidak pernah meninggalkan mesin Anda.
 
 ```sh
 contexere stats            # apa saja yang sudah ia kerjakan

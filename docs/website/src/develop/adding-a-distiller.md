@@ -84,13 +84,13 @@ cargo clippy -- -D warnings
 OMNI_DB_PATH=/tmp/t.db cargo test
 ```
 
-`OMNI_DB_PATH` is not optional. Parallel tests competing for `~/.omni/omni.db` cause
+`OMNI_DB_PATH` is not optional. Parallel tests competing for `~/.contexere/contexere.db` cause
 SQLite locks: 79 seconds green against an isolated database, 433 seconds and then a
 hang against the live one.
 
 ## Before you write any of it
 
-Measure the workload. `~/.omni/omni.db` prices a proposal in one query, and the answer
+Measure the workload. `~/.contexere/contexere.db` prices a proposal in one query, and the answer
 is often the opposite of the request.
 
 "Improve the python3 distiller" turned into two facts in two queries: `python3` was

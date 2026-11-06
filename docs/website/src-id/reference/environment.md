@@ -125,7 +125,6 @@ trace atau di konfigurasi yang dihasilkan bukan lagi misteri.
 | `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Dicap saat build, dilaporkan `contexere version` |
 | `OMNI_UNRELEASED_ENTRIES` | Dihitung `build.rs` dari `CHANGELOG.md`, jadi binary yang dibangun dari pohon tanpa tag mengatakannya di `contexere doctor` |
 | `CONTEXERE_PI_PACKAGE_SOURCE` | Sumber paket untuk integrasi agent Pi |
-| `CONTEXERE_DATA_HOME_UNSET_FOR_TEST` | Hanya untuk fixture test |
 
 ## Benchmark
 

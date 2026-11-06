@@ -49,7 +49,7 @@ repeated inputs emit different bytes.
 
 ## The database
 
-One SQLite file, `~/.omni/omni.db`.
+One SQLite file, `~/.contexere/contexere.db`.
 
 | table | holds |
 |---|---|

@@ -124,6 +124,8 @@ Dipasang sebelum 0.8.2 sebagai `omni`? Formula-nya kini bernama `contexere`, dan
 brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/contexere
 ```
 
+Pindah dari `omni`? Jalankan pertama memindahkan `~/.omni` ke `~/.contexere` dalam satu rename, termasuk database dan arsipnya, dan meninggalkan `~/.omni` sebagai link ke sana supaya rilis `omni` tetap menemukan datanya. Kalau pemindahan tidak bisa, Contexere tetap membaca `~/.omni` di tempatnya.
+
 Jalankan ulang `contexere init` sesudahnya kalau sebuah rilis mengubah kontrak
 hook-nya. Changelog menyebut kapan itu terjadi.
 
@@ -145,7 +147,7 @@ Contexere bernama OMNI sampai 0.8.0, dan nama lamanya masih berfungsi. Nama lama
 
 ```sh
 contexere init --uninstall   # hook dan pendaftaran MCP untuk satu host
-contexere reset --all        # semua integrasi, dan menawarkan menghapus omni.db
+contexere reset --all        # semua integrasi, dan menawarkan menghapus database
 ```
 
 `contexere reset` tanpa flag memberi menu interaktif. Keduanya tidak menyentuh
