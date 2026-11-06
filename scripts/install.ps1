@@ -52,16 +52,19 @@ if (-not (Test-Path $TmpDir)) {
 Write-Host "[omni] Downloading contexere $Version for $Platform..." -ForegroundColor Cyan
 # `contexere-...` from 0.8.6; a pinned older release only has `omni-...` (#1062).
 $Asset = $null
+$DownloadErrors = @()
 foreach ($Name in @("contexere", "omni")) {
     $Candidate = "$Name-$Version-$Platform.zip"
     try {
         Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$Version/$Candidate" -OutFile $ZipFile
         $Asset = $Candidate
         break
-    } catch {}
+    } catch {
+        $DownloadErrors += "${Candidate}: $($_.Exception.Message)"
+    }
 }
 if (-not $Asset) {
-    Write-Error "[omni] Download failed. Check if version $Version exists at: https://github.com/$Repo/releases/tag/$Version"
+    Write-Error ("[omni] Download failed:`n" + ($DownloadErrors -join "`n") + "`nCheck if version $Version exists at: https://github.com/$Repo/releases/tag/$Version")
     exit 1
 }
 

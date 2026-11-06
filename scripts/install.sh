@@ -65,13 +65,14 @@ download_and_install() {
     info "Downloading contexere ${version} for ${platform}..."
     for name in contexere omni; do
         url="https://github.com/$REPO/releases/download/${version}/${name}-${version}-${platform}.tar.gz"
-        if curl -fsSL "$url" -o "$tmpdir/omni.tar.gz" 2>/dev/null; then
+        # Quiet while one name is missing; shown below if both fail.
+        if curl -fsSL "$url" -o "$tmpdir/omni.tar.gz" 2>>"$tmpdir/curl.err"; then
             asset="${name}-${version}-${platform}.tar.gz"
             break
         fi
     done
     if [ -z "$asset" ]; then
-        error "Download failed. Check that version ${version} exists at:\n  https://github.com/$REPO/releases/tag/${version}"
+        error "Download failed:\n$(cat "$tmpdir/curl.err")\n  Check that version ${version} exists at:\n  https://github.com/$REPO/releases/tag/${version}"
     fi
 
     # Verify against the release's SHA256SUMS. Missing list, missing line, no hash
