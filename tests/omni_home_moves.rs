@@ -35,7 +35,11 @@ fn moves_the_omni_home_and_keeps_its_history() {
     let home = tempfile::tempdir().expect("tempdir");
     let old = home.path().join(".omni");
 
-    // An `omni` install with one distilled command in its history.
+    // An `omni` install with one distilled command in its history. An empty
+    // `omni.db` makes the hook write under that name; renaming a `contexere.db`
+    // afterwards left its WAL behind, and the history with it on a CI runner.
+    std::fs::create_dir_all(&old).expect("mkdir");
+    std::fs::write(old.join("omni.db"), b"").expect("touch");
     let noise: String = (0..300)
         .map(|i| format!("   Compiling crate{i} v0.1.{i}\n"))
         .collect();
@@ -56,7 +60,6 @@ fn moves_the_omni_home_and_keeps_its_history() {
         .write_all(payload.to_string().as_bytes())
         .expect("write payload");
     hook.wait().expect("hook exits");
-    std::fs::rename(old.join("contexere.db"), old.join("omni.db")).expect("as omni named it");
     let before = commands_in_stats(contexere(home.path(), Some(&old)));
     assert!(before > 0, "the fixture recorded no history to carry over");
 
