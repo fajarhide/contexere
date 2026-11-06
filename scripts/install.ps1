@@ -7,12 +7,12 @@ Installs the latest Contexere binary to $HOME\.local\bin\contexere.exe, with omn
 Supports: Windows (x86_64)
 
 .EXAMPLE
-irm https://raw.githubusercontent.com/fajarhide/omni/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/fajarhide/contexere/main/scripts/install.ps1 | iex
 #>
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "fajarhide/omni"
+$Repo = "fajarhide/contexere"
 $InstallDir = if ($env:OMNI_INSTALL_DIR) { $env:OMNI_INSTALL_DIR } else { "$env:USERPROFILE\.local\bin" }
 $Version = if ($env:OMNI_VERSION) { $env:OMNI_VERSION } else { "latest" }
 
@@ -36,7 +36,6 @@ if ($Version -eq "latest") {
 }
 
 $Platform = "x86_64-pc-windows-msvc"
-$TargetUrl = "https://github.com/$Repo/releases/download/$Version/omni-$Version-$Platform.zip"
 $TmpDir = Join-Path $env:TEMP "omni_install_$([guid]::NewGuid().ToString().Substring(0,8))"
 $ZipFile = Join-Path $TmpDir "omni.zip"
 
@@ -50,17 +49,27 @@ if (-not (Test-Path $TmpDir)) {
     New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
 }
 
-Write-Host "[omni] Downloading omni $Version for $Platform..." -ForegroundColor Cyan
-try {
-    Invoke-WebRequest -Uri $TargetUrl -OutFile $ZipFile
-} catch {
-    Write-Error "[omni] Download failed. Check if version $Version exists at: $TargetUrl"
+Write-Host "[omni] Downloading contexere $Version for $Platform..." -ForegroundColor Cyan
+# `contexere-...` from 0.8.6; a pinned older release only has `omni-...` (#1062).
+$Asset = $null
+$DownloadErrors = @()
+foreach ($Name in @("contexere", "omni")) {
+    $Candidate = "$Name-$Version-$Platform.zip"
+    try {
+        Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$Version/$Candidate" -OutFile $ZipFile
+        $Asset = $Candidate
+        break
+    } catch {
+        $DownloadErrors += "${Candidate}: $($_.Exception.Message)"
+    }
+}
+if (-not $Asset) {
+    Write-Error ("[omni] Download failed:`n" + ($DownloadErrors -join "`n") + "`nCheck if version $Version exists at: https://github.com/$Repo/releases/tag/$Version")
     exit 1
 }
 
 # Verify against the release's SHA256SUMS; anything missing or different stops the
 # install, since an unchecked binary is not installed (#1001).
-$Asset = "omni-$Version-$Platform.zip"
 try {
     $Sums = (Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$Version/SHA256SUMS" -UseBasicParsing).Content
 } catch {
