@@ -8,7 +8,7 @@ Start with that line. It is not a suggestion.
 
 ## The two guardrails that waste the most time
 
-**Isolate the database.** Parallel integration tests competing for `~/.omni/omni.db`
+**Isolate the database.** Parallel integration tests competing for `~/.contexere/contexere.db`
 cause SQLite locks and hangs. Measured: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one. `tests/hook_e2e.rs` has an
 `omni_cmd()` helper that spawns the binary with a unique `OMNI_DB_PATH` from a

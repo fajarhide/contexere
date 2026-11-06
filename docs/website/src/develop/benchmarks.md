@@ -349,7 +349,9 @@ did succeed. Noise, not an enumeration.
 ## Method
 
 ```sh
-OMNI_BENCH_DB=~/.omni/omni.db \
+# contexere.db, or omni.db on an install upgraded from omni; never open a name that is not there
+DB=$(ls ~/.contexere/contexere.db ~/.contexere/omni.db 2>/dev/null | head -1)
+OMNI_BENCH_DB=$DB \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
@@ -358,7 +360,7 @@ replay reads, and `execution_traces` prunes at seven days, so a run against the 
 measures a corpus that is already different from the one anybody else would get.
 
 ```sh
-sqlite3 ~/.omni/omni.db ".backup /tmp/bench-corpus.db"
+sqlite3 "$DB" ".backup /tmp/bench-corpus.db"
 OMNI_BENCH_DB=/tmp/bench-corpus.db \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```

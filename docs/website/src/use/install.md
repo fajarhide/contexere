@@ -133,13 +133,15 @@ Contexere was called OMNI until 0.8.0, and the old names still work. They stop w
 | the `[OMNI` marker | `[CONTEXERE` | update any script or skill of your own that matches the prefix |
 | the `~/.omni` directory | `~/.contexere` | nothing; your history is kept |
 
+The directory moves on the first run, in one rename, database and archive included, and `~/.omni` stays behind as a link to it so an `omni` release still finds its data. The database keeps its `omni.db` name. If the move cannot happen, Contexere keeps reading `~/.omni` where it is.
+
 `contexere doctor` lists everything on your machine that still uses an old name, so you can tell which agents are left.
 
 ## Remove it
 
 ```sh
 contexere init --uninstall   # hooks and MCP registration for one host
-contexere reset --all        # every integration, and offers to wipe omni.db
+contexere reset --all        # every integration, and offers to wipe the database
 ```
 
 `contexere reset` without flags gives an interactive menu. Neither command touches your

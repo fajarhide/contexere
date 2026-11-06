@@ -32,7 +32,7 @@ memory than a short one.
 
 ## Disk
 
-One SQLite file at `~/.omni/omni.db`.
+One SQLite file at `~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni).
 
 Archived content is capped at 64 KB per block. That cap came from a measurement:
 archiving every lossy distillation cost 83.1 MB over 30 days, and the cap brought it

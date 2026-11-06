@@ -33,7 +33,7 @@ hermes gateway restart
 `contexere init --hermes` is idempotent. It installs the plugin scaffold, registers the MCP
 server in `~/.hermes/config.yaml` if it is not already there, enables Hermes
 compression when that is safe, and writes Hermes-oriented defaults to
-`~/.omni/config.toml` **without overwriting an existing Contexere config**.
+`~/.contexere/config.toml` **without overwriting an existing Contexere config**.
 
 > Use either `hermes-omni-plugin` or the `contexere init --hermes` scaffold, not both at
 > once, or you get duplicate plugin registrations.

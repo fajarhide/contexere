@@ -65,7 +65,7 @@ pub fn validate_startup() -> Option<String> {
         if let Ok(content) = fs::read_to_string(&omni_cfg) {
             if !content.contains("[agents.hermes]") {
                 warnings.push(
-                    "~/.omni/config.toml exists but has no [agents.hermes] section. \
+                    "~/.contexere/config.toml exists but has no [agents.hermes] section. \
                      Hermes-optimized defaults (Efficient mode, pinned files) are inactive. \
                      Run `omni init --hermes` to add them.",
                 );
@@ -73,7 +73,7 @@ pub fn validate_startup() -> Option<String> {
         }
     } else {
         warnings.push(
-            "~/.omni/config.toml does not exist. OMNI is using built-in defaults \
+            "~/.contexere/config.toml does not exist. OMNI is using built-in defaults \
              instead of Hermes-optimized settings. Run `omni init --hermes`.",
         );
     }
@@ -571,7 +571,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         );
         if !has_hermes_section {
             warnings.push(
-                "~/.omni/config.toml has no [agents.hermes] section; using built-in defaults."
+                "~/.contexere/config.toml has no [agents.hermes] section; using built-in defaults."
                     .to_string(),
             );
         }

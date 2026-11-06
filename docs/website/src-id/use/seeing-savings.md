@@ -143,7 +143,7 @@ Bentuk yang didukung ada di bantuannya sendiri.
 
 ## Mengueri basis datanya langsung
 
-`~/.omni/omni.db` adalah SQLite biasa dan tidak ada yang melarang Anda.
+`~/.contexere/contexere.db` (`omni.db` pada instalasi yang di-upgrade dari omni) adalah SQLite biasa dan tidak ada yang melarang Anda.
 
 > Jangan pernah membaca keluaran `sqlite3` lewat hook Bash saat sedang
 > menyelidiki Contexere. Pipeline-nya bisa melipat baris yang sedang Anda hitung, dan

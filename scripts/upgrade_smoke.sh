@@ -115,8 +115,9 @@ done
 norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }
 diff <(norm "$ROOT/stats-old.txt") <(norm "$ROOT/stats-new.txt") || fail "omni stats reads the old history differently"
 as new "$ROOT/home-new" omni retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "new binary: omni retrieve $HANDLE"
-[ ! -e "$ROOT/home-new/.contexere" ] || fail "the upgrade created ~/.contexere; the old store has to be read in place"
-echo "upgrade: omni stats matches, omni retrieve follows an old handle, ~/.omni read in place"
+# The first run moves the tree and leaves a link, so the downgrade below still finds it (#1063).
+[ -d "$ROOT/home-new/.contexere" ] && [ -L "$ROOT/home-new/.omni" ] || fail "the upgrade did not move ~/.omni to ~/.contexere behind a link"
+echo "upgrade: omni stats matches, omni retrieve follows an old handle, ~/.omni moved to ~/.contexere"
 
 # `contexere init` over the old install replaces omni's hooks: one post-hook, ours.
 cp -R "$H0" "$ROOT/home-init"

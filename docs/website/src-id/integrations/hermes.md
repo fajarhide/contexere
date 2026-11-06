@@ -34,7 +34,7 @@ hermes gateway restart
 `contexere init --hermes` idempoten. Ia memasang kerangka plugin-nya, mendaftarkan
 server MCP di `~/.hermes/config.yaml` kalau belum ada di sana, menyalakan
 kompresi Hermes ketika itu aman, dan menulis nilai bawaan berorientasi Hermes ke
-`~/.omni/config.toml` **tanpa menimpa konfigurasi Contexere yang sudah ada**.
+`~/.contexere/config.toml` **tanpa menimpa konfigurasi Contexere yang sudah ada**.
 
 > Pakai salah satu, `hermes-omni-plugin` atau kerangka `contexere init --hermes`,
 > jangan keduanya sekaligus, atau Anda akan dapat pendaftaran plugin ganda.

@@ -139,13 +139,15 @@ Contexere bernama OMNI sampai 0.8.0, dan nama lamanya masih berfungsi. Nama lama
 | marker `[OMNI` | `[CONTEXERE` | perbarui skrip atau skill buatan Anda yang mencocokkan awalan itu |
 | direktori `~/.omni` | `~/.contexere` | tidak ada; riwayat Anda tetap utuh |
 
+Direktorinya pindah saat pertama kali jalan, dalam satu rename, termasuk database dan arsipnya, dan `~/.omni` ditinggal sebagai link ke sana supaya rilis `omni` tetap menemukan datanya. Database-nya tetap bernama `omni.db`. Kalau pemindahan tidak bisa, Contexere tetap membaca `~/.omni` di tempatnya.
+
 `contexere doctor` menampilkan semua yang di mesin Anda masih memakai nama lama, jadi Anda tahu agent mana yang tersisa.
 
 ## Cabut
 
 ```sh
 contexere init --uninstall   # hook dan pendaftaran MCP untuk satu host
-contexere reset --all        # semua integrasi, dan menawarkan menghapus omni.db
+contexere reset --all        # semua integrasi, dan menawarkan menghapus database
 ```
 
 `contexere reset` tanpa flag memberi menu interaktif. Keduanya tidak menyentuh

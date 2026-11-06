@@ -100,7 +100,7 @@ flag is the check that percentage cannot make.
 **Terminal rows are not tokens.** Output written to a TTY is read by a human, not a
 model. On one installation those rows were 73% of every byte Contexere claimed to have
 saved. `stats` excludes them now, and so does the benchmark harness, but anyone
-querying `~/.omni/omni.db` directly has to filter by `agent_id` themselves.
+querying `~/.contexere/contexere.db` (`omni.db` on an install upgraded from omni) directly has to filter by `agent_id` themselves.
 
 **A high number deserves suspicion.** The worst defects in this project reported the
 highest reductions, because deleting the answer compresses very well. Pair any figure

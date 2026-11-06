@@ -33,7 +33,7 @@ memori residen lebih banyak daripada log pendek.
 
 ## Disk
 
-Satu berkas SQLite di `~/.omni/omni.db`.
+Satu berkas SQLite di `~/.contexere/contexere.db` (`omni.db` pada instalasi yang di-upgrade dari omni).
 
 Isi yang diarsipkan dibatasi 64 KB per blok. Batas itu datang dari pengukuran:
 mengarsipkan setiap penyulingan yang kehilangan data berongkos 83,1 MB selama 30

@@ -10,18 +10,36 @@ fn new_home() -> PathBuf {
     home_dir().unwrap_or_else(temp_dir).join(".contexere")
 }
 
-/// The tree an `omni` install wrote. Read in place and never moved, so going
-/// back to an `omni` release still finds its own data (#876).
+/// The tree an `omni` install wrote. Moved to `~/.contexere` on first run (#1063).
 fn legacy_home() -> PathBuf {
     home_dir().unwrap_or_else(temp_dir).join(".omni")
+}
+
+/// Moves `legacy` to `new` in one rename, so the store, ledger and archive move
+/// together and a failure leaves no second copy to diverge (#1063). On Unix a
+/// symlink takes its place, so an `omni` release and any path a host config
+/// still names keep finding the data. Returns the tree to use: `new` when the
+/// move happened here or in a racing process, else `legacy` as before.
+fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
+    if std::fs::rename(legacy, new).is_ok() {
+        #[cfg(unix)]
+        let _ = std::os::unix::fs::symlink(new, legacy);
+        return new.to_path_buf();
+    }
+    if new.exists() {
+        new.to_path_buf()
+    } else {
+        legacy.to_path_buf()
+    }
 }
 
 /// Resolve one of the two roots, most specific first (#217):
 ///
 /// 1. `OMNI_HOME` puts the whole tree in one place.
 /// 2. `OMNI_CONFIG_HOME` / `OMNI_DATA_HOME` split config from data.
-/// 3. An existing `~/.contexere`, then an existing `~/.omni`, win over XDG, so
-///    an upgrade never appears to lose a database.
+/// 3. An existing `~/.contexere`, then an existing `~/.omni` (moved to
+///    `~/.contexere` when it can be), win over XDG, so an upgrade never appears
+///    to lose a database.
 /// 4. `XDG_CONFIG_HOME/contexere` / `XDG_DATA_HOME/contexere` on a fresh
 ///    install, or the `omni` directory beside it when only that one exists.
 /// 5. `~/.contexere`.
@@ -39,7 +57,12 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
         return new;
     }
     if legacy.exists() {
-        return legacy;
+        return adopt_legacy(&new, &legacy);
+    }
+    // Another process renamed `~/.omni` between the two checks, before its link
+    // appeared: use the moved tree rather than fall through to XDG.
+    if new.exists() {
+        return new;
     }
     if let Some(p) = env::var_os(xdg_var).filter(|p| !p.is_empty()) {
         let base = PathBuf::from(p);
@@ -225,22 +248,38 @@ mod tests {
         }
     }
 
+    /// #1063: the old tree moves whole, and the old path still reaches it.
     #[test]
-    fn an_existing_legacy_tree_wins_over_xdg() {
-        // Asserts the ordering without driving the process env, which a
-        // parallel test would race on.
-        let legacy = legacy_home();
-        if legacy.exists() {
-            assert_eq!(
-                resolve_root("OMNI_DATA_HOME_UNSET_FOR_TEST", "XDG_DATA_HOME"),
-                if env::var_os("OMNI_HOME").is_some_and(|p| !p.is_empty()) {
-                    omni_home()
-                } else {
-                    legacy
-                },
-                "an existing ~/.omni must keep being used"
-            );
-        }
+    fn moves_the_omni_tree_to_contexere_in_one_rename() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let (new, legacy) = (home.path().join(".contexere"), home.path().join(".omni"));
+        std::fs::create_dir_all(legacy.join("archive")).expect("mkdir");
+        std::fs::write(legacy.join("omni.db"), b"rows").expect("write");
+
+        assert_eq!(adopt_legacy(&new, &legacy), new);
+        assert_eq!(
+            std::fs::read(new.join("omni.db")).expect("moved db"),
+            b"rows"
+        );
+        assert!(
+            new.join("archive").is_dir(),
+            "the whole tree moves, not just the db"
+        );
+        #[cfg(unix)]
+        assert_eq!(
+            std::fs::read(legacy.join("omni.db")).expect("read through the symlink"),
+            b"rows",
+            "an omni release still finds its data at the old path"
+        );
+    }
+
+    /// A process that lost the race to move the tree uses the moved one.
+    #[test]
+    fn a_racing_process_finds_the_tree_already_moved() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let (new, legacy) = (home.path().join(".contexere"), home.path().join(".omni"));
+        std::fs::create_dir_all(&new).expect("mkdir");
+        assert_eq!(adopt_legacy(&new, &legacy), new);
     }
 }
 
