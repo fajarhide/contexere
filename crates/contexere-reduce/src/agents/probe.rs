@@ -159,7 +159,8 @@ pub(crate) fn report(
         crate::agent_report!(
             "   {:<15} {}",
             "Name:".bright_black(),
-            "still calls `omni`; `contexere init` switches it".bright_black()
+            "still calls `omni`, which stops working in 0.9.0; `contexere init` switches it"
+                .bright_black()
         );
     }
     if !covers {
@@ -169,8 +170,8 @@ pub(crate) fn report(
             "[WARNING] registered, but its matcher never runs it for Bash output".yellow()
         );
         warnings.push(format!(
-            "OMNI's post-hook `{command}` is registered under a matcher that excludes Bash. \
-             Run `omni init` again."
+            "Contexere's post-hook `{command}` is registered under a matcher that excludes Bash. \
+             Run `contexere init` again."
         ));
         return false;
     }
@@ -210,7 +211,7 @@ pub(crate) fn report(
         if !ok {
             warnings.push(format!(
                 "The registered post-hook `{command}` did not redact a canary credential. \
-                 Run `omni init` again, then `omni doctor`."
+                 Run `contexere init` again, then `contexere doctor`."
             ));
         }
         ok

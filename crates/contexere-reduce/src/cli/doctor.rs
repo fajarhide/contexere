@@ -324,7 +324,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             "  {:<15} {} {}",
             "Settings:".bright_black(),
             old.join(", "),
-            "use the old name; CONTEXERE_* reads the same".bright_black()
+            "use the old name, which stops working in 0.9.0; rename them to CONTEXERE_*"
+                .bright_black()
         );
     }
 
