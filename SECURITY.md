@@ -41,7 +41,7 @@ from which commit. `SHA256SUMS` only proves a file has not changed since it was
 published; provenance is what says who published it.
 
 ```bash
-gh attestation verify omni-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/contexere
+gh attestation verify omni-v0.7.7-aarch64-apple-darwin.tar.gz --repo fajarhide/omni
 ```
 
 Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.
