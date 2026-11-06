@@ -118,8 +118,6 @@ Installed before 0.8.2 as `omni`? The formula is now `contexere`, and Homebrew s
 brew trust --tap fajarhide/tap && brew upgrade fajarhide/tap/contexere
 ```
 
-Coming from `omni`, the first run moves `~/.omni` to `~/.contexere` in one rename, database and archive included, and leaves `~/.omni` as a link to it so an `omni` release still finds its data. If the move cannot happen, Contexere keeps reading `~/.omni` where it is.
-
 Re-run `contexere init` afterwards if a release changes the hook contract. The changelog
 says when that happens.
 
@@ -134,6 +132,8 @@ Contexere was called OMNI until 0.8.0, and the old names still work. They stop w
 | `omni_*` MCP tools | `contexere_*` | nothing, once `contexere init` has replaced the MCP entry |
 | the `[OMNI` marker | `[CONTEXERE` | update any script or skill of your own that matches the prefix |
 | the `~/.omni` directory | `~/.contexere` | nothing; your history is kept |
+
+The directory moves on the first run, in one rename, database and archive included, and `~/.omni` stays behind as a link to it so an `omni` release still finds its data. The database keeps its `omni.db` name. If the move cannot happen, Contexere keeps reading `~/.omni` where it is.
 
 `contexere doctor` lists everything on your machine that still uses an old name, so you can tell which agents are left.
 
