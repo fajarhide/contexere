@@ -60,7 +60,10 @@ fn moves_the_omni_home_and_keeps_its_history() {
     let after = commands_in_stats(contexere(home.path(), None));
 
     let new = home.path().join(".contexere");
-    assert!(new.join("omni.db").is_file(), "~/.omni was not moved to ~/.contexere");
+    assert!(
+        new.join("omni.db").is_file(),
+        "~/.omni was not moved to ~/.contexere"
+    );
     assert_eq!(after, before, "stats lost the old history in the move");
     #[cfg(unix)]
     assert!(

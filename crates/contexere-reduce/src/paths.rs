@@ -252,8 +252,14 @@ mod tests {
         std::fs::write(legacy.join("omni.db"), b"rows").expect("write");
 
         assert_eq!(adopt_legacy(&new, &legacy), new);
-        assert_eq!(std::fs::read(new.join("omni.db")).expect("moved db"), b"rows");
-        assert!(new.join("archive").is_dir(), "the whole tree moves, not just the db");
+        assert_eq!(
+            std::fs::read(new.join("omni.db")).expect("moved db"),
+            b"rows"
+        );
+        assert!(
+            new.join("archive").is_dir(),
+            "the whole tree moves, not just the db"
+        );
         #[cfg(unix)]
         assert_eq!(
             std::fs::read(legacy.join("omni.db")).expect("read through the symlink"),
