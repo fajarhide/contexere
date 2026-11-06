@@ -108,7 +108,7 @@ diingatkan padanya alih-alih melantur. `contexere goal show` untuk memeriksa,
 ## Matikan untuk satu perintah
 
 ```sh
-CONTEXERE_PASSTHROUGH=1 kubectl get pods -o yaml
+OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
 Hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang

@@ -101,7 +101,7 @@ than drifting. `contexere goal show` to check, `contexere goal clear` to drop it
 ## Turn it off for one command
 
 ```sh
-CONTEXERE_PASSTHROUGH=1 kubectl get pods -o yaml
+OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
 The first thing to reach for when you suspect Contexere changed something it should not

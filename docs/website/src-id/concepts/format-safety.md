@@ -49,7 +49,7 @@ Satu baris tidak membuktikan apa pun.
 ## Mematikannya, dan kapan perlu
 
 ```sh
-CONTEXERE_PASSTHROUGH=1 <perintah Anda>
+OMNI_PASSTHROUGH=1 <perintah Anda>
 ```
 
 Melewati pipeline sepenuhnya. Pakai ketika Anda sedang menelusuri Contexere itu

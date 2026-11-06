@@ -133,13 +133,13 @@ Contexere bernama OMNI sampai 0.8.0, dan nama lamanya masih berfungsi. Nama lama
 
 | nama lama | menjadi | yang perlu Anda lakukan |
 | --- | --- | --- |
-| perintah `omni` | `contexere` | jalankan `contexere init` sekali; ia menulis ulang setiap hook dan entri MCP yang masih memanggil `omni` |
+| perintah `omni` | `contexere` | jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai (`--claude`, `--codex`, `--cursor` dan seterusnya); setiap kali jalan, ia menulis ulang hook dan entri MCP agent itu |
 | setelan `OMNI_*` | `CONTEXERE_*` | ganti namanya di profil shell atau CI; `CONTEXERE_*` sudah menang kalau keduanya diset |
 | tool MCP `omni_*` | `contexere_*` | tidak ada, setelah `contexere init` mengganti entri MCP-nya |
 | marker `[OMNI` | `[CONTEXERE` | perbarui skrip atau skill buatan Anda yang mencocokkan awalan itu |
 | direktori `~/.omni` | `~/.contexere` | tidak ada; riwayat Anda tetap utuh |
 
-`contexere doctor` menampilkan semua yang di mesin Anda masih memakai nama lama.
+`contexere doctor` menampilkan semua yang di mesin Anda masih memakai nama lama, jadi Anda tahu agent mana yang tersisa.
 
 ## Cabut
 

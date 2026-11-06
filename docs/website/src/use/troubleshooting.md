@@ -6,7 +6,7 @@ is where most suspicions end.
 ## First, is Contexere even involved
 
 ```sh
-CONTEXERE_PASSTHROUGH=1 <the command>
+OMNI_PASSTHROUGH=1 <the command>
 ```
 
 Identical output with and without it means Contexere did nothing. That is the end of the

@@ -127,13 +127,13 @@ Contexere was called OMNI until 0.8.0, and the old names still work. They stop w
 
 | old name | becomes | what to do |
 | --- | --- | --- |
-| the `omni` command | `contexere` | run `contexere init` once; it rewrites every hook and MCP entry that still calls `omni` |
+| the `omni` command | `contexere` | run `contexere init --<host>` for each agent you use (`--claude`, `--codex`, `--cursor` and so on); each run rewrites that agent's hooks and MCP entry |
 | `OMNI_*` settings | `CONTEXERE_*` | rename them in your shell profile or CI; `CONTEXERE_*` already wins when both are set |
 | `omni_*` MCP tools | `contexere_*` | nothing, once `contexere init` has replaced the MCP entry |
 | the `[OMNI` marker | `[CONTEXERE` | update any script or skill of your own that matches the prefix |
 | the `~/.omni` directory | `~/.contexere` | nothing; your history is kept |
 
-`contexere doctor` lists everything on your machine that still uses an old name.
+`contexere doctor` lists everything on your machine that still uses an old name, so you can tell which agents are left.
 
 ## Remove it
 

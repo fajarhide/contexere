@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは `contexere init` を一度実行すると移行できます。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
+> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
 
 ## なぜ必要か
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。`contexere init` を一度実行すると移行できます。
+既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。エージェントごとに `contexere init --<host>` を実行すると移行できます。
 
 ## 使い方
 

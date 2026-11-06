@@ -50,7 +50,7 @@ plugins:
 
 mcp_servers:
   omni:
-    command: "/opt/homebrew/bin/omni"
+    command: "/opt/homebrew/bin/contexere"
     args: ["--mcp"]
     env:
       CONTEXERE_AGENT_ID: "hermes"

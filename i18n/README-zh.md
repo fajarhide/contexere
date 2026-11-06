@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令可用到 0.9.0；运行一次 `contexere init` 即可迁移现有安装。技能、智能体无需看到即可使用的密钥以及跨智能体记忆即将推出；目前发布的是上下文与 token 层。
+> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令可用到 0.9.0；为你使用的每个智能体运行 `contexere init --<host>` 即可迁移现有安装。技能、智能体无需看到即可使用的密钥以及跨智能体记忆即将推出；目前发布的是上下文与 token 层。
 
 ## 为什么需要它
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-现有安装在 0.9.0 之前继续以 `omni` 这个名字工作，它是同一个程序。运行一次 `contexere init` 即可迁移。
+现有安装在 0.9.0 之前继续以 `omni` 这个名字工作，它是同一个程序。为每个智能体运行 `contexere init --<host>` 即可迁移。
 
 ## 使用
 

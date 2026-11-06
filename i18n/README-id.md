@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; jalankan `contexere init` sekali untuk memindahkan instalasi yang ada. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
+> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai untuk memindahkan instalasi yang ada. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
 
 ## Kenapa
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, program yang sama, sampai 0.9.0. Jalankan `contexere init` sekali untuk memindahkannya.
+Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, program yang sama, sampai 0.9.0. Jalankan `contexere init --<host>` untuk setiap agent untuk memindahkannya.
 
 ## Penggunaan
 

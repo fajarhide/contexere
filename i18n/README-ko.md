@@ -18,7 +18,7 @@
 
 ---
 
-> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. `contexere init`을 한 번 실행하면 기존 설치가 옮겨집니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
+> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
 
 ## 왜 필요한가
 
@@ -59,7 +59,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-기존 설치는 0.9.0까지 `omni`라는 이름으로 동작합니다. 같은 프로그램입니다. `contexere init`을 한 번 실행하면 옮겨집니다.
+기존 설치는 0.9.0까지 `omni`라는 이름으로 동작합니다. 같은 프로그램입니다. 에이전트마다 `contexere init --<host>`를 실행하면 옮겨집니다.
 
 ## 사용법
 

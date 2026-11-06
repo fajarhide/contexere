@@ -23,7 +23,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init` once to move an existing install across. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
 
 ## Why
 
@@ -64,7 +64,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init` once to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
+Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init --<host>` for each agent to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
 
 ## Usage
 

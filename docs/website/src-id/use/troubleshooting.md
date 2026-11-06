@@ -6,7 +6,7 @@ saja, dan di situlah kecurigaan biasanya berakhir.
 ## Pertama, apakah Contexere memang terlibat
 
 ```sh
-CONTEXERE_PASSTHROUGH=1 <perintahnya>
+OMNI_PASSTHROUGH=1 <perintahnya>
 ```
 
 Keluaran yang identik dengan dan tanpa variabel itu berarti Contexere tidak melakukan
