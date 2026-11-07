@@ -4,6 +4,10 @@ Penanda adalah cara Contexere memberi tahu apa yang ia lakukan. Bentuknya hanya
 beberapa, dan mengenalinya adalah beda antara memercayai perkakas ini dan
 mencurigainya.
 
+Contoh di bawah mencetak `[OMNI`. Mulai 0.9.0 penanda yang sama diawali `[CONTEXERE`
+dan menyebut `contexere retrieve`, jadi apa pun yang mencocokkan penanda sebaiknya
+menerima kedua awalan.
+
 ## Bentuk-bentuknya
 
 ```
