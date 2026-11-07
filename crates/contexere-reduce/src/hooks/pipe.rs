@@ -363,6 +363,11 @@ fn distill(
         )
     };
 
+    // What the distiller kept, before the ledger folds any of it: the archive below
+    // is decided on these, as `post_tool` does (#519), or a fold that already
+    // carries its handle is counted again as lines omitted (#1086).
+    let (distilled_lines, distilled_len) = (output.lines().count(), output.len());
+
     // The ledger stage (#416), with the same gates as `post_tool`: no structured
     // payloads, and the host's session id only, never a minted one (#118). No
     // forwarded id, no ledger.
@@ -385,15 +390,15 @@ fn distill(
     // Archive when the reply loses lines, as `post_tool` does (#271). Gated on
     // `beats_guardrail`, since below it `best_output` emits the raw input.
     let mut r_hash = None;
-    if crate::guard::limits::beats_guardrail(output.len(), input_text.len()) {
+    if crate::guard::limits::beats_guardrail(distilled_len, input_text.len()) {
         let omitted_lines = input_text
             .lines()
             .count()
-            .saturating_sub(output.lines().count());
+            .saturating_sub(distilled_lines);
         let lost = if omitted_lines > 0 {
             format!("{omitted_lines} lines")
         } else {
-            format!("{} bytes", input_text.len() - output.len())
+            format!("{} bytes", input_text.len() - distilled_len)
         };
 
         let marker = if input_text.len() > crate::guard::limits::MAX_REWIND_BYTES {
@@ -424,7 +429,7 @@ fn distill(
         };
 
         // A marker that loses the guardrail costs more than the cut saved (#268, #269).
-        if crate::guard::limits::beats_guardrail(output.len() + marker.len(), input_text.len()) {
+        if crate::guard::limits::beats_guardrail(distilled_len + marker.len(), input_text.len()) {
             output.push_str(&marker);
             if r_hash.is_some() {
                 route = Route::Rewind;
