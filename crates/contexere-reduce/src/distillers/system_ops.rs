@@ -624,6 +624,138 @@ fn looks_like_code_expression(value: &str) -> bool {
             .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == ':'))
 }
 
+/// A balanced parenthesized reference or expression is code, not a literal:
+/// `(value).strip()`, `(value or "")` and `("a" if ok else "b")`.
+/// Non-empty strings and credential-shaped identifiers stay redacted.
+fn looks_like_parenthesized_code(value: &str) -> bool {
+    let value = value.trim();
+    if !value.starts_with('(') {
+        return false;
+    }
+
+    let mut depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut group = None;
+    for (index, ch) in value.char_indices() {
+        if let Some(delimiter) = quote {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == delimiter {
+                quote = None;
+            }
+            continue;
+        }
+        if matches!(ch, '\'' | '"' | '`') {
+            quote = Some(ch);
+            continue;
+        }
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    let (Some(inner), Some(tail)) = (value.get(1..index), value.get(index + 1..))
+                    else {
+                        return false;
+                    };
+                    group = Some((inner, tail));
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let Some((inner, tail)) = group else {
+        return false;
+    };
+    if !is_safe_member_chain_tail(tail) {
+        return false;
+    }
+
+    let inner = inner.trim();
+    is_safe_code_identifier(inner)
+        || references_instead_of_holding(inner)
+        || looks_like_parenthesized_code(inner)
+        || looks_like_empty_string_fallback(inner)
+        || looks_like_short_conditional(inner)
+}
+
+fn is_safe_member_chain_tail(tail: &str) -> bool {
+    let mut rest = tail.trim();
+    if rest.is_empty() {
+        return true;
+    }
+
+    loop {
+        let Some(after_dot) = rest.strip_prefix('.') else {
+            return false;
+        };
+        let Some(first) = after_dot.chars().next() else {
+            return false;
+        };
+        if !(first.is_ascii_alphabetic() || first == '_') {
+            return false;
+        }
+        let name_end = after_dot
+            .char_indices()
+            .take_while(|(_, ch)| ch.is_ascii_alphanumeric() || *ch == '_')
+            .last()
+            .map_or(0, |(index, ch)| index + ch.len_utf8());
+        let Some(after_name) = after_dot.get(name_end..) else {
+            return false;
+        };
+        rest = after_name;
+        if let Some(after_call) = rest.strip_prefix("()") {
+            rest = after_call;
+        }
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            return true;
+        }
+    }
+}
+
+fn is_safe_code_identifier(value: &str) -> bool {
+    !value.starts_with(['"', '\'', '`'])
+        && looks_like_plain_identifier(value)
+        && !is_a_secret_value(value, true)
+        && !looks_like_token_literal(value)
+}
+
+fn looks_like_empty_string_fallback(value: &str) -> bool {
+    [" or ", " || ", " ?? "].iter().any(|operator| {
+        value.split_once(operator).is_some_and(|(name, fallback)| {
+            is_safe_code_identifier(name.trim()) && matches!(fallback.trim(), "\"\"" | "''")
+        })
+    })
+}
+
+fn looks_like_short_conditional(value: &str) -> bool {
+    let Some((chosen, remainder)) = value.split_once(" if ") else {
+        return false;
+    };
+    let Some((condition, alternate)) = remainder.split_once(" else ") else {
+        return false;
+    };
+    is_single_character_string(chosen.trim())
+        && is_safe_code_identifier(condition.trim())
+        && is_single_character_string(alternate.trim())
+}
+
+fn is_single_character_string(value: &str) -> bool {
+    let value = value.trim();
+    let Some(quote) = value.chars().next().filter(|ch| matches!(ch, '\'' | '"')) else {
+        return false;
+    };
+    value
+        .strip_prefix(quote)
+        .and_then(|inner| inner.strip_suffix(quote))
+        .is_some_and(|inner| inner.len() == 1 && !inner.contains('\\'))
+}
+
 /// A tuple or list of plain identifiers is a set of field names, not a secret:
 /// `KEY = ("trace", "seq")` hid the only definition of the name (#974). Each
 /// element has to pass the same test a bare `KEY` value does, so a mixed-case or
@@ -639,6 +771,46 @@ fn looks_like_list_of_names(value: &str) -> bool {
     };
     let inner = inner.trim().trim_end_matches(',');
     !inner.is_empty() && inner.split(',').all(looks_like_plain_identifier)
+}
+
+fn list_contains_credential_literal(value: &str) -> bool {
+    let v = value.trim().trim_end_matches([',', ';']).trim_end();
+    let Some(inner) = v
+        .strip_prefix('(')
+        .and_then(|r| r.strip_suffix(')'))
+        .or_else(|| v.strip_prefix('[').and_then(|r| r.strip_suffix(']')))
+    else {
+        return false;
+    };
+    inner.trim().trim_end_matches(',').split(',').any(|item| {
+        let item = item.trim();
+        let quote = item.chars().next().filter(|ch| matches!(ch, '\'' | '"'));
+        let literal = quote
+            .and_then(|quote| {
+                item.strip_prefix(quote)
+                    .and_then(|rest| rest.strip_suffix(quote))
+            })
+            .unwrap_or(item);
+        looks_like_token_literal(literal) || literal.chars().any(|ch| ch.is_ascii_digit())
+    })
+}
+
+fn looks_like_token_literal(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    BARE_TOKEN.is_match(value)
+        || [
+            "sk-ant-",
+            "github_pat_",
+            "ghp_",
+            "gho_",
+            "ghu_",
+            "ghs_",
+            "ghr_",
+            "xoxb-",
+            "xoxp-",
+        ]
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
 }
 
 /// Database and cache schemes, whose path names a database, never a secret.
@@ -792,6 +964,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
+        || looks_like_parenthesized_code(value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
         || (names_a_path(key, literal) && is_only_punctuation(tail))
     {
@@ -801,7 +974,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     if only_the_key_pattern_matched(key)
         && (looks_like_plain_identifier(value)
             || looks_like_code_expression(value)
-            || looks_like_list_of_names(value))
+            || (looks_like_list_of_names(value) && !list_contains_credential_literal(value)))
     {
         return None;
     }
@@ -2197,6 +2370,43 @@ mod tests {
                 redact_assignment(key, value),
                 None,
                 "{key}={value} is a call, and was destroyed"
+            );
+        }
+    }
+
+    #[test]
+    fn keeps_parenthesized_expressions() {
+        let code = "key = (value or \"\").strip()\n\
+                    key = value.strip()\n\
+                    key = (value).strip()\n\
+                    key = (value.strip())\n\
+                    token = (get_token())\n\
+                    token = (raw or \"\").strip()\n\
+                    key = (\"a\" if v else \"b\")\n\
+                    key = (value)\n";
+        assert_eq!(
+            redact_sensitive_assignments(code),
+            None,
+            "parenthesized code must reach the agent unchanged"
+        );
+    }
+
+    #[test]
+    fn redacts_literals_inside_parenthesized_expressions() {
+        for line in [
+            "key = (\"sk-ant-realsecret123456\")\n",
+            "token = (raw or \"sk-ant-realsecret123456\").strip()\n",
+            "key = (\"a\" if v else \"sk-ant-realsecret123456\")\n",
+            "key = (hunter2)\n",
+            "token = (raw or \"hunter2\").strip()\n",
+            "token = (sk-ant-placeholdersecret)\n",
+        ] {
+            let out = redact_sensitive_assignments(line)
+                .unwrap_or_else(|| panic!("a literal credential is hidden: {line}"));
+            assert!(out.contains("[REDACTED]"), "literal not marked: {out}");
+            assert!(
+                !out.contains("sk-ant-realsecret123456"),
+                "secret delivered: {out}"
             );
         }
     }
