@@ -11,8 +11,10 @@ static TALLY: LazyLock<Regex> = LazyLock::new(|| {
 
 /// `src/main.rs:10:5`, the file-and-line shape of a context line. Compiled once:
 /// built per call it cost 52 ms on an 80-line payload (#283).
+const PATH_WITH_LINE_PATTERN: &str = r"[\w\./\-]+\.\w+:\d+(:\d+)?";
+
 static PATH_WITH_LINE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"[\w\./\-]+\.\w+:\d+(:\d+)?").expect("the path regex is a literal and must compile")
+    Regex::new(PATH_WITH_LINE_PATTERN).expect("the path regex is a literal and must compile")
 });
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -640,21 +642,33 @@ mod tests {
         assert!(is_data("[\n  1,\n  2\n]"));
     }
 
-    /// The path regex is compiled once (#283). 200 ms is two orders above the fixed
-    /// cost and three times under the broken one, so it cannot flake (#245).
+    /// The path regex is compiled once (#283). Timed against compiling that regex in
+    /// the same run, so a slow runner slows both sides: a fixed 200 ms bound failed at
+    /// 342 ms on a shared macOS runner with the regex compiled once (#1080).
     #[test]
     fn classifies_a_line_without_recompiling_its_regex() {
         let lines = vec!["6d47f1a Point sign-in at our own page, not Clerk's hosted portal"];
+        let time = |n: u32, f: &dyn Fn()| {
+            let start = std::time::Instant::now();
+            for _ in 0..n {
+                f();
+            }
+            start.elapsed()
+        };
 
-        let start = std::time::Instant::now();
-        for _ in 0..1_000 {
+        let classify = time(1_000, &|| {
             let _ = classify_block(&lines, Some("git"));
-        }
-        let elapsed = start.elapsed();
+        });
+        // Ten compiles stand in for a thousand: one costs about 10 ms in a debug build.
+        let compiles = time(10, &|| {
+            let _ = Regex::new(PATH_WITH_LINE_PATTERN);
+        }) * 100;
 
+        // Compiled once, 1,000 calls measured about 1/360 of 1,000 compiles on a Linux
+        // box (28 ms against 10.3 s); compiled per call they could not beat 1/1.
         assert!(
-            elapsed < std::time::Duration::from_millis(200),
-            "1,000 classifications took {elapsed:?}; a regex is being compiled per call again"
+            classify * 4 < compiles,
+            "1,000 classifications took {classify:?} against about {compiles:?} for 1,000 compiles; a regex is being compiled per call again"
         );
     }
 
