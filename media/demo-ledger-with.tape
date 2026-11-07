@@ -35,7 +35,7 @@ Type `unset OMNI_PASSTHROUGH`
 Enter
 Type `export OMNI_DB_PATH="$(mktemp -d)/demo.db"`
 Enter
-Type `cat() { contexere exec --session readme-demo command cat "$@"; }`
+Type `cat() { contexere exec --session readme-demo cat "$@"; }`
 Enter
 Type "clear"
 Enter
