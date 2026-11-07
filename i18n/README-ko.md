@@ -18,7 +18,16 @@
 
 ---
 
-> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
+> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 0.8.6부터 데이터는 자동으로 `~/.contexere`로 옮겨집니다.
+
+## 앞으로의 방향
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi, VS Code를 하나로 엮는 레이어로서의 Contexere. Reduce는 제공 중이고 스킬, 키, 메모리는 개발 중입니다." width="820" />
+</picture>
+
+사용하는 에이전트는 저마다 스킬, 키, 메모리를 따로 가지고 있습니다. Contexere는 그 사이에 놓이는 하나의 레이어입니다. 스킬은 한 번만 설정하면 모든 에이전트가 쓰고, 에이전트는 키를 한 번도 보지 않고 사용하며, 한 에이전트가 프로젝트에서 배운 것을 다음 에이전트가 이미 알고 있습니다. 이 부분은 개발 중입니다. 지금 제공하는 것은 그 첫 부분, 아래에서 설명하는 컨텍스트와 토큰 레이어입니다.
 
 ## 왜 필요한가
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 기존 설치는 0.9.0까지 `omni`라는 이름으로 동작합니다. 같은 프로그램입니다. 에이전트마다 `contexere init --<host>`를 실행하면 옮겨집니다.
+
+Claude Code 안에서 `/plugin marketplace add fajarhide/contexere` 다음에 `/plugin install contexere@omni`를 실행하면, 설치와 점검을 대신해 주는 스킬이 추가됩니다.
 
 ## 사용법
 

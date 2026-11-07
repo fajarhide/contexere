@@ -18,7 +18,16 @@
 
 ---
 
-> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
+> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。0.8.6 以降、データは自動で `~/.contexere` に移動します。
+
+## 目指すところ
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi、VS Code を織り合わせるひとつのレイヤーとしての Contexere。Reduce は提供中、スキル・キー・メモリは開発中。" width="820" />
+</picture>
+
+使っているエージェントは、それぞれ別々にスキル、キー、メモリを持っています。Contexere はそれらのあいだに入るひとつのレイヤーです。スキルは一度設定すればすべてのエージェントで使え、エージェントはキーを一度も見ずに使え、あるエージェントがプロジェクトで学んだことは次のエージェントがすでに知っています。この部分は開発中です。現在提供しているのはその最初の部分、以下で説明するコンテキストとトークンのレイヤーです。
 
 ## なぜ必要か
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。エージェントごとに `contexere init --<host>` を実行すると移行できます。
+
+Claude Code の中では、`/plugin marketplace add fajarhide/contexere` のあと `/plugin install contexere@omni` を実行すると、インストールと確認を代わりに行うスキルが追加されます。
 
 ## 使い方
 

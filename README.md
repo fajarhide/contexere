@@ -23,7 +23,16 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Since 0.8.6 your data moves to `~/.contexere` on its own.
+
+## Where it is going
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="media/contexere-poster-dark.png" />
+  <img src="media/contexere-poster-light.png" alt="Contexere as one layer woven between Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi and VS Code. Reduce ships today; skills, keys and memory are on the way." width="820" />
+</picture>
+
+Every agent you use keeps its own skills, keys and memory. Contexere is the one layer between them: set a skill up once and every agent gets it, agents use your keys without ever seeing them, and what one agent learns in a project the next one already knows. That part is on the way. What ships today is the first piece, the context and token layer described below.
 
 ## Why
 
@@ -65,6 +74,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init --<host>` for each agent to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
+
+Inside Claude Code, `/plugin marketplace add fajarhide/contexere` then `/plugin install contexere@omni` adds a skill that installs and checks it for you.
 
 ## Usage
 

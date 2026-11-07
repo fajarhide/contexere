@@ -18,7 +18,16 @@
 
 ---
 
-> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài sẵn sang. Kỹ năng, khóa mà agent dùng mà không bao giờ nhìn thấy, và bộ nhớ giữa các agent đang được phát triển; hiện tại nó cung cấp lớp ngữ cảnh và token.
+> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài cũ sang. Từ bản 0.8.6, dữ liệu của bạn tự chuyển sang `~/.contexere`.
+
+## Hướng đi
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere là một lớp dệt Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi và VS Code lại với nhau. Reduce đã có, skill, khóa và bộ nhớ đang được phát triển." width="820" />
+</picture>
+
+Mỗi agent bạn dùng đều giữ skill, khóa và bộ nhớ riêng. Contexere là một lớp nằm giữa chúng: thiết lập một skill một lần là mọi agent đều có, agent dùng khóa của bạn mà không bao giờ nhìn thấy nó, và điều một agent học được trong một dự án thì agent tiếp theo đã biết. Phần này đang được phát triển. Thứ có sẵn hôm nay là phần đầu tiên, lớp ngữ cảnh và token được mô tả bên dưới.
 
 ## Tại sao
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 Các bản cài sẵn vẫn hoạt động dưới tên `omni`, cùng một chương trình, đến bản 0.9.0. Chạy `contexere init --<host>` cho từng agent để chuyển sang.
+
+Trong Claude Code, chạy `/plugin marketplace add fajarhide/contexere` rồi `/plugin install contexere@omni` để thêm một skill tự cài đặt và kiểm tra giúp bạn.
 
 ## Sử dụng
 

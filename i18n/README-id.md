@@ -18,7 +18,16 @@
 
 ---
 
-> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai untuk memindahkan instalasi yang ada. Skill, key yang dipakai agent tanpa pernah melihat isinya, dan memori lintas agent sedang menyusul; hari ini yang dikirim adalah lapisan konteks dan token.
+> OMNI sekarang bernama **Contexere**, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai untuk memindahkan instalasi yang ada. Sejak 0.8.6 data Anda pindah sendiri ke `~/.contexere`.
+
+## Ke mana arahnya
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere sebagai satu lapisan yang menenun Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi dan VS Code. Reduce sudah tersedia; skill, key dan memori sedang menyusul." width="820" />
+</picture>
+
+Setiap agent yang Anda pakai menyimpan skill, key, dan memorinya sendiri-sendiri. Contexere adalah satu lapisan di antara mereka: atur skill sekali dan semua agent mendapatkannya, agent memakai key Anda tanpa pernah melihat isinya, dan apa yang dipelajari satu agent di sebuah proyek sudah diketahui agent berikutnya. Bagian itu sedang dikerjakan. Yang tersedia hari ini adalah bagian pertamanya, lapisan konteks dan token yang dijelaskan di bawah.
 
 ## Kenapa
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, program yang sama, sampai 0.9.0. Jalankan `contexere init --<host>` untuk setiap agent untuk memindahkannya.
+
+Di dalam Claude Code, `/plugin marketplace add fajarhide/contexere` lalu `/plugin install contexere@omni` menambahkan skill yang memasang dan memeriksanya untuk Anda.
 
 ## Penggunaan
 

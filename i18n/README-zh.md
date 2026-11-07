@@ -18,7 +18,16 @@
 
 ---
 
-> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令可用到 0.9.0；为你使用的每个智能体运行 `contexere init --<host>` 即可迁移现有安装。技能、智能体无需看到即可使用的密钥以及跨智能体记忆即将推出；目前发布的是上下文与 token 层。
+> OMNI 现在叫 **Contexere**，拉丁语意为“编织在一起”，也是“context”的词根。`omni` 命令可用到 0.9.0；为你使用的每个智能体运行 `contexere init --<host>` 即可迁移现有安装。从 0.8.6 起，你的数据会自动移到 `~/.contexere`。
+
+## 方向
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere 作为一层，把 Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi 和 VS Code 编织在一起。Reduce 已提供，技能、密钥和记忆正在开发。" width="820" />
+</picture>
+
+你使用的每个智能体都各自保存技能、密钥和记忆。Contexere 是它们之间的一层：技能只需配置一次，所有智能体都能用；智能体使用你的密钥却从不看到它；一个智能体在项目里学到的东西，下一个智能体已经知道。这部分正在开发中。现在提供的是第一部分，也就是下文介绍的上下文与 token 层。
 
 ## 为什么需要它
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 现有安装在 0.9.0 之前继续以 `omni` 这个名字工作，它是同一个程序。为每个智能体运行 `contexere init --<host>` 即可迁移。
+
+在 Claude Code 中，先运行 `/plugin marketplace add fajarhide/contexere`，再运行 `/plugin install contexere@omni`，即可添加一个帮你安装和检查它的技能。
 
 ## 使用
 

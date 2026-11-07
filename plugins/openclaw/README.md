@@ -1,76 +1,48 @@
-# OMNI Semantic Signal Engine for OpenClaw
+# Contexere for OpenClaw
 
-This plugin provides a secure bridge between your OpenClaw agent and the [OMNI Signal Engine](https://github.com/fajarhide/omni).
+This plugin connects OpenClaw to [Contexere](https://github.com/fajarhide/contexere), so the agent reads shortened tool output instead of every line a command printed. Nothing is lost: what Contexere cuts stays on your machine behind a handle, and `contexere retrieve <handle>` brings it back.
 
-> [!IMPORTANT]
-> **Dependency Required**: This plugin is a wrapper and requires the `omni` CLI binary to be installed on your local system path.
+It is a thin wrapper. The work is done by the `contexere` binary, which has to be installed first.
 
-## Setup
-
-## Prerequisites
-
-- **OMNI** must be installed and available in your PATH.
-- **OpenClaw** (Gateway) must be installed.
-
-### Installation
-
-**via ClawHub (Recommended)**
-```bash
-openclaw plugins install clawhub:@fajarhide/contexere-openclaw
-```
-
-**Automatic Install (No Clone Required)**
-OMNI natively fetches the integration files securely from public GitHub.
-```bash
-omni doctor --fix
-```
-
-**Local Developer Install**
-If you cloned the repository locally:
-```bash
-openclaw plugins install ./plugins/openclaw
-```
-
-## Configuration (Optional)
-
-**OMNI for OpenClaw is designed to be "Zero Config".** If `omni` is already in your `PATH`, it will work immediately after installation without any additional settings.
-
-If you have a custom setup, you can modify your OpenClaw settings (`~/.openclaw/config.yaml`):
-
-```yaml
-plugins:
-  contexere:
-    omniPath: "/usr/local/bin/omni"  # Optional: path to omni binary
-```
-
-## Usage
-
-Once installed, your OpenClaw agent will have access to a new tool:
-
-### `omni_cmd`
-Use this exactly like the standard `shell` or `bash` tool.
-- **Input**: `{ "command": "npm install" }`
-- **Behavior**: Runs the command via `omni exec`, filtering out noise and keeping only the signal (errors, summaries).
-
-## Monitoring Savings
-
-You can track your token and cost savings by running:
+## Install
 
 ```bash
-omni stats --today
+brew install fajarhide/tap/contexere
+contexere init --openclaw
+cd ~/.openclaw/plugins/contexere && npm install --omit=dev
 ```
 
-## Security & Privacy (Trust Model)
+Then restart the OpenClaw Gateway.
 
-OMNI is built with a **Privacy-First** design intent. This plugin acts as a secure proxy to facilitate safe execution:
+`contexere init --openclaw` writes the plugin from the binary into `~/.openclaw/plugins/contexere/` and adds that directory to `plugins.load.paths` in `~/.openclaw/openclaw.json`, keeping the rest of the file as it was. It needs no network.
 
-- **Node-Level Sanitization**: This plugin explicitly strips ~25 dangerous environment variables (like `LD_PRELOAD`, `NODE_OPTIONS`, `BASH_ENV`) at the process level before execution. Other environment variables are passed through to the command.
-- **Local-Only Architecture**: The OMNI engine is designed for local processing. No terminal output is ever sent to external cloud services by the engine.
-- **Local Persistence**: Usage statistics are stored strictly in a local SQLite database at `~/.omni/omni.db`.
-- **Trust & Verification**: As OMNI is a tool for developers, we encourage you to audit the full source code and security policies at the [OMNI GitHub Repository](https://github.com/fajarhide/omni/blob/main/SECURITY.md) to verify these claims for yourself.
+An install from before 0.8.6 used the id `omni-signal-engine`. The same command removes that copy and moves its settings to the new id, so the plugin does not load twice.
 
-> ⚠️ **Note**: This plugin passes through most environment variables to the invoked command. If you run untrusted commands, consider doing so in a restricted environment (container, CI runner, or limited account) with minimal secrets in the environment.
+From a clone of the repository, `openclaw plugins install ./plugins/openclaw` installs it directly.
 
-## Benefits
-- **Cheaper Tasks**: Massive savings on API bills for long-running autonomous tasks.
-- **Higher Accuracy**: Agents focus on the real errors instead of being distracted by 10,000 lines of build logs.
+Check it with `contexere doctor`: the OpenClaw section shows whether the plugin is on disk, registered in `plugins.load.paths`, and has its dependencies.
+
+## What it does
+
+- **Shortens every built-in tool's result** through OpenClaw's `tool_result_persist` hook. The current turn sees the raw output; later turns read Contexere's shorter version.
+- **Adds an optional `omni_cmd` tool** that runs a command through `contexere exec`, for when the agent wants a shortened result straight away. Input: `{ "command": "npm install" }`.
+
+The tool keeps its `omni_cmd` name for now, because agents call it by name.
+
+## Configuration
+
+None is needed when the binary is on your `PATH`. The plugin calls `omni`, which a Homebrew or `install.sh` install provides next to `contexere` until 0.9.0. If yours lives elsewhere, set `omniPath` in the plugin's settings to the full path of the binary, `contexere` or `omni`.
+
+## How much it saves
+
+```bash
+contexere stats
+```
+
+## Security and privacy
+
+- **Runs locally.** Contexere processes output on your machine and sends nothing to a server. Its data lives in `~/.contexere`.
+- **Strips risky environment variables** before running a command: 20 names that can inject code into a process, such as `LD_PRELOAD`, `NODE_OPTIONS` and `BASH_ENV`. Every other variable is passed through to the command.
+- **Hides credentials** it finds in the output it rewrites before the model reads it.
+
+Because other variables pass through, run untrusted commands somewhere with few secrets in the environment, such as a container or a CI runner. The full policy is in [SECURITY.md](https://github.com/fajarhide/contexere/blob/main/SECURITY.md).

@@ -18,7 +18,16 @@
 
 ---
 
-> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. المهارات، والمفاتيح التي يستخدمها وكيلك دون أن يراها أبدًا، والذاكرة بين الوكلاء في الطريق؛ وما يقدّمه اليوم هو طبقة السياق والتوكنات.
+> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. منذ الإصدار 0.8.6 تنتقل بياناتك تلقائيًا إلى `~/.contexere`.
+
+## إلى أين يتجه
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere طبقة واحدة تنسج Claude Code وCodex وCursor وGemini CLI وOpenClaw وHermes وPi وVS Code معًا. Reduce متوفر اليوم، والمهارات والمفاتيح والذاكرة قيد التطوير." width="820" />
+</picture>
+
+كل وكيل تستخدمه يحتفظ بمهاراته ومفاتيحه وذاكرته وحده. Contexere طبقة واحدة بينها: تضبط المهارة مرة واحدة فتصل إلى كل الوكلاء، ويستخدم الوكيل مفاتيحك دون أن يراها أبدًا، وما يتعلمه وكيل في مشروع يعرفه الوكيل التالي مسبقًا. هذا الجزء قيد التطوير. ما يتوفر اليوم هو الجزء الأول، طبقة السياق والرموز الموضحة أدناه.
 
 ## لماذا
 
@@ -60,6 +69,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 التثبيتات الحالية تستمر في العمل باسم `omni`، وهو البرنامج نفسه، حتى الإصدار 0.9.0. شغّل `contexere init --<host>` لكل وكيل لنقلها.
+
+داخل Claude Code، شغّل `/plugin marketplace add fajarhide/contexere` ثم `/plugin install contexere@omni` لإضافة مهارة تتولى التثبيت والفحص نيابةً عنك.
 
 ## الاستخدام
 
