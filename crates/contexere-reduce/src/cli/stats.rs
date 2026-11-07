@@ -454,7 +454,11 @@ fn print_help() {
         "stats".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  contexere {} {}", "stats".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "stats".cyan(),
+        "[FLAGS]".bright_black()
+    );
 
     super::print_flags(&FLAGS[..VISIBLE]);
 

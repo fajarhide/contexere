@@ -15,7 +15,11 @@ fn print_help() {
         "retrieve".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  contexere {} {}", "retrieve".cyan(), "<handle>".bright_black());
+    println!(
+        "  contexere {} {}",
+        "retrieve".cyan(),
+        "<handle>".bright_black()
+    );
     println!(
         "\nA handle is the 16 characters inside a marker, for example\n  {}\n",
         format!(

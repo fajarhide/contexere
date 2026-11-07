@@ -19,7 +19,11 @@ fn print_help() {
         "dashboard".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  contexere {} {}", "dashboard".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "dashboard".cyan(),
+        "[FLAGS]".bright_black()
+    );
     println!();
     super::print_flags(FLAGS);
     println!("Binds 127.0.0.1 only. Ctrl-C to stop.\n");

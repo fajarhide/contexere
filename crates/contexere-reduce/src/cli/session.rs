@@ -24,7 +24,11 @@ fn print_help() {
         "session".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  contexere {} {}", "session".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "session".cyan(),
+        "[FLAGS]".bright_black()
+    );
 
     super::print_flags(FLAGS);
 

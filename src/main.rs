@@ -163,7 +163,11 @@ fn print_help() {
     );
 
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  contexere {} {}", "<COMMAND>".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "<COMMAND>".cyan(),
+        "[FLAGS]".bright_black()
+    );
     println!(
         "  {} | omni       {}",
         "cmd".bright_black(),
