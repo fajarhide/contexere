@@ -55,8 +55,8 @@ line per host:
 
 ```
   Binary:         contexere v0.8.5 [LATEST]
-  Config dir:     ~/.omni/ [OK]
-  Database:       ~/.omni/omni.db (0 distillations, 0 sessions) [OK]
+  Config dir:     /home/me/.contexere/ [OK]
+  Database:       /home/me/.contexere/omni.db (0 distillations, 0 sessions) [OK]
 
  Agent Integrations:
   Claude Code: Full, 5 checks [OK]

@@ -63,16 +63,17 @@ impl Store {
     }
 }
 
+/// The database `Store::open` uses: `OMNI_DB_PATH`, else the one under the data home.
+pub fn default_db_path() -> std::path::PathBuf {
+    std::env::var_os("OMNI_DB_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(paths::database_path)
+}
+
 impl SqliteBackend {
     /// Opens the default database, creating its directory and running migrations.
     pub fn open() -> Result<Self> {
-        let db_path = if let Ok(custom_path) = std::env::var("OMNI_DB_PATH") {
-            std::path::PathBuf::from(custom_path)
-        } else {
-            paths::database_path()
-        };
-
-        Self::open_path(&db_path)
+        Self::open_path(&default_db_path())
     }
 
     pub fn open_path(path: &std::path::Path) -> Result<Self> {
