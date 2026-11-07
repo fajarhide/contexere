@@ -983,9 +983,8 @@ pub fn process_payload(
     let additional_context = build_additional_context(&result, &session);
     // The estimate and the pressure fields grew in there, after `track_command`
     // saved: a host that starts a process per call would read them back unchanged (#1081).
-    if let (Some(s), Some(sess)) = (&store, &session)
-        && let Ok(state) = sess.lock()
-    {
+    if let (Some(s), Some(sess)) = (&store, &session) {
+        let state = sess.lock().unwrap_or_else(|p| p.into_inner());
         s.upsert_session(&state);
     }
 
