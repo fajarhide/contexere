@@ -88,26 +88,45 @@ def reply(context):
     ).encode()
 
 
-def test_reads_a_pressure_warning_from_the_reply_and_nothing_else():
-    module = load()
-    assert module._asks_for_compaction(reply("🚨 OMNI: Context ~91% full (~182k/200k tokens). COMPACT NOW before continuing."))
-    assert module._asks_for_compaction(reply("⚠️ OMNI: Context ~75% full (~150k/200k tokens). Consider compacting after completing current subtask."))
-    assert not module._asks_for_compaction(reply("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]"))
-    assert not module._asks_for_compaction(b"not json")
-
-
-def test_asks_hermes_to_compact_when_the_hook_reports_pressure():
-    """The old observer ran `--post-hook` with no input, so it never saw a warning (#1073)."""
+def compactions(context, host_has_request=True):
+    """Run a terminal result through the registered hook and record what the host was asked."""
     module = load()
 
     class Done:
         returncode = 0
-        stdout = reply("🚨 OMNI: Context ~91% full. COMPACT NOW before continuing.")
+        stdout = reply(context)
 
     module._run_omni = lambda *args, stdin=None: Done()
-    calls = []
-    module._distill("terminal", "ls", "some output", 0, "s", lambda: calls.append(1))
-    assert calls == [1]
+    asked = []
+
+    class Host:
+        def register_hook(self, name, callback):
+            self.hooks[name] = callback
+
+    host = Host()
+    host.hooks = {}
+    if host_has_request:
+        host.request_compaction = lambda reason: asked.append("request_compaction")
+    else:
+        host.compact = lambda: asked.append("compact")
+    module.register(host)
+    host.hooks["transform_terminal_output"](command="ls", output="some output", returncode=0, task_id="t")
+    return asked
+
+
+def test_asks_hermes_to_compact_on_either_pressure_warning():
+    """The old observer ran `--post-hook` with no input, so it never saw a warning (#1073)."""
+    assert compactions("🚨 OMNI: Context ~91% full (~182k/200k tokens). COMPACT NOW before continuing.") == ["request_compaction"]
+    assert compactions("⚠️ OMNI: Context ~75% full (~150k/200k tokens). Consider compacting after completing current subtask.") == ["request_compaction"]
+
+
+def test_falls_back_to_compact_on_a_host_without_request_compaction():
+    assert compactions("🚨 OMNI: Context ~91% full. COMPACT NOW before continuing.", host_has_request=False) == ["compact"]
+
+
+def test_asks_nothing_without_a_pressure_warning():
+    assert compactions("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
+    assert compactions(None) == []
 
 
 if __name__ == "__main__":
