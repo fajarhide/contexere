@@ -1,6 +1,9 @@
 pub const MAX_INPUT: usize = 16 * 1024 * 1024;
 pub const WARN_INPUT: usize = 1024 * 1024;
 
+/// Maximum nesting accepted while identifying parenthesized code in secrets.
+pub const MAX_PARENTHESES_DEPTH: usize = 32;
+
 /// How long `exec` waits for stderr after the command exits: a background process
 /// can hold it open long after the command is done (#1037 review).
 pub const STDERR_DRAIN: std::time::Duration = std::time::Duration::from_secs(2);

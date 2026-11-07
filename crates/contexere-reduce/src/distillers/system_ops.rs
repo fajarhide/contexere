@@ -1,4 +1,5 @@
 use crate::distillers::Distiller;
+use crate::guard::limits::MAX_PARENTHESES_DEPTH;
 use crate::pipeline::{OutputSegment, SignalTier};
 
 pub struct SystemOpsDistiller;
@@ -627,8 +628,6 @@ fn looks_like_code_expression(value: &str) -> bool {
 /// A balanced parenthesized reference or expression is code, not a literal:
 /// `(value).strip()`, `(value or "")` and `("a" if ok else "b")`.
 /// Non-empty strings and credential-shaped identifiers stay redacted.
-const MAX_PARENTHESES_DEPTH: usize = 32;
-
 fn looks_like_parenthesized_code(value: &str) -> bool {
     let mut value = value.trim();
     for _ in 0..MAX_PARENTHESES_DEPTH {
