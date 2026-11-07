@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>The one place for the skills, keys and memory of every agent you use.</b> Today it shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
+    <em><b>Your AI agent, the same in every environment: its workflow, tools and access come with it, and its keys never reach it.</b> That is where it is going. Today it shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
@@ -18,12 +18,19 @@ brew install fajarhide/tap/contexere && contexere init
 ```
 
 </br>
-<img src="media/demo.gif" alt="Contexere distilling a noisy cargo test run down to the verdict, then contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="media/contexere-poster-dark.png" />
+  <img src="media/contexere-poster-light.png" alt="Contexere as one layer woven between Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi and VS Code. Reduce ships today; skills, keys and memory are on the way." width="820" />
+</picture>
 </div>
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Skills, keys your agent uses without ever seeing them, and memory across agents are on the way; today it ships the context and token layer.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Since 0.8.6 your data moves to `~/.contexere` on its own.
+
+## Where it is going
+
+The goal: take Contexere to a new VPS or laptop, and your agent arrives knowing its workflow, with its access to MCP servers and APIs working. The keys behind that access are never shown to the agent, so they never leak. Around that sit skills you set up once for every agent, and memory that carries across agents and machines. That part is on the way. What ships today is the first piece, the context and token layer described below.
 
 ## Why
 
@@ -40,17 +47,6 @@ Contexere takes out what the model does not need, before the model reads it. Not
 - Reads JSON, YAML or CSV: leaves it byte for byte.
 - `contexere doctor` checks that each agent's hooks fire and redact.
 
-<table>
-<tr>
-<td align="center"><b>Without Contexere</b><br/><sub>the same 7.6 KB file, read twice</sub></td>
-<td align="center"><b>With Contexere</b><br/><sub>the second read is 214 B, <b>97.2%</b> smaller</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="media/demo-ledger-without.gif" alt="the same file read twice with no Contexere: two identical screens of source" width="400" /></td>
-<td valign="top"><img src="media/demo-ledger-with.gif" alt="the same file read twice through Contexere: the second returns one marker line and a retrieval handle" width="400" /></td>
-</tr>
-</table>
-
 It costs about 21 ms per command. Savings depend on what your agent does; run `contexere stats` for your own figure. Method and full numbers are on the [benchmarks page](https://omni.weekndlabs.com/docs/develop/benchmarks).
 
 ## Install
@@ -65,6 +61,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init --<host>` for each agent to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
+
+Inside Claude Code, `/plugin marketplace add fajarhide/contexere` then `/plugin install contexere@omni` adds a skill that installs and checks it for you.
 
 ## Usage
 

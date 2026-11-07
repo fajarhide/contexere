@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>사용하는 모든 에이전트의 스킬, 키, 메모리를 위한 한곳.</b> 현재는 시끄러운 도구 출력을 줄이고, 에이전트가 이미 읽은 내용을 접고, 다시 쓴 출력 안의 자격 증명을 마스킹합니다. 잃어버리는 것은 없습니다.</em>
+    <em><b>어떤 환경에서도 똑같은 AI 에이전트: 워크플로, 도구, 접근 권한이 함께 오고, 키는 에이전트에게 닿지 않습니다.</b> 이것이 지향하는 모습입니다. 현재는 시끄러운 도구 출력을 줄이고, 에이전트가 이미 읽은 내용을 접고, 다시 쓴 출력 안의 자격 증명을 마스킹합니다. 잃어버리는 것은 없습니다.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -13,12 +13,19 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere가 시끄러운 cargo test 결과를 판정만 남기도록 증류한 뒤 contexere stats를 실행하는 모습" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi, VS Code를 하나로 엮는 레이어로서의 Contexere. Reduce는 제공 중이고 스킬, 키, 메모리는 개발 중입니다." width="820" />
+</picture>
 </div>
 
 ---
 
-> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 스킬, 에이전트가 보지 않고 사용하는 키, 에이전트 간 메모리는 곧 제공됩니다. 현재 제공하는 것은 컨텍스트와 토큰 레이어입니다.
+> OMNI는 이제 **Contexere**입니다. 라틴어로 "함께 엮다"라는 뜻이며 "context"의 어원입니다. `omni` 명령은 0.9.0까지 동작합니다. 사용하는 에이전트마다 `contexere init --<host>`를 실행하면 기존 설치가 옮겨집니다. 0.8.6부터 데이터는 자동으로 `~/.contexere`로 옮겨집니다.
+
+## 앞으로의 방향
+
+목표는 이렇습니다. Contexere를 새 VPS나 노트북으로 가져가면, 에이전트는 자기 워크플로를 이미 알고 있고 MCP 서버와 API 접근도 그대로 동작합니다. 그 접근을 가능하게 하는 키는 에이전트에게 한 번도 보여 주지 않으므로 유출되지 않습니다. 그 주변에는 한 번만 설정하면 모든 에이전트가 쓰는 스킬과, 에이전트와 머신을 넘어 이어지는 메모리가 있습니다. 이 부분은 개발 중입니다. 지금 제공하는 것은 그 첫 부분, 아래에서 설명하는 컨텍스트와 토큰 레이어입니다.
 
 ## 왜 필요한가
 
@@ -35,17 +42,6 @@ Contexere는 모델이 읽기 전에 모델에 필요 없는 것을 걷어냅니
 - JSON, YAML, CSV를 읽을 때: 바이트 단위로 그대로 둡니다.
 - `contexere doctor`는 각 에이전트의 Hook이 동작하고 마스킹하는지 확인합니다.
 
-<table>
-<tr>
-<td align="center"><b>Contexere 없이</b><br/><sub>같은 7.6 KB 파일을 두 번 읽음</sub></td>
-<td align="center"><b>Contexere 사용</b><br/><sub>두 번째 읽기는 214 B, <b>97.2%</b> 작음</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="Contexere 없이 같은 파일을 두 번 읽은 경우: 동일한 소스 화면 두 개" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="Contexere를 거쳐 같은 파일을 두 번 읽은 경우: 두 번째는 마커 한 줄과 가져오기용 핸들만 돌려줌" width="400" /></td>
-</tr>
-</table>
-
 비용은 명령당 약 21 ms입니다. 절감량은 에이전트가 하는 일에 따라 달라집니다. 내 수치는 `contexere stats`로 확인하세요. 방법과 전체 수치는 [벤치마크 페이지](https://omni.weekndlabs.com/docs/develop/benchmarks)에 있습니다.
 
 ## 설치
@@ -60,6 +56,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 기존 설치는 0.9.0까지 `omni`라는 이름으로 동작합니다. 같은 프로그램입니다. 에이전트마다 `contexere init --<host>`를 실행하면 옮겨집니다.
+
+Claude Code 안에서 `/plugin marketplace add fajarhide/contexere` 다음에 `/plugin install contexere@omni`를 실행하면, 설치와 점검을 대신해 주는 스킬이 추가됩니다.
 
 ## 사용법
 

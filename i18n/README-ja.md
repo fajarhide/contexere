@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>使っているすべてのエージェントのスキル、キー、メモリをひとつにまとめる場所。</b>現在はノイズの多いツール出力を縮め、エージェントがすでに読んだ内容を畳み、書き換えた出力に含まれる認証情報をマスクします。失われるものはありません。</em>
+    <em><b>どの環境でも同じ AI エージェントを。ワークフロー、ツール、アクセスは一緒に移り、キーはエージェントに届きません。</b>それが目指す姿です。現在はノイズの多いツール出力を縮め、エージェントがすでに読んだ内容を畳み、書き換えた出力に含まれる認証情報をマスクします。失われるものはありません。</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -13,12 +13,19 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere がノイズの多い cargo test の結果を判定だけに蒸留し、そのあと contexere stats を実行する様子" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi、VS Code を織り合わせるひとつのレイヤーとしての Contexere。Reduce は提供中、スキル・キー・メモリは開発中。" width="820" />
+</picture>
 </div>
 
 ---
 
-> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。スキル、エージェントが一度も見ることなく使えるキー、エージェントをまたぐメモリは今後提供します。現時点で提供しているのはコンテキストとトークンのレイヤーです。
+> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。0.8.6 以降、データは自動で `~/.contexere` に移動します。
+
+## 目指すところ
+
+目指すのは、Contexere を新しい VPS やノートPCに持っていけば、エージェントがワークフローを理解した状態で動き、MCP サーバーや API へのアクセスもそのまま使えることです。そのアクセスを支えるキーはエージェントに一度も見せないので、漏れることはありません。そのまわりに、一度設定すればすべてのエージェントで使えるスキルと、エージェントやマシンをまたいで引き継がれるメモリがあります。この部分は開発中です。現在提供しているのはその最初の部分、以下で説明するコンテキストとトークンのレイヤーです。
 
 ## なぜ必要か
 
@@ -35,17 +42,6 @@ Contexere は、モデルが読む前に、モデルに不要なものを取り�
 - JSON、YAML、CSV を読むとき: バイト単位でそのまま残します。
 - `contexere doctor` は、各エージェントのフックが動作し、マスキングを行うことを確認します。
 
-<table>
-<tr>
-<td align="center"><b>Contexere なし</b><br/><sub>同じ 7.6 KB のファイルを2回読む</sub></td>
-<td align="center"><b>Contexere あり</b><br/><sub>2回目は 214 B、<b>97.2%</b> 小さい</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="Contexere なしで同じファイルを2回読んだ場合: 同じソースの画面が2つ" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="Contexere 経由で同じファイルを2回読んだ場合: 2回目はマーカー1行と取得用ハンドルだけが返る" width="400" /></td>
-</tr>
-</table>
-
 コストは1コマンドあたり約 21 ms です。節約量はエージェントの作業内容によります。自分の数値は `contexere stats` で確認してください。手法と詳細な数値は[ベンチマークのページ](https://omni.weekndlabs.com/docs/develop/benchmarks)にあります。
 
 ## インストール
@@ -60,6 +56,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。エージェントごとに `contexere init --<host>` を実行すると移行できます。
+
+Claude Code の中では、`/plugin marketplace add fajarhide/contexere` のあと `/plugin install contexere@omni` を実行すると、インストールと確認を代わりに行うスキルが追加されます。
 
 ## 使い方
 

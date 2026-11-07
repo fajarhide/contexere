@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>المكان الواحد لمهارات ومفاتيح وذاكرة كل وكيل تستخدمه.</b> اليوم تقلّص مخرجات الأدوات المزعجة، وتطوي ما قرأه الوكيل من قبل، وتُخفي بيانات الاعتماد في المخرجات التي تعيد كتابتها. لا يضيع شيء.</em>
+    <em><b>وكيل الذكاء الاصطناعي الخاص بك، هو نفسه في كل بيئة: يأتي معه سير عمله وأدواته ووصوله، ولا تصل إليه مفاتيحه أبدًا.</b> هذا هو الاتجاه. اليوم تقلّص مخرجات الأدوات المزعجة، وتطوي ما قرأه الوكيل من قبل، وتُخفي بيانات الاعتماد في المخرجات التي تعيد كتابتها. لا يضيع شيء.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -13,12 +13,19 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere يقطّر مخرجات cargo test المزعجة إلى الحكم النهائي، ثم يشغّل contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere طبقة واحدة تنسج Claude Code وCodex وCursor وGemini CLI وOpenClaw وHermes وPi وVS Code معًا. Reduce متوفر اليوم، والمهارات والمفاتيح والذاكرة قيد التطوير." width="820" />
+</picture>
 </div>
 
 ---
 
-> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. المهارات، والمفاتيح التي يستخدمها وكيلك دون أن يراها أبدًا، والذاكرة بين الوكلاء في الطريق؛ وما يقدّمه اليوم هو طبقة السياق والتوكنات.
+> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. منذ الإصدار 0.8.6 تنتقل بياناتك تلقائيًا إلى `~/.contexere`.
+
+## إلى أين يتجه
+
+الهدف: خذ Contexere إلى خادم VPS أو حاسوب محمول جديد، فيصل وكيلك وهو يعرف سير عمله، ويبقى وصوله إلى خوادم MCP وواجهات API يعمل. المفاتيح التي تقف خلف هذا الوصول لا تُعرض على الوكيل أبدًا، لذلك لا تتسرب أبدًا. وحول ذلك مهارات تضبطها مرة واحدة لكل الوكلاء، وذاكرة تنتقل معك بين الوكلاء والأجهزة. هذا الجزء قيد التطوير. ما يتوفر اليوم هو الجزء الأول، طبقة السياق والرموز الموضحة أدناه.
 
 ## لماذا
 
@@ -35,17 +42,6 @@
 - عند قراءة JSON أو YAML أو CSV: يتركها بايتًا ببايت.
 - يتحقق `contexere doctor` من أن Hook كل وكيل يعمل ويُخفي البيانات الحساسة.
 
-<table>
-<tr>
-<td align="center"><b>بدون Contexere</b><br/><sub>الملف نفسه (7.6 KB) يُقرأ مرتين</sub></td>
-<td align="center"><b>مع Contexere</b><br/><sub>القراءة الثانية 214 B، أصغر بنسبة <b>97.2%</b></sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="الملف نفسه مقروءًا مرتين بدون Contexere: شاشتان متطابقتان من الشيفرة" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="الملف نفسه مقروءًا مرتين عبر Contexere: الثانية تعيد سطر علامة واحدًا ومقبضًا للاسترجاع" width="400" /></td>
-</tr>
-</table>
-
 التكلفة نحو 21 ms لكل أمر. يعتمد التوفير على ما يفعله وكيلك؛ شغّل `contexere stats` لترى رقمك أنت. المنهجية والأرقام الكاملة في [صفحة القياسات](https://omni.weekndlabs.com/docs/develop/benchmarks).
 
 ## التثبيت
@@ -60,6 +56,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 التثبيتات الحالية تستمر في العمل باسم `omni`، وهو البرنامج نفسه، حتى الإصدار 0.9.0. شغّل `contexere init --<host>` لكل وكيل لنقلها.
+
+داخل Claude Code، شغّل `/plugin marketplace add fajarhide/contexere` ثم `/plugin install contexere@omni` لإضافة مهارة تتولى التثبيت والفحص نيابةً عنك.
 
 ## الاستخدام
 

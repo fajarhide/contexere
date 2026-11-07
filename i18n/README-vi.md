@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Một nơi duy nhất cho kỹ năng, khóa và bộ nhớ của mọi agent bạn dùng.</b> Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
+    <em><b>Agent AI của bạn, giống hệt ở mọi môi trường: quy trình làm việc, công cụ và quyền truy cập đi cùng nó, còn khóa thì không bao giờ đến tay nó.</b> Đó là hướng đi. Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
@@ -13,12 +13,19 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere chưng cất một lần chạy cargo test nhiều nhiễu xuống còn kết luận, rồi chạy contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere là một lớp dệt Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi và VS Code lại với nhau. Reduce đã có, skill, khóa và bộ nhớ đang được phát triển." width="820" />
+</picture>
 </div>
 
 ---
 
-> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài sẵn sang. Kỹ năng, khóa mà agent dùng mà không bao giờ nhìn thấy, và bộ nhớ giữa các agent đang được phát triển; hiện tại nó cung cấp lớp ngữ cảnh và token.
+> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài cũ sang. Từ bản 0.8.6, dữ liệu của bạn tự chuyển sang `~/.contexere`.
+
+## Hướng đi
+
+Mục tiêu: mang Contexere sang một VPS hay laptop mới, agent của bạn đến nơi đã hiểu quy trình làm việc của mình, và quyền truy cập máy chủ MCP cùng API vẫn hoạt động. Các khóa đứng sau quyền truy cập đó không bao giờ hiện ra cho agent, nên không bao giờ bị lộ. Xung quanh là các skill chỉ cần thiết lập một lần cho mọi agent, và bộ nhớ đi theo bạn qua các agent và các máy. Phần này đang được phát triển. Thứ có sẵn hôm nay là phần đầu tiên, lớp ngữ cảnh và token được mô tả bên dưới.
 
 ## Tại sao
 
@@ -35,17 +42,6 @@ Contexere loại bỏ những gì model không cần, trước khi model đọc.
 - Đọc JSON, YAML hoặc CSV: giữ nguyên từng byte.
 - `contexere doctor` kiểm tra Hook của từng agent có chạy và có che thông tin nhạy cảm hay không.
 
-<table>
-<tr>
-<td align="center"><b>Không có Contexere</b><br/><sub>cùng một tệp 7,6 KB, đọc hai lần</sub></td>
-<td align="center"><b>Có Contexere</b><br/><sub>lần đọc thứ hai là 214 B, nhỏ hơn <b>97,2%</b></sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="cùng một tệp đọc hai lần khi không có Contexere: hai màn hình mã nguồn giống hệt nhau" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="cùng một tệp đọc hai lần qua Contexere: lần thứ hai chỉ trả về một dòng marker và một handle để lấy lại" width="400" /></td>
-</tr>
-</table>
-
 Chi phí khoảng 21 ms cho mỗi lệnh. Mức tiết kiệm phụ thuộc vào việc agent của bạn làm; chạy `contexere stats` để xem con số của riêng bạn. Phương pháp và số liệu đầy đủ nằm ở [trang benchmark](https://omni.weekndlabs.com/docs/develop/benchmarks).
 
 ## Cài đặt
@@ -60,6 +56,8 @@ brew install fajarhide/tap/contexere
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
 Các bản cài sẵn vẫn hoạt động dưới tên `omni`, cùng một chương trình, đến bản 0.9.0. Chạy `contexere init --<host>` cho từng agent để chuyển sang.
+
+Trong Claude Code, chạy `/plugin marketplace add fajarhide/contexere` rồi `/plugin install contexere@omni` để thêm một skill tự cài đặt và kiểm tra giúp bạn.
 
 ## Sử dụng
 
