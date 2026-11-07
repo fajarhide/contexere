@@ -13,7 +13,10 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere 把嘈杂的 cargo test 输出蒸馏成结论，然后运行 contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere 作为一层，把 Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi 和 VS Code 编织在一起。Reduce 已提供，技能、密钥和记忆正在开发。" width="820" />
+</picture>
 </div>
 
 ---
@@ -22,12 +25,7 @@
 
 ## 方向
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
-  <img src="../media/contexere-poster-light.png" alt="Contexere 作为一层，把 Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi 和 VS Code 编织在一起。Reduce 已提供，技能、密钥和记忆正在开发。" width="820" />
-</picture>
-
-你使用的每个智能体都各自保存技能、密钥和记忆。Contexere 是它们之间的一层：技能只需配置一次，所有智能体都能用；智能体使用你的密钥却从不看到它；一个智能体在项目里学到的东西，下一个智能体已经知道。这部分正在开发中。现在提供的是第一部分，也就是下文介绍的上下文与 token 层。
+目标是：把 Contexere 带到新的 VPS 或笔记本上，智能体一到就了解自己的工作流程，访问 MCP 服务器和 API 也照常可用。支撑这些访问的密钥从不展示给智能体，所以永远不会泄露。围绕它的，是只需配置一次就对所有智能体生效的技能，以及跨智能体、跨机器延续的记忆。这部分正在开发中。现在提供的是第一部分，也就是下文介绍的上下文与 token 层。
 
 ## 为什么需要它
 
@@ -43,17 +41,6 @@ Contexere 在模型读取之前，去掉模型不需要的内容。没有任何�
 - 命令失败：按原样透传，真正的错误会送达智能体。失败命令打印出的凭据也会原样送达智能体。
 - 读取 JSON、YAML 或 CSV：逐字节原样保留。
 - `contexere doctor` 会检查每个智能体的 Hook 是否触发并完成脱敏。
-
-<table>
-<tr>
-<td align="center"><b>没有 Contexere</b><br/><sub>同一个 7.6 KB 的文件，读两次</sub></td>
-<td align="center"><b>使用 Contexere</b><br/><sub>第二次读取为 214 B，缩小了 <b>97.2%</b></sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="没有 Contexere 时同一文件读两次：两屏完全相同的源码" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="通过 Contexere 读同一文件两次：第二次只返回一行标记和一个取回句柄" width="400" /></td>
-</tr>
-</table>
 
 每条命令约增加 21 ms。节省多少取决于智能体做什么；运行 `contexere stats` 查看你自己的数字。方法和完整数据见[基准测试页面](https://omni.weekndlabs.com/docs/develop/benchmarks)。
 

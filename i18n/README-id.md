@@ -13,7 +13,10 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere mendistilasi hasil cargo test yang bising sampai ke verdict-nya, lalu contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere sebagai satu lapisan yang menenun Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi dan VS Code. Reduce sudah tersedia; skill, key dan memori sedang menyusul." width="820" />
+</picture>
 </div>
 
 ---
@@ -22,12 +25,7 @@
 
 ## Ke mana arahnya
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
-  <img src="../media/contexere-poster-light.png" alt="Contexere sebagai satu lapisan yang menenun Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi dan VS Code. Reduce sudah tersedia; skill, key dan memori sedang menyusul." width="820" />
-</picture>
-
-Setiap agent yang Anda pakai menyimpan skill, key, dan memorinya sendiri-sendiri. Contexere adalah satu lapisan di antara mereka: atur skill sekali dan semua agent mendapatkannya, agent memakai key Anda tanpa pernah melihat isinya, dan apa yang dipelajari satu agent di sebuah proyek sudah diketahui agent berikutnya. Bagian itu sedang dikerjakan. Yang tersedia hari ini adalah bagian pertamanya, lapisan konteks dan token yang dijelaskan di bawah.
+Tujuannya: bawa Contexere ke VPS atau laptop baru, dan agent Anda langsung paham workflow-nya, dengan akses ke server MCP dan API tetap berjalan. Key di balik akses itu tidak pernah diperlihatkan ke agent, jadi tidak pernah bocor. Di sekelilingnya ada skill yang cukup diatur sekali untuk semua agent, dan memori yang terbawa lintas agent dan mesin. Bagian itu sedang dikerjakan. Yang tersedia hari ini adalah bagian pertamanya, lapisan konteks dan token yang dijelaskan di bawah.
 
 ## Kenapa
 
@@ -43,17 +41,6 @@ Contexere membuang apa yang tidak dibutuhkan model, sebelum model membacanya. Ti
 - Perintah gagal: diteruskan persis seperti yang dicetak, supaya error yang sebenarnya sampai ke agent. Kredensial yang dicetak perintah yang gagal ikut sampai ke agent.
 - Membaca JSON, YAML atau CSV: dibiarkan byte demi byte.
 - `contexere doctor` memeriksa bahwa Hook tiap agent berjalan dan melakukan redaksi.
-
-<table>
-<tr>
-<td align="center"><b>Tanpa Contexere</b><br/><sub>file 7,6 KB yang sama, dibaca dua kali</sub></td>
-<td align="center"><b>Dengan Contexere</b><br/><sub>pembacaan kedua 214 B, <b>97,2%</b> lebih kecil</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="file yang sama dibaca dua kali tanpa Contexere: dua layar source yang identik" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="file yang sama dibaca dua kali lewat Contexere: yang kedua hanya mengembalikan satu baris marker dan sebuah handle untuk mengambilnya lagi" width="400" /></td>
-</tr>
-</table>
 
 Biayanya sekitar 21 ms per perintah. Penghematan tergantung pada apa yang dikerjakan agent kamu; jalankan `contexere stats` untuk angka kamu sendiri. Metode dan angka lengkap ada di [halaman benchmark](https://omni.weekndlabs.com/docs/develop/benchmarks).
 

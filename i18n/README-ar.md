@@ -13,7 +13,10 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere يقطّر مخرجات cargo test المزعجة إلى الحكم النهائي، ثم يشغّل contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere طبقة واحدة تنسج Claude Code وCodex وCursor وGemini CLI وOpenClaw وHermes وPi وVS Code معًا. Reduce متوفر اليوم، والمهارات والمفاتيح والذاكرة قيد التطوير." width="820" />
+</picture>
 </div>
 
 ---
@@ -22,12 +25,7 @@
 
 ## إلى أين يتجه
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
-  <img src="../media/contexere-poster-light.png" alt="Contexere طبقة واحدة تنسج Claude Code وCodex وCursor وGemini CLI وOpenClaw وHermes وPi وVS Code معًا. Reduce متوفر اليوم، والمهارات والمفاتيح والذاكرة قيد التطوير." width="820" />
-</picture>
-
-كل وكيل تستخدمه يحتفظ بمهاراته ومفاتيحه وذاكرته وحده. Contexere طبقة واحدة بينها: تضبط المهارة مرة واحدة فتصل إلى كل الوكلاء، ويستخدم الوكيل مفاتيحك دون أن يراها أبدًا، وما يتعلمه وكيل في مشروع يعرفه الوكيل التالي مسبقًا. هذا الجزء قيد التطوير. ما يتوفر اليوم هو الجزء الأول، طبقة السياق والرموز الموضحة أدناه.
+الهدف: خذ Contexere إلى خادم VPS أو حاسوب محمول جديد، فيصل وكيلك وهو يعرف سير عمله، ويبقى وصوله إلى خوادم MCP وواجهات API يعمل. المفاتيح التي تقف خلف هذا الوصول لا تُعرض على الوكيل أبدًا، لذلك لا تتسرب أبدًا. وحول ذلك مهارات تضبطها مرة واحدة لكل الوكلاء، وذاكرة تنتقل معك بين الوكلاء والأجهزة. هذا الجزء قيد التطوير. ما يتوفر اليوم هو الجزء الأول، طبقة السياق والرموز الموضحة أدناه.
 
 ## لماذا
 
@@ -43,17 +41,6 @@
 - عند فشل أمر: يمرّره كما طُبع، فيصل الخطأ الحقيقي إلى الوكيل. وبيانات الاعتماد التي يطبعها أمر فاشل تصل إلى الوكيل أيضًا.
 - عند قراءة JSON أو YAML أو CSV: يتركها بايتًا ببايت.
 - يتحقق `contexere doctor` من أن Hook كل وكيل يعمل ويُخفي البيانات الحساسة.
-
-<table>
-<tr>
-<td align="center"><b>بدون Contexere</b><br/><sub>الملف نفسه (7.6 KB) يُقرأ مرتين</sub></td>
-<td align="center"><b>مع Contexere</b><br/><sub>القراءة الثانية 214 B، أصغر بنسبة <b>97.2%</b></sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="الملف نفسه مقروءًا مرتين بدون Contexere: شاشتان متطابقتان من الشيفرة" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="الملف نفسه مقروءًا مرتين عبر Contexere: الثانية تعيد سطر علامة واحدًا ومقبضًا للاسترجاع" width="400" /></td>
-</tr>
-</table>
 
 التكلفة نحو 21 ms لكل أمر. يعتمد التوفير على ما يفعله وكيلك؛ شغّل `contexere stats` لترى رقمك أنت. المنهجية والأرقام الكاملة في [صفحة القياسات](https://omni.weekndlabs.com/docs/develop/benchmarks).
 

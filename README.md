@@ -18,7 +18,10 @@ brew install fajarhide/tap/contexere && contexere init
 ```
 
 </br>
-<img src="media/demo.gif" alt="Contexere distilling a noisy cargo test run down to the verdict, then contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="media/contexere-poster-dark.png" />
+  <img src="media/contexere-poster-light.png" alt="Contexere as one layer woven between Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi and VS Code. Reduce ships today; skills, keys and memory are on the way." width="820" />
+</picture>
 </div>
 
 ---
@@ -27,12 +30,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ## Where it is going
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="media/contexere-poster-dark.png" />
-  <img src="media/contexere-poster-light.png" alt="Contexere as one layer woven between Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi and VS Code. Reduce ships today; skills, keys and memory are on the way." width="820" />
-</picture>
-
-Every agent you use keeps its own skills, keys and memory. Contexere is the one layer between them: set a skill up once and every agent gets it, agents use your keys without ever seeing them, and what one agent learns in a project the next one already knows. That part is on the way. What ships today is the first piece, the context and token layer described below.
+The goal: take Contexere to a new VPS or laptop, and your agent arrives knowing its workflow, with its access to MCP servers and APIs working. The keys behind that access are never shown to the agent, so they never leak. Around that sit skills you set up once for every agent, and memory that carries across agents and machines. That part is on the way. What ships today is the first piece, the context and token layer described below.
 
 ## Why
 
@@ -48,17 +46,6 @@ Contexere takes out what the model does not need, before the model reads it. Not
 - Fails a command: passes it through as printed, so the real error reaches the agent. A credential printed by a failing command reaches the agent too.
 - Reads JSON, YAML or CSV: leaves it byte for byte.
 - `contexere doctor` checks that each agent's hooks fire and redact.
-
-<table>
-<tr>
-<td align="center"><b>Without Contexere</b><br/><sub>the same 7.6 KB file, read twice</sub></td>
-<td align="center"><b>With Contexere</b><br/><sub>the second read is 214 B, <b>97.2%</b> smaller</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="media/demo-ledger-without.gif" alt="the same file read twice with no Contexere: two identical screens of source" width="400" /></td>
-<td valign="top"><img src="media/demo-ledger-with.gif" alt="the same file read twice through Contexere: the second returns one marker line and a retrieval handle" width="400" /></td>
-</tr>
-</table>
 
 It costs about 21 ms per command. Savings depend on what your agent does; run `contexere stats` for your own figure. Method and full numbers are on the [benchmarks page](https://omni.weekndlabs.com/docs/develop/benchmarks).
 

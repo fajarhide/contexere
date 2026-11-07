@@ -13,7 +13,10 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere がノイズの多い cargo test の結果を判定だけに蒸留し、そのあと contexere stats を実行する様子" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi、VS Code を織り合わせるひとつのレイヤーとしての Contexere。Reduce は提供中、スキル・キー・メモリは開発中。" width="820" />
+</picture>
 </div>
 
 ---
@@ -22,12 +25,7 @@
 
 ## 目指すところ
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
-  <img src="../media/contexere-poster-light.png" alt="Claude Code、Codex、Cursor、Gemini CLI、OpenClaw、Hermes、Pi、VS Code を織り合わせるひとつのレイヤーとしての Contexere。Reduce は提供中、スキル・キー・メモリは開発中。" width="820" />
-</picture>
-
-使っているエージェントは、それぞれ別々にスキル、キー、メモリを持っています。Contexere はそれらのあいだに入るひとつのレイヤーです。スキルは一度設定すればすべてのエージェントで使え、エージェントはキーを一度も見ずに使え、あるエージェントがプロジェクトで学んだことは次のエージェントがすでに知っています。この部分は開発中です。現在提供しているのはその最初の部分、以下で説明するコンテキストとトークンのレイヤーです。
+目指すのは、Contexere を新しい VPS やノートPCに持っていけば、エージェントがワークフローを理解した状態で動き、MCP サーバーや API へのアクセスもそのまま使えることです。そのアクセスを支えるキーはエージェントに一度も見せないので、漏れることはありません。そのまわりに、一度設定すればすべてのエージェントで使えるスキルと、エージェントやマシンをまたいで引き継がれるメモリがあります。この部分は開発中です。現在提供しているのはその最初の部分、以下で説明するコンテキストとトークンのレイヤーです。
 
 ## なぜ必要か
 
@@ -43,17 +41,6 @@ Contexere は、モデルが読む前に、モデルに不要なものを取り�
 - コマンドが失敗したとき: 出力されたままの形で渡すので、本当のエラーがエージェントに届きます。失敗したコマンドが出力した認証情報も、そのままエージェントに届きます。
 - JSON、YAML、CSV を読むとき: バイト単位でそのまま残します。
 - `contexere doctor` は、各エージェントのフックが動作し、マスキングを行うことを確認します。
-
-<table>
-<tr>
-<td align="center"><b>Contexere なし</b><br/><sub>同じ 7.6 KB のファイルを2回読む</sub></td>
-<td align="center"><b>Contexere あり</b><br/><sub>2回目は 214 B、<b>97.2%</b> 小さい</sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="Contexere なしで同じファイルを2回読んだ場合: 同じソースの画面が2つ" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="Contexere 経由で同じファイルを2回読んだ場合: 2回目はマーカー1行と取得用ハンドルだけが返る" width="400" /></td>
-</tr>
-</table>
 
 コストは1コマンドあたり約 21 ms です。節約量はエージェントの作業内容によります。自分の数値は `contexere stats` で確認してください。手法と詳細な数値は[ベンチマークのページ](https://omni.weekndlabs.com/docs/develop/benchmarks)にあります。
 

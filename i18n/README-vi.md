@@ -13,7 +13,10 @@
 [![License: Apache 2.0](https://img.shields.io/github/license/fajarhide/contexere)](https://github.com/fajarhide/contexere/blob/main/LICENSE)
 </br></br>
 
-<img src="../media/demo.gif" alt="Contexere chưng cất một lần chạy cargo test nhiều nhiễu xuống còn kết luận, rồi chạy contexere stats" width="820" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
+  <img src="../media/contexere-poster-light.png" alt="Contexere là một lớp dệt Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi và VS Code lại với nhau. Reduce đã có, skill, khóa và bộ nhớ đang được phát triển." width="820" />
+</picture>
 </div>
 
 ---
@@ -22,12 +25,7 @@
 
 ## Hướng đi
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../media/contexere-poster-dark.png" />
-  <img src="../media/contexere-poster-light.png" alt="Contexere là một lớp dệt Claude Code, Codex, Cursor, Gemini CLI, OpenClaw, Hermes, Pi và VS Code lại với nhau. Reduce đã có, skill, khóa và bộ nhớ đang được phát triển." width="820" />
-</picture>
-
-Mỗi agent bạn dùng đều giữ skill, khóa và bộ nhớ riêng. Contexere là một lớp nằm giữa chúng: thiết lập một skill một lần là mọi agent đều có, agent dùng khóa của bạn mà không bao giờ nhìn thấy nó, và điều một agent học được trong một dự án thì agent tiếp theo đã biết. Phần này đang được phát triển. Thứ có sẵn hôm nay là phần đầu tiên, lớp ngữ cảnh và token được mô tả bên dưới.
+Mục tiêu: mang Contexere sang một VPS hay laptop mới, agent của bạn đến nơi đã hiểu quy trình làm việc của mình, và quyền truy cập máy chủ MCP cùng API vẫn hoạt động. Các khóa đứng sau quyền truy cập đó không bao giờ hiện ra cho agent, nên không bao giờ bị lộ. Xung quanh là các skill chỉ cần thiết lập một lần cho mọi agent, và bộ nhớ đi theo bạn qua các agent và các máy. Phần này đang được phát triển. Thứ có sẵn hôm nay là phần đầu tiên, lớp ngữ cảnh và token được mô tả bên dưới.
 
 ## Tại sao
 
@@ -43,17 +41,6 @@ Contexere loại bỏ những gì model không cần, trước khi model đọc.
 - Lệnh thất bại: chuyển tiếp đúng như đã in, để lỗi thật đến được agent. Thông tin xác thực do lệnh thất bại in ra cũng đến được agent.
 - Đọc JSON, YAML hoặc CSV: giữ nguyên từng byte.
 - `contexere doctor` kiểm tra Hook của từng agent có chạy và có che thông tin nhạy cảm hay không.
-
-<table>
-<tr>
-<td align="center"><b>Không có Contexere</b><br/><sub>cùng một tệp 7,6 KB, đọc hai lần</sub></td>
-<td align="center"><b>Có Contexere</b><br/><sub>lần đọc thứ hai là 214 B, nhỏ hơn <b>97,2%</b></sub></td>
-</tr>
-<tr>
-<td valign="top"><img src="../media/demo-ledger-without.gif" alt="cùng một tệp đọc hai lần khi không có Contexere: hai màn hình mã nguồn giống hệt nhau" width="400" /></td>
-<td valign="top"><img src="../media/demo-ledger-with.gif" alt="cùng một tệp đọc hai lần qua Contexere: lần thứ hai chỉ trả về một dòng marker và một handle để lấy lại" width="400" /></td>
-</tr>
-</table>
 
 Chi phí khoảng 21 ms cho mỗi lệnh. Mức tiết kiệm phụ thuộc vào việc agent của bạn làm; chạy `contexere stats` để xem con số của riêng bạn. Phương pháp và số liệu đầy đủ nằm ở [trang benchmark](https://omni.weekndlabs.com/docs/develop/benchmarks).
 
