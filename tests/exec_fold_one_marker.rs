@@ -7,6 +7,10 @@
 
 use std::process::Command;
 
+/// Real source: lines generated from one template are not folded, so they would
+/// never reach the archive step this guards.
+const SOURCE: &str = include_str!("../crates/contexere-reduce/src/guard/limits.rs");
+
 fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
     let run = || {
         let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
@@ -19,10 +23,7 @@ fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
         String::from_utf8_lossy(&out.stdout).into_owned()
     };
     let first = run();
-    assert!(
-        first.contains("line 109 of the source"),
-        "the first read arrives whole: {first}"
-    );
+    assert_eq!(first, SOURCE, "the first read arrives whole");
     run()
 }
 
@@ -30,10 +31,7 @@ fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
 fn folds_a_repeated_read_under_one_marker() {
     let dir = tempfile::tempdir().expect("tempdir");
     let file = dir.path().join("source.rs");
-    let body: String = (0..110)
-        .map(|i| format!("// line {i} of the source, with text so it is worth folding\n"))
-        .collect();
-    std::fs::write(&file, body).expect("write fixture");
+    std::fs::write(&file, SOURCE).expect("write fixture");
 
     let second = read_twice(&file, &dir.path().join("d.db"));
 
