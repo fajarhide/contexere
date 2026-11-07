@@ -99,11 +99,11 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni patterns                {} Show top patterns",
+        "  contexere patterns                {} Show top patterns",
         "#".bright_black()
     );
     println!(
-        "  omni patterns --tool cargo   {} Cargo only",
+        "  contexere patterns --tool cargo   {} Cargo only",
         "#".bright_black()
     );
     println!();

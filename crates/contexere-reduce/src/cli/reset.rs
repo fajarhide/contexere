@@ -61,7 +61,7 @@ fn print_help() {
         "Use this command to cleanly remove Contexere configurations from all IDEs and tools."
     );
     println!();
-    println!("Usage: omni reset [OPTIONS]");
+    println!("Usage: contexere reset [OPTIONS]");
     println!();
     super::print_flags(FLAGS);
     println!("Run with no flags for an interactive menu.");
@@ -140,7 +140,7 @@ pub fn handle_reset() -> anyhow::Result<()> {
 
 fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
     if is_all {
-        println!("\n{} Removing ALL omni agent integrations...", "⟳".yellow());
+        println!("\n{} Removing ALL Contexere agent integrations...", "⟳".yellow());
         for agent in all_integrations() {
             if let Err(e) = agent.uninstall() {
                 println!(

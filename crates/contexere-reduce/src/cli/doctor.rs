@@ -22,7 +22,7 @@ fn print_help() {
         "doctor".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni doctor {}", "[--fix]".cyan());
+    println!("  contexere doctor {}", "[--fix]".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
     println!("  Checks the health of your Contexere installation, including:");
@@ -110,7 +110,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     checks.push(DoctorCheck {
         name: "binary".to_string(),
         ok: true,
-        message: format!("omni v{}", env!("CARGO_PKG_VERSION")),
+        message: format!("contexere v{}", env!("CARGO_PKG_VERSION")),
     });
 
     let conf_dir = crate::paths::config_home();
@@ -557,7 +557,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     if hidden_total > 0 && !detail {
         println!(
             "   {}",
-            format!("omni doctor --detail also prints the {hidden_total} checks that passed")
+            format!("contexere doctor --detail also prints the {hidden_total} checks that passed")
                 .bright_black()
         );
     }

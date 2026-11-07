@@ -46,7 +46,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
             println!(
                 "  {} No goal set. Use {} to set one.",
                 "ℹ".blue(),
-                "omni goal set '<your goal>'".bright_cyan()
+                "contexere goal set '<your goal>'".bright_cyan()
             );
         }
     }
@@ -120,11 +120,11 @@ fn print_help() {
     println!("  {: <12} Remove current goal", "clear".cyan());
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni goal set 'Build OAuth2 integration for the API'  {}",
+        "  contexere goal set 'Build OAuth2 integration for the API'  {}",
         "# Set a goal".bright_black()
     );
     println!(
-        "  omni goal show                                         {}",
+        "  contexere goal show                                         {}",
         "# Display current goal".bright_black()
     );
     println!();

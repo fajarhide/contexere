@@ -102,7 +102,7 @@ check "help shows reset" "$HELP_OUT" "reset"
 check "help shows diff" "$HELP_OUT" "diff"
 check "help shows update" "$HELP_OUT" "update"
 check "help shows version" "$HELP_OUT" "version"
-check "help shows pipe mode" "$HELP_OUT" "| omni"
+check "help shows pipe mode" "$HELP_OUT" "| contexere"
 
 # ─── 3. Doctor ───────────────────────────────────────────
 echo "▸ Scenario 3: Doctor"

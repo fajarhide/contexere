@@ -219,7 +219,7 @@ fn print_help() {
         "Which files it imports, which import it, and whether this session keeps touching it."
     );
     println!();
-    println!("Usage: omni context <file>");
+    println!("Usage: contexere context <file>");
     println!();
     super::print_flags(FLAGS);
     println!();

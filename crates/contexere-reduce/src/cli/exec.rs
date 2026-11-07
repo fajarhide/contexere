@@ -13,7 +13,7 @@ pub fn run_exec(
     session: Option<Arc<Mutex<SessionState>>>,
 ) -> Result<()> {
     if args.len() < 3 {
-        eprintln!("Usage: omni exec <command> [args...]");
+        eprintln!("Usage: contexere exec <command> [args...]");
         std::process::exit(1);
     }
 
@@ -30,7 +30,7 @@ pub fn run_exec(
     }
     // A flag with no command after it is a malformed rewrite, not a command.
     if args.len() <= i {
-        eprintln!("Usage: omni exec [--agent <id>] [--session <id>] <command> [args...]");
+        eprintln!("Usage: contexere exec [--agent <id>] [--session <id>] <command> [args...]");
         std::process::exit(1);
     }
     let rest = &args[i..];

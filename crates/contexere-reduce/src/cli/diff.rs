@@ -6,8 +6,8 @@ use std::fs;
 const FLAGS: super::Flags = &[];
 
 fn print_help() {
-    println!("\nomni diff: Show the last distillation side by side\n");
-    println!("USAGE:\n  omni diff\n");
+    println!("\ncontexere diff: Show the last distillation side by side\n");
+    println!("USAGE:\n  contexere diff\n");
     super::print_flags(FLAGS);
 }
 

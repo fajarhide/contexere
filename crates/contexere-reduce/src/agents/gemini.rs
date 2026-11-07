@@ -145,7 +145,7 @@ impl AgentIntegration for GeminiIntegration {
                     "[WARNING] not configured".yellow().bold()
                 );
                 warnings.push(
-                    "Gemini CLI MCP server not configured. Run `omni init --gemini`.".to_string(),
+                    "Gemini CLI MCP server not configured. Run `contexere init --gemini`.".to_string(),
                 );
             }
         }
@@ -183,7 +183,7 @@ impl AgentIntegration for GeminiIntegration {
                     "[WARNING] hooks not configured".yellow().bold()
                 );
                 warnings
-                    .push("Gemini CLI hooks not configured. Run `omni init --gemini`.".to_string());
+                    .push("Gemini CLI hooks not configured. Run `contexere init --gemini`.".to_string());
             }
         }
 

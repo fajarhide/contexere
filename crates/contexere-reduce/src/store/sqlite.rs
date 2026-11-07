@@ -79,7 +79,7 @@ impl SqliteBackend {
     pub fn open_path(path: &std::path::Path) -> Result<Self> {
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
         if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).context("Failed to create .omni directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create the data directory")?;
             // Only a directory OMNI chose: `OMNI_DB_PATH` may point at a shared one (#631).
             if parent == paths::data_home() || parent == paths::config_home() {
                 let _ = paths::restrict_to_owner(parent);

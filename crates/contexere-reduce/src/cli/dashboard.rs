@@ -14,7 +14,7 @@ const DEFAULT_PORT: u16 = 7717;
 
 fn print_help() {
     println!(
-        "\n{} {}: A local dashboard over the numbers omni stats prints",
+        "\n{} {}: A local dashboard over the numbers contexere stats prints",
         "omni".bold().cyan(),
         "dashboard".bold().yellow()
     );
