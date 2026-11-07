@@ -9,6 +9,7 @@ Run: python3 plugins/hermes/test_plugin.py
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -79,6 +80,34 @@ def test_an_unreachable_binary_leaves_the_output_alone():
     module = load()
     module._OMNI_BIN = "/nonexistent/omni"
     assert module._distill("terminal", "ls", "some output", 0, "s") is None
+
+
+def reply(context):
+    return json.dumps(
+        {"hookSpecificOutput": {"updatedToolOutput": {"result": "x"}, "additionalContext": context}}
+    ).encode()
+
+
+def test_reads_a_pressure_warning_from_the_reply_and_nothing_else():
+    module = load()
+    assert module._asks_for_compaction(reply("🚨 OMNI: Context ~91% full (~182k/200k tokens). COMPACT NOW before continuing."))
+    assert module._asks_for_compaction(reply("⚠️ OMNI: Context ~75% full (~150k/200k tokens). Consider compacting after completing current subtask."))
+    assert not module._asks_for_compaction(reply("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]"))
+    assert not module._asks_for_compaction(b"not json")
+
+
+def test_asks_hermes_to_compact_when_the_hook_reports_pressure():
+    """The old observer ran `--post-hook` with no input, so it never saw a warning (#1073)."""
+    module = load()
+
+    class Done:
+        returncode = 0
+        stdout = reply("🚨 OMNI: Context ~91% full. COMPACT NOW before continuing.")
+
+    module._run_omni = lambda *args, stdin=None: Done()
+    calls = []
+    module._distill("terminal", "ls", "some output", 0, "s", lambda: calls.append(1))
+    assert calls == [1]
 
 
 if __name__ == "__main__":
