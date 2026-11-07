@@ -368,28 +368,12 @@ fn distill(
     // carries its handle is counted again as lines omitted (#1086).
     let (distilled_lines, distilled_len) = (output.lines().count(), output.len());
 
-    // The ledger stage (#416), with the same gates as `post_tool`: no structured
-    // payloads, and the host's session id only, never a minted one (#118). No
-    // forwarded id, no ledger.
-    if let (Some(s), Some(scope)) = (store, host_session())
-        && !crate::pipeline::format::refuses_the_ledger(&output)
-        && let Some(view) = crate::ledger::Ledger::new(s, scope)
-            .with_project(crate::paths::project_key(std::path::Path::new(
-                &project_path,
-            )))
-            // Name the command, as `post_tool` does (#736).
-            .from(command_name.unwrap_or(""))
-            // Shell output only (#822).
-            .tool("Bash")
-            .by(resolve_pipe_agent_id())
-            .project(&output)
-    {
-        output = view;
-    }
-
-    // Archive when the reply loses lines, as `post_tool` does (#271). Gated on
+    // Archive when the reply loses lines, as `post_tool` does (#271), decided before
+    // the ledger: a cut that cannot pay for its marker restores the input here, so
+    // the ledger can still fold it (#1086 review). Gated on
     // `beats_guardrail`, since below it `best_output` emits the raw input.
     let mut r_hash = None;
+    let mut archive_marker = None;
     if crate::guard::limits::beats_guardrail(distilled_len, input_text.len()) {
         let omitted_lines = input_text.lines().count().saturating_sub(distilled_lines);
         let lost = if omitted_lines > 0 {
@@ -427,7 +411,7 @@ fn distill(
 
         // A marker that loses the guardrail costs more than the cut saved (#268, #269).
         if crate::guard::limits::beats_guardrail(distilled_len + marker.len(), input_text.len()) {
-            output.push_str(&marker);
+            archive_marker = Some(marker);
             if r_hash.is_some() {
                 route = Route::Rewind;
             }
@@ -436,6 +420,30 @@ fn distill(
             route = Route::Passthrough;
             r_hash = None;
         }
+    }
+
+    // The ledger stage (#416), with the same gates as `post_tool`: no structured
+    // payloads, and the host's session id only, never a minted one (#118). No
+    // forwarded id, no ledger.
+    if let (Some(s), Some(scope)) = (store, host_session())
+        && !crate::pipeline::format::refuses_the_ledger(&output)
+        && let Some(view) = crate::ledger::Ledger::new(s, scope)
+            .with_project(crate::paths::project_key(std::path::Path::new(
+                &project_path,
+            )))
+            // Name the command, as `post_tool` does (#736).
+            .from(command_name.unwrap_or(""))
+            // Shell output only (#822).
+            .tool("Bash")
+            .by(resolve_pipe_agent_id())
+            .project(&output)
+    {
+        output = view;
+    }
+
+    // The archive marker goes on after the fold, so it is never folded itself.
+    if let Some(marker) = archive_marker {
+        output.push_str(&marker);
     }
 
     // If the input stated a failure and the reply does not, hand the bytes back (#458).
