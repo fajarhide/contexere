@@ -109,7 +109,7 @@ fn claude_init_leaves_unparsed_settings_alone() {
 /// An install from before 0.8.6 sits under the old id; leaving it would load the
 /// plugin twice (#1065).
 #[test]
-fn openclaw_init_replaces_the_plugin_under_the_old_id() {
+fn replaces_the_openclaw_plugin_under_the_old_id() {
     let home = tempfile::tempdir().expect("tempdir");
     let plugins = home.path().join(".openclaw/plugins");
     let old = plugins.join("omni-signal-engine");
@@ -139,7 +139,7 @@ fn openclaw_init_replaces_the_plugin_under_the_old_id() {
 }
 
 #[test]
-fn hermes_init_replaces_the_plugin_under_the_old_name() {
+fn replaces_the_hermes_plugin_under_the_old_name() {
     let home = tempfile::tempdir().expect("tempdir");
     let plugins = home.path().join(".hermes/plugins");
     let old = plugins.join("omni-signal-engine");
@@ -159,6 +159,28 @@ fn hermes_init_replaces_the_plugin_under_the_old_name() {
     assert!(!old.exists(), "the old plugin is still on disk");
     assert!(plugins.join("contexere/__init__.py").exists());
     let config = std::fs::read_to_string(&config).expect("read config");
-    assert!(config.contains("    - contexere\n"), "{config}");
+    assert!(config.lines().any(|l| l == "    - contexere"), "{config}");
     assert!(!config.contains("omni-signal-engine"), "{config}");
+}
+
+/// A form the rename cannot rewrite keeps the old copy, which the config still loads.
+#[test]
+fn keeps_the_old_hermes_plugin_while_the_config_still_names_it() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let old = home.path().join(".hermes/plugins/omni-signal-engine");
+    std::fs::create_dir_all(&old).expect("old plugin dir");
+    std::fs::write(
+        home.path().join(".hermes/config.yaml"),
+        "plugins:\n  enabled: omni-signal-engine\n",
+    )
+    .expect("config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--hermes"])
+        .env("HOME", home.path())
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init");
+
+    assert!(old.exists(), "{output:?}");
 }

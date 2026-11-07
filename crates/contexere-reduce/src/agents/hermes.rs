@@ -16,21 +16,44 @@ fn legacy_plugin_dir() -> PathBuf {
     hermes_home_dir().join("plugins").join(LEGACY_ID)
 }
 
+/// Whether a YAML list item names `name`: `- name`, quoted, or with a trailing comment.
+fn item_names(line: &str, name: &str) -> bool {
+    line.trim()
+        .strip_prefix('-')
+        .map(|rest| rest.split(" #").next().unwrap_or(rest).trim())
+        .is_some_and(|item| item.trim_matches(['"', '\'']) == name)
+}
+
+/// Whether a flow list on this line (`enabled: [a, b]`) names `name`.
+fn flow_names(line: &str, name: &str) -> bool {
+    line.split_once('[')
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .is_some_and(|(items, _)| {
+            items
+                .split(',')
+                .any(|i| i.trim().trim_matches(['"', '\'']) == name)
+        })
+}
+
 /// `hermes plugins enable` lists the plugin by name, so an install enabled under
-/// the old name has to be enabled under the new one too. The line is renamed in
-/// place, or dropped when the new name is already listed.
+/// the old name has to be enabled under the new one too. The name is renamed in
+/// place, quotes and comments kept, or the item dropped when the new name is
+/// already listed. `None` when the config does not list the old name.
 fn rename_enabled_plugin(config: &str) -> Option<String> {
-    let is = |line: &str, name: &str| line.trim().strip_prefix('-').map(str::trim) == Some(name);
-    if !config.lines().any(|l| is(l, LEGACY_ID)) {
+    let names = |l: &str, n: &str| item_names(l, n) || flow_names(l, n);
+    if !config.lines().any(|l| names(l, LEGACY_ID)) {
         return None;
     }
-    let has_new = config.lines().any(|l| is(l, "contexere"));
+    let has_new = config.lines().any(|l| names(l, "contexere"));
     let mut out: Vec<String> = Vec::new();
     for line in config.lines() {
-        if !is(line, LEGACY_ID) {
-            out.push(line.to_string());
-        } else if !has_new {
+        if item_names(line, LEGACY_ID) && has_new {
+            continue;
+        }
+        if names(line, LEGACY_ID) {
             out.push(line.replacen(LEGACY_ID, "contexere", 1));
+        } else {
+            out.push(line.to_string());
         }
     }
     let mut out = out.join("\n");
@@ -139,7 +162,7 @@ fn hermes_config_path() -> PathBuf {
 fn config_mentions_omni_plugin(config: &str) -> Option<&'static str> {
     if config
         .lines()
-        .any(|l| l.trim().strip_prefix('-').map(str::trim) == Some("contexere"))
+        .any(|l| item_names(l, "contexere") || flow_names(l, "contexere"))
     {
         Some("contexere")
     } else if config.contains("hermes-omni-plugin") {
@@ -327,16 +350,6 @@ description: Contexere integration for Hermes Agent hooks
             "✓".green()
         ));
 
-        // Two copies would both load and run every hook twice.
-        let legacy = legacy_plugin_dir();
-        if legacy.exists() {
-            fs::remove_dir_all(&legacy)?;
-            actions.push(format!(
-                "{} Removed the old plugin at ~/.hermes/plugins/{LEGACY_ID}/",
-                "✓".green()
-            ));
-        }
-
         let config_path = hermes_config_path();
         if let Ok(config) = fs::read_to_string(&config_path)
             && let Some(updated) = rename_enabled_plugin(&config)
@@ -344,6 +357,22 @@ description: Contexere integration for Hermes Agent hooks
             super::write_config(&config_path, updated)?;
             actions.push(format!(
                 "{} Enabled the plugin as contexere in ~/.hermes/config.yaml, in place of {LEGACY_ID}",
+                "✓".green()
+            ));
+        }
+
+        // Two copies would both load and run every hook twice. Removed only once the
+        // config no longer names it, so a form this cannot rewrite keeps a working plugin.
+        let legacy = legacy_plugin_dir();
+        let still_named = fs::read_to_string(&config_path).is_ok_and(|c| c.contains(LEGACY_ID));
+        if legacy.exists() && still_named {
+            warnings.push(format!(
+                "~/.hermes/config.yaml still names {LEGACY_ID}; replace it with contexere, then delete ~/.hermes/plugins/{LEGACY_ID}/"
+            ));
+        } else if legacy.exists() {
+            fs::remove_dir_all(&legacy)?;
+            actions.push(format!(
+                "{} Removed the old plugin at ~/.hermes/plugins/{LEGACY_ID}/",
                 "✓".green()
             ));
         }
@@ -799,13 +828,30 @@ mod tests {
         rename_enabled_plugin,
     };
 
+    fn lines(s: Option<String>) -> Vec<String> {
+        s.expect("rewritten").lines().map(str::to_string).collect()
+    }
+
     #[test]
-    fn the_old_plugin_name_is_enabled_as_contexere() {
-        let config =
-            "plugins:\n  enabled:\n    - disk-cleanup\n    - omni-signal-engine\nmodel: x\n";
+    fn renames_the_old_enabled_plugin_in_every_yaml_form() {
+        let config = "plugins:\n  enabled:\n    - disk-cleanup\n    - omni-signal-engine\n    - \"omni-signal-engine\"\n    - omni-signal-engine # local\nmodel: x\n";
         assert_eq!(
-            rename_enabled_plugin(config).as_deref(),
-            Some("plugins:\n  enabled:\n    - disk-cleanup\n    - contexere\nmodel: x\n")
+            lines(rename_enabled_plugin(config)),
+            [
+                "plugins:",
+                "  enabled:",
+                "    - disk-cleanup",
+                "    - contexere",
+                "    - \"contexere\"",
+                "    - contexere # local",
+                "model: x",
+            ]
+        );
+        assert_eq!(
+            lines(rename_enabled_plugin(
+                "plugins:\n  enabled: [disk-cleanup, omni-signal-engine]\n"
+            )),
+            ["plugins:", "  enabled: [disk-cleanup, contexere]"]
         );
         assert_eq!(
             config_mentions_omni_plugin("  enabled:\n    - contexere\n"),
@@ -814,11 +860,11 @@ mod tests {
     }
 
     #[test]
-    fn the_old_name_is_dropped_when_contexere_is_already_enabled() {
+    fn drops_the_old_name_when_contexere_is_already_enabled() {
         let config = "plugins:\n  enabled:\n    - contexere\n    - omni-signal-engine\n";
         assert_eq!(
-            rename_enabled_plugin(config).as_deref(),
-            Some("plugins:\n  enabled:\n    - contexere\n")
+            lines(rename_enabled_plugin(config)),
+            ["plugins:", "  enabled:", "    - contexere"]
         );
         assert_eq!(
             rename_enabled_plugin("plugins:\n  enabled:\n    - contexere\n"),

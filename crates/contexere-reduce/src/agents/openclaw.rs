@@ -134,16 +134,7 @@ impl AgentIntegration for OpenClawIntegration {
             "✓".green()
         );
 
-        // Two copies would both load and distill every result twice.
         let legacy = legacy_plugin_dir();
-        if legacy.exists() {
-            fs::remove_dir_all(&legacy)?;
-            crate::agent_report!(
-                "  {} Removed the old plugin at ~/.openclaw/plugins/{LEGACY_ID}/",
-                "✓".green()
-            );
-        }
-
         let cfg_path = config_path();
         let mut config: Value = match fs::read_to_string(&cfg_path) {
             Ok(content) => serde_json::from_str(&content)
@@ -158,6 +149,16 @@ impl AgentIntegration for OpenClawIntegration {
             super::write_config(&cfg_path, serde_json::to_string_pretty(&config)?)?;
             crate::agent_report!(
                 "  {} Added the plugin to plugins.load.paths in ~/.openclaw/openclaw.json",
+                "✓".green()
+            );
+        }
+
+        // Two copies would both load and distill every result twice. Removed only
+        // after the config stopped naming it, so a failed write keeps a working plugin.
+        if legacy.exists() {
+            fs::remove_dir_all(&legacy)?;
+            crate::agent_report!(
+                "  {} Removed the old plugin at ~/.openclaw/plugins/{LEGACY_ID}/",
                 "✓".green()
             );
         }
@@ -308,7 +309,7 @@ mod tests {
     const OLD: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
 
     #[test]
-    fn the_old_plugin_path_goes_and_its_settings_move_to_the_new_id() {
+    fn moves_the_old_plugin_path_and_settings_to_the_new_id() {
         let mut config = json!({
             "plugins": {
                 "load": { "paths": ["/somewhere/else", OLD] },
@@ -331,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn settings_already_under_the_new_id_are_not_overwritten() {
+    fn keeps_settings_already_under_the_new_id() {
         let mut config = json!({ "plugins": { "entries": {
             "omni-signal-engine": { "enabled": false },
             "contexere": { "enabled": true }

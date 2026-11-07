@@ -10,14 +10,20 @@ const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/contexere";
 /// loads, and next to the new source it would load twice (#1065).
 const LEGACY_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
 
+/// The old source, bare or pinned to a ref.
+fn is_legacy_source(source: &str) -> bool {
+    source
+        .strip_prefix(LEGACY_PACKAGE_SOURCE)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(['@', '#']))
+}
+
 /// Drop the old source from `packages`, whether listed as a string or as
 /// `{"source": ...}`, pinned to a ref or not. Returns whether anything went.
 fn drop_legacy_source(settings: &mut Value) -> bool {
     let is_legacy = |p: &Value| {
         p.as_str()
             .or_else(|| p.get("source").and_then(Value::as_str))
-            .and_then(|s| s.strip_prefix(LEGACY_PACKAGE_SOURCE))
-            .is_some_and(|rest| rest.is_empty() || rest.starts_with(['@', '#']))
+            .is_some_and(is_legacy_source)
     };
     let Some(packages) = settings.get_mut("packages").and_then(Value::as_array_mut) else {
         return false;
@@ -300,8 +306,14 @@ fn run_install(source: &str) -> anyhow::Result<()> {
         "✓".green().bold()
     );
 
-    // Only once the new source is in, so a failed install leaves the old one working.
-    for path in [pi_settings_path(), pi_local_settings_path()] {
+    // Only once the new source is in, so a failed install leaves the old one working,
+    // and never when `OMNI_PI_PACKAGE_SOURCE` asked for the old one.
+    let paths = if is_legacy_source(source) {
+        vec![]
+    } else {
+        vec![pi_settings_path(), pi_local_settings_path()]
+    };
+    for path in paths {
         if let Ok(text) = std::fs::read_to_string(&path)
             && let Ok(mut settings) = serde_json::from_str::<Value>(&text)
             && drop_legacy_source(&mut settings)
@@ -346,7 +358,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_old_source_goes_in_every_form_and_the_rest_stays() {
+    fn drops_the_old_source_in_every_form_and_keeps_the_rest() {
         let mut settings: Value = serde_json::from_str(
             r#"{"theme": "dark", "packages": [
                 "git:github.com/fajarhide/omni",
@@ -371,6 +383,14 @@ mod tests {
             !drop_legacy_source(&mut settings),
             "a second run changes nothing"
         );
+    }
+
+    #[test]
+    fn recognises_the_old_source_only_bare_or_pinned() {
+        assert!(is_legacy_source("git:github.com/fajarhide/omni"));
+        assert!(is_legacy_source("git:github.com/fajarhide/omni@v0.8.5"));
+        assert!(!is_legacy_source("git:github.com/fajarhide/omnibus"));
+        assert!(!is_legacy_source("git:github.com/fajarhide/contexere"));
     }
 
     #[test]
