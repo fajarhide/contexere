@@ -48,7 +48,22 @@ def _run_omni(*args, stdin=None):
         return None
 
 
-def _distill(tool_name, command, output, exit_code, session_id):
+# The words `SessionState::pressure_warning` asks for a compaction with. The
+# warning rides in the reply's `additionalContext`; a Rust test keeps these in
+# step with it (#1073).
+_COMPACTION_ASKS = ("COMPACT NOW", "Consider compacting")
+
+
+def _asks_for_compaction(reply):
+    """Whether a `--post-hook` reply carries a context pressure warning."""
+    try:
+        context = json.loads(reply)["hookSpecificOutput"].get("additionalContext") or ""
+    except Exception:
+        return False
+    return any(ask in context for ask in _COMPACTION_ASKS)
+
+
+def _distill(tool_name, command, output, exit_code, session_id, on_pressure=None):
     """Return the shortened output, or None to leave Hermes' own bytes alone.
 
     None on every uncertain path. A hook that guesses would replace a tool
@@ -71,6 +86,9 @@ def _distill(tool_name, command, output, exit_code, session_id):
     res = _run_omni("--post-hook", stdin=payload)
     if not res or res.returncode != 0 or not res.stdout:
         return None
+
+    if on_pressure and _asks_for_compaction(res.stdout):
+        on_pressure()
 
     try:
         updated = json.loads(res.stdout)["hookSpecificOutput"]["updatedToolOutput"]
@@ -97,6 +115,16 @@ def _command_of(args):
 
 
 def register(ctx):
+    def compact():
+        """Hermes is one of the few hosts that can act on context pressure."""
+        try:
+            if hasattr(ctx, "request_compaction"):
+                ctx.request_compaction("Contexere context pressure threshold reached")
+            elif hasattr(ctx, "compact"):
+                ctx.compact()
+        except Exception:
+            pass
+
     def on_transform_terminal_output(**kw):
         """Fires after terminal capture and before Hermes' own output limit."""
         return _distill(
@@ -105,6 +133,7 @@ def register(ctx):
             kw.get("output", ""),
             kw.get("returncode", 0),
             kw.get("task_id", ""),
+            compact,
         )
 
     def on_transform_tool_result(**kw):
@@ -125,27 +154,8 @@ def register(ctx):
             kw.get("result", ""),
             0 if kw.get("status", "success") == "success" else 1,
             kw.get("session_id", ""),
+            compact,
         )
-
-    def on_post_tool_call(**kw):
-        """Observer. Its return is ignored by Hermes, so it distills nothing.
-
-        Kept for the compaction signal only: OMNI reports context pressure and
-        Hermes is one of the few hosts that can act on it.
-        """
-        res = _run_omni("--post-hook")
-        if not res or not res.stdout:
-            return None
-        out = res.stdout.decode("utf-8", errors="ignore")
-        if "[omni:context pressure: CRITICAL]" in out or "[omni:context pressure: WARNING]" in out:
-            try:
-                if hasattr(ctx, "request_compaction"):
-                    ctx.request_compaction("OMNI context pressure threshold reached")
-                elif hasattr(ctx, "compact"):
-                    ctx.compact()
-            except Exception:
-                pass
-        return None
 
     def on_pre_tool_call(**kw):
         _run_omni("--pre-hook")
@@ -157,6 +167,5 @@ def register(ctx):
 
     ctx.register_hook("transform_terminal_output", on_transform_terminal_output)
     ctx.register_hook("transform_tool_result", on_transform_tool_result)
-    ctx.register_hook("post_tool_call", on_post_tool_call)
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("on_session_start", on_session_start)

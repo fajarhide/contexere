@@ -9,6 +9,7 @@ Run: python3 plugins/hermes/test_plugin.py
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -79,6 +80,53 @@ def test_an_unreachable_binary_leaves_the_output_alone():
     module = load()
     module._OMNI_BIN = "/nonexistent/omni"
     assert module._distill("terminal", "ls", "some output", 0, "s") is None
+
+
+def reply(context):
+    return json.dumps(
+        {"hookSpecificOutput": {"updatedToolOutput": {"result": "x"}, "additionalContext": context}}
+    ).encode()
+
+
+def compactions(context, host_has_request=True):
+    """Run a terminal result through the registered hook and record what the host was asked."""
+    module = load()
+
+    class Done:
+        returncode = 0
+        stdout = reply(context)
+
+    module._run_omni = lambda *args, stdin=None: Done()
+    asked = []
+
+    class Host:
+        def register_hook(self, name, callback):
+            self.hooks[name] = callback
+
+    host = Host()
+    host.hooks = {}
+    if host_has_request:
+        host.request_compaction = lambda reason: asked.append("request_compaction")
+    else:
+        host.compact = lambda: asked.append("compact")
+    module.register(host)
+    host.hooks["transform_terminal_output"](command="ls", output="some output", returncode=0, task_id="t")
+    return asked
+
+
+def test_asks_hermes_to_compact_on_either_pressure_warning():
+    """The old observer ran `--post-hook` with no input, so it never saw a warning (#1073)."""
+    assert compactions("🚨 OMNI: Context ~91% full (~182k/200k tokens). COMPACT NOW before continuing.") == ["request_compaction"]
+    assert compactions("⚠️ OMNI: Context ~75% full (~150k/200k tokens). Consider compacting after completing current subtask.") == ["request_compaction"]
+
+
+def test_falls_back_to_compact_on_a_host_without_request_compaction():
+    assert compactions("🚨 OMNI: Context ~91% full. COMPACT NOW before continuing.", host_has_request=False) == ["compact"]
+
+
+def test_asks_nothing_without_a_pressure_warning():
+    assert compactions("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
+    assert compactions(None) == []
 
 
 if __name__ == "__main__":

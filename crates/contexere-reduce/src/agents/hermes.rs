@@ -747,6 +747,29 @@ mod tests {
             .expect("plugins/hermes/__init__.py ships with the repo");
         assert_eq!(include_str!("../../assets/hermes_plugin.py"), installed);
     }
+
+    /// The plugin asks Hermes to compact on the wording of the pressure warning,
+    /// so the two must not drift apart again (#1073).
+    #[test]
+    fn matches_the_wording_of_both_pressure_warnings() {
+        use crate::pipeline::{ContextPressure, SessionState};
+        let plugin = include_str!("../../assets/hermes_plugin.py");
+        for (pressure, ask) in [
+            (ContextPressure::Warning, "Consider compacting"),
+            (ContextPressure::Critical, "COMPACT NOW"),
+        ] {
+            let mut state = SessionState::new();
+            state.context_pressure = pressure;
+            let warning = state
+                .pressure_warning()
+                .expect("a warning at this pressure");
+            assert!(warning.contains(ask), "{warning}");
+            assert!(
+                plugin.contains(&format!("\"{ask}\"")),
+                "the plugin no longer matches {ask:?}"
+            );
+        }
+    }
     #[test]
     fn removes_the_omni_server_and_leaves_the_users_own() {
         let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
