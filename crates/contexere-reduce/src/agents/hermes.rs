@@ -6,7 +6,38 @@ use std::path::{Path, PathBuf};
 pub struct HermesIntegration;
 
 fn plugin_dir() -> PathBuf {
-    hermes_home_dir().join("plugins").join("omni-signal-engine")
+    hermes_home_dir().join("plugins").join("contexere")
+}
+
+/// The plugin's name before 0.8.6 (#1065).
+const LEGACY_ID: &str = "omni-signal-engine";
+
+fn legacy_plugin_dir() -> PathBuf {
+    hermes_home_dir().join("plugins").join(LEGACY_ID)
+}
+
+/// `hermes plugins enable` lists the plugin by name, so an install enabled under
+/// the old name has to be enabled under the new one too. The line is renamed in
+/// place, or dropped when the new name is already listed.
+fn rename_enabled_plugin(config: &str) -> Option<String> {
+    let is = |line: &str, name: &str| line.trim().strip_prefix('-').map(str::trim) == Some(name);
+    if !config.lines().any(|l| is(l, LEGACY_ID)) {
+        return None;
+    }
+    let has_new = config.lines().any(|l| is(l, "contexere"));
+    let mut out: Vec<String> = Vec::new();
+    for line in config.lines() {
+        if !is(line, LEGACY_ID) {
+            out.push(line.to_string());
+        } else if !has_new {
+            out.push(line.replacen(LEGACY_ID, "contexere", 1));
+        }
+    }
+    let mut out = out.join("\n");
+    if config.ends_with('\n') {
+        out.push('\n');
+    }
+    Some(out)
 }
 
 fn omni_home_dir() -> PathBuf {
@@ -30,14 +61,14 @@ pub fn validate_startup() -> Option<String> {
             warnings.push(
                 "OMNI MCP server is NOT registered in ~/.hermes/config.yaml. \
                  omni_retrieve and omni_explain_savings \
-                 will be unavailable. Run `omni init --hermes` to fix.",
+                 will be unavailable. Run `contexere init --hermes` to fix.",
             );
         }
         if !config_str.contains("compression:") || !config_str.contains("enabled: true") {
             warnings.push(
                 "Hermes compression is NOT enabled. Context Pressure warnings \
                  from OMNI will be surfaced but Hermes will not act on them. \
-                 Run `omni init --hermes` to fix.",
+                 Run `contexere init --hermes` to fix.",
             );
         }
     } else {
@@ -48,7 +79,7 @@ pub fn validate_startup() -> Option<String> {
     if !plugin_init.exists() {
         warnings.push(
             "OMNI Hermes plugin (`__init__.py`) is missing. \
-             Pre/Post hooks will not execute. Run `omni init --hermes` to install.",
+             Pre/Post hooks will not execute. Run `contexere init --hermes` to install.",
         );
     }
 
@@ -67,14 +98,14 @@ pub fn validate_startup() -> Option<String> {
                 warnings.push(
                     "~/.contexere/config.toml exists but has no [agents.hermes] section. \
                      Hermes-optimized defaults (Efficient mode, pinned files) are inactive. \
-                     Run `omni init --hermes` to add them.",
+                     Run `contexere init --hermes` to add them.",
                 );
             }
         }
     } else {
         warnings.push(
             "~/.contexere/config.toml does not exist. OMNI is using built-in defaults \
-             instead of Hermes-optimized settings. Run `omni init --hermes`.",
+             instead of Hermes-optimized settings. Run `contexere init --hermes`.",
         );
     }
 
@@ -83,7 +114,7 @@ pub fn validate_startup() -> Option<String> {
     } else {
         Some(format!(
             "\n  [OMNI × Hermes Startup Validation, {} issue(s)]\n{}\n\
-             → Fix all: `omni init --hermes && hermes gateway restart`\n",
+             → Fix all: `contexere init --hermes && hermes gateway restart`\n",
             warnings.len(),
             warnings
                 .iter()
@@ -106,7 +137,12 @@ fn hermes_config_path() -> PathBuf {
 }
 
 fn config_mentions_omni_plugin(config: &str) -> Option<&'static str> {
-    if config.contains("hermes-omni-plugin") {
+    if config
+        .lines()
+        .any(|l| l.trim().strip_prefix('-').map(str::trim) == Some("contexere"))
+    {
+        Some("contexere")
+    } else if config.contains("hermes-omni-plugin") {
         Some("hermes-omni-plugin")
     } else if config.contains("omni-signal-engine") {
         Some("omni-signal-engine")
@@ -276,9 +312,9 @@ impl AgentIntegration for HermesIntegration {
         let dest = plugin_dir();
         fs::create_dir_all(&dest)?;
 
-        let plugin_yaml_content = r#"name: omni-signal-engine
+        let plugin_yaml_content = r#"name: contexere
 version: "1.0"
-description: OMNI Signal Engine integration for Hermes Agent hooks
+description: Contexere integration for Hermes Agent hooks
 "#;
 
         // A real Python file compiled by CI; the old Rust literal never parsed (#628).
@@ -287,11 +323,30 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         fs::write(dest.join("plugin.yaml"), plugin_yaml_content)?;
         fs::write(dest.join("__init__.py"), init_py_content)?;
         actions.push(format!(
-            "{} Installed Hermes plugin to ~/.hermes/plugins/omni-signal-engine/",
+            "{} Installed Hermes plugin to ~/.hermes/plugins/contexere/",
             "✓".green()
         ));
 
+        // Two copies would both load and run every hook twice.
+        let legacy = legacy_plugin_dir();
+        if legacy.exists() {
+            fs::remove_dir_all(&legacy)?;
+            actions.push(format!(
+                "{} Removed the old plugin at ~/.hermes/plugins/{LEGACY_ID}/",
+                "✓".green()
+            ));
+        }
+
         let config_path = hermes_config_path();
+        if let Ok(config) = fs::read_to_string(&config_path)
+            && let Some(updated) = rename_enabled_plugin(&config)
+        {
+            super::write_config(&config_path, updated)?;
+            actions.push(format!(
+                "{} Enabled the plugin as contexere in ~/.hermes/config.yaml, in place of {LEGACY_ID}",
+                "✓".green()
+            ));
+        }
         let requires_manual_plugin_step = !fs::metadata(&config_path)
             .ok()
             .map(|meta| meta.is_file())
@@ -301,7 +356,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             actions.push(format!(
                 "{} Run {} to enable the OMNI plugin",
                 "→".cyan(),
-                "hermes plugins enable omni-signal-engine".bright_black()
+                "hermes plugins enable contexere".bright_black()
             ));
             warnings.push(
                 "Hermes config not found; enable the OMNI plugin once Hermes is initialized."
@@ -443,14 +498,15 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
         // Both install forms: plugin directory and config.yaml entry (#445).
         let mut did_something = false;
 
-        let dest = plugin_dir();
-        if dest.exists() {
-            fs::remove_dir_all(&dest)?;
-            did_something = true;
-            crate::agent_report!(
-                "  {} Removed Hermes plugin from ~/.hermes/plugins/",
-                "✓".yellow()
-            );
+        for dest in [plugin_dir(), legacy_plugin_dir()] {
+            if dest.exists() {
+                fs::remove_dir_all(&dest)?;
+                did_something = true;
+                crate::agent_report!(
+                    "  {} Removed Hermes plugin from ~/.hermes/plugins/",
+                    "✓".yellow()
+                );
+            }
         }
 
         let config_path = hermes_config_path();
@@ -512,7 +568,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
             crate::agent_report!(
                 "   {:>15} {} {}",
                 "Plugin:".bright_black(),
-                "~/.hermes/plugins/omni-signal-engine/".bright_black(),
+                "~/.hermes/plugins/contexere/".bright_black(),
                 "[OK]".green().bold()
             );
         } else if let Some(plugin_name) = configured_plugin {
@@ -583,7 +639,7 @@ description: OMNI Signal Engine integration for Hermes Agent hooks
                 crate::agent_report!(
                     "   {:>15} {}",
                     "Auto-fix:".bright_black(),
-                    "Re-running omni init --hermes...".yellow()
+                    "Re-running contexere init --hermes...".yellow()
                 );
                 match self.install(&exe_str) {
                     Ok(()) => {
@@ -738,7 +794,37 @@ mod tests {
 
         assert!(out.contains("model: gpt-5\n"), "{out}");
     }
-    use super::{config_mentions_omni_mcp, config_mentions_omni_plugin, configured_compression};
+    use super::{
+        config_mentions_omni_mcp, config_mentions_omni_plugin, configured_compression,
+        rename_enabled_plugin,
+    };
+
+    #[test]
+    fn the_old_plugin_name_is_enabled_as_contexere() {
+        let config =
+            "plugins:\n  enabled:\n    - disk-cleanup\n    - omni-signal-engine\nmodel: x\n";
+        assert_eq!(
+            rename_enabled_plugin(config).as_deref(),
+            Some("plugins:\n  enabled:\n    - disk-cleanup\n    - contexere\nmodel: x\n")
+        );
+        assert_eq!(
+            config_mentions_omni_plugin("  enabled:\n    - contexere\n"),
+            Some("contexere")
+        );
+    }
+
+    #[test]
+    fn the_old_name_is_dropped_when_contexere_is_already_enabled() {
+        let config = "plugins:\n  enabled:\n    - contexere\n    - omni-signal-engine\n";
+        assert_eq!(
+            rename_enabled_plugin(config).as_deref(),
+            Some("plugins:\n  enabled:\n    - contexere\n")
+        );
+        assert_eq!(
+            rename_enabled_plugin("plugins:\n  enabled:\n    - contexere\n"),
+            None
+        );
+    }
 
     #[test]
     fn detects_packaged_hermes_omni_plugin_in_config() {

@@ -34,14 +34,14 @@ cargo build --release
 
 ```
 /plugin marketplace add fajarhide/contexere
-/plugin install omni@omni
+/plugin install contexere@omni
 ```
 
 **Di agent mana pun yang membaca skill**, skill yang sama bisa dipasang lewat CLI
 direktori skill:
 
 ```sh
-npx skills add fajarhide/contexere --skill omni
+npx skills add fajarhide/contexere --skill contexere
 ```
 
 Lewat jalur mana pun, yang terpasang adalah sebuah skill, bukan binary-nya. Skill

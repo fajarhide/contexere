@@ -84,7 +84,7 @@ fn init_all_exits_0_with_no_pi_and_writes_the_embedded_plugin() {
         .expect("run init");
 
     assert_eq!(output.status.code(), Some(0), "{output:?}");
-    let plugin = home.path().join(".openclaw/plugins/omni-signal-engine");
+    let plugin = home.path().join(".openclaw/plugins/contexere");
     assert_eq!(
         std::fs::read_to_string(plugin.join("index.ts")).expect("the plugin was written"),
         include_str!("../plugins/openclaw/index.ts")
@@ -104,4 +104,61 @@ fn cursor_init_leaves_an_unparsed_config_alone() {
 #[test]
 fn claude_init_leaves_unparsed_settings_alone() {
     assert_init_leaves_alone("--claude", ".claude/settings.json");
+}
+
+/// An install from before 0.8.6 sits under the old id; leaving it would load the
+/// plugin twice (#1065).
+#[test]
+fn openclaw_init_replaces_the_plugin_under_the_old_id() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let plugins = home.path().join(".openclaw/plugins");
+    let old = plugins.join("omni-signal-engine");
+    std::fs::create_dir_all(&old).expect("old plugin dir");
+    std::fs::write(old.join("index.ts"), "// old").expect("old plugin file");
+    let config = home.path().join(".openclaw/openclaw.json");
+    let fixture = serde_json::json!({ "plugins": { "load": { "paths": [old] } } });
+    std::fs::write(&config, fixture.to_string()).expect("config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--openclaw"])
+        .env("HOME", home.path())
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init");
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(!old.exists(), "the old plugin is still on disk");
+    assert!(plugins.join("contexere/index.ts").exists());
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&config).expect("read config"))
+            .expect("config parses");
+    assert_eq!(
+        config["plugins"]["load"]["paths"],
+        serde_json::json!([plugins.join("contexere")])
+    );
+}
+
+#[test]
+fn hermes_init_replaces_the_plugin_under_the_old_name() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let plugins = home.path().join(".hermes/plugins");
+    let old = plugins.join("omni-signal-engine");
+    std::fs::create_dir_all(&old).expect("old plugin dir");
+    std::fs::write(old.join("__init__.py"), "# old").expect("old plugin file");
+    let config = home.path().join(".hermes/config.yaml");
+    std::fs::write(&config, "plugins:\n  enabled:\n    - omni-signal-engine\n").expect("config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--hermes"])
+        .env("HOME", home.path())
+        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .output()
+        .expect("run init");
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(!old.exists(), "the old plugin is still on disk");
+    assert!(plugins.join("contexere/__init__.py").exists());
+    let config = std::fs::read_to_string(&config).expect("read config");
+    assert!(config.contains("    - contexere\n"), "{config}");
+    assert!(!config.contains("omni-signal-engine"), "{config}");
 }

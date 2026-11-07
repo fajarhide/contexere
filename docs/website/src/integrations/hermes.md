@@ -4,7 +4,7 @@ Contexere plugs into Hermes twice: a plugin on the hook path, and the MCP server
 
 | layer | mechanism | what changes |
 |---|---|---|
-| hooks | `~/.hermes/plugins/omni-signal-engine/__init__.py` calling `contexere --pre-hook`, `--post-hook`, `--session-start` | terminal tool output is distilled before it enters Hermes' context |
+| hooks | `~/.hermes/plugins/contexere/__init__.py` calling `contexere --pre-hook`, `--post-hook`, `--session-start` | terminal tool output is distilled before it enters Hermes' context |
 | MCP | `mcp_servers.omni` running `contexere --mcp` | Contexere's MCP tools become first-class Hermes tools |
 
 ## Prerequisites
@@ -25,7 +25,7 @@ The venv Python is needed because `hermes plugins enable` runs inside it.
 
 ```sh
 contexere init --hermes
-hermes plugins enable omni-signal-engine
+hermes plugins enable contexere
 hermes gateway restart
 "$HERMES_PY" -m pip install hermes-omni-plugin
 ```
@@ -34,6 +34,10 @@ hermes gateway restart
 server in `~/.hermes/config.yaml` if it is not already there, enables Hermes
 compression when that is safe, and writes Hermes-oriented defaults to
 `~/.contexere/config.toml` **without overwriting an existing Contexere config**.
+
+Before 0.8.6 the plugin was named `omni-signal-engine`. `contexere init --hermes`
+removes that copy and, where `plugins.enabled` listed the old name, lists
+`contexere` in its place.
 
 > Use either `hermes-omni-plugin` or the `contexere init --hermes` scaffold, not both at
 > once, or you get duplicate plugin registrations.
@@ -45,7 +49,7 @@ compression when that is safe, and writes Hermes-oriented defaults to
 
 plugins:
   enabled:
-    - omni-signal-engine
+    - contexere
 
 mcp_servers:
   omni:
@@ -60,7 +64,7 @@ compression:
   target_ratio: 0.20  # keep 20%
 ```
 
-Three things have to be true: `plugins.enabled` contains `omni-signal-engine`,
+Three things have to be true: `plugins.enabled` contains `contexere`,
 `mcp_servers.omni` points at the real binary, and `compression.enabled` is on so
 Hermes' own compaction and Contexere's pressure warnings line up rather than fighting.
 
@@ -72,7 +76,7 @@ with every other host's and no figure about either is meaningful.
 ```sh
 contexere doctor
 
-hermes plugins list | grep omni        # expect: omni-signal-engine enabled
+hermes plugins list | grep contexere   # expect: listed as enabled
 hermes tools list | grep mcp_omni_     # the advertised set, after a restart
 ```
 
@@ -111,7 +115,7 @@ advertised by default, so it needs `CONTEXERE_MCP_TOOLS=all`.
 ## After a Hermes upgrade
 
 ```sh
-hermes plugins list | grep omni
+hermes plugins list | grep contexere
 hermes tools list | grep mcp_omni_
 contexere doctor
 ```

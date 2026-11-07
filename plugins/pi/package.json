@@ -1,5 +1,5 @@
 {
-  "name": "@fajarhide/omni-pi",
+  "name": "@fajarhide/contexere-pi",
   "version": "0.6.0",
   "description": "Pi extension for Contexere semantic output distillation.",
   "type": "module",

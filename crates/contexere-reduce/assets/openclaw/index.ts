@@ -186,7 +186,7 @@ function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
 }
 
 export default definePluginEntry({
-  id: "omni-signal-engine",
+  id: "contexere",
   name: "Contexere",
   description: "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
   // A JSON Schema, not a TypeBox object. OpenClaw wants
