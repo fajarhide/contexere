@@ -627,16 +627,41 @@ fn looks_like_code_expression(value: &str) -> bool {
 /// A balanced parenthesized reference or expression is code, not a literal:
 /// `(value).strip()`, `(value or "")` and `("a" if ok else "b")`.
 /// Non-empty strings and credential-shaped identifiers stay redacted.
-fn looks_like_parenthesized_code(value: &str) -> bool {
-    let value = value.trim();
-    if !value.starts_with('(') {
-        return false;
-    }
+const MAX_PARENTHESES_DEPTH: usize = 32;
 
+fn looks_like_parenthesized_code(value: &str) -> bool {
+    let mut value = value.trim();
+    for _ in 0..MAX_PARENTHESES_DEPTH {
+        let Some((inner, tail)) = parenthesized_group(value) else {
+            return false;
+        };
+        if !is_safe_member_chain_tail(tail) {
+            return false;
+        }
+
+        let inner = inner.trim();
+        if is_safe_code_identifier(inner)
+            || references_instead_of_holding(inner)
+            || looks_like_empty_string_fallback(inner)
+            || looks_like_short_conditional(inner)
+        {
+            return true;
+        }
+        if !inner.starts_with('(') {
+            return false;
+        }
+        value = inner;
+    }
+    false
+}
+
+fn parenthesized_group(value: &str) -> Option<(&str, &str)> {
+    if !value.starts_with('(') {
+        return None;
+    }
     let mut depth = 0usize;
     let mut quote = None;
     let mut escaped = false;
-    let mut group = None;
     for (index, ch) in value.char_indices() {
         if let Some(delimiter) = quote {
             if escaped {
@@ -653,34 +678,22 @@ fn looks_like_parenthesized_code(value: &str) -> bool {
             continue;
         }
         match ch {
-            '(' => depth += 1,
+            '(' => {
+                depth = depth.checked_add(1)?;
+                if depth > MAX_PARENTHESES_DEPTH {
+                    return None;
+                }
+            }
             ')' => {
-                depth -= 1;
+                depth = depth.checked_sub(1)?;
                 if depth == 0 {
-                    let (Some(inner), Some(tail)) = (value.get(1..index), value.get(index + 1..))
-                    else {
-                        return false;
-                    };
-                    group = Some((inner, tail));
-                    break;
+                    return Some((value.get(1..index)?, value.get(index + 1..)?));
                 }
             }
             _ => {}
         }
     }
-    let Some((inner, tail)) = group else {
-        return false;
-    };
-    if !is_safe_member_chain_tail(tail) {
-        return false;
-    }
-
-    let inner = inner.trim();
-    is_safe_code_identifier(inner)
-        || references_instead_of_holding(inner)
-        || looks_like_parenthesized_code(inner)
-        || looks_like_empty_string_fallback(inner)
-        || looks_like_short_conditional(inner)
+    None
 }
 
 fn is_safe_member_chain_tail(tail: &str) -> bool {
@@ -791,7 +804,15 @@ fn list_contains_credential_literal(value: &str) -> bool {
                     .and_then(|rest| rest.strip_suffix(quote))
             })
             .unwrap_or(item);
-        looks_like_token_literal(literal) || literal.chars().any(|ch| ch.is_ascii_digit())
+        looks_like_token_literal(literal)
+            || (literal.chars().any(|ch| ch.is_ascii_digit())
+                && !is_numbered_id_field_name(literal))
+    })
+}
+
+fn is_numbered_id_field_name(value: &str) -> bool {
+    value.strip_prefix("id").is_some_and(|suffix| {
+        !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
     })
 }
 
@@ -2098,6 +2119,20 @@ mod tests {
     }
 
     #[test]
+    fn delivers_short_numbered_field_names_under_a_key_suffix() {
+        assert!(!redacted(r#"primary_key = ["id1", "id2"]"#));
+        assert!(!redacted(r#"primary_key = ["id123"]"#));
+    }
+
+    #[test]
+    fn redacts_credential_shaped_values_in_a_weak_key_list() {
+        assert!(redacted(r#"KEY = ["abcdef1234567890"]"#));
+        assert!(redacted(r#"KEY = ["sk-ant-placeholdersecret"]"#));
+        assert!(redacted(r#"KEY = ["abc123"]"#));
+        assert!(redacted(r#"KEY = ["hunter2"]"#));
+    }
+
+    #[test]
     fn redacts_a_list_holding_a_mixed_case_element() {
         assert!(redacted(r#"KEY = ["Ab3dEf9Gh2"]"#));
     }
@@ -2380,6 +2415,7 @@ mod tests {
                     key = value.strip()\n\
                     key = (value).strip()\n\
                     key = (value.strip())\n\
+                    key = (((value)))\n\
                     token = (get_token())\n\
                     token = (raw or \"\").strip()\n\
                     key = (\"a\" if v else \"b\")\n\
@@ -2409,6 +2445,16 @@ mod tests {
                 "secret delivered: {out}"
             );
         }
+    }
+
+    #[test]
+    fn redacts_parenthesized_expressions_beyond_the_nesting_limit() {
+        let depth = MAX_PARENTHESES_DEPTH + 1;
+        let expression = format!("{}value{}", "(".repeat(depth), ")".repeat(depth));
+        let input = format!("TOKEN={expression}");
+        let out = redact_sensitive_assignments(&input).expect("excessive nesting is redacted");
+        assert!(out.contains("TOKEN=[REDACTED]"), "{out}");
+        assert_eq!(out.lines().nth(1), Some("TOKEN=[REDACTED]"));
     }
 
     /// The widened call rule still refuses what could hold a credential (#980).
