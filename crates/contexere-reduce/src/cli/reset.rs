@@ -140,7 +140,10 @@ pub fn handle_reset() -> anyhow::Result<()> {
 
 fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
     if is_all {
-        println!("\n{} Removing ALL Contexere agent integrations...", "⟳".yellow());
+        println!(
+            "\n{} Removing ALL Contexere agent integrations...",
+            "⟳".yellow()
+        );
         for agent in all_integrations() {
             if let Err(e) = agent.uninstall() {
                 println!(

@@ -358,7 +358,9 @@ fn require_values(args: &[String]) -> Result<()> {
         match value_of(args, "--limit") {
             Some(v) if v.parse::<usize>().is_ok() => {}
             Some(v) => bail!("`contexere stats --limit` needs a whole number, got `{v}`"),
-            None => bail!("`contexere stats --limit` needs a whole number, run `contexere stats --help`"),
+            None => bail!(
+                "`contexere stats --limit` needs a whole number, run `contexere stats --help`"
+            ),
         }
     }
     Ok(())
@@ -1887,7 +1889,9 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
         Some("project") => &[("Spend by project", &bill.by_project)],
         Some("model") => &[("Spend by model", &bill.by_model)],
         Some("session") => &[("Spend by session", &bill.by_session)],
-        Some(other) => bail!("`contexere stats --by` takes project, model or session, got `{other}`"),
+        Some(other) => {
+            bail!("`contexere stats --by` takes project, model or session, got `{other}`")
+        }
         None => &[
             ("Spend by model", &bill.by_model),
             ("Spend by project", &bill.by_project),

@@ -106,7 +106,8 @@ impl AgentIntegration for CursorIntegration {
                     "not configured".bright_black()
                 );
                 warnings.push(
-                    "Cursor MCP server is not configured. Run `contexere init --cursor`.".to_string(),
+                    "Cursor MCP server is not configured. Run `contexere init --cursor`."
+                        .to_string(),
                 );
             }
         }

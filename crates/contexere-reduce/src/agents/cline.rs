@@ -131,8 +131,9 @@ impl AgentIntegration for ClineIntegration {
                     "MCP Server:".bright_black(),
                     "[WARNING] not configured".yellow().bold()
                 );
-                warnings
-                    .push("Cline MCP server not configured. Run `contexere init --cline`.".to_string());
+                warnings.push(
+                    "Cline MCP server not configured. Run `contexere init --cline`.".to_string(),
+                );
             }
         }
 

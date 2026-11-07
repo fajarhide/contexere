@@ -199,7 +199,8 @@ impl AgentIntegration for ClaudeIntegration {
                         "Hooks:".bright_black(),
                         "[WARNING] no hooks found".yellow().bold()
                     );
-                    warnings.push("OMNI hooks are not configured. Run `contexere init`.".to_string());
+                    warnings
+                        .push("OMNI hooks are not configured. Run `contexere init`.".to_string());
                     all_ok = false;
                 }
             }
