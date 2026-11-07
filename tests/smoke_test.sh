@@ -105,6 +105,9 @@ echo "▸ Scenario 3: Doctor"
 DOCTOR_OUT=$("$OMNI" doctor 2>&1 || true)
 check "doctor shows header" "$DOCTOR_OUT" "Contexere Doctor"
 check "doctor shows binary" "$DOCTOR_OUT" "Binary"
+# The resolved paths, not a hardcoded tilde path that may not be the one in use (#1074).
+check "doctor prints the config dir it checked" "$DOCTOR_OUT" "Config dir: *$OMNI_HOME"
+check "doctor prints the database it opened" "$DOCTOR_OUT" "Database: *$OMNI_HOME"
 
 # The env read behind OMNI_MCP_TOOLS cannot be covered by a cargo test: this crate
 # already mutates process environment in tests, cargo runs them in parallel, and that

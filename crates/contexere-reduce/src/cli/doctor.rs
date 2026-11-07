@@ -127,7 +127,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
             checks.push(DoctorCheck {
                 name: "config".to_string(),
                 ok: false,
-                message: "Cannot write to ~/.omni/. Sandbox issue?".to_string(),
+                message: format!("Cannot write to {}/. Sandbox issue?", conf_dir.display()),
             });
             all_ok = false;
         }
@@ -142,7 +142,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
             checks.push(DoctorCheck {
                 name: "config".to_string(),
                 ok: false,
-                message: "missing ~/.omni/".to_string(),
+                message: format!("missing {}/", conf_dir.display()),
             });
             all_ok = false;
             fix_available = true;
@@ -349,38 +349,43 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             Ok(_) => {
                 let _ = fs::remove_file(&test_file);
                 println!(
-                    "  {:<15} ~/.omni/ {}",
+                    "  {:<15} {}/ {}",
                     "Config dir:".bright_black(),
+                    conf_dir.display(),
                     "[OK]".green().bold()
                 );
             }
             Err(_) => {
                 println!(
-                    "  {:<15} ~/.omni/ {}",
+                    "  {:<15} {}/ {}",
                     "Config dir:".bright_black(),
+                    conf_dir.display(),
                     "[ERROR]".red().bold()
                 );
                 warnings.push(
-                    "Cannot write to ~/.omni/. If using Claude Code, add ~/.omni to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
+                    format!("Cannot write to {d}/. If using Claude Code, add {d} to sandbox.filesystem.allowWrite in ~/.claude/settings.json", d = conf_dir.display()),
                 );
                 all_ok = false;
             }
         }
     } else if fix_mode && fs::create_dir_all(&conf_dir).is_ok() {
         println!(
-            "  {:<15} ~/.omni/ {}",
+            "  {:<15} {}/ {}",
             "Config dir:".bright_black(),
+            conf_dir.display(),
             "[FIXED]".green().bold()
         );
     } else {
         println!(
-            "  {:<15} ~/.omni/ {}",
+            "  {:<15} {}/ {}",
             "Config dir:".bright_black(),
+            conf_dir.display(),
             "[ERROR]".red().bold()
         );
-        warnings.push(
-            "Config directory ~/.omni/ is missing or not writable. Run `omni init`.".to_string(),
-        );
+        warnings.push(format!(
+            "Config directory {}/ is missing or not writable. Run `contexere init`.",
+            conf_dir.display()
+        ));
         all_ok = false;
     }
 
@@ -389,8 +394,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let (sessions, rewinds) = store.stats().unwrap_or_default();
             // Both numbers: "records" once meant sessions (#118).
             println!(
-                "  {:<15} ~/.omni/omni.db ({} distillations, {} sessions) {}",
+                "  {:<15} {} ({} distillations, {} sessions) {}",
                 "Database:".bright_black(),
+                crate::store::sqlite::default_db_path().display(),
                 store.distillation_count().to_string().yellow(),
                 sessions.to_string().yellow(),
                 "[OK]".green().bold()
@@ -409,7 +415,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "[ERROR]".red().bold()
                 );
                 warnings.push(
-                    "Database is read-only. Claude Code sandbox may be blocking writes to ~/.omni/omni.db. Add ~/.omni to sandbox.filesystem.allowWrite in ~/.claude/settings.json".to_string(),
+                    format!("Database is read-only. Claude Code sandbox may be blocking writes to {}. Add its directory to sandbox.filesystem.allowWrite in ~/.claude/settings.json", crate::store::sqlite::default_db_path().display()),
                 );
                 all_ok = false;
             }
@@ -450,7 +456,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(
-                        "Most of the database file is dead space. Run `omni doctor --fix` to reclaim it."
+                        "Most of the database file is dead space. Run `contexere doctor --fix` to reclaim it."
                             .to_string(),
                     );
                 }
@@ -515,8 +521,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         Err(_) => {
             println!(
-                "  {:<15} ~/.omni/omni.db (missing) {}",
+                "  {:<15} {} (missing) {}",
                 "Database:".bright_black(),
+                crate::store::sqlite::default_db_path().display(),
                 "[ERROR]".red().bold()
             );
             println!(
@@ -577,7 +584,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     if !any_agent_ok {
         warnings.push(
-            "No agent integrations are configured. Run `omni init` to set up hooks + MCP for your agent."
+            "No agent integrations are configured. Run `contexere init` to set up hooks + MCP for your agent."
                 .to_string(),
         );
         all_ok = false;
