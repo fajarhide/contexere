@@ -981,6 +981,13 @@ pub fn process_payload(
     }
 
     let additional_context = build_additional_context(&result, &session);
+    // The estimate and the pressure fields grew in there, after `track_command`
+    // saved: a host that starts a process per call would read them back unchanged (#1081).
+    if let (Some(s), Some(sess)) = (&store, &session)
+        && let Ok(state) = sess.lock()
+    {
+        s.upsert_session(&state);
+    }
 
     serde_json::to_string(&HookOutput {
         hook_specific_output: HookSpecificOutput {
@@ -1223,6 +1230,49 @@ mod tests {
         ] {
             assert!(!returns_archived_bytes(cmd), "{cmd} is not ours");
         }
+    }
+
+    /// A host that starts a process per call reloads the session from the store,
+    /// so the pressure estimate has to get there (#1081).
+    #[test]
+    fn saves_the_pressure_estimate_for_the_next_process() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("store"));
+        let state = SessionState::new();
+        store.upsert_session(&state);
+        let output = (0..200)
+            .map(|i| format!("2026-08-11T00:00:00Z  handler finished request {i} in 12ms\n"))
+            .collect::<String>();
+        let payload = serde_json::json!({
+            "session_id": "s-1081",
+            "tool_name": "Bash",
+            "tool_input": {"command": "cat app.log"},
+            "tool_response": {"stdout": output, "stderr": ""}
+        })
+        .to_string();
+
+        // Primed, so the second read folds against the first.
+        let _ = process_payload(&payload, Some(store.clone()), None);
+        let reply = process_payload(
+            &payload,
+            Some(store.clone()),
+            Some(Arc::new(Mutex::new(state.clone()))),
+        );
+        assert!(
+            reply.is_some(),
+            "the fixture must be shortened, or this proves nothing"
+        );
+
+        let saved = store
+            .list_recent_sessions(10)
+            .expect("list")
+            .into_iter()
+            .find(|s| s.session_id == state.session_id)
+            .expect("the session is stored");
+        assert!(
+            saved.estimated_current_tokens > 0,
+            "the next process would start from zero again"
+        );
     }
 
     /// The hook returns nothing for a retrieval, so the host keeps the bytes.
