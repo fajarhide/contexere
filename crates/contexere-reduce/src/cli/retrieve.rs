@@ -11,11 +11,15 @@ const FLAGS: super::Flags = &[];
 fn print_help() {
     println!(
         "\n{} {}: Print the content a marker archived",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "retrieve".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "retrieve".cyan(), "<handle>".bright_black());
+    println!(
+        "  contexere {} {}",
+        "retrieve".cyan(),
+        "<handle>".bright_black()
+    );
     println!(
         "\nA handle is the 16 characters inside a marker, for example\n  {}\n",
         format!(

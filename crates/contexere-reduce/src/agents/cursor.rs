@@ -106,7 +106,8 @@ impl AgentIntegration for CursorIntegration {
                     "not configured".bright_black()
                 );
                 warnings.push(
-                    "Cursor MCP server is not configured. Run `omni init --cursor`.".to_string(),
+                    "Cursor MCP server is not configured. Run `contexere init --cursor`."
+                        .to_string(),
                 );
             }
         }
@@ -147,7 +148,7 @@ impl AgentIntegration for CursorIntegration {
                         .bold()
                 );
                 warnings.push(format!(
-                    "Cursor hooks missing on {}. Run `omni init --cursor`.",
+                    "Cursor hooks missing on {}. Run `contexere init --cursor`.",
                     missing.join(", ")
                 ));
             }
@@ -177,7 +178,7 @@ impl AgentIntegration for CursorIntegration {
                             .bold()
                     );
                     warnings.push(
-                        "Cursor has no omni_run rule, so nothing is distilled here. Run `omni init --cursor` in this project."
+                        "Cursor has no omni_run rule, so nothing is distilled here. Run `contexere init --cursor` in this project."
                             .to_string(),
                     );
                 }
@@ -233,7 +234,7 @@ fn install_cursor_rule(exe_path: &str) -> anyhow::Result<()> {
             "omni_run".bold()
         );
         crate::agent_report!(
-            "    Cursor cannot rewrite built-in tool output, so run `omni init --cursor`"
+            "    Cursor cannot rewrite built-in tool output, so run `contexere init --cursor`"
         );
         crate::agent_report!(
             "    from a repository, or save this as {}:\n",

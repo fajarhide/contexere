@@ -59,7 +59,7 @@ fn parse(args: &[String]) -> Result<RememberArgs> {
 
     Ok(RememberArgs {
         content: content
-            .ok_or_else(|| anyhow::anyhow!("nothing to remember: omni remember \"<text>\""))?,
+            .ok_or_else(|| anyhow::anyhow!("nothing to remember: contexere remember \"<text>\""))?,
         category,
         tags,
         project_scoped,

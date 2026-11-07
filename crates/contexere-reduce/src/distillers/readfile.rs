@@ -52,7 +52,7 @@ pub fn distill_readfile_with_context(
         let imported_by_count = imported_by();
         if imported_by_count > 3 {
             out.push_str(&format!(
-                "\n[OMNI Guard: {} is imported by {} files, changes here may have wide impact. Run `omni context '{}'` for the full dependency map.]",
+                "\n[OMNI Guard: {} is imported by {} files, changes here may have wide impact. Run `contexere context '{}'` for the full dependency map.]",
                 filepath, imported_by_count, filepath
             ));
         }
@@ -416,7 +416,7 @@ mod tests {
             .expect("a file this size distils");
 
         assert!(
-            out.contains("omni context 'src/my file.rs'"),
+            out.contains("contexere context 'src/my file.rs'"),
             "a path with a space was pasted into a command unquoted, so the \
              reader is told to run something that means two arguments:\n{out}"
         );

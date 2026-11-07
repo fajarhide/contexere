@@ -155,9 +155,9 @@ pub fn check_flags(command: &str, args: &[String], flags: Flags) -> Result<()> {
 
         let hint = match nearest(name, flags) {
             Some(candidate) => format!("did you mean `{candidate}`?"),
-            None => format!("run `omni {command} --help` for the accepted flags"),
+            None => format!("run `contexere {command} --help` for the accepted flags"),
         };
-        bail!("unknown flag `{name}` for `omni {command}`, {hint}");
+        bail!("unknown flag `{name}` for `contexere {command}`, {hint}");
     }
     Ok(())
 }
@@ -242,7 +242,7 @@ mod tests {
     fn offers_no_suggestion_when_nothing_is_close() {
         let err = check_flags("stats", &args(&["omni", "stats", "--verbose"]), FLAGS)
             .expect_err("an undeclared flag must not be accepted silently");
-        assert!(err.to_string().contains("omni stats --help"), "{err}");
+        assert!(err.to_string().contains("contexere stats --help"), "{err}");
     }
 
     #[test]

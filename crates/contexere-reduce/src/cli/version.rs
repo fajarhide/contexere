@@ -13,8 +13,8 @@ const FLAGS: super::Flags = &[("--json", "Machine-readable JSON output")];
 
 pub fn run_version(args: &[String]) {
     if super::wants_help(args) {
-        println!("\nomni version: Build and feature information\n");
-        println!("USAGE:\n  omni version [FLAGS]\n");
+        println!("\ncontexere version: Build and feature information\n");
+        println!("USAGE:\n  contexere version [FLAGS]\n");
         crate::cli::print_flags(FLAGS);
         return;
     }

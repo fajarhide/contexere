@@ -27,7 +27,7 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
             }
         }
         Err(e) => {
-            eprintln!("{} {}: {}", "error".red(), "omni query".bold(), e);
+            eprintln!("{} {}: {}", "error".red(), "contexere query".bold(), e);
             std::process::exit(1);
         }
     }
@@ -38,11 +38,11 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: Natural-language query engine for distillation history",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "query".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "query".cyan(), "<QUERY>".yellow());
+    println!("  contexere {} {}", "query".cyan(), "<QUERY>".yellow());
 
     println!("\n{}", "SUPPORTED QUERIES:".bold().bright_white());
     println!(
@@ -67,23 +67,23 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni query errors in last 5 commands  {} Recent errors",
+        "  contexere query errors in last 5 commands  {} Recent errors",
         "#".bright_black()
     );
     println!(
-        "  omni query warnings from cargo         {} Cargo warnings",
+        "  contexere query warnings from cargo         {} Cargo warnings",
         "#".bright_black()
     );
     println!(
-        "  omni query context for src/main.rs     {} File mentions",
+        "  contexere query context for src/main.rs     {} File mentions",
         "#".bright_black()
     );
     println!(
-        "  omni query timeline today              {} Daily timeline",
+        "  contexere query timeline today              {} Daily timeline",
         "#".bright_black()
     );
     println!(
-        "  omni query timeline today --json       {} JSON output",
+        "  contexere query timeline today --json       {} JSON output",
         "#".bright_black()
     );
     println!();

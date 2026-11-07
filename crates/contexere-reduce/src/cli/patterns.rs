@@ -80,12 +80,12 @@ fn hint_adds_something(hint: &str, tool_family: &str) -> bool {
 fn print_help() {
     println!(
         "\n{} {}: View recurring cross-session error patterns",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "patterns".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
     println!(
-        "  omni {} {}",
+        "  contexere {} {}",
         "patterns".cyan(),
         "[OPTIONS]".bright_black()
     );
@@ -99,11 +99,11 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni patterns                {} Show top patterns",
+        "  contexere patterns                {} Show top patterns",
         "#".bright_black()
     );
     println!(
-        "  omni patterns --tool cargo   {} Cargo only",
+        "  contexere patterns --tool cargo   {} Cargo only",
         "#".bright_black()
     );
     println!();

@@ -36,7 +36,7 @@ pub fn analyze(store: &Store, project_hash: &str) -> Vec<AdaptiveInsight> {
             // No knob replaces `omni learn --loosen`, so name the command and its count.
             suggested_action: format!(
                 "`{binary}` may be over-distilled. Open an issue at \
-                 github.com/fajarhide/omni with the raw output."
+                 github.com/fajarhide/contexere with the raw output."
             ),
         });
     }

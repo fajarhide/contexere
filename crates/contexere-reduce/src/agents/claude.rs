@@ -115,7 +115,7 @@ impl AgentIntegration for ClaudeIntegration {
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(format!(
-                        "{event} has {count} OMNI hooks. Re-run `omni init --claude` to collapse them."
+                        "{event} has {count} OMNI hooks. Re-run `contexere init --claude` to collapse them."
                     ));
                 }
             }
@@ -150,7 +150,7 @@ impl AgentIntegration for ClaudeIntegration {
                     if !fmt_hook("PostToolUse", "PostToolUse") {
                         all_ok = false;
                         warnings.push(
-                            "PostToolUse hook is not installed. Run `omni init`.".to_string(),
+                            "PostToolUse hook is not installed. Run `contexere init`.".to_string(),
                         );
                     }
                     if !fmt_hook("SessionStart", "SessionStart") {
@@ -199,7 +199,8 @@ impl AgentIntegration for ClaudeIntegration {
                         "Hooks:".bright_black(),
                         "[WARNING] no hooks found".yellow().bold()
                     );
-                    warnings.push("OMNI hooks are not configured. Run `omni init`.".to_string());
+                    warnings
+                        .push("OMNI hooks are not configured. Run `contexere init`.".to_string());
                     all_ok = false;
                 }
             }
@@ -258,7 +259,7 @@ impl AgentIntegration for ClaudeIntegration {
                 "   {:<15} {}  {}",
                 "MCP Server:".bright_black(),
                 "[not registered]".bright_black(),
-                "optional here, `omni init --mcp` adds it".bright_black()
+                "optional here, `contexere init --mcp` adds it".bright_black()
             );
         }
 

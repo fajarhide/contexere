@@ -218,7 +218,7 @@ impl AgentIntegration for &'static McpHost {
             "not configured".bright_black()
         );
         warnings.push(format!(
-            "{} MCP not configured. Run `omni init {}`.",
+            "{} MCP not configured. Run `contexere init {}`.",
             self.display, self.init_flag
         ));
         false

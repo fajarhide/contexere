@@ -151,7 +151,7 @@ mod tests {
             + count_fragments(std::path::Path::new("../../changelog.d"));
         assert_eq!(
             compiled, recount,
-            "omni doctor would report {compiled} unreleased entries against {recount} in the tree"
+            "contexere doctor would report {compiled} unreleased entries against {recount} in the tree"
         );
     }
 

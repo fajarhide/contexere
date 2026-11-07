@@ -44,11 +44,11 @@ const AGENT_FLAGS: usize = 15;
 fn print_help() {
     println!(
         "\n{} {}: Setup Contexere for your preferred AI Agent",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "init".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {}", "init [FLAGS]".cyan());
+    println!("  contexere {}", "init [FLAGS]".cyan());
 
     let entries: Vec<_> = FLAGS
         .iter()
@@ -63,15 +63,15 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni init             {}",
+        "  contexere init             {}",
         "# Interactive menu".bright_black()
     );
     println!(
-        "  omni init --claude    {}",
+        "  contexere init --claude    {}",
         "# Setup for Claude Code".bright_black()
     );
     println!(
-        "  omni init --all       {}",
+        "  contexere init --all       {}",
         "# Every host, including a .vscode/mcp.json here".bright_black()
     );
     println!();
@@ -99,8 +99,8 @@ fn non_interactive_host() -> anyhow::Result<&'static str> {
     init_id_for_agent(&agent).ok_or_else(|| {
         anyhow::anyhow!(
             "no terminal to prompt on, and the host here reads as `{agent}`. \
-             Name one instead: `omni init --claude`, every host with \
-             `omni init --all`, or see them all with `omni init --help`."
+             Name one instead: `contexere init --claude`, every host with \
+             `contexere init --all`, or see them all with `contexere init --help`."
         )
     })
 }
@@ -173,7 +173,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
     if no_flags {
         println!(
             "\n{} {}: Setup Contexere for your preferred AI Agent\n",
-            "omni".bold().cyan(),
+            "contexere".bold().cyan(),
             "init".bold().yellow()
         );
 
@@ -187,7 +187,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
             );
             println!(
                 "  {}\n",
-                "Pick another with omni init --cursor, or take every host with omni init --all"
+                "Pick another with contexere init --cursor, or take every host with contexere init --all"
                     .bright_black()
             );
         }

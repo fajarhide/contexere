@@ -151,7 +151,8 @@ impl AgentIntegration for CodexIntegration {
                     "not configured".bright_black()
                 );
                 warnings.push(
-                    "Codex CLI MCP server not configured. Run `omni init --codex`.".to_string(),
+                    "Codex CLI MCP server not configured. Run `contexere init --codex`."
+                        .to_string(),
                 );
             }
         }
@@ -249,8 +250,9 @@ impl AgentIntegration for CodexIntegration {
                         "[WARNING] missing".yellow()
                     );
                 }
-                warnings
-                    .push("Codex CLI hooks not configured. Run `omni init --codex`.".to_string());
+                warnings.push(
+                    "Codex CLI hooks not configured. Run `contexere init --codex`.".to_string(),
+                );
             }
         }
 

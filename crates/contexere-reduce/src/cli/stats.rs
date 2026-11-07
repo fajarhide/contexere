@@ -350,15 +350,17 @@ fn require_values(args: &[String]) -> Result<()> {
     for flag in ["--since", "--view", "--by"] {
         if super::has_flag(args, flag) && value_of(args, flag).is_none() {
             bail!(
-                "`omni stats {flag}` needs a value, run `omni stats --help` for the accepted ones"
+                "`contexere stats {flag}` needs a value, run `contexere stats --help` for the accepted ones"
             );
         }
     }
     if super::has_flag(args, "--limit") {
         match value_of(args, "--limit") {
             Some(v) if v.parse::<usize>().is_ok() => {}
-            Some(v) => bail!("`omni stats --limit` needs a whole number, got `{v}`"),
-            None => bail!("`omni stats --limit` needs a whole number, run `omni stats --help`"),
+            Some(v) => bail!("`contexere stats --limit` needs a whole number, got `{v}`"),
+            None => bail!(
+                "`contexere stats --limit` needs a whole number, run `contexere stats --help`"
+            ),
         }
     }
     Ok(())
@@ -448,37 +450,41 @@ fn renderer(view: &str, json: bool, card: bool) -> &'static str {
 fn print_help() {
     println!(
         "\n{} {}: Savings analytics",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "stats".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "stats".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "stats".cyan(),
+        "[FLAGS]".bright_black()
+    );
 
     super::print_flags(&FLAGS[..VISIBLE]);
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni stats               {} Gain-focused overview",
+        "  contexere stats               {} Gain-focused overview",
         "#".bright_black()
     );
     println!(
-        "  omni stats --since week  {} The last seven days",
+        "  contexere stats --since week  {} The last seven days",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view detail {} Commands, routes and agents",
+        "  contexere stats --view detail {} Commands, routes and agents",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view folds  {} What a fold claimed, and what came back",
+        "  contexere stats --view folds  {} What a fold claimed, and what came back",
         "#".bright_black()
     );
     println!(
-        "  omni stats --view bill   {} What the host billed, from its own transcripts",
+        "  contexere stats --view bill   {} What the host billed, from its own transcripts",
         "#".bright_black()
     );
     println!(
-        "  omni stats --json        {} Machine-readable for CI/CD",
+        "  contexere stats --json        {} Machine-readable for CI/CD",
         "#".bright_black()
     );
     println!();
@@ -1077,7 +1083,7 @@ fn run_default(args: &[String], store: &Store) -> Result<()> {
     print_separator();
     println!(
         "  {} for full breakdown",
-        "omni stats --view detail".bright_cyan()
+        "contexere stats --view detail".bright_cyan()
     );
 
     // Update notice, cached 4 hours.
@@ -1887,7 +1893,9 @@ fn run_bill(args: &[String], store: &Store) -> Result<()> {
         Some("project") => &[("Spend by project", &bill.by_project)],
         Some("model") => &[("Spend by model", &bill.by_model)],
         Some("session") => &[("Spend by session", &bill.by_session)],
-        Some(other) => bail!("`omni stats --by` takes project, model or session, got `{other}`"),
+        Some(other) => {
+            bail!("`contexere stats --by` takes project, model or session, got `{other}`")
+        }
         None => &[
             ("Spend by model", &bill.by_model),
             ("Spend by project", &bill.by_project),

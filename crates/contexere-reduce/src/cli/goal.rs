@@ -36,7 +36,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
         Some(goal) => {
             println!(
                 "\n{} {}: Current goal\n",
-                "omni".bold().cyan(),
+                "contexere".bold().cyan(),
                 "goal".bold().yellow()
             );
             println!("  {}", goal.bright_white());
@@ -46,7 +46,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
             println!(
                 "  {} No goal set. Use {} to set one.",
                 "ℹ".blue(),
-                "omni goal set '<your goal>'".bright_cyan()
+                "contexere goal set '<your goal>'".bright_cyan()
             );
         }
     }
@@ -102,12 +102,12 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: North Star context pinning",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "goal".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
     println!(
-        "  omni {} {}",
+        "  contexere {} {}",
         "goal".cyan(),
         "[SUBCOMMAND] [TEXT]".bright_black()
     );
@@ -120,11 +120,11 @@ fn print_help() {
     println!("  {: <12} Remove current goal", "clear".cyan());
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni goal set 'Build OAuth2 integration for the API'  {}",
+        "  contexere goal set 'Build OAuth2 integration for the API'  {}",
         "# Set a goal".bright_black()
     );
     println!(
-        "  omni goal show                                         {}",
+        "  contexere goal show                                         {}",
         "# Display current goal".bright_black()
     );
     println!();

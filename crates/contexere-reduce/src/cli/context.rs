@@ -212,14 +212,14 @@ pub(crate) fn tokens_report(
 fn print_help() {
     println!(
         "\n{} {}: Dependency context for one file",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "context".bold().yellow()
     );
     println!(
         "Which files it imports, which import it, and whether this session keeps touching it."
     );
     println!();
-    println!("Usage: omni context <file>");
+    println!("Usage: contexere context <file>");
     println!();
     super::print_flags(FLAGS);
     println!();

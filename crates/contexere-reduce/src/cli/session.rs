@@ -20,29 +20,33 @@ const FLAGS: super::Flags = &[
 fn print_help() {
     println!(
         "\n{} {}: Session state management",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "session".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "session".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "session".cyan(),
+        "[FLAGS]".bright_black()
+    );
 
     super::print_flags(FLAGS);
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni session --status      {}",
+        "  contexere session --status      {}",
         "# View current session status".bright_black()
     );
     println!(
-        "  omni session --history     {}",
+        "  contexere session --history     {}",
         "# View past sessions".bright_black()
     );
     println!(
-        "  omni session --resume      {}",
+        "  contexere session --resume      {}",
         "# Resume interrupted session".bright_black()
     );
     println!(
-        "  omni session --transcript  {}",
+        "  contexere session --transcript  {}",
         "# View session transcript".bright_black()
     );
     println!();
@@ -332,7 +336,7 @@ fn run_resume() -> anyhow::Result<()> {
             println!(
                 "\n  {} Use {} to continue this session.",
                 "Tip:".bold().green(),
-                "omni session --continue".cyan()
+                "contexere session --continue".cyan()
             );
             super::print_rule();
         }
@@ -640,7 +644,7 @@ pub(crate) fn build_inject(state: &crate::pipeline::SessionState) -> String {
 
     let mut msg = out.trim_end().to_string();
     if msg.len() > INJECT_MAX_BYTES {
-        const MARKER: &str = "\n[truncated, omni session --status]";
+        const MARKER: &str = "\n[truncated, contexere session --status]";
         crate::util::text::safe_truncate(&mut msg, INJECT_MAX_BYTES - MARKER.len());
         msg.push_str(MARKER);
     }

@@ -158,12 +158,16 @@ fn print_help() {
 
     println!(
         "\n{} {}: Less noise. More signal. Right signal.",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         version.bright_black()
     );
 
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "<COMMAND>".cyan(), "[FLAGS]".bright_black());
+    println!(
+        "  contexere {} {}",
+        "<COMMAND>".cyan(),
+        "[FLAGS]".bright_black()
+    );
     println!(
         "  {} | omni       {}",
         "cmd".bright_black(),
@@ -180,24 +184,24 @@ fn print_help() {
 
     println!("\n{}", "EXAMPLES:".bold().bright_white());
     println!(
-        "  omni stats            {}",
+        "  contexere stats       {}",
         "# what did Contexere save me?".bright_black()
     );
     println!(
-        "  omni stats -d         {}",
+        "  contexere stats -d    {}",
         "# ...just today".bright_black()
     );
     println!(
-        "  omni init             {}",
+        "  contexere init        {}",
         "# set up your agent (interactive)".bright_black()
     );
     println!(
-        "  ls -R | omni          {}",
+        "  ls -R | contexere     {}",
         "# distill a long output by hand".bright_black()
     );
     println!(
         "\n  {}",
-        "omni <command> --help for that command's flags".bright_black()
+        "contexere <command> --help for that command's flags".bright_black()
     );
     println!();
 
@@ -495,7 +499,7 @@ fn main() {
                 }
                 unknown => {
                     eprintln!(
-                        "omni: unknown command '{}'\nRun 'omni help' for usage.",
+                        "contexere: unknown command '{}'\nRun 'contexere help' for usage.",
                         unknown
                     );
                     std::process::exit(1);
