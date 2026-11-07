@@ -1,7 +1,7 @@
 {
   "name": "contexere",
   "displayName": "Contexere",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Install Contexere, verify it, and read the markers it leaves when it shortens command output.",
   "author": {
     "name": "fajarhide",
