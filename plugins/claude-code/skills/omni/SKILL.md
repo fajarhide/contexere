@@ -1,6 +1,6 @@
 ---
 name: omni
-description: "Use when installing, verifying or configuring OMNI, when command output carries an `[OMNI: ...]` marker, or when output looks shorter than expected. OMNI is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
+description: "Use when installing, verifying or configuring OMNI, when command output carries an `[OMNI: ...]` or `[CONTEXERE: ...]` marker, or when output looks shorter than expected. OMNI is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
 ---
 
 # OMNI
@@ -68,6 +68,10 @@ not rather than claiming success.
 A marker means bytes were cut and can be fetched back. Do not treat the shortened
 output as the whole output, and do not write a file back from output that carries
 one.
+
+From 0.9.0 the prefix is `[CONTEXERE` and the command is `contexere retrieve`.
+Read `[CONTEXERE: ...]` exactly as the `[OMNI: ...]` line of the same shape below,
+and match on both prefixes in anything that looks for a marker.
 
 | marker | what happened |
 | --- | --- |

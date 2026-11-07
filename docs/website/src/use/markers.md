@@ -3,6 +3,10 @@
 A marker is Contexere telling you what it did. There are only a few shapes, and knowing
 them is the difference between trusting the tool and suspecting it.
 
+The examples below print `[OMNI`. From 0.9.0 the same markers start with `[CONTEXERE`
+and name `contexere retrieve`, so anything that matches a marker should accept both
+prefixes.
+
 ## The shapes
 
 ```
