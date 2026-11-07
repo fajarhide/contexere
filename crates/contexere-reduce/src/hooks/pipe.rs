@@ -391,10 +391,7 @@ fn distill(
     // `beats_guardrail`, since below it `best_output` emits the raw input.
     let mut r_hash = None;
     if crate::guard::limits::beats_guardrail(distilled_len, input_text.len()) {
-        let omitted_lines = input_text
-            .lines()
-            .count()
-            .saturating_sub(distilled_lines);
+        let omitted_lines = input_text.lines().count().saturating_sub(distilled_lines);
         let lost = if omitted_lines > 0 {
             format!("{omitted_lines} lines")
         } else {

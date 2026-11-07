@@ -19,7 +19,10 @@ fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
         String::from_utf8_lossy(&out.stdout).into_owned()
     };
     let first = run();
-    assert!(first.contains("line 109 of the source"), "the first read arrives whole: {first}");
+    assert!(
+        first.contains("line 109 of the source"),
+        "the first read arrives whole: {first}"
+    );
     run()
 }
 
@@ -36,5 +39,8 @@ fn folds_a_repeated_read_under_one_marker() {
 
     let markers: Vec<&str> = second.lines().filter(|l| l.starts_with("[OMNI:")).collect();
     assert_eq!(markers.len(), 1, "one fold, one marker: {second}");
-    assert!(markers[0].contains("already shown"), "the marker is the fold's: {second}");
+    assert!(
+        markers[0].contains("already shown"),
+        "the marker is the fold's: {second}"
+    );
 }
