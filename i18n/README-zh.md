@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>统一管理你使用的每个智能体的技能、密钥和记忆。</b>目前它压缩嘈杂的工具输出，折叠智能体已经读过的内容，并对它改写的输出中的凭据进行脱敏。什么都不会丢失。</em>
+    <em><b>让你的 AI 智能体在任何机器上都安全：工作流程和访问权限随身携带，密钥永远不会到达智能体。</b>这是我们的方向。目前它压缩嘈杂的工具输出，折叠智能体已经读过的内容，并对它改写的输出中的凭据进行脱敏。什么都不会丢失。</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)

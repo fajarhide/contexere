@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Một nơi duy nhất cho kỹ năng, khóa và bộ nhớ của mọi agent bạn dùng.</b> Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
+    <em><b>Agent AI của bạn, an toàn trên mọi máy: quy trình làm việc và quyền truy cập đi theo nó, còn khóa thì không bao giờ đến tay nó.</b> Đó là hướng đi. Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)
