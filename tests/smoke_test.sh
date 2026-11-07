@@ -18,11 +18,15 @@ fi
 # why it is empty" assume nothing was recorded, and `omni-release.sh` ran this
 # against the maintainer's own ~/.omni, where 0.7.10 and later record fold
 # markers, so the release gate failed on history rather than on the build (#877).
+# The binary copies CONTEXERE_* over OMNI_* at startup, so a caller's store may come
+# under either name; settle it in OMNI_HOME and clear the new names (#1074).
+OMNI_HOME="${CONTEXERE_HOME:-${OMNI_HOME:-}}"
+unset CONTEXERE_HOME CONTEXERE_DB_PATH
 if [ -z "${OMNI_HOME:-}" ]; then
     OMNI_HOME="$(mktemp -d)"
-    export OMNI_HOME
     trap 'rm -rf "$OMNI_HOME"' EXIT
 fi
+export OMNI_HOME
 unset OMNI_DB_PATH
 
 PASS=0
@@ -106,8 +110,10 @@ DOCTOR_OUT=$("$OMNI" doctor 2>&1 || true)
 check "doctor shows header" "$DOCTOR_OUT" "Contexere Doctor"
 check "doctor shows binary" "$DOCTOR_OUT" "Binary"
 # The resolved paths, not a hardcoded tilde path that may not be the one in use (#1074).
-check "doctor prints the config dir it checked" "$DOCTOR_OUT" "Config dir: *$OMNI_HOME"
-check "doctor prints the database it opened" "$DOCTOR_OUT" "Database: *$OMNI_HOME"
+# check() takes a regex, and a temp path may hold [ or . (#1074 review).
+HOME_RE=$(printf '%s' "$OMNI_HOME" | sed 's/[][\.*^$]/\\&/g')
+check "doctor prints the config dir it checked" "$DOCTOR_OUT" "Config dir: *$HOME_RE"
+check "doctor prints the database it opened" "$DOCTOR_OUT" "Database: *$HOME_RE"
 
 # The env read behind OMNI_MCP_TOOLS cannot be covered by a cargo test: this crate
 # already mutates process environment in tests, cargo runs them in parallel, and that
