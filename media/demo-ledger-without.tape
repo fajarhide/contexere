@@ -16,6 +16,9 @@ Set Theme "Dracula"
 Set TypingSpeed 30ms
 
 Hide
+# The file moved into the library crate (#876); cd there so the command on camera stays short.
+Type `cd crates/contexere-reduce`
+Enter
 Type `export PS1="❯ "`
 Enter
 Type "clear"

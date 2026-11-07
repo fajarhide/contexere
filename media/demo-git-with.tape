@@ -29,6 +29,6 @@ Enter
 Show
 Sleep 400ms
 
-Type `git log -15 | OMNI_CMD="git log -15" omni 2>/dev/null | bar`
+Type `git log -15 | CONTEXERE_CMD="git log -15" contexere 2>/dev/null | bar`
 Enter
 Sleep 4000ms

@@ -21,6 +21,11 @@ Set Theme "Dracula"
 Set TypingSpeed 30ms
 
 Hide
+Type `export PATH="$PWD/target/release:$PATH"`
+Enter
+# The file moved into the library crate (#876); cd there so the command on camera stays short.
+Type `cd crates/contexere-reduce`
+Enter
 Type `export PS1="❯ "`
 Enter
 # vhs inherits the recorder's environment, and OMNI_PASSTHROUGH=1 there turns
@@ -30,7 +35,7 @@ Type `unset OMNI_PASSTHROUGH`
 Enter
 Type `export OMNI_DB_PATH="$(mktemp -d)/demo.db"`
 Enter
-Type `cat() { omni exec --session readme-demo command cat "$@"; }`
+Type `cat() { contexere exec --session readme-demo command cat "$@"; }`
 Enter
 Type "clear"
 Enter

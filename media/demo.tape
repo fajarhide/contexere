@@ -51,7 +51,7 @@ Enter
 Sleep 1200ms
 
 # 2. the same log through OMNI, with the reduction shown at impact
-Type `cat media/demo/cargo-test.txt | OMNI_CMD="cargo test" omni 2>/dev/null | bar`
+Type `cat media/demo/cargo-test.txt | CONTEXERE_CMD="cargo test" contexere 2>/dev/null | bar`
 Enter
 Sleep 3500ms
 
@@ -61,6 +61,6 @@ Type "clear"
 Enter
 Show
 Sleep 400ms
-Type "omni stats"
+Type "contexere stats"
 Enter
 Sleep 2600ms
