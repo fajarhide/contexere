@@ -24,9 +24,14 @@ fn item_names(line: &str, name: &str) -> bool {
         .is_some_and(|item| item.trim_matches(['"', '\'']) == name)
 }
 
-/// Whether a flow list on this line (`enabled: [a, b]`) names `name`.
+/// Whether an `enabled: [a, b]` flow list on this line names `name`. A comment,
+/// whole-line or trailing, is not part of the list.
 fn flow_names(line: &str, name: &str) -> bool {
-    line.split_once('[')
+    let code = line.split(" #").next().unwrap_or(line).trim_start();
+    if !code.starts_with("enabled:") {
+        return false;
+    }
+    code.split_once('[')
         .and_then(|(_, rest)| rest.split_once(']'))
         .is_some_and(|(items, _)| {
             items
@@ -856,6 +861,20 @@ mod tests {
         assert_eq!(
             config_mentions_omni_plugin("  enabled:\n    - contexere\n"),
             Some("contexere")
+        );
+    }
+
+    #[test]
+    fn ignores_a_name_inside_a_comment() {
+        let config = "plugins:\n  # enabled: [contexere]\n  enabled:\n    - omni-signal-engine # [contexere]\n";
+        assert_eq!(
+            lines(rename_enabled_plugin(config)),
+            [
+                "plugins:",
+                "  # enabled: [contexere]",
+                "  enabled:",
+                "    - contexere # [contexere]",
+            ]
         );
     }
 
