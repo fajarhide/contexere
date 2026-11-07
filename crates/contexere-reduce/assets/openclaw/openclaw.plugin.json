@@ -1,5 +1,5 @@
 {
-  "id": "omni-signal-engine",
+  "id": "contexere",
   "name": "Contexere",
   "version": "0.8.5",
   "description": "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",

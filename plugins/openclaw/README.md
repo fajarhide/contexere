@@ -16,7 +16,7 @@ This plugin provides a secure bridge between your OpenClaw agent and the [OMNI S
 
 **via ClawHub (Recommended)**
 ```bash
-openclaw plugins install clawhub:@fajarhide/omni-signal-engine
+openclaw plugins install clawhub:@fajarhide/contexere-openclaw
 ```
 
 **Automatic Install (No Clone Required)**
@@ -39,7 +39,7 @@ If you have a custom setup, you can modify your OpenClaw settings (`~/.openclaw/
 
 ```yaml
 plugins:
-  omni-signal-engine:
+  contexere:
     omniPath: "/usr/local/bin/omni"  # Optional: path to omni binary
 ```
 

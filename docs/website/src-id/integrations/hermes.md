@@ -4,7 +4,7 @@ Contexere menancap ke Hermes dua kali: sebuah plugin di jalur hook, dan server M
 
 | lapisan | mekanisme | apa yang berubah |
 |---|---|---|
-| hook | `~/.hermes/plugins/omni-signal-engine/__init__.py` yang memanggil `contexere --pre-hook`, `--post-hook`, `--session-start` | keluaran tool terminal disuling sebelum masuk ke konteks Hermes |
+| hook | `~/.hermes/plugins/contexere/__init__.py` yang memanggil `contexere --pre-hook`, `--post-hook`, `--session-start` | keluaran tool terminal disuling sebelum masuk ke konteks Hermes |
 | MCP | `mcp_servers.omni` yang menjalankan `contexere --mcp` | perkakas MCP Contexere menjadi perkakas kelas satu di Hermes |
 
 ## Prasyarat
@@ -26,7 +26,7 @@ dalamnya.
 
 ```sh
 contexere init --hermes
-hermes plugins enable omni-signal-engine
+hermes plugins enable contexere
 hermes gateway restart
 "$HERMES_PY" -m pip install hermes-omni-plugin
 ```
@@ -35,6 +35,10 @@ hermes gateway restart
 server MCP di `~/.hermes/config.yaml` kalau belum ada di sana, menyalakan
 kompresi Hermes ketika itu aman, dan menulis nilai bawaan berorientasi Hermes ke
 `~/.contexere/config.toml` **tanpa menimpa konfigurasi Contexere yang sudah ada**.
+
+Sebelum 0.8.6 plugin ini bernama `omni-signal-engine`. `contexere init --hermes`
+menghapus salinan itu dan, kalau `plugins.enabled` memuat nama lama, menggantinya
+dengan `contexere`.
 
 > Pakai salah satu, `hermes-omni-plugin` atau kerangka `contexere init --hermes`,
 > jangan keduanya sekaligus, atau Anda akan dapat pendaftaran plugin ganda.
@@ -46,7 +50,7 @@ kompresi Hermes ketika itu aman, dan menulis nilai bawaan berorientasi Hermes ke
 
 plugins:
   enabled:
-    - omni-signal-engine
+    - contexere
 
 mcp_servers:
   omni:
@@ -61,7 +65,7 @@ compression:
   target_ratio: 0.20  # sisakan 20%
 ```
 
-Tiga hal harus benar: `plugins.enabled` memuat `omni-signal-engine`,
+Tiga hal harus benar: `plugins.enabled` memuat `contexere`,
 `mcp_servers.omni` menunjuk binary yang sebenarnya, dan `compression.enabled`
 menyala supaya pemadatan Hermes sendiri dan peringatan tekanan Contexere sejalan, bukan
 saling berkelahi.
@@ -75,7 +79,7 @@ keduanya yang berarti.
 ```sh
 contexere doctor
 
-hermes plugins list | grep omni        # harapkan: omni-signal-engine enabled
+hermes plugins list | grep contexere   # harapkan: tercantum enabled
 hermes tools list | grep mcp_omni_     # himpunan yang diiklankan, setelah restart
 ```
 
@@ -117,7 +121,7 @@ set yang diiklankan secara bawaan, jadi ia butuh `CONTEXERE_MCP_TOOLS=all`.
 ## Setelah Hermes di-upgrade
 
 ```sh
-hermes plugins list | grep omni
+hermes plugins list | grep contexere
 hermes tools list | grep mcp_omni_
 contexere doctor
 ```

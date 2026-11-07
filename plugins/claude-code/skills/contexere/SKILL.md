@@ -1,5 +1,5 @@
 ---
-name: omni
+name: contexere
 description: "Use when installing, verifying or configuring Contexere, when command output carries an `[OMNI: ...]` or `[CONTEXERE: ...]` marker, or when output looks shorter than expected. Contexere is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
 ---
 

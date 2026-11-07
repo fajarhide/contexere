@@ -34,14 +34,14 @@ cargo build --release
 
 ```
 /plugin marketplace add fajarhide/contexere
-/plugin install omni@omni
+/plugin install contexere@omni
 ```
 
 **On any agent that reads skills**, the same skill installs through the skills
 directory CLI:
 
 ```sh
-npx skills add fajarhide/contexere --skill omni
+npx skills add fajarhide/contexere --skill contexere
 ```
 
 Either way that installs a skill, not the binary. The skill carries the install

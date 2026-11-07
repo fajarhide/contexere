@@ -4,7 +4,34 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
 
-const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
+const DEFAULT_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/contexere";
+
+/// The source releases before 0.8.6 installed. The repo redirects, so it still
+/// loads, and next to the new source it would load twice (#1065).
+const LEGACY_PACKAGE_SOURCE: &str = "git:github.com/fajarhide/omni";
+
+/// The old source, bare or pinned to a ref.
+fn is_legacy_source(source: &str) -> bool {
+    source
+        .strip_prefix(LEGACY_PACKAGE_SOURCE)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(['@', '#']))
+}
+
+/// Drop the old source from `packages`, whether listed as a string or as
+/// `{"source": ...}`, pinned to a ref or not. Returns whether anything went.
+fn drop_legacy_source(settings: &mut Value) -> bool {
+    let is_legacy = |p: &Value| {
+        p.as_str()
+            .or_else(|| p.get("source").and_then(Value::as_str))
+            .is_some_and(is_legacy_source)
+    };
+    let Some(packages) = settings.get_mut("packages").and_then(Value::as_array_mut) else {
+        return false;
+    };
+    let before = packages.len();
+    packages.retain(|p| !is_legacy(p));
+    packages.len() != before
+}
 
 const PACKAGE_SOURCE_ENV: &str = "OMNI_PI_PACKAGE_SOURCE";
 
@@ -95,10 +122,15 @@ impl PiSettingsSnapshot {
     }
 }
 
-/// Recursive, case-insensitive search for "omni" in a JSON value.
+fn names_us(s: &str) -> bool {
+    let s = s.to_lowercase();
+    s.contains("omni") || s.contains("contexere")
+}
+
+/// Recursive, case-insensitive search for either name in a JSON value.
 fn find_omni_references(val: &Value) -> bool {
     match val {
-        Value::String(s) => s.to_lowercase().contains("omni"),
+        Value::String(s) => names_us(s),
         Value::Array(arr) => arr.iter().any(find_omni_references),
         Value::Object(map) => map.values().any(find_omni_references),
         _ => false,
@@ -113,7 +145,7 @@ fn collect_omni_sources(val: &Value) -> Vec<String> {
 
 fn collect_omni_sources_recursive(val: &Value, out: &mut Vec<String>) {
     match val {
-        Value::String(s) if s.to_lowercase().contains("omni") => {
+        Value::String(s) if names_us(s) => {
             out.push(s.clone());
         }
         Value::Array(arr) => {
@@ -201,7 +233,8 @@ impl AgentIntegration for PiIntegration {
                     warnings.push(format!("Failed to install Pi package: {e}"));
                 }
             } else {
-                warnings.push("Pi Extension is not registered. Run: omni init --pi".to_string());
+                warnings
+                    .push("Pi Extension is not registered. Run: contexere init --pi".to_string());
             }
             return false;
         }
@@ -273,6 +306,28 @@ fn run_install(source: &str) -> anyhow::Result<()> {
         "✓".green().bold()
     );
 
+    // Only once the new source is in, so a failed install leaves the old one working,
+    // and never when `OMNI_PI_PACKAGE_SOURCE` asked for the old one.
+    let paths = if is_legacy_source(source) {
+        vec![]
+    } else {
+        vec![pi_settings_path(), pi_local_settings_path()]
+    };
+    for path in paths {
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && let Ok(mut settings) = serde_json::from_str::<Value>(&text)
+            && drop_legacy_source(&mut settings)
+        {
+            super::write_config(&path, serde_json::to_string_pretty(&settings)?)?;
+            crate::agent_report!(
+                "  {} Removed the old {} from {}",
+                "✓".green(),
+                LEGACY_PACKAGE_SOURCE,
+                path.display()
+            );
+        }
+    }
+
     let snapshot = PiSettingsSnapshot::load();
     let duplicates = snapshot.duplicate_sources();
     if duplicates.len() > 1 {
@@ -301,6 +356,51 @@ fn run_install(source: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drops_the_old_source_in_every_form_and_keeps_the_rest() {
+        let mut settings: Value = serde_json::from_str(
+            r#"{"theme": "dark", "packages": [
+                "git:github.com/fajarhide/omni",
+                {"source": "git:github.com/fajarhide/omni@v0.8.5"},
+                {"source": "git:github.com/fajarhide/contexere"},
+                {"source": "git:github.com/fajarhide/omnibus"},
+                "git:github.com/wayanjimmy/pi-omni"
+            ]}"#,
+        )
+        .unwrap();
+        assert!(drop_legacy_source(&mut settings));
+        assert_eq!(
+            settings["packages"],
+            serde_json::json!([
+                {"source": "git:github.com/fajarhide/contexere"},
+                {"source": "git:github.com/fajarhide/omnibus"},
+                "git:github.com/wayanjimmy/pi-omni"
+            ])
+        );
+        assert_eq!(settings["theme"], "dark");
+        assert!(
+            !drop_legacy_source(&mut settings),
+            "a second run changes nothing"
+        );
+    }
+
+    #[test]
+    fn recognises_the_old_source_only_bare_or_pinned() {
+        assert!(is_legacy_source("git:github.com/fajarhide/omni"));
+        assert!(is_legacy_source("git:github.com/fajarhide/omni@v0.8.5"));
+        assert!(!is_legacy_source("git:github.com/fajarhide/omnibus"));
+        assert!(!is_legacy_source("git:github.com/fajarhide/contexere"));
+    }
+
+    #[test]
+    fn detects_the_contexere_package_in_settings() {
+        let json: Value = serde_json::from_str(
+            r#"{"packages": [{"source": "git:github.com/fajarhide/contexere"}]}"#,
+        )
+        .unwrap();
+        assert!(find_omni_references(&json));
+    }
 
     #[test]
     fn detects_omni_package_in_settings() {
@@ -354,7 +454,7 @@ mod tests {
     #[test]
     fn package_source_env_override() {
         let default = package_source();
-        assert!(default.contains("omni"));
+        assert!(default.contains("contexere"));
 
         // SAFETY: tests run in parallel, but no other test reads this variable.
         unsafe {

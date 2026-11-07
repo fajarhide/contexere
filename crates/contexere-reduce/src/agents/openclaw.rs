@@ -32,7 +32,39 @@ const PLUGIN_FILES: &[(&str, &str)] = &[
 fn plugin_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".openclaw/plugins/omni-signal-engine")
+        .join(".openclaw/plugins/contexere")
+}
+
+/// Where releases before 0.8.6 put the plugin, under the id `omni-signal-engine` (#1065).
+const LEGACY_ID: &str = "omni-signal-engine";
+
+fn legacy_plugin_dir() -> PathBuf {
+    plugin_dir().with_file_name(LEGACY_ID)
+}
+
+/// Point what the config holds for the old plugin at the new one: its load path
+/// goes, and its `plugins.entries` settings move to the new id unless that
+/// already has some. Returns whether anything changed.
+fn forget_legacy_plugin(config: &mut Value, legacy_dir: &str) -> bool {
+    let mut changed = false;
+    if let Some(paths) = config
+        .pointer_mut("/plugins/load/paths")
+        .and_then(|p| p.as_array_mut())
+    {
+        let before = paths.len();
+        paths.retain(|p| p.as_str() != Some(legacy_dir));
+        changed |= paths.len() != before;
+    }
+    if let Some(entries) = config
+        .pointer_mut("/plugins/entries")
+        .and_then(|e| e.as_object_mut())
+        && !entries.contains_key("contexere")
+        && let Some(old) = entries.remove(LEGACY_ID)
+    {
+        entries.insert("contexere".to_string(), old);
+        changed = true;
+    }
+    changed
 }
 
 /// `openclaw config file` reports this path.
@@ -98,17 +130,19 @@ impl AgentIntegration for OpenClawIntegration {
         }
 
         crate::agent_report!(
-            "  {} Installed OpenClaw plugin to ~/.openclaw/plugins/omni-signal-engine/",
+            "  {} Installed OpenClaw plugin to ~/.openclaw/plugins/contexere/",
             "✓".green()
         );
 
+        let legacy = legacy_plugin_dir();
         let cfg_path = config_path();
         let mut config: Value = match fs::read_to_string(&cfg_path) {
             Ok(content) => serde_json::from_str(&content)
                 .map_err(|e| anyhow::anyhow!("{} is not valid JSON: {e}", cfg_path.display()))?,
             Err(_) => json!({}),
         };
-        if register_plugin_path(&mut config, &dest.to_string_lossy()) {
+        let forgot = forget_legacy_plugin(&mut config, &legacy.to_string_lossy());
+        if register_plugin_path(&mut config, &dest.to_string_lossy()) || forgot {
             if let Some(parent) = cfg_path.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -119,22 +153,34 @@ impl AgentIntegration for OpenClawIntegration {
             );
         }
 
+        // Two copies would both load and distill every result twice. Removed only
+        // after the config stopped naming it, so a failed write keeps a working plugin.
+        if legacy.exists() {
+            fs::remove_dir_all(&legacy)?;
+            crate::agent_report!(
+                "  {} Removed the old plugin at ~/.openclaw/plugins/{LEGACY_ID}/",
+                "✓".green()
+            );
+        }
+
         crate::agent_report!(
             "  {} Run {} to install dependencies, then restart the Gateway",
             "→".cyan(),
-            "cd ~/.openclaw/plugins/omni-signal-engine && npm install --omit=dev".bright_black()
+            "cd ~/.openclaw/plugins/contexere && npm install --omit=dev".bright_black()
         );
         Ok(())
     }
 
     fn uninstall(&self) -> anyhow::Result<()> {
-        let dest = plugin_dir();
-        if dest.exists() {
-            fs::remove_dir_all(&dest)?;
-            crate::agent_report!(
-                "  {} Removed OpenClaw plugin from ~/.openclaw/plugins/",
-                "✓".yellow()
-            );
+        let dirs = [plugin_dir(), legacy_plugin_dir()];
+        for dest in &dirs {
+            if dest.exists() {
+                fs::remove_dir_all(dest)?;
+                crate::agent_report!(
+                    "  {} Removed OpenClaw plugin from ~/.openclaw/plugins/",
+                    "✓".yellow()
+                );
+            }
         }
 
         // A leftover path makes OpenClaw log a missing plugin on every start.
@@ -142,13 +188,16 @@ impl AgentIntegration for OpenClawIntegration {
         if let Ok(content) = fs::read_to_string(&cfg_path)
             && let Ok(mut config) = serde_json::from_str::<Value>(&content)
         {
-            let wanted = dest.to_string_lossy().to_string();
+            let wanted: Vec<String> = dirs
+                .iter()
+                .map(|d| d.to_string_lossy().to_string())
+                .collect();
             let removed = config
                 .pointer_mut("/plugins/load/paths")
                 .and_then(|p| p.as_array_mut())
                 .is_some_and(|paths| {
                     let before = paths.len();
-                    paths.retain(|p| p.as_str() != Some(wanted.as_str()));
+                    paths.retain(|p| !p.as_str().is_some_and(|p| wanted.iter().any(|w| w == p)));
                     paths.len() != before
                 });
             if removed {
@@ -170,7 +219,7 @@ impl AgentIntegration for OpenClawIntegration {
             crate::agent_report!(
                 "   {:<15} {} {}",
                 "Plugin:".bright_black(),
-                "~/.openclaw/plugins/omni-signal-engine/".bright_black(),
+                "~/.openclaw/plugins/contexere/".bright_black(),
                 "[OK]".green().bold()
             );
 
@@ -196,7 +245,7 @@ impl AgentIntegration for OpenClawIntegration {
                 crate::agent_report!(
                     "   {:<15} {}",
                     "Registered:".bright_black(),
-                    "not in plugins.load.paths, OpenClaw will not load it: re-run 'omni init --openclaw'"
+                    "not in plugins.load.paths, OpenClaw will not load it: re-run 'contexere init --openclaw'"
                         .yellow()
                 );
                 warnings.push(
@@ -256,7 +305,44 @@ mod tests {
         }
     }
 
-    const DIR: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
+    const DIR: &str = "/home/u/.openclaw/plugins/contexere";
+    const OLD: &str = "/home/u/.openclaw/plugins/omni-signal-engine";
+
+    #[test]
+    fn moves_the_old_plugin_path_and_settings_to_the_new_id() {
+        let mut config = json!({
+            "plugins": {
+                "load": { "paths": ["/somewhere/else", OLD] },
+                "entries": { "omni-signal-engine": { "config": { "omniPath": "/opt/omni" } } }
+            }
+        });
+        assert!(forget_legacy_plugin(&mut config, OLD));
+        assert_eq!(
+            config["plugins"]["load"]["paths"],
+            json!(["/somewhere/else"])
+        );
+        assert_eq!(
+            config["plugins"]["entries"],
+            json!({ "contexere": { "config": { "omniPath": "/opt/omni" } } })
+        );
+        assert!(
+            !forget_legacy_plugin(&mut config, OLD),
+            "a second run changes nothing"
+        );
+    }
+
+    #[test]
+    fn keeps_settings_already_under_the_new_id() {
+        let mut config = json!({ "plugins": { "entries": {
+            "omni-signal-engine": { "enabled": false },
+            "contexere": { "enabled": true }
+        } } });
+        assert!(!forget_legacy_plugin(&mut config, OLD));
+        assert_eq!(
+            config["plugins"]["entries"]["contexere"],
+            json!({ "enabled": true })
+        );
+    }
 
     #[test]
     fn a_fresh_config_gains_the_plugin_path() {

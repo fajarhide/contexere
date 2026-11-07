@@ -17,7 +17,7 @@ Di dalam Claude Code cukup dua baris, sisanya diurus agent:
 
 ```
 /plugin marketplace add fajarhide/contexere
-/plugin install omni@omni
+/plugin install contexere@omni
 ```
 
 ## Apa yang dibelinya, terukur

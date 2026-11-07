@@ -15,7 +15,7 @@ Inside Claude Code, two lines and the agent does the rest:
 
 ```
 /plugin marketplace add fajarhide/contexere
-/plugin install omni@omni
+/plugin install contexere@omni
 ```
 
 ## What that buys, measured
