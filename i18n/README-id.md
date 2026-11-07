@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Laptop baru, agent AI yang sama: workflow, tools, dan aksesnya kembali seperti semula, dan key-nya tidak pernah sampai ke agent.</b> Itu arah yang dituju. Hari ini ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menyamarkan kredensial pada output yang ia tulis ulang. Tidak ada yang hilang.</em>
+    <em><b>Agent AI kamu, sama di environment mana pun: workflow, tools, dan aksesnya ikut, dan key-nya tidak pernah sampai ke agent.</b> Itu arah yang dituju. Hari ini ia memperkecil output tool yang bising, melipat apa yang sudah dibaca agent, dan menyamarkan kredensial pada output yang ia tulis ulang. Tidak ada yang hilang.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)

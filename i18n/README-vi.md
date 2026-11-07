@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>Laptop mới, vẫn là agent AI ấy: quy trình làm việc, công cụ và quyền truy cập trở lại như cũ, còn khóa thì không bao giờ đến tay nó.</b> Đó là hướng đi. Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
+    <em><b>Agent AI của bạn, giống hệt ở mọi môi trường: quy trình làm việc, công cụ và quyền truy cập đi cùng nó, còn khóa thì không bao giờ đến tay nó.</b> Đó là hướng đi. Hiện tại nó thu gọn output công cụ nhiều nhiễu, gấp lại những gì agent đã đọc, và che thông tin xác thực trong output mà nó viết lại. Không có gì bị mất.</em>
 </p>
 
 [🇺🇸 English](../README.md) | [🇯🇵 日本語](README-ja.md) | [🇨🇳 简体中文](README-zh.md) | [🇸🇦 العربية](README-ar.md) | [🇮🇩 Bahasa Indonesia](README-id.md) | [🇻🇳 Tiếng Việt](README-vi.md) | [🇰🇷 한국어](README-ko.md)

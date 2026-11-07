@@ -3,7 +3,7 @@
 
 <h1>Contexere</h1>
 <p align="center">
-    <em><b>New laptop, same AI agent: its workflow, tools and access come back the way they were, and its keys never reach it.</b> That is where it is going. Today it shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
+    <em><b>Your AI agent, the same in every environment: its workflow, tools and access come with it, and its keys never reach it.</b> That is where it is going. Today it shrinks noisy tool output, folds what an agent already read, and redacts credentials in the output it rewrites. Nothing is lost.</em>
 </p>
 
 [🇺🇸 English](README.md) | [🇯🇵 日本語](i18n/README-ja.md) | [🇨🇳 简体中文](i18n/README-zh.md) | [🇸🇦 العربية](i18n/README-ar.md) | [🇮🇩 Bahasa Indonesia](i18n/README-id.md) | [🇻🇳 Tiếng Việt](i18n/README-vi.md) | [🇰🇷 한국어](i18n/README-ko.md)
