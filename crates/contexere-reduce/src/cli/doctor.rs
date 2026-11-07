@@ -18,7 +18,7 @@ const FLAGS: super::Flags = &[
 fn print_help() {
     println!(
         "\n{} {}: Installation diagnostics",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "doctor".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());

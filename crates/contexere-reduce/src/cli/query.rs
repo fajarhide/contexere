@@ -38,11 +38,11 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: Natural-language query engine for distillation history",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "query".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "query".cyan(), "<QUERY>".yellow());
+    println!("  contexere {} {}", "query".cyan(), "<QUERY>".yellow());
 
     println!("\n{}", "SUPPORTED QUERIES:".bold().bright_white());
     println!(

@@ -44,11 +44,11 @@ const AGENT_FLAGS: usize = 15;
 fn print_help() {
     println!(
         "\n{} {}: Setup Contexere for your preferred AI Agent",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "init".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {}", "init [FLAGS]".cyan());
+    println!("  contexere {}", "init [FLAGS]".cyan());
 
     let entries: Vec<_> = FLAGS
         .iter()
@@ -173,7 +173,7 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
     if no_flags {
         println!(
             "\n{} {}: Setup Contexere for your preferred AI Agent\n",
-            "omni".bold().cyan(),
+            "contexere".bold().cyan(),
             "init".bold().yellow()
         );
 

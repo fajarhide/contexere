@@ -157,7 +157,7 @@ pub fn check_flags(command: &str, args: &[String], flags: Flags) -> Result<()> {
             Some(candidate) => format!("did you mean `{candidate}`?"),
             None => format!("run `contexere {command} --help` for the accepted flags"),
         };
-        bail!("unknown flag `{name}` for `omni {command}`, {hint}");
+        bail!("unknown flag `{name}` for `contexere {command}`, {hint}");
     }
     Ok(())
 }

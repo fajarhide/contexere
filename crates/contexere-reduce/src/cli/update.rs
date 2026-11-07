@@ -6,11 +6,11 @@ use std::process::Command;
 pub fn print_help() {
     println!(
         "\n{} {}: Upgrade Contexere to latest version",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "update".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {}", "update".cyan());
+    println!("  contexere {}", "update".cyan());
 
     println!("\n{}", "DESCRIPTION:".bold().bright_white());
     println!("  Fetches the latest version from GitHub and upgrades Contexere.");

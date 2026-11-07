@@ -450,11 +450,11 @@ fn renderer(view: &str, json: bool, card: bool) -> &'static str {
 fn print_help() {
     println!(
         "\n{} {}: Savings analytics",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "stats".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "stats".cyan(), "[FLAGS]".bright_black());
+    println!("  contexere {} {}", "stats".cyan(), "[FLAGS]".bright_black());
 
     super::print_flags(&FLAGS[..VISIBLE]);
 

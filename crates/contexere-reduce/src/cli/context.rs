@@ -212,7 +212,7 @@ pub(crate) fn tokens_report(
 fn print_help() {
     println!(
         "\n{} {}: Dependency context for one file",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "context".bold().yellow()
     );
     println!(

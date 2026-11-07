@@ -20,11 +20,11 @@ const FLAGS: super::Flags = &[
 fn print_help() {
     println!(
         "\n{} {}: Session state management",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "session".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
-    println!("  omni {} {}", "session".cyan(), "[FLAGS]".bright_black());
+    println!("  contexere {} {}", "session".cyan(), "[FLAGS]".bright_black());
 
     super::print_flags(FLAGS);
 

@@ -36,7 +36,7 @@ pub fn cmd_show(store: &Store) -> Result<()> {
         Some(goal) => {
             println!(
                 "\n{} {}: Current goal\n",
-                "omni".bold().cyan(),
+                "contexere".bold().cyan(),
                 "goal".bold().yellow()
             );
             println!("  {}", goal.bright_white());
@@ -102,12 +102,12 @@ pub fn run(args: &[String], store: &Store) -> Result<()> {
 fn print_help() {
     println!(
         "\n{} {}: North Star context pinning",
-        "omni".bold().cyan(),
+        "contexere".bold().cyan(),
         "goal".bold().yellow()
     );
     println!("\n{}", "USAGE:".bold().bright_white());
     println!(
-        "  omni {} {}",
+        "  contexere {} {}",
         "goal".cyan(),
         "[SUBCOMMAND] [TEXT]".bright_black()
     );
