@@ -1,5 +1,5 @@
 use crate::distillers::Distiller;
-use crate::guard::limits::MAX_PARENTHESES_DEPTH;
+use crate::guard::limits::{MAX_PARENTHESES_DEPTH, MIN_SECRET_RUN};
 use crate::pipeline::{OutputSegment, SignalTier};
 
 pub struct SystemOpsDistiller;
@@ -476,6 +476,12 @@ fn looks_like_plain_identifier(value: &str) -> bool {
     }
     v.chars()
         .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
+        && !looks_like_token_literal(v)
+        && !v.split(['.', '_', '-']).any(|run| {
+            run.len() >= MIN_SECRET_RUN
+                && run.bytes().any(|b| b.is_ascii_digit())
+                && run.bytes().any(|b| b.is_ascii_lowercase())
+        })
 }
 
 /// A count (`3`, `3/10`) is a score, not a secret. Narrower than the identifier
@@ -2090,6 +2096,28 @@ mod tests {
     #[test]
     fn delivers_a_list_of_field_names_under_a_key_suffix() {
         assert!(!redacted(r#"primary_key = ["id", "name"],"#));
+    }
+
+    #[test]
+    fn redacts_a_secret_shaped_value_under_a_weak_key() {
+        let hex = "9f86d081884c7d659a2feaeb0c55e0f1";
+        for line in [
+            format!(r#"KEY = "{hex}""#),
+            format!(r#"KEY = ["{hex}"]"#),
+            format!(r#"mailgun_key = "key-{hex}""#),
+            r#"KEY = ["sk-ant-placeholdersecret"]"#.to_string(),
+            r#"cache_key = "sk-ant-placeholdersecret""#.to_string(),
+        ] {
+            assert!(redacted(&line), "delivered: {line}");
+        }
+        // Names keep passing: a short run, or a long one with no digit.
+        for line in [
+            r#"ssh_key = "id_ed25519""#,
+            r#"sort_key = "created_at_timestamp_field""#,
+            r#"KEY = ("trace", "seq")"#,
+        ] {
+            assert!(!redacted(line), "redacted: {line}");
+        }
     }
 
     #[test]
