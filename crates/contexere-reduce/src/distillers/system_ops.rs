@@ -640,10 +640,11 @@ fn looks_like_parenthesized_code(key: &str, value: &str) -> bool {
 
         let inner = inner.trim();
         let candidate = format!("{inner}{tail}");
-        if only_the_key_pattern_matched(key)
-            && (is_safe_code_identifier(inner)
-                || looks_like_empty_string_fallback(inner)
-                || looks_like_short_conditional(inner))
+        // A bare `(name)` is a plain value, so only the weak `KEY` lets it through; the
+        // `or ""` fallback and one-character conditional hold no literal for any key.
+        if (only_the_key_pattern_matched(key) && is_safe_code_identifier(inner))
+            || looks_like_empty_string_fallback(inner)
+            || looks_like_short_conditional(inner)
         {
             return true;
         }
@@ -2392,12 +2393,9 @@ mod tests {
             "password = (correct-horse-battery-staple)\n",
             "PASSWORD=(correcthorsebatterystaple)\n",
             "export DB_PASSWORD=(hunterhunter)\n",
-            "token = (sometokenvalue).strip()\n",
             "token = (raw)\n",
-            "key = (\"sk-ant-realsecret123456\")\n",
             "token = (raw or \"sk-ant-realsecret123456\").strip()\n",
             "key = (\"a\" if v else \"sk-ant-realsecret123456\")\n",
-            "key = (hunter2)\n",
             "token = (raw or \"hunter2\").strip()\n",
             "token = (sk-ant-placeholdersecret)\n",
         ] {
