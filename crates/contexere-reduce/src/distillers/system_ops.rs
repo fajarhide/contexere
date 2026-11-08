@@ -1,4 +1,5 @@
 use crate::distillers::Distiller;
+use crate::guard::limits::MAX_PARENTHESES_DEPTH;
 use crate::pipeline::{OutputSegment, SignalTier};
 
 pub struct SystemOpsDistiller;
@@ -624,6 +625,154 @@ fn looks_like_code_expression(value: &str) -> bool {
             .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == ':'))
 }
 
+/// A balanced parenthesized reference or expression is code, not a literal:
+/// `(value).strip()`, `(value or "")` and `("a" if ok else "b")`.
+/// Non-empty strings and credential-shaped identifiers stay redacted.
+fn looks_like_parenthesized_code(key: &str, value: &str) -> bool {
+    let mut value = value.trim();
+    for _ in 0..MAX_PARENTHESES_DEPTH {
+        let Some((inner, tail)) = parenthesized_group(value) else {
+            return false;
+        };
+        if !is_safe_member_chain_tail(tail) {
+            return false;
+        }
+
+        let inner = inner.trim();
+        let candidate = format!("{inner}{tail}");
+        // A bare `(name)` is a plain value, so only the weak `KEY` lets it through; the
+        // `or ""` fallback and one-character conditional hold no literal for any key.
+        if (only_the_key_pattern_matched(key) && is_safe_code_identifier(inner))
+            || looks_like_empty_string_fallback(inner)
+            || looks_like_short_conditional(inner)
+        {
+            return true;
+        }
+        if !candidate.starts_with('(') && redact_assignment(key, &candidate).is_none() {
+            return true;
+        }
+        if !inner.starts_with('(') {
+            return false;
+        }
+        value = inner;
+    }
+    false
+}
+
+fn parenthesized_group(value: &str) -> Option<(&str, &str)> {
+    if !value.starts_with('(') {
+        return None;
+    }
+    let mut depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    for (index, ch) in value.char_indices() {
+        if let Some(delimiter) = quote {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == delimiter {
+                quote = None;
+            }
+            continue;
+        }
+        if matches!(ch, '\'' | '"' | '`') {
+            quote = Some(ch);
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth = depth.checked_add(1)?;
+                if depth > MAX_PARENTHESES_DEPTH {
+                    return None;
+                }
+            }
+            ')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some((value.get(1..index)?, value.get(index + 1..)?));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn is_safe_member_chain_tail(tail: &str) -> bool {
+    let mut rest = tail.trim();
+    if rest.is_empty() {
+        return true;
+    }
+
+    loop {
+        let Some(after_dot) = rest.strip_prefix('.') else {
+            return false;
+        };
+        let Some(first) = after_dot.chars().next() else {
+            return false;
+        };
+        if !(first.is_ascii_alphabetic() || first == '_') {
+            return false;
+        }
+        let name_end = after_dot
+            .char_indices()
+            .take_while(|(_, ch)| ch.is_ascii_alphanumeric() || *ch == '_')
+            .last()
+            .map_or(0, |(index, ch)| index + ch.len_utf8());
+        let Some(after_name) = after_dot.get(name_end..) else {
+            return false;
+        };
+        rest = after_name;
+        if let Some(after_call) = rest.strip_prefix("()") {
+            rest = after_call;
+        }
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            return true;
+        }
+    }
+}
+
+fn is_safe_code_identifier(value: &str) -> bool {
+    !value.starts_with(['"', '\'', '`'])
+        && looks_like_plain_identifier(value)
+        && !is_a_secret_value(value, true)
+        && !looks_like_token_literal(value)
+}
+
+fn looks_like_empty_string_fallback(value: &str) -> bool {
+    [" or ", " || ", " ?? "].iter().any(|operator| {
+        value.split_once(operator).is_some_and(|(name, fallback)| {
+            is_safe_code_identifier(name.trim()) && matches!(fallback.trim(), "\"\"" | "''")
+        })
+    })
+}
+
+fn looks_like_short_conditional(value: &str) -> bool {
+    let Some((chosen, remainder)) = value.split_once(" if ") else {
+        return false;
+    };
+    let Some((condition, alternate)) = remainder.split_once(" else ") else {
+        return false;
+    };
+    is_single_character_string(chosen.trim())
+        && is_safe_code_identifier(condition.trim())
+        && is_single_character_string(alternate.trim())
+}
+
+fn is_single_character_string(value: &str) -> bool {
+    let value = value.trim();
+    let Some(quote) = value.chars().next().filter(|ch| matches!(ch, '\'' | '"')) else {
+        return false;
+    };
+    value
+        .strip_prefix(quote)
+        .and_then(|inner| inner.strip_suffix(quote))
+        .is_some_and(|inner| inner.len() == 1 && !inner.contains('\\'))
+}
+
 /// A tuple or list of plain identifiers is a set of field names, not a secret:
 /// `KEY = ("trace", "seq")` hid the only definition of the name (#974). Each
 /// element has to pass the same test a bare `KEY` value does, so a mixed-case or
@@ -639,6 +788,24 @@ fn looks_like_list_of_names(value: &str) -> bool {
     };
     let inner = inner.trim().trim_end_matches(',');
     !inner.is_empty() && inner.split(',').all(looks_like_plain_identifier)
+}
+
+fn looks_like_token_literal(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    BARE_TOKEN.is_match(value)
+        || [
+            "sk-ant-",
+            "github_pat_",
+            "ghp_",
+            "gho_",
+            "ghu_",
+            "ghs_",
+            "ghr_",
+            "xoxb-",
+            "xoxp-",
+        ]
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
 }
 
 /// Database and cache schemes, whose path names a database, never a secret.
@@ -792,6 +959,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
+        || looks_like_parenthesized_code(key, value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
         || (names_a_path(key, literal) && is_only_punctuation(tail))
     {
@@ -2199,6 +2367,56 @@ mod tests {
                 "{key}={value} is a call, and was destroyed"
             );
         }
+    }
+
+    #[test]
+    fn keeps_parenthesized_expressions() {
+        let code = "key = (value or \"\").strip()\n\
+                    key = value.strip()\n\
+                    key = (value).strip()\n\
+                    key = (value.strip())\n\
+                    key = (((value)))\n\
+                    token = (get_token())\n\
+                    token = (raw or \"\").strip()\n\
+                    key = (\"a\" if v else \"b\")\n\
+                    key = (value)\n";
+        assert_eq!(
+            redact_sensitive_assignments(code),
+            None,
+            "parenthesized code must reach the agent unchanged"
+        );
+    }
+
+    #[test]
+    fn redacts_literals_inside_parenthesized_expressions() {
+        for line in [
+            "password = (correct-horse-battery-staple)\n",
+            "PASSWORD=(correcthorsebatterystaple)\n",
+            "export DB_PASSWORD=(hunterhunter)\n",
+            "token = (raw)\n",
+            "token = (raw or \"sk-ant-realsecret123456\").strip()\n",
+            "key = (\"a\" if v else \"sk-ant-realsecret123456\")\n",
+            "token = (raw or \"hunter2\").strip()\n",
+            "token = (sk-ant-placeholdersecret)\n",
+        ] {
+            let out = redact_sensitive_assignments(line)
+                .unwrap_or_else(|| panic!("a literal credential is hidden: {line}"));
+            assert!(out.contains("[REDACTED]"), "literal not marked: {out}");
+            assert!(
+                !out.contains("sk-ant-realsecret123456"),
+                "secret delivered: {out}"
+            );
+        }
+    }
+
+    #[test]
+    fn redacts_parenthesized_expressions_beyond_the_nesting_limit() {
+        let depth = MAX_PARENTHESES_DEPTH + 1;
+        let expression = format!("{}value{}", "(".repeat(depth), ")".repeat(depth));
+        let input = format!("TOKEN={expression}");
+        let out = redact_sensitive_assignments(&input).expect("excessive nesting is redacted");
+        assert!(out.contains("TOKEN=[REDACTED]"), "{out}");
+        assert_eq!(out.lines().nth(1), Some("TOKEN=[REDACTED]"));
     }
 
     /// The widened call rule still refuses what could hold a credential (#980).
