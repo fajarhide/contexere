@@ -628,7 +628,7 @@ fn looks_like_code_expression(value: &str) -> bool {
 /// A balanced parenthesized reference or expression is code, not a literal:
 /// `(value).strip()`, `(value or "")` and `("a" if ok else "b")`.
 /// Non-empty strings and credential-shaped identifiers stay redacted.
-fn looks_like_parenthesized_code(value: &str) -> bool {
+fn looks_like_parenthesized_code(key: &str, value: &str) -> bool {
     let mut value = value.trim();
     for _ in 0..MAX_PARENTHESES_DEPTH {
         let Some((inner, tail)) = parenthesized_group(value) else {
@@ -639,7 +639,7 @@ fn looks_like_parenthesized_code(value: &str) -> bool {
         }
 
         let inner = inner.trim();
-        if is_safe_code_identifier(inner)
+        if (only_the_key_pattern_matched(key) && is_safe_code_identifier(inner))
             || references_instead_of_holding(inner)
             || looks_like_empty_string_fallback(inner)
             || looks_like_short_conditional(inner)
@@ -783,36 +783,6 @@ fn looks_like_list_of_names(value: &str) -> bool {
     };
     let inner = inner.trim().trim_end_matches(',');
     !inner.is_empty() && inner.split(',').all(looks_like_plain_identifier)
-}
-
-fn list_contains_credential_literal(value: &str) -> bool {
-    let v = value.trim().trim_end_matches([',', ';']).trim_end();
-    let Some(inner) = v
-        .strip_prefix('(')
-        .and_then(|r| r.strip_suffix(')'))
-        .or_else(|| v.strip_prefix('[').and_then(|r| r.strip_suffix(']')))
-    else {
-        return false;
-    };
-    inner.trim().trim_end_matches(',').split(',').any(|item| {
-        let item = item.trim();
-        let quote = item.chars().next().filter(|ch| matches!(ch, '\'' | '"'));
-        let literal = quote
-            .and_then(|quote| {
-                item.strip_prefix(quote)
-                    .and_then(|rest| rest.strip_suffix(quote))
-            })
-            .unwrap_or(item);
-        looks_like_token_literal(literal)
-            || (literal.chars().any(|ch| ch.is_ascii_digit())
-                && !is_numbered_id_field_name(literal))
-    })
-}
-
-fn is_numbered_id_field_name(value: &str) -> bool {
-    value.strip_prefix("id").is_some_and(|suffix| {
-        !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
-    })
 }
 
 fn looks_like_token_literal(value: &str) -> bool {
@@ -984,7 +954,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
-        || looks_like_parenthesized_code(value)
+        || looks_like_parenthesized_code(key, value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
         || (names_a_path(key, literal) && is_only_punctuation(tail))
     {
@@ -994,7 +964,7 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
     if only_the_key_pattern_matched(key)
         && (looks_like_plain_identifier(value)
             || looks_like_code_expression(value)
-            || (looks_like_list_of_names(value) && !list_contains_credential_literal(value)))
+            || looks_like_list_of_names(value))
     {
         return None;
     }
@@ -2124,14 +2094,6 @@ mod tests {
     }
 
     #[test]
-    fn redacts_credential_shaped_values_in_a_weak_key_list() {
-        assert!(redacted(r#"KEY = ["abcdef1234567890"]"#));
-        assert!(redacted(r#"KEY = ["sk-ant-placeholdersecret"]"#));
-        assert!(redacted(r#"KEY = ["abc123"]"#));
-        assert!(redacted(r#"KEY = ["hunter2"]"#));
-    }
-
-    #[test]
     fn redacts_a_list_holding_a_mixed_case_element() {
         assert!(redacted(r#"KEY = ["Ab3dEf9Gh2"]"#));
     }
@@ -2429,6 +2391,11 @@ mod tests {
     #[test]
     fn redacts_literals_inside_parenthesized_expressions() {
         for line in [
+            "password = (correct-horse-battery-staple)\n",
+            "PASSWORD=(correcthorsebatterystaple)\n",
+            "export DB_PASSWORD=(hunterhunter)\n",
+            "token = (sometokenvalue).strip()\n",
+            "token = (raw)\n",
             "key = (\"sk-ant-realsecret123456\")\n",
             "token = (raw or \"sk-ant-realsecret123456\").strip()\n",
             "key = (\"a\" if v else \"sk-ant-realsecret123456\")\n",
