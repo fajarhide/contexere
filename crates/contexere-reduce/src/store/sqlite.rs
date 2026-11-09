@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::paths;
@@ -25,6 +24,29 @@ impl r2d2::CustomizeConnection<Connection, rusqlite::Error> for PragmaCustomizer
              PRAGMA temp_store = MEMORY;",
         )?;
         Ok(())
+    }
+}
+
+/// Opens connections to one database file for the r2d2 pool. Ours rather than
+/// `r2d2_sqlite`, whose newest release still pinned a `rusqlite` with a vulnerable
+/// bundled SQLite (#1109).
+#[derive(Debug)]
+pub(crate) struct SqliteConnectionManager(std::path::PathBuf);
+
+impl r2d2::ManageConnection for SqliteConnectionManager {
+    type Connection = Connection;
+    type Error = rusqlite::Error;
+
+    fn connect(&self) -> Result<Connection, rusqlite::Error> {
+        Connection::open(&self.0)
+    }
+
+    fn is_valid(&self, conn: &mut Connection) -> Result<(), rusqlite::Error> {
+        conn.execute_batch("")
+    }
+
+    fn has_broken(&self, _: &mut Connection) -> bool {
+        false
     }
 }
 
@@ -86,7 +108,7 @@ impl SqliteBackend {
             }
         }
 
-        let manager = SqliteConnectionManager::file(path);
+        let manager = SqliteConnectionManager(path.to_path_buf());
         // One idle connection: r2d2 otherwise opens `max_size` connections before
         // any work, which cost a run-once hook 3.19 ms against 1.26 ms. The pool stays
         // because the MCP server shares this type (#174).
