@@ -19,6 +19,10 @@ impl AgentIntegration for CursorIntegration {
         "Cursor AI"
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((get_mcp_path(), "mcpServers"))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let (mcp_path, mut mcp_val) = initialize_mcp_config()?;
         install_mcp_server(&mut mcp_val, exe_path);

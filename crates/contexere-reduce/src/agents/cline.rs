@@ -15,6 +15,10 @@ impl AgentIntegration for ClineIntegration {
         "Cline"
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((get_cline_path(), "mcpServers"))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let settings_path = get_cline_path();
         if let Some(parent) = settings_path.parent() {

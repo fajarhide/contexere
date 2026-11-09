@@ -19,6 +19,10 @@ impl AgentIntegration for CodexIntegration {
         "Codex CLI"
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((get_codex_dir().join("config.toml"), "mcp_servers"))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let codex_dir = get_codex_dir();
         fs::create_dir_all(&codex_dir)?;

@@ -23,6 +23,10 @@ impl AgentIntegration for ClaudeIntegration {
         "Claude Code"
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((get_claude_json_path(), "mcpServers"))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         install_hooks(exe_path)?;
         install_mcp_server(exe_path)?;
