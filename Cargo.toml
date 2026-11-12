@@ -58,7 +58,7 @@ tempfile = "3"
 regex = "1"
 walkdir = "2"
 chrono = "0.4"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
 insta = "1"
 # Exact token counting for tests/bench_replay.rs only (#392). Deliberately NOT a
 # runtime dependency: #174 removed cl100k counting from the hook after measuring

@@ -31,13 +31,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 # MCP Server  
-rmcp = { version = "2.1", features = ["server", "transport-io"] }
+rmcp = { version = "3.9", features = ["server", "transport-io"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 
 # Database (SQLite bundled — no system dep)
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
 r2d2 = "0.8"
-r2d2_sqlite = "0.24"
 
 # Observability
 
