@@ -124,6 +124,10 @@ impl AgentIntegration for &'static McpHost {
         self.display
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((self.config.resolve(), self.key))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let path = self.path();
         if let Some(parent) = path.parent() {

@@ -365,6 +365,7 @@ fn every_advertised_command_routes() {
     for name in [
         "init",
         "doctor",
+        "carry",
         "update",
         "reset",
         "stats",

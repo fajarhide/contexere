@@ -71,6 +71,12 @@ pub trait AgentIntegration {
     fn tier(&self) -> Tier {
         Tier::McpOnly
     }
+
+    /// The file holding this host's own MCP servers and the key they sit under,
+    /// for `contexere carry list` (#1092). `None` for a host we cannot read yet.
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        None
+    }
 }
 
 /// How much of OMNI's job a host permits, stated once for `doctor` and the README.

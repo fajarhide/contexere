@@ -19,6 +19,10 @@ impl AgentIntegration for GeminiIntegration {
         "Gemini CLI"
     }
 
+    fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
+        Some((get_settings_path(), "mcpServers"))
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let settings_path = get_settings_path();
 

@@ -94,6 +94,11 @@ const COMMANDS: &[(&str, &str, &str)] = &[
     ),
     (
         "SET UP",
+        "carry",
+        "List the MCP servers your agents use, without secrets",
+    ),
+    (
+        "SET UP",
         "update",
         "Upgrade Contexere to the latest release",
     ),
@@ -485,6 +490,12 @@ fn main() {
                         std::process::exit(1);
                     }
                 },
+                "carry" => {
+                    if let Err(e) = cli::carry::run(&args) {
+                        eprintln!("[contexere] Carry error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
                 "doctor" => {
                     if let Err(e) = cli::doctor::run(&args) {
                         eprintln!("[omni] Doctor error: {}", e);
