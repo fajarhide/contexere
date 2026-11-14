@@ -1096,18 +1096,18 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
 }
 
 /// Where a quoted value provably ends: an unescaped closing quote, nothing glued
-/// on, then whitespace, an operator, or a backtick that closes an outer quote.
+/// on, then whitespace or an operator.
 /// `None` when the tail could still hold the value or another assignment (#1126).
 fn quoted_end(rest: &str) -> Option<usize> {
     let (_, inner, after) = quoted_value(rest)?;
     let end = inner.len() + 2;
     let closed = end <= rest.len() && !inner.ends_with('\\');
-    let mut next = after.chars();
-    let boundary = match next.next() {
-        None => true,
-        Some('`') => next.next().is_none_or(char::is_whitespace),
-        Some(c) => c.is_whitespace() || matches!(c, ';' | '&' | '|'),
-    };
+    // No backtick: telling one that closes an outer quote from one that opens a
+    // substitution holding the value takes a shell parser (#1128).
+    let boundary = after
+        .chars()
+        .next()
+        .is_none_or(|c| c.is_whitespace() || matches!(c, ';' | '&' | '|'));
     (closed && boundary && !after.contains('=')).then_some(end)
 }
 
@@ -1787,30 +1787,26 @@ mod tests {
             assert!(!out.contains("h3fake12345"), "{line} came back as {out}");
             assert!(out.contains(kept), "{out}");
         }
-        // #1117: a quoted value ends at its shell word, and a leading backtick is still export.
-        for (line, want) in [
-            (
-                "a: export DATABASE_PASSWORD=\"h3fake12345\"` tail one",
-                "a: export DATABASE_PASSWORD=\"[REDACTED]\"` tail one",
-            ),
-            (
-                "b: export DATABASE_PASSWORD=\"h3fake12345\"; tail two",
-                "b: export DATABASE_PASSWORD=\"[REDACTED]\"; tail two",
-            ),
-            (
-                "c: `export DATABASE_PASSWORD=\"h3fake12345\"` tail three",
-                "c: `export DATABASE_PASSWORD=\"[REDACTED]\"` tail three",
-            ),
-        ] {
-            let out = redact_sensitive_assignments(line).expect("a credential");
-            assert!(out.lines().any(|l| l == want), "{line} came back as {out}");
-        }
+        // #1117: a quoted value ends at its shell word, so the command after it stays.
+        let out =
+            redact_sensitive_assignments("b: export DATABASE_PASSWORD=\"h3fake12345\"; tail two")
+                .expect("a credential");
+        assert!(
+            out.lines()
+                .any(|l| l == "b: export DATABASE_PASSWORD=\"[REDACTED]\"; tail two"),
+            "{out}"
+        );
         // #1126: when the end of the value is not certain, the tail is hidden with it.
         for line in [
             "cd /app && export DB_PASSWORD=\"h3fake1\" API_TOKEN=h3fake12345",
             "cd /app && export DB_PASSWORD=\"h3fake1\\\" h3fake12345\"; tail",
             "cd /app && export DB_PASSWORD=\"h3fake1\"`printf h3fake12345`",
             "cd /app && export DB_PASSWORD=\"h3fake1\"\" h3fake12345\"; tail",
+            // #1128: a backtick after the value may open a substitution that holds it, and a
+            // leading backtick still counts as export.
+            "cd /app && export DB_PASSWORD=\"h3fake1\"` printf h3fake12345`",
+            "echo \\` && export DB_PASSWORD=\"h3fake1\"`printf h3fake12345`",
+            "c: `export DATABASE_PASSWORD=\"h3fake12345\"` tail three",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(!out.contains("h3fake1"), "{line} came back as {out}");
