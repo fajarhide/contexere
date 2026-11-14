@@ -1080,10 +1080,10 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
             _ => value,
         };
         if redact_assignment(key, judged).is_some() {
-            // A quoted value ends with its shell word, so the text after it stays (#1117);
-            // an unquoted one is still hidden to the end of the line.
+            // The text after a quoted value stays only when its end is certain (#1117,
+            // #1126); anything else, and every unquoted value, is hidden to the end.
             let cut = if value.starts_with(['"', '\'']) {
-                judged.len()
+                quoted_end(rest).unwrap_or(rest.len())
             } else {
                 rest.len()
             };
@@ -1093,6 +1093,22 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
         }
     }
     None
+}
+
+/// Where a quoted value provably ends: an unescaped closing quote, nothing glued
+/// on, then whitespace, an operator, or a backtick that closes an outer quote.
+/// `None` when the tail could still hold the value or another assignment (#1126).
+fn quoted_end(rest: &str) -> Option<usize> {
+    let (_, inner, after) = quoted_value(rest)?;
+    let end = inner.len() + 2;
+    let closed = end <= rest.len() && !inner.ends_with('\\');
+    let mut next = after.chars();
+    let boundary = match next.next() {
+        None => true,
+        Some('`') => next.next().is_none_or(char::is_whitespace),
+        Some(c) => c.is_whitespace() || matches!(c, ';' | '&' | '|'),
+    };
+    (closed && boundary && !after.contains('=')).then_some(end)
 }
 
 /// Words with byte offsets, with `;`, `&`, `|` and their doubles as their own tokens.
@@ -1788,6 +1804,16 @@ mod tests {
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(out.lines().any(|l| l == want), "{line} came back as {out}");
+        }
+        // #1126: when the end of the value is not certain, the tail is hidden with it.
+        for line in [
+            "cd /app && export DB_PASSWORD=\"h3fake1\" API_TOKEN=h3fake12345",
+            "cd /app && export DB_PASSWORD=\"h3fake1\\\" h3fake12345\"; tail",
+            "cd /app && export DB_PASSWORD=\"h3fake1\"`printf h3fake12345`",
+            "cd /app && export DB_PASSWORD=\"h3fake1\"\" h3fake12345\"; tail",
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(!out.contains("h3fake1"), "{line} came back as {out}");
         }
         // No shell context: a log line is still delivered.
         assert_eq!(
