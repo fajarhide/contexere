@@ -1054,7 +1054,7 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
     let mut in_shell = false;
     for (at, token) in shell_tokens(line) {
         if matches!(token, ";" | "&" | "|" | "&&" | "||")
-            || token.trim_start_matches(['"', '\'']) == "export"
+            || token.trim_start_matches(['"', '\'', '`']) == "export"
         {
             in_shell = true;
             continue;
@@ -1073,16 +1073,23 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
             Some((_, inner, _)) if value.starts_with(['"', '\'']) => {
                 let closed = (inner.len() + 2).min(rest.len());
                 let glued = rest[closed..]
-                    .find(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|'))
+                    .find(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|' | '`'))
                     .unwrap_or(rest.len() - closed);
                 &rest[..closed + glued]
             }
             _ => value,
         };
         if redact_assignment(key, judged).is_some() {
-            let hidden = redact_assignment(key, &line[value_at..])
-                .unwrap_or_else(|| "[REDACTED]".to_string());
-            return Some((format!("{}{hidden}", &line[..value_at]), 1));
+            // A quoted value ends with its shell word, so the text after it stays (#1117);
+            // an unquoted one is still hidden to the end of the line.
+            let cut = if value.starts_with(['"', '\'']) {
+                judged.len()
+            } else {
+                rest.len()
+            };
+            let hidden =
+                redact_assignment(key, &rest[..cut]).unwrap_or_else(|| "[REDACTED]".to_string());
+            return Some((format!("{}{hidden}{}", &line[..value_at], &rest[cut..]), 1));
         }
     }
     None
@@ -1763,6 +1770,24 @@ mod tests {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(!out.contains("h3fake12345"), "{line} came back as {out}");
             assert!(out.contains(kept), "{out}");
+        }
+        // #1117: a quoted value ends at its shell word, and a leading backtick is still export.
+        for (line, want) in [
+            (
+                "a: export DATABASE_PASSWORD=\"h3fake12345\"` tail one",
+                "a: export DATABASE_PASSWORD=\"[REDACTED]\"` tail one",
+            ),
+            (
+                "b: export DATABASE_PASSWORD=\"h3fake12345\"; tail two",
+                "b: export DATABASE_PASSWORD=\"[REDACTED]\"; tail two",
+            ),
+            (
+                "c: `export DATABASE_PASSWORD=\"h3fake12345\"` tail three",
+                "c: `export DATABASE_PASSWORD=\"[REDACTED]\"` tail three",
+            ),
+        ] {
+            let out = redact_sensitive_assignments(line).expect("a credential");
+            assert!(out.lines().any(|l| l == want), "{line} came back as {out}");
         }
         // No shell context: a log line is still delivered.
         assert_eq!(
