@@ -1083,7 +1083,8 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
             // The text after a quoted value stays only when its end is certain (#1117,
             // #1126); anything else, and every unquoted value, is hidden to the end.
             let cut = if value.starts_with(['"', '\'']) {
-                quoted_end(rest).unwrap_or(rest.len())
+                let backtick_open = line[..value_at].matches('`').count() % 2 == 1;
+                quoted_end(rest, backtick_open).unwrap_or(rest.len())
             } else {
                 rest.len()
             };
@@ -1098,14 +1099,15 @@ fn redact_after_operator(line: &str) -> Option<(String, u32)> {
 /// Where a quoted value provably ends: an unescaped closing quote, nothing glued
 /// on, then whitespace, an operator, or a backtick that closes an outer quote.
 /// `None` when the tail could still hold the value or another assignment (#1126).
-fn quoted_end(rest: &str) -> Option<usize> {
+fn quoted_end(rest: &str, backtick_open: bool) -> Option<usize> {
     let (_, inner, after) = quoted_value(rest)?;
     let end = inner.len() + 2;
     let closed = end <= rest.len() && !inner.ends_with('\\');
-    let mut next = after.chars();
-    let boundary = match next.next() {
+    // A backtick closes an outer quote only if the line opened one before the
+    // value; otherwise it may open a command substitution that holds it (#1128).
+    let boundary = match after.chars().next() {
         None => true,
-        Some('`') => next.next().is_none_or(char::is_whitespace),
+        Some('`') => backtick_open,
         Some(c) => c.is_whitespace() || matches!(c, ';' | '&' | '|'),
     };
     (closed && boundary && !after.contains('=')).then_some(end)
@@ -1790,8 +1792,8 @@ mod tests {
         // #1117: a quoted value ends at its shell word, and a leading backtick is still export.
         for (line, want) in [
             (
-                "a: export DATABASE_PASSWORD=\"h3fake12345\"` tail one",
-                "a: export DATABASE_PASSWORD=\"[REDACTED]\"` tail one",
+                "a: `cd x && export DATABASE_PASSWORD=\"h3fake12345\"` tail one",
+                "a: `cd x && export DATABASE_PASSWORD=\"[REDACTED]\"` tail one",
             ),
             (
                 "b: export DATABASE_PASSWORD=\"h3fake12345\"; tail two",
@@ -1811,6 +1813,8 @@ mod tests {
             "cd /app && export DB_PASSWORD=\"h3fake1\\\" h3fake12345\"; tail",
             "cd /app && export DB_PASSWORD=\"h3fake1\"`printf h3fake12345`",
             "cd /app && export DB_PASSWORD=\"h3fake1\"\" h3fake12345\"; tail",
+            // #1128: no backtick opened before the value, so this one opens a substitution.
+            "cd /app && export DB_PASSWORD=\"h3fake1\"` printf h3fake12345`",
         ] {
             let out = redact_sensitive_assignments(line).expect("a credential");
             assert!(!out.contains("h3fake1"), "{line} came back as {out}");
