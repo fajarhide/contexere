@@ -128,6 +128,10 @@ fn env_names(server: &serde_json::Value) -> Vec<String> {
             names.extend(obj.keys().cloned());
         }
     }
+    // Codex's env_http_headers maps a header to the env var holding its value.
+    if let Some(obj) = server.get("env_http_headers").and_then(|m| m.as_object()) {
+        names.extend(obj.values().filter_map(|v| v.as_str()).map(String::from));
+    }
     if let Some(list) = server.get("env_vars").and_then(|l| l.as_array()) {
         names.extend(list.iter().filter_map(|n| n.as_str()).map(String::from));
     }
@@ -140,7 +144,7 @@ fn env_names(server: &serde_json::Value) -> Vec<String> {
 }
 
 /// A URL without its credentials: no userinfo, no query or fragment, and a path
-/// segment that looks like a token (a long run mixing letters and digits) hidden.
+/// segment long enough to be a token hidden.
 fn bare_url(url: &str) -> String {
     let url = url.split(['?', '#']).next().unwrap_or_default();
     let (scheme, rest) = url.split_once("://").unwrap_or(("", url));
@@ -168,10 +172,10 @@ fn bare_url(url: &str) -> String {
     out
 }
 
+// Length alone: a letters-only or digits-only token is still a token, and hiding a
+// long readable path segment costs far less than printing a credential.
 fn looks_like_token(seg: &str) -> bool {
     seg.len() >= crate::guard::limits::MIN_SECRET_RUN
-        && seg.bytes().any(|b| b.is_ascii_digit())
-        && seg.bytes().any(|b| b.is_ascii_alphabetic())
 }
 
 pub fn render(rows: &[ServerRow]) -> String {
@@ -248,12 +252,14 @@ mod tests {
         let key = key_of(&crate::agents::CodexIntegration);
         let text = "[mcp_servers.contexere]\ncommand = \"/x/contexere\"\n\n\
             [mcp_servers.docs]\ncommand = \"docs-mcp\"\nenv_vars = [\"DOCS_KEY\"]\n[mcp_servers.docs.env]\nREGION = \"v\"\n\n\
-            [mcp_servers.figma]\nurl = \"https://mcp.figma.com/mcp\"\nbearer_token_env_var = \"FIGMA_TOKEN\"\n";
+            [mcp_servers.figma]\nurl = \"https://mcp.figma.com/mcp\"\nbearer_token_env_var = \"FIGMA_TOKEN\"\n\n\
+            [mcp_servers.hub]\nurl = \"https://hub.example.com/mcp\"\n[mcp_servers.hub.env_http_headers]\nX-Token = \"HUB_TOKEN\"\n";
         assert_eq!(
             summary(&rows("config.toml", text, key)),
             [
                 "docs stdio docs-mcp [DOCS_KEY,REGION]",
-                "figma http https://mcp.figma.com/mcp [FIGMA_TOKEN]"
+                "figma http https://mcp.figma.com/mcp [FIGMA_TOKEN]",
+                "hub http https://hub.example.com/mcp [HUB_TOKEN,X-Token]"
             ]
         );
     }
@@ -299,6 +305,24 @@ mod tests {
             shown.contains("https://x.example.com/[REDACTED]/mcp"),
             "{shown}"
         );
+    }
+
+    #[test]
+    fn a_single_class_url_token_is_hidden() {
+        let text = r#"{"mcpServers":{
+            "a":{"url":"https://x.example.com/mcp/abcdefghijklmnopqrstuvwxyzabcdef"},
+            "b":{"url":"https://x.example.com/mcp/12345678901234567890"}
+        }}"#;
+        let found = rows("mcp.json", text, "mcpServers");
+        let json = serde_json::to_string(&found).expect("json");
+        for out in [&json, &render(&found)] {
+            assert!(!out.contains("abcdefghijklmnop"), "{out}");
+            assert!(!out.contains("1234567890123456"), "{out}");
+            assert!(
+                out.contains("https://x.example.com/mcp/[REDACTED]"),
+                "{out}"
+            );
+        }
     }
 
     #[test]

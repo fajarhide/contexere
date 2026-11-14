@@ -492,7 +492,7 @@ fn main() {
                 },
                 "carry" => {
                     if let Err(e) = cli::carry::run(&args) {
-                        eprintln!("[omni] Carry error: {}", e);
+                        eprintln!("[contexere] Carry error: {}", e);
                         std::process::exit(1);
                     }
                 }
