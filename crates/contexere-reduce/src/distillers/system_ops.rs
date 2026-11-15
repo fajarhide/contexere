@@ -2005,7 +2005,10 @@ mod tests {
                 let input = format!("a value: {other}\nb value: {key}\n");
                 let out = redact_sensitive_assignments(&input).expect("a credential");
                 assert!(!out.contains(key.as_str()), "{key} was delivered: {out}");
-                assert!(!out.contains(other.as_str()), "{other} was delivered: {out}");
+                assert!(
+                    !out.contains(other.as_str()),
+                    "{other} was delivered: {out}"
+                );
             }
         }
         let google = &new[3];
