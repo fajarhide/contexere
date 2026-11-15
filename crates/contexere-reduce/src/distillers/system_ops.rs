@@ -1257,6 +1257,11 @@ static BARE_TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(
         r"|\bgithub_pat_[A-Za-z0-9_]{36,}",
         r"|\bAKIA[0-9A-Z]{16}\b",
         r"|\bxox[bpas]-[A-Za-z0-9\-]{20,}",
+        // npm, OpenAI project, Stripe live and Google API keys (#1121, #1112).
+        r"|\bnpm_[A-Za-z0-9]{36}\b",
+        r"|\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{32,}",
+        r"|\b[rs]k_live_[A-Za-z0-9]{24,}",
+        r"|\bAIza[0-9A-Za-z_\-]{35}",
         r"|\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]+",
     ))
     .expect("a literal pattern")
@@ -1977,6 +1982,39 @@ mod tests {
                 out,
                 "[OMNI: 1 sensitive value(s) redacted]\n/home/dev/.keyfile:1: command not found: [REDACTED]\n"
             );
+        }
+    }
+
+    /// npm, OpenAI, Stripe and Google keys are hidden, alone or beside a key the
+    /// other patterns already knew (#1121), and a Google key on a diff line (#1112).
+    #[test]
+    fn hides_every_provider_key_in_one_output() {
+        let body = "A1b2C3d4e".repeat(4);
+        let known = [
+            format!("sk-ant-api03-{}", "A1b2C3d4".repeat(5)),
+            concat!("AK", "IA", "IOSFODNN7", "EXAMPLE").to_string(),
+        ];
+        let new = [
+            format!("npm_{body}"),
+            format!("sk-proj-{}", "A1b2C3d4".repeat(5)),
+            format!("sk_live_{}", "A1b2C3d4".repeat(3)),
+            format!("AIza{}", body.strip_suffix('e').unwrap_or(&body)),
+        ];
+        for key in &new {
+            for other in known.iter().chain(std::iter::once(key)) {
+                let input = format!("a value: {other}\nb value: {key}\n");
+                let out = redact_sensitive_assignments(&input).expect("a credential");
+                assert!(!out.contains(key.as_str()), "{key} was delivered: {out}");
+                assert!(!out.contains(other.as_str()), "{other} was delivered: {out}");
+            }
+        }
+        let google = &new[3];
+        for line in [
+            format!("-FIREBASE_KEY = {google}"),
+            format!(r#"{{"patch":"@@ -49 @@\n-FIREBASE_KEY = {google}\n+FIREBASE_KEY = \n"}}"#),
+        ] {
+            let out = redact_sensitive_assignments(&line).expect("a credential");
+            assert!(!out.contains(google.as_str()), "{out}");
         }
     }
 

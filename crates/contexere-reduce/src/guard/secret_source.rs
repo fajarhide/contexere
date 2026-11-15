@@ -541,7 +541,13 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
         .filter(|(_, c)| names_a_secret(c))
         .map(|(i, _)| i)
         .collect();
-    if hidden.is_empty() || cells.len() < 2 || !cells.iter().all(|c| reads_as_a_column(c)) {
+    // A trailing comma ends an item in a code list, not a CSV header (#1120).
+    let list_item = delimiter == ',' && header.trim_end().ends_with(',');
+    if hidden.is_empty()
+        || cells.len() < 2
+        || list_item
+        || !cells.iter().all(|c| reads_as_a_column(c))
+    {
         return None;
     }
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
@@ -625,6 +631,15 @@ mod tests {
         ] {
             assert!(mask_named_columns(output).is_none(), "{output}");
         }
+    }
+
+    /// A JS array item naming a secret, then a bracketed row: every later line used
+    /// to be hidden, other commands' output included (#1120).
+    #[test]
+    fn a_code_list_item_is_not_a_header() {
+        let output = "\"automation.webhook_secret_rotate\",\n      ],\n      \
+                      [\"POST\", \"/v1/auth/login\", \"auth.login\"],\nhello world\n";
+        assert!(mask_named_columns(output).is_none());
     }
 
     #[test]
