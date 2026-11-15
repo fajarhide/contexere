@@ -1908,6 +1908,39 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(!reply.contains(key));
     }
 
+    /// The #1120 repro: two commands in one call, nothing in either is a secret.
+    #[test]
+    fn a_code_list_naming_a_secret_hides_nothing_after_it() {
+        let stdout = "\"automation.webhook_secret_rotate\",\n      ],\n      \
+                      [\"POST\", \"/v1/auth/login\", \"auth.login\"],\nhello world\nSPLIT\n      \
+                      [\"POST\", \"/v1/auth/login\", \"auth.login\"],\nhello world\n";
+        let payload = serde_json::json!({
+            "tool_name": "Bash",
+            "tool_input": { "command": "printf a; echo SPLIT; printf b" },
+            "tool_response": { "stdout": stdout, "stderr": "", "interrupted": false },
+        })
+        .to_string();
+        let reply = process_payload(&payload, None, None).unwrap_or_default();
+        assert!(!reply.contains("REDACTED"), "{reply}");
+    }
+
+    /// The #1112 shapes through the hook: a diff line and the same line in a JSON patch.
+    #[test]
+    fn hides_a_google_key_on_a_diff_line() {
+        let mut key = format!("AIza{}", "A1b2C3d4e".repeat(4));
+        key.pop();
+        for stdout in [
+            format!("-FIREBASE_KEY = {key}\n"),
+            format!(
+                "{}\n",
+                serde_json::json!({ "patch": format!("@@ -49 @@\n-FIREBASE_KEY = {key}\n") })
+            ),
+        ] {
+            let reply = bash_reply("gh api repos/o/r/compare/a...b", &stdout);
+            assert!(!reply.contains(&key), "{reply}");
+        }
+    }
+
     #[test]
     fn withholds_a_read_of_a_credential_source() {
         let payload = serde_json::json!({

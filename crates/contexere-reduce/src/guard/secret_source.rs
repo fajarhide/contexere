@@ -541,7 +541,23 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
         .filter(|(_, c)| names_a_secret(c))
         .map(|(i, _)| i)
         .collect();
-    if hidden.is_empty() || cells.len() < 2 || !cells.iter().all(|c| reads_as_a_column(c)) {
+    // One quoted string and a trailing comma is an item in a code list (#1120). A real
+    // header with an empty last column, `user,password,`, names two columns (#1132 review).
+    let named: Vec<&str> = cells
+        .iter()
+        .map(|c| c.trim())
+        .filter(|c| !c.is_empty())
+        .collect();
+    let list_item = delimiter == ','
+        && header.trim_end().ends_with(',')
+        && matches!(named.as_slice(), [only] if ['"', '\''].iter().any(|q| {
+            only.len() > 1 && only.starts_with(*q) && only.ends_with(*q)
+        }));
+    if hidden.is_empty()
+        || cells.len() < 2
+        || list_item
+        || !cells.iter().all(|c| reads_as_a_column(c))
+    {
         return None;
     }
     // A quote can hold the delimiter, so a split cannot be trusted to line up. Such a
@@ -625,6 +641,24 @@ mod tests {
         ] {
             assert!(mask_named_columns(output).is_none(), "{output}");
         }
+    }
+
+    /// A JS array item naming a secret, then a bracketed row: every later line used
+    /// to be hidden, other commands' output included (#1120).
+    #[test]
+    fn a_code_list_item_is_not_a_header() {
+        let output = "\"automation.webhook_secret_rotate\",\n      ],\n      \
+                      [\"POST\", \"/v1/auth/login\", \"auth.login\"],\nhello world\n";
+        assert!(mask_named_columns(output).is_none());
+        let single = output.replace(
+            "\"automation.webhook_secret_rotate\"",
+            "'automation.webhook_secret_rotate'",
+        );
+        assert!(mask_named_columns(&single).is_none(), "{single}");
+        // A table whose last column is empty is still a table (#1132 review).
+        let csv = "user,password,\nalice,opaque-private-value,\n";
+        let (out, _) = mask_named_columns(csv).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
     }
 
     #[test]
