@@ -550,7 +550,9 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
         .collect();
     let list_item = delimiter == ','
         && header.trim_end().ends_with(',')
-        && matches!(named.as_slice(), [only] if only.len() > 1 && only.starts_with('"') && only.ends_with('"'));
+        && matches!(named.as_slice(), [only] if ['"', '\''].iter().any(|q| {
+            only.len() > 1 && only.starts_with(*q) && only.ends_with(*q)
+        }));
     if hidden.is_empty()
         || cells.len() < 2
         || list_item
@@ -648,6 +650,11 @@ mod tests {
         let output = "\"automation.webhook_secret_rotate\",\n      ],\n      \
                       [\"POST\", \"/v1/auth/login\", \"auth.login\"],\nhello world\n";
         assert!(mask_named_columns(output).is_none());
+        let single = output.replace(
+            "\"automation.webhook_secret_rotate\"",
+            "'automation.webhook_secret_rotate'",
+        );
+        assert!(mask_named_columns(&single).is_none(), "{single}");
         // A table whose last column is empty is still a table (#1132 review).
         let csv = "user,password,\nalice,opaque-private-value,\n";
         let (out, _) = mask_named_columns(csv).expect("hidden");
