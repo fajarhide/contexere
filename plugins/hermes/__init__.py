@@ -15,7 +15,7 @@ import json
 import os
 import subprocess
 
-_OMNI_BIN = "{{OMNI_BIN}}"
+_CONTEXERE_BIN = "{{CONTEXERE_BIN}}"
 
 # Hermes calls a hook as `cb(**kwargs)` and adds keys over time
 # (`telemetry_schema_version` arrives that way). A handler with named positional
@@ -27,8 +27,8 @@ _OMNI_BIN = "{{OMNI_BIN}}"
 def _omni_env():
     """A copy of the environment naming this host."""
     env = os.environ.copy()
-    env["OMNI_AGENT_ID"] = "hermes"
-    for var in ("OMNI_LOOP_ID", "OMNI_LOOP_GOAL", "OMNI_LOOP_BUDGET"):
+    env["CONTEXERE_AGENT_ID"] = "hermes"
+    for var in ("CONTEXERE_LOOP_ID", "CONTEXERE_LOOP_GOAL", "CONTEXERE_LOOP_BUDGET"):
         if var in os.environ:
             env[var] = os.environ[var]
     return env
@@ -38,7 +38,7 @@ def _run_omni(*args, stdin=None):
     """Run the OMNI binary, fail-open. Never raises, never blocks Hermes."""
     try:
         return subprocess.run(
-            [_OMNI_BIN] + list(args),
+            [_CONTEXERE_BIN] + list(args),
             input=stdin.encode("utf-8") if stdin else None,
             env=_omni_env(),
             capture_output=True,

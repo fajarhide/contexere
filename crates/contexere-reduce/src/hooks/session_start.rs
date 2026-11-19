@@ -57,13 +57,13 @@ pub struct SessionConfig {
 impl SessionConfig {
     pub fn from_env() -> Self {
         Self {
-            force_fresh: std::env::var("OMNI_FRESH")
+            force_fresh: std::env::var("CONTEXERE_FRESH")
                 .map(|v| v == "1")
                 .unwrap_or(false),
-            force_continue: std::env::var("OMNI_CONTINUE")
+            force_continue: std::env::var("CONTEXERE_CONTINUE")
                 .map(|v| v == "1")
                 .unwrap_or(false),
-            ttl_mins: std::env::var("OMNI_SESSION_TTL")
+            ttl_mins: std::env::var("CONTEXERE_SESSION_TTL")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(240),

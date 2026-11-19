@@ -17,7 +17,7 @@ fn session(program: &std::path::Path) -> (Vec<String>, String) {
         .arg("--mcp")
         .env_clear()
         .env("HOME", dir.path())
-        .env("OMNI_DB_PATH", dir.path().join("t.db"))
+        .env("CONTEXERE_DB_PATH", dir.path().join("t.db"))
         .env("CONTEXERE_MCP_TOOLS", "all")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

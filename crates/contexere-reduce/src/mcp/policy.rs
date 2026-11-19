@@ -9,7 +9,7 @@ use crate::agents::Tier;
 /// over 256 sessions: these two carry 138 of 149 calls in 467 B; the six cut
 /// cost 1,631 B for 11 calls (#609). The cut tools are one shell command away
 /// here (`omni exec`, `omni remember`, `omni stats --view ...`), or behind
-/// `OMNI_MCP_TOOLS=all`.
+/// `CONTEXERE_MCP_TOOLS=all`.
 // `omni_context` became `omni context <file>`: zero calls across 253 sessions.
 pub const FULL: &[&str] = &["omni_retrieve", "omni_explain_savings"];
 // `omni_context` left before the rule was tightened: it was the only advertised
@@ -68,7 +68,7 @@ pub fn tier_for(agent_id: &str) -> Tier {
         .map_or(Tier::HandoffFirst, |a| a.tier())
 }
 
-/// Does `OMNI_MCP_TOOLS` ask for the whole surface? Only `all` does. Split from
+/// Does `CONTEXERE_MCP_TOOLS` ask for the whole surface? Only `all` does. Split from
 /// the environment read so tests never set the variable for real.
 pub fn value_means_all(value: Option<&str>) -> bool {
     value.is_some_and(|v| v.eq_ignore_ascii_case("all"))
@@ -76,7 +76,7 @@ pub fn value_means_all(value: Option<&str>) -> bool {
 
 /// The only reader of the variable, so `doctor` and the router agree.
 pub fn override_is_on() -> bool {
-    value_means_all(std::env::var("OMNI_MCP_TOOLS").ok().as_deref())
+    value_means_all(std::env::var("CONTEXERE_MCP_TOOLS").ok().as_deref())
 }
 
 /// The tools this host is told about.

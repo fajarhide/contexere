@@ -33,7 +33,7 @@ fn drop_legacy_source(settings: &mut Value) -> bool {
     packages.len() != before
 }
 
-const PACKAGE_SOURCE_ENV: &str = "OMNI_PI_PACKAGE_SOURCE";
+const PACKAGE_SOURCE_ENV: &str = "CONTEXERE_PI_PACKAGE_SOURCE";
 
 fn package_source() -> String {
     std::env::var(PACKAGE_SOURCE_ENV).unwrap_or_else(|_| DEFAULT_PACKAGE_SOURCE.to_string())
@@ -307,7 +307,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     );
 
     // Only once the new source is in, so a failed install leaves the old one working,
-    // and never when `OMNI_PI_PACKAGE_SOURCE` asked for the old one.
+    // and never when `CONTEXERE_PI_PACKAGE_SOURCE` asked for the old one.
     let paths = if is_legacy_source(source) {
         vec![]
     } else {

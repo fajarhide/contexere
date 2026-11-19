@@ -39,7 +39,9 @@ fn detect_mode(args: &[String]) -> Mode {
 }
 
 fn detect_pipe_command() -> Option<String> {
-    env::var("OMNI_CMD").ok().or_else(|| env::var("CMD").ok())
+    env::var("CONTEXERE_CMD")
+        .ok()
+        .or_else(|| env::var("CMD").ok())
 }
 
 const SESSION_RETENTION_DAYS: u32 = 30;
@@ -230,7 +232,6 @@ fn restore_default_sigpipe() {
 fn restore_default_sigpipe() {}
 
 fn main() {
-    legacy::adopt_env();
     restore_default_sigpipe();
 
     let args: Vec<String> = env::args().collect();

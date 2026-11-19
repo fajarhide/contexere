@@ -16,8 +16,8 @@ fn main() {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    println!("cargo:rustc-env=OMNI_GIT_HASH={}", git_hash);
-    println!("cargo:rustc-env=OMNI_BUILD_DATE={}", build_date);
+    println!("cargo:rustc-env=CONTEXERE_GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=CONTEXERE_BUILD_DATE={}", build_date);
 
     // #137: how many changelog entries this build carries that no release does.
     //
@@ -42,7 +42,10 @@ fn main() {
         .map(|s| count_unreleased_entries(&s))
         .unwrap_or(0)
         + count_fragments(std::path::Path::new("../../changelog.d"));
-    println!("cargo:rustc-env=OMNI_UNRELEASED_ENTRIES={}", unreleased);
+    println!(
+        "cargo:rustc-env=CONTEXERE_UNRELEASED_ENTRIES={}",
+        unreleased
+    );
 }
 
 // One implementation, used by the build script and compiled into the library,

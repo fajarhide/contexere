@@ -16,7 +16,7 @@ Set Theme "Dracula"
 Set TypingSpeed 30ms
 
 Hide
-Type `export PATH="$PWD/target/release:$PATH" OMNI_QUIET=1`
+Type `export PATH="$PWD/target/release:$PATH" CONTEXERE_QUIET=1`
 Enter
 Type `export RAW=$(git log -15 | wc -c)`
 Enter

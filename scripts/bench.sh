@@ -54,19 +54,19 @@ trap 'rm -f "$LOG"' EXIT
 # what ran lands in the artifact next to our own figures.
 #
 # Cost: the competitor arms spawn a process per trace, so a full run is ~20 minutes
-# against ~40 seconds for ours alone. `OMNI_BENCH_ARMS=off` skips them when the
+# against ~40 seconds for ours alone. `CONTEXERE_BENCH_ARMS=off` skips them when the
 # question is only whether a change moved our own number.
 declare -a ARMS_RUN=() ARMS_ABSENT=()
-if [ "${OMNI_BENCH_ARMS:-on}" != "off" ]; then
+if [ "${CONTEXERE_BENCH_ARMS:-on}" != "off" ]; then
   # caveman is not on PATH and is not a bare `caveman`: the binary that compresses
   # is `caveman-engine`. See the caveman_out docstring for what naming a plausible
   # sibling produces instead, which is a silent zero.
-  : "${OMNI_BENCH_RTK:=$(command -v rtk || true)}"
-  : "${OMNI_BENCH_LEANCTX:=$(command -v lean-ctx || true)}"
-  : "${OMNI_BENCH_HEADROOM:=$(command -v headroom || true)}"
-  : "${OMNI_BENCH_CAVEMAN:=$([ -x "$HOME/.caveman/bin/caveman-engine" ] && echo "$HOME/.caveman/bin/caveman-engine" || true)}"
+  : "${CONTEXERE_BENCH_RTK:=$(command -v rtk || true)}"
+  : "${CONTEXERE_BENCH_LEANCTX:=$(command -v lean-ctx || true)}"
+  : "${CONTEXERE_BENCH_HEADROOM:=$(command -v headroom || true)}"
+  : "${CONTEXERE_BENCH_CAVEMAN:=$([ -x "$HOME/.caveman/bin/caveman-engine" ] && echo "$HOME/.caveman/bin/caveman-engine" || true)}"
   for arm in RTK LEANCTX HEADROOM CAVEMAN; do
-    var="OMNI_BENCH_$arm"
+    var="CONTEXERE_BENCH_$arm"
     if [ -n "${!var:-}" ]; then
       export "$var"; ARMS_RUN+=("$arm")
     else
@@ -80,7 +80,7 @@ if [ "${OMNI_BENCH_ARMS:-on}" != "off" ]; then
 fi
 echo "replaying $(wc -l < "$CORPUS" | tr -d ' ') traces against $VERSION ($COMMIT)"
 echo "arms: ${ARMS_RUN[*]:-none}${ARMS_ABSENT:+ (absent: ${ARMS_ABSENT[*]})}"
-OMNI_BENCH_CORPUS="$CORPUS" \
+CONTEXERE_BENCH_CORPUS="$CORPUS" \
   cargo test --release --test bench_replay -- --ignored --nocapture >"$LOG" 2>&1 || {
   tail -30 "$LOG" >&2
   exit 1
@@ -316,15 +316,15 @@ report = {
 }
 required = dict(report["result"])
 # The replay prints the head-to-head block only when at least one competitor was
-# named, so with `OMNI_BENCH_ARMS=off` an empty `arms` is the correct answer rather
+# named, so with `CONTEXERE_BENCH_ARMS=off` an empty `arms` is the correct answer rather
 # than a failed read. Required whenever an arm was asked for, and only then.
 if not arms_run.split():
     required.pop("arms", None)
-# `OMNI_BENCH_NO_TOKENS=1` tells the replay to skip tokenization, which is the slow
+# `CONTEXERE_BENCH_NO_TOKENS=1` tells the replay to skip tokenization, which is the slow
 # half and a documented way to run this. Absent totals are the correct answer there,
 # and requiring them aborted the whole bench without writing an artifact, for a
 # measurement that is about bytes (PR #843 review).
-if os.environ.get("OMNI_BENCH_NO_TOKENS"):
+if os.environ.get("CONTEXERE_BENCH_NO_TOKENS"):
     required.pop("tokens_before", None)
     required.pop("tokens_after", None)
 missing = [k for k, v in required.items() if v is None or v == {}]

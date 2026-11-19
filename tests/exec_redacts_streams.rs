@@ -12,8 +12,8 @@ fn exec(script: &str) -> Output {
     let db = tempfile::NamedTempFile::new().expect("temp db");
     Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["exec", script])
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .output()
         .expect("spawn contexere exec")
 }

@@ -1345,7 +1345,7 @@ mod tests {
     #[test]
     fn resolves_the_program_behind_an_env_assignment() {
         assert_eq!(
-            resolve_profile_for_chain("OMNI_DB_PATH=/tmp/d.db kubectl get pods").collapse,
+            resolve_profile_for_chain("CONTEXERE_DB_PATH=/tmp/d.db kubectl get pods").collapse,
             CollapseMode::Infra,
         );
         assert_eq!(
@@ -1353,7 +1353,7 @@ mod tests {
             resolve_profile("cargo test").collapse,
         );
         assert_eq!(
-            sole_output_command("OMNI_DB_PATH=/tmp/d.db kubectl get pods"),
+            sole_output_command("CONTEXERE_DB_PATH=/tmp/d.db kubectl get pods"),
             Some("kubectl get pods"),
         );
         assert_eq!(
