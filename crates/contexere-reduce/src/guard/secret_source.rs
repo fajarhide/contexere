@@ -482,7 +482,12 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
     let before = &stage[..i];
     // A `` ` `` or `$(` substitution runs wherever it sits, unless single quotes hold it.
     let opens = stage[i].trim_start_matches('"');
-    let single_quoted = before.iter().map(|w| w.matches('\'').count()).sum::<usize>() % 2 == 1;
+    let single_quoted = before
+        .iter()
+        .map(|w| w.matches('\'').count())
+        .sum::<usize>()
+        % 2
+        == 1;
     if (opens.starts_with('`') || opens.starts_with("$(")) && !single_quoted {
         return true;
     }
