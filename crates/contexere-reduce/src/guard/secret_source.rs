@@ -32,6 +32,7 @@ const WRAPPERS: &[&str] = &[
     "contexere",
     "eval",
     "{",
+    "(",
     "!",
     "if",
     "elif",
@@ -289,41 +290,103 @@ fn without_data_heredocs(command: &str) -> String {
             continue;
         }
         out.push(line);
-        let runs_the_body = line.split_whitespace().any(|w| {
+        let (code, delims) = heredoc_opener(line);
+        // Any runner on the line, comment cut off: `cat <<'EOF' | bash` runs the body
+        // too, and `. /dev/stdin` sources it (#1148 review).
+        let runs_the_body = code.split_whitespace().any(|w| {
             let p = program(trimmed(w));
-            SHELLS.contains(&p) || INTERPRETERS.contains(&p) || p == "ssh"
+            SHELLS.contains(&p) || INTERPRETERS.contains(&p) || matches!(p, "ssh" | "." | "source")
         });
-        let mut rest = line;
-        while let Some((_, after)) = rest.split_once("<<") {
-            rest = after.trim_start_matches('-').trim_start();
-            if rest.starts_with('<') {
-                continue; // `<<<`, a here-string
-            }
-            let quote = rest.chars().next().filter(|c| matches!(c, '\'' | '"'));
-            let (delim, quoted) = if let Some(q) = quote {
-                match rest.get(1..).and_then(|body| body.split_once(q)) {
-                    Some((delim, _)) => (delim, true),
-                    None => break,
-                }
-            } else if let Some(body) = rest.strip_prefix('\\') {
-                (word_end(body), true)
-            } else {
-                (word_end(rest), false)
-            };
-            if delim.is_empty() {
-                break;
-            }
-            pending.push_back((delim.to_string(), quoted && !runs_the_body));
+        for (delim, quoted) in delims {
+            pending.push_back((delim, quoted && !runs_the_body));
         }
     }
     out.join("\n")
 }
 
-/// The leading word of `s`, up to whitespace or a shell operator.
-fn word_end(s: &str) -> &str {
-    s.split(|c: char| c.is_whitespace() || ";|&)<>".contains(c))
-        .next()
-        .unwrap_or("")
+/// A line's code before any `#` comment, and each heredoc it opens with whether its
+/// delimiter is quoted. Quote-aware, so `echo "<<'EOF'"` opens nothing (#1148 review).
+fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
+    let chars: Vec<char> = line.chars().collect();
+    let word = |from: usize| -> (String, usize) {
+        let w: String = chars
+            .iter()
+            .skip(from)
+            .take_while(|c| !c.is_whitespace() && !";|&)<>".contains(**c))
+            .collect();
+        let end = from + w.chars().count();
+        (w, end)
+    };
+    let (mut code, mut delims, mut quote, mut i) = (String::new(), Vec::new(), None, 0);
+    while let Some(&c) = chars.get(i) {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            } else if c == '\\' && q == '"' {
+                code.push(c);
+                i += 1;
+                if let Some(&n) = chars.get(i) {
+                    code.push(n);
+                }
+                i += 1;
+                continue;
+            }
+            code.push(c);
+            i += 1;
+            continue;
+        }
+        match c {
+            '\\' => {
+                code.push(c);
+                code.extend(chars.get(i + 1));
+                i += 2;
+                continue;
+            }
+            '\'' | '"' => quote = Some(c),
+            '#' if i == 0 || chars.get(i - 1).is_some_and(|p| p.is_whitespace()) => break,
+            '<' if chars.get(i + 1) == Some(&'<') => {
+                if chars.get(i + 2) == Some(&'<') {
+                    code.push_str("<<<");
+                    i += 3;
+                    continue;
+                }
+                let mut j = i + 2;
+                if chars.get(j) == Some(&'-') {
+                    j += 1;
+                }
+                while chars.get(j).is_some_and(|c| c.is_whitespace()) {
+                    j += 1;
+                }
+                let (delim, quoted, end) = match chars.get(j) {
+                    Some(&q @ ('\'' | '"')) => {
+                        let body: String = chars.iter().skip(j + 1).take_while(|c| **c != q).collect();
+                        let end = j + 2 + body.chars().count();
+                        (body, true, end)
+                    }
+                    Some('\\') => {
+                        let (w, end) = word(j + 1);
+                        (w, true, end)
+                    }
+                    Some(_) => {
+                        let (w, end) = word(j);
+                        (w, false, end)
+                    }
+                    None => break,
+                };
+                if delim.is_empty() {
+                    break;
+                }
+                code.extend(chars.iter().take(end.min(chars.len())).skip(i));
+                delims.push((delim, quoted));
+                i = end;
+                continue;
+            }
+            _ => {}
+        }
+        code.push(c);
+        i += 1;
+    }
+    (code, delims)
 }
 
 /// `cat<file` as `cat <file`. A heredoc's `<<` and process substitution stay whole.
@@ -484,15 +547,15 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
         return true;
     }
     let before = &stage[..i];
-    // A `` ` `` or `$(` substitution runs wherever it sits, unless single quotes hold it.
+    // A `` ` `` or `$(` substitution runs wherever it sits, unless single quotes hold it,
+    // with the quote state tracked, not counted: `"it's" "$(x)"` runs (#1148 review).
     let opens = stage[i].trim_start_matches('"');
-    let single_quoted = before
-        .iter()
-        .map(|w| w.matches('\'').count())
-        .sum::<usize>()
-        % 2
-        == 1;
-    if (opens.starts_with('`') || opens.starts_with("$(")) && !single_quoted {
+    let after_open = i
+        .checked_sub(1)
+        .is_some_and(|p| matches!(stage[p].trim_start_matches('"'), "$(" | "`"));
+    if (opens.starts_with('`') || opens.starts_with("$(") || after_open)
+        && !in_single_quotes(&before.join(" "))
+    {
         return true;
     }
     // `sudo -u app cat x`, `env -i cat x`, `timeout 5 cat x`: a wrapper's options, and a
@@ -504,12 +567,34 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
             || (k > 0 && before[k - 1].starts_with('-'))
             || (k > 0 && program(before[k - 1]) == "timeout")
     });
+    // `--`, or a `-c` option cluster (`-c`, `-lc`, `-ec`) of a shell earlier in the stage,
+    // so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
     let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
         Some("--") => true,
-        Some("-c" | "-lc") => i >= 2 && SHELLS.contains(&program(trimmed(stage[i - 2]))),
+        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => stage
+            .iter()
+            .take(i - 1)
+            .any(|w| SHELLS.contains(&program(trimmed(w)))),
         _ => false,
     };
     after_wrappers || handed_over
+}
+
+/// Whether the end of `text` sits inside single quotes, as sh reads it.
+fn in_single_quotes(text: &str) -> bool {
+    let mut quote = None;
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (None, '\'' | '"') => quote = Some(c),
+            (Some(q), _) if c == q => quote = None,
+            (None | Some('"'), '\\') => {
+                chars.next();
+            }
+            _ => {}
+        }
+    }
+    quote == Some('\'')
 }
 
 /// The first argument of a printer that names a source. A quoted pattern is skipped
@@ -1032,6 +1117,26 @@ mod tests {
         ] {
             assert!(printed(c), "{c}");
         }
+    }
+
+    /// The bypasses review of #1148 found in the first version of command position.
+    #[test]
+    fn refuses_the_shapes_review_found() {
+        for c in [
+            "echo \"<<'EOF'\"\ncat ~/.netrc\nEOF",
+            "bash -e -c \"cat ~/.netrc\"",
+            ". /dev/stdin <<'EOF'\ncat ~/.netrc\nEOF",
+            "echo \"it's\" \"$(docker inspect web)\"",
+            "( docker inspect web )",
+        ] {
+            assert!(printed(c), "{c}");
+        }
+    }
+
+    /// A shell named in a comment does not make the heredoc a script (#1148 review).
+    #[test]
+    fn allows_a_heredoc_whose_comment_names_a_shell() {
+        assert!(!printed("cat > notes.md <<'EOF' # bash examples\ncat .env\nEOF"));
     }
 
     #[test]
