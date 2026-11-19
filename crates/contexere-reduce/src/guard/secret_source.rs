@@ -318,8 +318,18 @@ fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
         (w, end)
     };
     let (mut code, mut delims, mut quote, mut i) = (String::new(), Vec::new(), None, 0);
+    // The double quotes around a `$(...)`, restored at its `)`: a heredoc inside
+    // `"$(cat <<'EOF'` opens like any other (#1151).
+    let mut outer: Vec<char> = Vec::new();
     while let Some(&c) = chars.get(i) {
         if let Some(q) = quote {
+            if q == '"' && c == '$' && chars.get(i + 1) == Some(&'(') {
+                outer.push(q);
+                quote = None;
+                code.push_str("$(");
+                i += 2;
+                continue;
+            }
             if c == q {
                 quote = None;
             } else if c == '\\' && q == '"' {
@@ -343,6 +353,7 @@ fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
                 continue;
             }
             '\'' | '"' => quote = Some(c),
+            ')' if !outer.is_empty() => quote = outer.pop(),
             '#' if i == 0 || chars.get(i - 1).is_some_and(|p| p.is_whitespace()) => break,
             '<' if chars.get(i + 1) == Some(&'<') => {
                 if chars.get(i + 2) == Some(&'<') {
@@ -572,10 +583,12 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
     // so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
     let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
         Some("--") => true,
+        // The shell must run itself: in `grep -c 'bash -e -c x'` it is pattern text (#1151).
         Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => stage
             .iter()
             .take(i - 1)
-            .any(|w| SHELLS.contains(&program(trimmed(w)))),
+            .enumerate()
+            .any(|(k, w)| SHELLS.contains(&program(trimmed(w))) && in_command_position(stage, k)),
         _ => false,
     };
     after_wrappers || handed_over
@@ -1132,6 +1145,18 @@ mod tests {
         ] {
             assert!(printed(c), "{c}");
         }
+    }
+
+    /// A shell inside a grep pattern hands nothing over (#1151).
+    #[test]
+    fn allows_a_shell_named_inside_a_pattern() {
+        assert!(!printed("grep -c 'bash -e -c docker inspect' README.md"));
+    }
+
+    /// A heredoc inside a double-quoted substitution is text (#1151).
+    #[test]
+    fn allows_a_heredoc_inside_a_quoted_substitution() {
+        assert!(!printed("printf '%s\\n' \"$(cat <<'EOF'\ncat .env\nEOF\n)\""));
     }
 
     /// A shell named in a comment does not make the heredoc a script (#1148 review).
