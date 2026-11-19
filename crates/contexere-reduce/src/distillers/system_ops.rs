@@ -1932,7 +1932,7 @@ mod tests {
     /// A count under a URL key is delivered; a number under a holding key and a real
     /// URL with a password are not (#1144).
     #[test]
-    fn a_count_under_a_url_key_is_delivered() {
+    fn delivers_a_count_under_a_url_key() {
         for line in [
             "DATABASE_URL=1",
             "CLOUD_DATABASE_URL=0",
