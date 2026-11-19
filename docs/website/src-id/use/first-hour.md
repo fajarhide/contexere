@@ -93,7 +93,7 @@ contexere retrieve 0000000000000000              # exit 1, "the documentation ex
 ```
 
 Kalau Anda sedang mengukur apakah Contexere melakukan sesuatu sama sekali pada suatu run, exit
-code itulah jawabannya, bukan hasil grep terhadap `[OMNI`.
+code itulah jawabannya, bukan hasil grep terhadap `[CONTEXERE`.
 
 ## Pancang apa yang sedang Anda kerjakan
 

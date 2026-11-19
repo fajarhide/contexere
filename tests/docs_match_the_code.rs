@@ -274,14 +274,14 @@ fn every_documented_count_matches_the_code() {
 /// Each template is matched **whole**, with its placeholders turned into the
 /// shape they hold at runtime: `{lines}` is a number and `{handle}` is a hex
 /// digest. Two weaker versions were caught before this one. Comparing the text
-/// before the first `{` checked `[OMNI: ` and `[OMNI: identical to ` and nothing
+/// before the first `{` checked `[CONTEXERE: ` and `[CONTEXERE: identical to ` and nothing
 /// else, so any page holding any marker satisfied it. Comparing literal
 /// fragments independently let one template borrow another's: the whole-output
-/// session example contains `lines already shown, omni retrieve`, so deleting
+/// session example contains `lines already shown, contexere retrieve`, so deleting
 /// the ordinary session marker from the page left the guard green (#567).
 ///
 /// Typed placeholders are what stop the same borrowing here: `\d+` after
-/// `[OMNI: ` cannot match `identical to the 40`.
+/// `[CONTEXERE: ` cannot match `identical to the 40`.
 #[test]
 fn every_marker_the_ledger_can_print_is_documented() {
     let root = repo_root();
@@ -290,7 +290,7 @@ fn every_marker_the_ledger_can_print_is_documented() {
     let page = std::fs::read_to_string(root.join("docs/website/src/use/markers.md"))
         .expect("read markers.md");
 
-    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[OMNI: [^"]*)""#)
+    let templates: BTreeSet<String> = regex::Regex::new(r#""(\[CONTEXERE: [^"]*)""#)
         .expect("valid regex")
         .captures_iter(&ledger)
         .map(|c| c.get(1).expect("group 1").as_str().to_string())
@@ -398,7 +398,7 @@ fn every_worked_example_uses_the_reserved_handle() {
     // `i18n/` is the one that would have bitten: CONTRIBUTING requires a README
     // change to reach all six translations, so an example added to the guarded
     // README propagates into six unguarded files by policy. `plugins/` ships a
-    // skill file with `omni retrieve` in it, and `tests/` is where a fixture
+    // skill file with `contexere retrieve` in it, and `tests/` is where a fixture
     // would go. None of the three carries a handle today, so this is a fence
     // rather than a fix, which is the point of a guard (#588 review).
     let mut files: Vec<PathBuf> = ["src", "tests", "i18n", "plugins"]
@@ -419,12 +419,12 @@ fn every_worked_example_uses_the_reserved_handle() {
             continue;
         };
         // Line at a time, so a marker wrapped across two lines is invisible to
-        // this scan. No `omni retrieve` literal in the tree is broken that way
+        // this scan. No `contexere retrieve` literal in the tree is broken that way
         // today, and a scan over joined text would match prose that happens to
         // end in those words. Stated rather than handled (#588 review).
         for (n, line) in text.lines().enumerate() {
-            for (idx, _) in line.match_indices("omni retrieve ") {
-                let rest = &line[idx + "omni retrieve ".len()..];
+            for (idx, _) in line.match_indices("contexere retrieve ") {
+                let rest = &line[idx + "contexere retrieve ".len()..];
                 let handle: String = rest.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
                 if handle.len() != 16 {
                     continue;

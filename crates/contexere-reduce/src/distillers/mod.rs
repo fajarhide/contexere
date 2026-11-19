@@ -43,7 +43,7 @@ pub fn distill_with_command(
     // line beside it delivered the secret (#1032).
     if input.lines().any(is_json_line) {
         return match system_ops::redact_in_place(input) {
-            Some((body, n)) => format!("[OMNI: {n} sensitive value(s) redacted]\n{body}"),
+            Some((body, n)) => format!("[CONTEXERE: {n} sensitive value(s) redacted]\n{body}"),
             None => input.to_string(),
         };
     }
@@ -128,7 +128,7 @@ mod tests {
             "{out}"
         );
         assert!(
-            out.starts_with("[OMNI: 1 sensitive value(s) redacted]"),
+            out.starts_with("[CONTEXERE: 1 sensitive value(s) redacted]"),
             "{out}"
         );
     }
@@ -581,7 +581,7 @@ mod tests {
         // Compared without the redaction header (#486).
         let body: Vec<&str> = output
             .lines()
-            .filter(|l| !l.starts_with("[OMNI: "))
+            .filter(|l| !l.starts_with("[CONTEXERE: "))
             .collect();
         assert_eq!(
             body.len(),

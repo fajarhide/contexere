@@ -1544,7 +1544,7 @@ pub fn redact_sensitive_assignments(input: &str) -> Option<String> {
         out.push('\n');
     }
     // A marker line, as `distill_env_output` has: anything cut is announced.
-    (redacted > 0).then(|| format!("[OMNI: {redacted} sensitive value(s) redacted]\n{out}"))
+    (redacted > 0).then(|| format!("[CONTEXERE: {redacted} sensitive value(s) redacted]\n{out}"))
 }
 
 /// A key whose value must never be delivered, trimmed of indent and `export`.
@@ -1619,7 +1619,7 @@ pub fn distill_env_output(input: &str) -> String {
 
     // A marker only when something was hidden, so `[REDACTED]` is known to be OMNI's.
     if redacted_count > 0 {
-        return format!("[OMNI: {redacted_count} sensitive value(s) redacted]\n{out}");
+        return format!("[CONTEXERE: {redacted_count} sensitive value(s) redacted]\n{out}");
     }
     out
 }
@@ -1778,7 +1778,7 @@ mod tests {
         assert_eq!(
             lines,
             [
-                "[OMNI: 2 sensitive value(s) redacted]",
+                "[CONTEXERE: 2 sensitive value(s) redacted]",
                 "run: |",
                 "  APP_ROOT=/tmp/x APP_LISTEN=tcp:127.0.0.1:7777 \\",
                 "    APP_TOKEN=[REDACTED] ./bin/app serve &",
@@ -2079,7 +2079,7 @@ mod tests {
             assert!(!out.contains(&token), "{token} was delivered");
             assert_eq!(
                 out,
-                "[OMNI: 1 sensitive value(s) redacted]\n/home/dev/.keyfile:1: command not found: [REDACTED]\n"
+                "[CONTEXERE: 1 sensitive value(s) redacted]\n/home/dev/.keyfile:1: command not found: [REDACTED]\n"
             );
         }
     }
@@ -2139,7 +2139,7 @@ mod tests {
         let out = redact_sensitive_assignments(&line).expect("a credential");
         assert_eq!(
             out,
-            "[OMNI: 1 sensitive value(s) redacted]\nANTHROPIC_API_KEY=[REDACTED]\n"
+            "[CONTEXERE: 1 sensitive value(s) redacted]\nANTHROPIC_API_KEY=[REDACTED]\n"
         );
     }
 
@@ -2479,7 +2479,7 @@ mod tests {
             assert!(!out.contains(gone), "secret delivered: {gone}\n{out}");
         }
         assert!(
-            out.starts_with("[OMNI: 2 sensitive value(s) redacted]"),
+            out.starts_with("[CONTEXERE: 2 sensitive value(s) redacted]"),
             "a cut with no marker is a silent one: {out}"
         );
         assert!(
@@ -2809,7 +2809,7 @@ mod tests {
             assert!(out.contains(kept), "comparison destroyed: {kept}\n{out}");
         }
         assert!(!out.contains("a1b2c3d4e5f6"), "secret delivered\n{out}");
-        assert!(out.starts_with("[OMNI: 2 sensitive"), "{out}");
+        assert!(out.starts_with("[CONTEXERE: 2 sensitive"), "{out}");
     }
 
     /// The command after a quoted credential survives; glued or second literals do not (review of

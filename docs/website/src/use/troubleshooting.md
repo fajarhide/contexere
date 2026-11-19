@@ -103,7 +103,7 @@ Worth reporting, in this order of importance:
 3. **Noise.** Verbose but harmless.
 
 A good report carries the raw output and the distilled output side by side, including
-the `[OMNI Active]` footer, the exact `omni exec` command, and `omni --version`. The
+the `[CONTEXERE Active]` footer, the exact `omni exec` command, and `omni --version`. The
 footer is often the point: the worst bugs here report the highest reductions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real

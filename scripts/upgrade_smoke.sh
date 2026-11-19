@@ -99,9 +99,13 @@ run_calls old "$ROOT/home-old" "$ROOT/out-old"
 run_calls new "$ROOT/home-new" "$ROOT/out-new"
 # The footer's running session total depends on when the previous call's
 # write landed, and was seen to differ in 1 of 3 local runs with the same
-# binaries. Everything the agent reads, the per-call figure included, must match.
+# binaries. 0.9.0 renamed the marker and retrieve names (#1067), and the 10
+# bytes they add shift the per-call figure and the compression ratio. Everything
+# else the agent reads, the output above all, must match.
 for d in out-old out-new; do
-    sed -i.bak -E 's/\| -?[0-9.]+ [KM]?B session \|/| N session |/' "$ROOT/$d"/*.json
+    sed -i.bak -E -e 's/\| -?[0-9.]+ [KM]?B session \|/| N session |/' \
+        -e 's/\[CONTEXERE/[OMNI/g; s/contexere retrieve/omni retrieve/g' \
+        -e 's/-?[0-9.]+ [KM]?B this call/N this call/; s/[0-9]+% compression/N% compression/' "$ROOT/$d"/*.json
     rm -f "$ROOT/$d"/*.bak
 done
 diff -r "$ROOT/out-old" "$ROOT/out-new" || fail "hook replies differ after the upgrade"

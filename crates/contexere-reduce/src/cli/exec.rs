@@ -194,11 +194,13 @@ fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
         }
     }
     if dropped > 0 {
-        err.extend_from_slice(format!("\n[OMNI: {dropped} bytes of stderr omitted]\n").as_bytes());
+        err.extend_from_slice(
+            format!("\n[CONTEXERE: {dropped} bytes of stderr omitted]\n").as_bytes(),
+        );
     }
     if cut_off {
         err.extend_from_slice(
-            b"\n[OMNI: stderr still open after the command exited; the rest was not read]\n",
+            b"\n[CONTEXERE: stderr still open after the command exited; the rest was not read]\n",
         );
     }
     err
@@ -216,7 +218,7 @@ fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
         && let Some((text, count)) = crate::guard::secret_source::redact_output(&lossy)
     {
         out.write_all(text.as_bytes())?;
-        eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
+        eprintln!("[CONTEXERE: {count} sensitive value(s) redacted in place]");
         return Ok(());
     }
     let mut count = 0;
@@ -231,7 +233,7 @@ fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
         out.write_all(chunk.invalid())?;
     }
     if count > 0 {
-        eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
+        eprintln!("[CONTEXERE: {count} sensitive value(s) redacted in place]");
     }
     Ok(())
 }

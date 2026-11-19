@@ -5,7 +5,7 @@ SHA-256. The agent gets a marker carrying a 16 character handle, and the handle
 brings the original back byte for byte.
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
 ```
 
 ```sh

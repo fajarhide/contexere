@@ -248,8 +248,8 @@ pub fn run_init(args: &[String]) -> anyhow::Result<()> {
         println!("  npm WARN deprecated ... (300 lines of warnings)");
         println!("  git log (2000 lines of history)");
         println!("{}", "\nWith Contexere:".green());
-        println!("  npm WARN deprecated ... [OMNI: ⚠️ 300 repetitive lines dropped]");
-        println!("  git log [OMNI: ⚠️ truncated to latest 50 lines]");
+        println!("  npm WARN deprecated ... [CONTEXERE: ⚠️ 300 repetitive lines dropped]");
+        println!("  git log [CONTEXERE: ⚠️ truncated to latest 50 lines]");
         super::print_rule();
         println!();
 

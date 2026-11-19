@@ -51,7 +51,7 @@ const MIN_REPEAT_LINE: usize = 12;
 /// `Origin` is private, so this is a copy, and a copy that drifts would make the
 /// attribution below quietly wrong. `session_marker_len_matches_the_ledger`
 /// re-derives it from the ledger's own output and fails if the two part ways.
-const SESSION_MARKER_LEN: u64 = 62;
+const SESSION_MARKER_LEN: u64 = 72;
 
 /// A trace, with the two identities repetition is scoped by.
 struct Trace {
@@ -997,7 +997,7 @@ fn replay_execution_traces_net_savings() {
                 //
                 // Counting by string cannot be made correct from this side. A
                 // substring scan reads a surviving line that quotes the wording;
-                // filtering on the `[OMNI: ` prefix reads a surviving line that
+                // filtering on the `[CONTEXERE: ` prefix reads a surviving line that
                 // starts with it, and this repository writes exactly those lines
                 // into its changelog and its manual, so the corpus carries them.
                 // #557 is the same lesson one guard earlier: identity has to come
@@ -1570,7 +1570,7 @@ fn session_marker_len_matches_the_ledger() {
 
     let marker = view
         .lines()
-        .find(|l| l.starts_with("[OMNI:"))
+        .find(|l| l.starts_with("[CONTEXERE:"))
         .expect("the fold emits a marker");
     // 40 lines, so the count is two digits, which is what the constant assumes.
     assert_eq!(marker.len() as u64, SESSION_MARKER_LEN);

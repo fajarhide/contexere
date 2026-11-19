@@ -87,7 +87,7 @@ contexere retrieve 0000000000000000            # exit 1, "the documentation exam
 ```
 
 If you are measuring whether Contexere did anything at all on a run, that exit code is the
-answer and grepping for `[OMNI` is not.
+answer and grepping for `[CONTEXERE` is not.
 
 ## Pin what you are working on
 

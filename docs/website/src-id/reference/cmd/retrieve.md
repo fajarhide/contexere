@@ -9,8 +9,8 @@ contexere retrieve <handle>
 Handle-nya adalah 16 karakter di dalam sebuah penanda:
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 Ia mengembalikan byte aslinya. Bukan ringkasan, bukan menjalankan ulang perintah

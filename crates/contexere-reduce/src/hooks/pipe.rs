@@ -67,7 +67,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         .or(detected_cmd.as_deref())
         .map(crate::cli::rewrite::strip_exec_wrapper);
 
-    // A recovery command is never distilled here either, or `omni retrieve` returns another marker
+    // A recovery command is never distilled here either, or `contexere retrieve` returns another marker
     // (#456).
     if command_to_use.is_some_and(crate::hooks::post_tool::returns_archived_bytes) {
         let mut passthrough = String::new();
@@ -118,7 +118,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 output.write_all(body.as_bytes())?;
                 writeln!(
                     error,
-                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                    "[CONTEXERE: {count} sensitive value(s) redacted in place]"
                 )?;
             }
             None => output.write_all(input_text.as_bytes())?,
@@ -136,7 +136,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 output.write_all(body.as_bytes())?;
                 writeln!(
                     error,
-                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                    "[CONTEXERE: {count} sensitive value(s) redacted in place]"
                 )?;
             }
             None => output.write_all(input_text.as_bytes())?,
@@ -162,7 +162,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         Some((body, count)) => {
             writeln!(
                 error,
-                "[OMNI: {count} sensitive value(s) redacted in place]"
+                "[CONTEXERE: {count} sensitive value(s) redacted in place]"
             )?;
             body
         }
@@ -228,7 +228,7 @@ fn read_input<R: Read, W: Write, E: Write>(
             dropped += std::io::copy(&mut input, &mut std::io::sink())?;
             writeln!(
                 error,
-                "[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]"
+                "[CONTEXERE: input passed 16 MB; the last {dropped} bytes were not delivered]"
             )?;
             break;
         }
@@ -384,7 +384,7 @@ fn distill(
 
         let marker = if input_text.len() > crate::guard::limits::MAX_REWIND_BYTES {
             format!(
-                "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+                "\n[CONTEXERE: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
                 input_text.len(),
                 crate::guard::limits::MAX_REWIND_BYTES
             )
@@ -400,13 +400,15 @@ fn distill(
                     hash.cyan().bold()
                 )
             } else {
-                format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
+                format!(
+                    "\n[CONTEXERE: {lost} omitted, contexere retrieve {hash} for full output]\n"
+                )
             };
             r_hash = Some(hash);
             marker
         } else {
             // Not archived, so no handle (#388).
-            format!("\n[OMNI: {lost} omitted, full output not archived]\n")
+            format!("\n[CONTEXERE: {lost} omitted, full output not archived]\n")
         };
 
         // A marker that loses the guardrail costs more than the cut saved (#268, #269).
@@ -671,7 +673,7 @@ fn emit_output<W: Write, E: Write>(
             crate::cli::stats::format_bytes(result.best_output().len() as u64).green(),
             elapsed.to_string().bright_black()
         );
-        writeln!(error, "{} {}", "[OMNI Active]".bold().cyan(), msg)?;
+        writeln!(error, "{} {}", "[CONTEXERE Active]".bold().cyan(), msg)?;
     }
 
     Ok(())
@@ -865,7 +867,7 @@ mod tests {
             "a lossy reply must be smaller than the bytes it replaces"
         );
         assert!(
-            delivered.contains("omni retrieve "),
+            delivered.contains("contexere retrieve "),
             "the caller cannot call what it was not told: {delivered}"
         );
     }
@@ -1032,7 +1034,9 @@ mod tests {
         let dropped = input.len() - kept.len();
         assert_eq!(
             String::from_utf8(err).expect("utf8"),
-            format!("[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]\n")
+            format!(
+                "[CONTEXERE: input passed 16 MB; the last {dropped} bytes were not delivered]\n"
+            )
         );
     }
 
@@ -1110,7 +1114,7 @@ omni";
         );
     }
 
-    /// `omni exec omni retrieve` is not distilled (#456).
+    /// `omni exec contexere retrieve` is not distilled (#456).
     #[test]
     fn hands_a_retrieval_back_untouched() {
         let input: String = (0..200)
@@ -1125,7 +1129,7 @@ omni";
             &mut err,
             None,
             None,
-            Some("omni retrieve 0000000000000000"),
+            Some("contexere retrieve 0000000000000000"),
         )
         .expect("must succeed");
 

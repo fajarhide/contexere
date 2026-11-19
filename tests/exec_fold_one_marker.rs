@@ -35,7 +35,10 @@ fn folds_a_repeated_read_under_one_marker() {
 
     let second = read_twice(&file, &dir.path().join("d.db"));
 
-    let markers: Vec<&str> = second.lines().filter(|l| l.starts_with("[OMNI:")).collect();
+    let markers: Vec<&str> = second
+        .lines()
+        .filter(|l| l.starts_with("[CONTEXERE:"))
+        .collect();
     assert_eq!(markers.len(), 1, "one fold, one marker: {second}");
     assert!(
         markers[0].contains("already shown"),

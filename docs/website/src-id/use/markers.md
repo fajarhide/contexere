@@ -4,14 +4,14 @@ Penanda adalah cara Contexere memberi tahu apa yang ia lakukan. Bentuknya hanya
 beberapa, dan mengenalinya adalah beda antara memercayai perkakas ini dan
 mencurigainya.
 
-Contoh di bawah mencetak `[OMNI`. Mulai 0.9.0 penanda yang sama diawali `[CONTEXERE`
-dan menyebut `contexere retrieve`, jadi apa pun yang mencocokkan penanda sebaiknya
+Rilis sebelum 0.9.0 mencetak penanda yang sama dengan `[OMNI` dan menyebut `omni retrieve`.
+Transkrip lama masih memuatnya, jadi apa pun yang mencocokkan penanda sebaiknya
 menerima kedua awalan.
 
 ## Bentuk-bentuknya
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
 ```
 
 Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
@@ -19,7 +19,7 @@ Ada isi yang dipotong dan diarsipkan. Enam belas karakter itu sebuah handle:
 dari shell mana pun di sesi mana pun.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 Ledger. Baris-baris ini sudah dikeluarkan sebelumnya **di sesi ini**, jadi
@@ -27,7 +27,7 @@ klaimnya adalah agent masih memegangnya dan handle-nya tidak berongkos kecuali i
 memang mau membaca ulang.
 
 ```
-[OMNI: 40 lines identical to an earlier run, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines identical to an earlier run, contexere retrieve 0000000000000000]
 ```
 
 Ledger lagi, untuk kasus ketika kesamaannya justru jawabannya. Anda menjalankan
@@ -37,7 +37,7 @@ sebuah nilai berubah dijawab oleh nilainya yang tidak berubah, dan pembacaan ula
 dijawab oleh berkasnya yang tidak berubah.
 
 ```
-[OMNI: 40 lines not shown here, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines not shown here, contexere retrieve 0000000000000000]
 ```
 
 Ledger juga, klaim berbeda. Baris-baris ini pergi ke **sesi lain** dari proyek
@@ -50,8 +50,8 @@ direktorinya, jadi apa pun yang berjalan di repositori ini ikut menyumbang. Liha
 [apa yang dibagi dua agent](../concepts/the-ledger.md#apa-yang-dibagi-dua-agent-dalam-satu-repo).
 
 ```
-[OMNI: identical to the 40 lines already shown, omni retrieve 0000000000000000]
-[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve 0000000000000000]
+[CONTEXERE: identical to the 40 lines already shown, contexere retrieve 0000000000000000]
+[CONTEXERE: identical to 40 lines from an earlier session, none shown here, contexere retrieve 0000000000000000]
 ```
 
 Dua klaim yang sama, untuk jawaban yang terulang **seluruhnya**. Ketika
@@ -61,7 +61,7 @@ baris di tempat run ulang akan mencetak ratusan baris yang sama. Apa pun yang
 kurang dari seluruh jawaban memakai kalimat di atasnya.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ⋮
 ⋮
 ```
@@ -74,7 +74,7 @@ boleh berada di antara dua bagian yang masih Anda butuhkan. Baris pengisi itu bu
 yang bisa diambil: `contexere retrieve` pada handle di atas mencetak baris aslinya.
 
 ```
-[OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown from charlie.tf, contexere retrieve 0000000000000000]
 ```
 
 Keempatnya bisa membawa `from <sumber>`, yang menyebut perintah yang keluarannya
@@ -97,7 +97,7 @@ memotong penghematan pada kasus yang umum demi menamai kasus yang jarang.
 Collapse. Deretan baris yang nyaris identik, diganti sebuah hitungan.
 
 ```
-[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[CONTEXERE Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 Catatan kaki, pada `contexere exec` dan mode pipa. Ukuran masukan, ukuran keluaran,
@@ -110,8 +110,8 @@ dan berapa lama pipeline-nya berjalan.
 Pipeline mengenali sebagian keluarannya, tapi tidak semuanya.
 
 ```
-[OMNI: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, omni retrieve 0000000000000000]
-[OMNI: output truncated, 50000 of 180000 bytes kept]
+[CONTEXERE: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, contexere retrieve 0000000000000000]
+[CONTEXERE: output truncated, 50000 of 180000 bytes kept]
 ```
 
 Potongan terakhir sebelum sebuah jawaban dikirim, di 50 KB. Bentuk barisnya mempertahankan
@@ -122,13 +122,13 @@ yang sangat panjang kehilangan ekornya. Handle ada kalau bagian yang dibuang dia
 tanpa handle pun penandanya tetap menyebut apa yang dibuang.
 
 ```
-[OMNI: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
+[CONTEXERE: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
 ```
 
 Perintah itu mencetak sumber kredensial, jadi kamu mendapat bentuknya dan tidak pernah isinya. Perintah seperti ini biasanya ditolak sebelum berjalan, disertai apa yang bisa dijalankan sebagai gantinya. Sumbernya `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, file bernama `*secret*`, `*credential*` atau `*creds*`, `crontab -l`, `systemctl cat`, `docker inspect` tanpa format, juga di dalam `ssh`, ditambah `CONTEXERE_SECRET_SOURCES`. Memuat nilai tanpa mencetaknya tetap jalan: `. file`, `jq --rawfile`, `wc -l`, `stat`, `shasum`, `cmp`.
 
 ```
-[OMNI: 2 sensitive value(s) redacted]
+[CONTEXERE: 2 sensitive value(s) redacted]
 ```
 
 Redaksi kredensial pada keluaran perintah. Baris yang memberi nilai ke nama yang sensitif
@@ -171,7 +171,7 @@ Redaksi melindungi apa yang diterima agent, bukan disk Anda. Penyimpanan trace l
 menyimpan keluaran mentahnya, termasuk kredensialnya, selama tujuh hari.
 
 ```
-[OMNI: Re-injecting critical files due to Warning pressure]
+[CONTEXERE: Re-injecting critical files due to Warning pressure]
 ```
 
 Saat konteks tertekan (`Warning` atau `Critical`), Contexere secara berkala menaruh kembali sampai

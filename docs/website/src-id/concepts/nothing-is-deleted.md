@@ -5,7 +5,7 @@ SHA-256 miliknya. Agent menerima penanda yang membawa handle 16 karakter, dan
 handle itu mengembalikan aslinya persis byte demi byte.
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
 ```
 
 ```sh

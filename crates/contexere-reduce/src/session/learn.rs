@@ -19,7 +19,11 @@ fn is_never_noise(line: &str) -> bool {
 
     let t = line.trim();
 
-    if t.starts_with("[stderr]") || t.starts_with("[stdout]") || t.starts_with("[OMNI") {
+    if t.starts_with("[stderr]")
+        || t.starts_with("[stdout]")
+        || t.starts_with("[CONTEXERE")
+        || t.starts_with("[OMNI")
+    {
         return true;
     }
 
