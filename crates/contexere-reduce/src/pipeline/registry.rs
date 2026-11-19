@@ -1219,6 +1219,22 @@ mod tests {
         );
     }
 
+    /// Both shapes #1111 reported on 0.8.5: a `cd` and an assignment before the `tar`,
+    /// and `;` and `&&` inside the remote command, still route to the `ssh` stage.
+    #[test]
+    fn routes_a_tar_shipped_over_ssh_to_the_remote_command() {
+        for cmd in [
+            "cd ~/proj && COPYFILE_DISABLE=1 tar --no-xattrs -c --exclude .git . | ssh host 'rm -rf /mnt/x \
+             && mkdir /mnt/x && tar -x -C /mnt/x && cd /mnt/x && bun test 2>&1 | grep -E \"pass|fail\" ; \
+             sh test/smoke.sh > smoke.log 2>&1; echo smoke_exit=$?; cat smoke.log'",
+            "tar -c a.test.tsx b.test.ts | ssh host 'cd /mnt/x && tar -x && bunx ultracite fix \
+             a.test.tsx >/dev/null 2>&1; bun run check:ci 2>&1 | tail -4'",
+        ] {
+            let owner = sole_output_command(cmd).unwrap_or("");
+            assert!(owner.starts_with("ssh host '"), "{cmd}\nrouted to: {owner}");
+        }
+    }
+
     /// A `grep` tail owns the payload (#326).
     #[test]
     fn hands_a_pipeline_to_the_grep_that_filtered_it() {
