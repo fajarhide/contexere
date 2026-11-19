@@ -1929,24 +1929,25 @@ mod tests {
         assert!(redact_sensitive_assignments("auth=302 front=200").is_some());
     }
 
-    /// A count under a URL key is delivered; a number under a holding key and a real
-    /// URL with a password are not (#1144).
+    /// A count under a URL key is delivered (#1144).
     #[test]
     fn delivers_a_count_under_a_url_key() {
-        for line in [
-            "DATABASE_URL=1",
-            "CLOUD_DATABASE_URL=0",
-            "REDIS_URL=12",
-            "MONGO_URL=\"3\"",
-        ] {
+        for line in ["DATABASE_URL=1", "CLOUD_DATABASE_URL=0", "REDIS_URL=12", "MONGO_URL=\"3\""] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
-        for line in [
-            "DB_PASSWORD=123456",
-            "DATABASE_URL=postgres://app:opaque9value@db/x",
-        ] {
-            assert!(redact_sensitive_assignments(line).is_some(), "{line}");
-        }
+    }
+
+    /// The #1144 rule is for URL keys only: a numeric password stays hidden.
+    #[test]
+    fn hides_a_number_under_a_holding_key() {
+        assert!(redact_sensitive_assignments("DB_PASSWORD=123456").is_some());
+    }
+
+    /// A URL key still hides a URL that carries a password (#1144).
+    #[test]
+    fn hides_a_url_with_a_password_under_a_url_key() {
+        let line = "DATABASE_URL=postgres://app:opaque9value@db/x";
+        assert!(redact_sensitive_assignments(line).is_some());
     }
 
     /// A count or a status under a name that describes a credential is delivered (#1022, #1009).
