@@ -698,6 +698,10 @@ mod tests {
         assert!(!out.contains("canary-col-1138"), "{out}");
         assert!(!out.contains(key), "{out}");
         assert_eq!(count, 2, "{out}");
+    }
+
+    #[test]
+    fn redact_output_leaves_plain_text_alone() {
         assert_eq!(redact_output("plain text\n"), None);
     }
 

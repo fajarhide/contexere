@@ -119,9 +119,11 @@ fn run_with_timeout(
 
     if !output.status.success() {
         let code = output.status.code().unwrap_or(-1);
-        let text = format!("{raw_text}{err_text}");
-        // Even on the A/B control: passthrough skips compression only (#1033).
-        let text = crate::guard::secret_source::redact_output(&text).map_or(text, |(t, _)| t);
+        // Even on the A/B control: passthrough skips compression only (#1033). Each
+        // stream on its own, or a CSV header on stderr is not the first line (#1140 review).
+        let redact =
+            |t: String| crate::guard::secret_source::redact_output(&t).map_or(t, |(r, _)| r);
+        let text = format!("{}{}", redact(raw_text), redact(err_text));
         return format!("{text}\n[exit {code}]");
     }
 
@@ -1739,6 +1741,19 @@ mod tests {
         let out = run_with_timeout(failing, store, None, timeout);
         assert!(!out.contains("canary9not9real"), "{out}");
         assert!(out.contains("[exit 1]"), "{out}");
+    }
+
+    #[cfg(unix)]
+    /// A failed command's CSV on stderr, behind a line of stdout, keeps its secret
+    /// column hidden (#1140 review).
+    #[test]
+    fn hides_a_secret_csv_column_on_the_stderr_of_a_failure() {
+        let dir = tempdir().expect("temp dir for the store");
+        let store =
+            Arc::new(Store::open_path(&dir.path().join("omni.db")).expect("open the test store"));
+        let cmd = "echo starting; printf 'user,password\\nalice,canary-col-1140\\n' >&2; exit 1";
+        let out = run_with_timeout(cmd, store, None, std::time::Duration::from_secs(5));
+        assert!(!out.contains("canary-col-1140"), "{out}");
     }
 
     #[cfg(unix)]
