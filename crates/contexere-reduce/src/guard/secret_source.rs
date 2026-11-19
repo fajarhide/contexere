@@ -584,11 +584,11 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
     let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
         Some("--") => true,
         // The shell must run itself: in `grep -c 'bash -e -c x'` it is pattern text (#1151).
-        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => stage
-            .iter()
-            .take(i - 1)
-            .enumerate()
-            .any(|(k, w)| SHELLS.contains(&program(trimmed(w))) && in_command_position(stage, k)),
+        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => {
+            stage.iter().take(i - 1).enumerate().any(|(k, w)| {
+                SHELLS.contains(&program(trimmed(w))) && in_command_position(stage, k)
+            })
+        }
         _ => false,
     };
     after_wrappers || handed_over
@@ -1156,7 +1156,9 @@ mod tests {
     /// A heredoc inside a double-quoted substitution is text (#1151).
     #[test]
     fn allows_a_heredoc_inside_a_quoted_substitution() {
-        assert!(!printed("printf '%s\\n' \"$(cat <<'EOF'\ncat .env\nEOF\n)\""));
+        assert!(!printed(
+            "printf '%s\\n' \"$(cat <<'EOF'\ncat .env\nEOF\n)\""
+        ));
     }
 
     /// A shell named in a comment does not make the heredoc a script (#1148 review).
