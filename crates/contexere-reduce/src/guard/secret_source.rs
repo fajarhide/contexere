@@ -32,6 +32,7 @@ const WRAPPERS: &[&str] = &[
     "contexere",
     "eval",
     "{",
+    "(",
     "!",
     "if",
     "elif",
@@ -40,11 +41,18 @@ const WRAPPERS: &[&str] = &[
     "do",
     "while",
     "until",
+    "timeout",
+    "xargs",
+    "watch",
+    "doas",
+    "stdbuf",
 ];
 /// The first positional of these is a pattern or a script, not a file.
 const TAKES_A_PATTERN: &[&str] = &["sed", "awk", "gawk", "grep", "egrep", "rg", "ag", "jq"];
 /// Programs that take a script on the command line, which may open a file.
 const INTERPRETERS: &[&str] = &["python", "python3", "perl", "ruby", "node", "php"];
+/// Programs whose `-c` takes a command line to run.
+const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "ksh", "su"];
 /// Files that hold credentials whatever directory they sit in.
 const SOURCE_NAMES: &[&str] = &[
     ".netrc",
@@ -140,9 +148,16 @@ pub fn user_sources() -> Vec<String> {
 }
 
 /// Commands whose whole output can hold credentials, wherever they run. Takes one
-/// pipeline stage, so a later `cut -f 1` is not read as docker's format flag.
-fn remote_source(words: &[&str]) -> Option<&'static str> {
-    let has = |a: &str, b: &str| words.windows(2).any(|w| program(w[0]) == a && w[1] == b);
+/// pipeline stage, so a later `cut -f 1` is not read as docker's format flag. Only in
+/// command position: `grep -c "docker inspect" README.md` names it as text (#1130).
+fn remote_source(stage: &[&str], words: &[&str]) -> Option<&'static str> {
+    let has = |a: &str, b: &str| {
+        words.windows(2).enumerate().any(|(i, w)| {
+            program(w[0].trim_start_matches("$(")) == a
+                && w[1] == b
+                && in_command_position(stage, i)
+        })
+    };
     if has("crontab", "-l") {
         return Some("crontab -l");
     }
@@ -153,9 +168,12 @@ fn remote_source(words: &[&str]) -> Option<&'static str> {
         .iter()
         .any(|w| *w == "-f" || w.starts_with("--format") || w.starts_with("-f="));
     let inspects = has("docker", "inspect")
-        || words
-            .windows(3)
-            .any(|w| program(w[0]) == "docker" && w[1] == "container" && w[2] == "inspect");
+        || words.windows(3).enumerate().any(|(i, w)| {
+            program(w[0].trim_start_matches("$(")) == "docker"
+                && w[1] == "container"
+                && w[2] == "inspect"
+                && in_command_position(stage, i)
+        });
     (inspects && !formatted).then_some("docker inspect")
 }
 
@@ -212,7 +230,8 @@ fn is_redirection(word: &str) -> bool {
 /// quoted pattern, `grep 'a | b' .env`, which splits the stage. A hook cannot stop a
 /// command built to evade it; this catches the ones written in good faith.
 pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
-    let command = spaced_input_redirects(&command.replace("\\\n", " "));
+    let command = without_data_heredocs(&command.replace("\\\n", " "));
+    let command = spaced_input_redirects(&command);
     let spaced = command.replace('|', " | ");
     let spaced = spaced.replace("&&", "\n").replace(';', "\n");
     let spaced = expand_source_variables(&spaced, extra);
@@ -229,7 +248,7 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
         }
         for stage in stages {
             let words: Vec<&str> = stage.iter().map(|w| trimmed(w)).collect();
-            if let Some(found) = remote_source(&words) {
+            if let Some(found) = remote_source(stage, &words) {
                 return Some(found.to_string());
             }
             if let Some(found) = other_reader(stage, &words, extra) {
@@ -250,6 +269,125 @@ pub fn printed_source(command: &str, extra: &[String]) -> Option<String> {
         }
     }
     None
+}
+
+/// The command with the body of each quoted heredoc (`<<'EOF'`, `<<"EOF"`, `<<\EOF`)
+/// dropped: the shell expands nothing in it, so it is text written somewhere, not a
+/// command (#1130). Kept when the line feeds a shell, an interpreter or `ssh`, which
+/// run the body, and for an unquoted delimiter, whose `$(...)` does run.
+fn without_data_heredocs(command: &str) -> String {
+    let mut out = Vec::new();
+    let mut pending: std::collections::VecDeque<(String, bool)> = Default::default();
+    for line in command.lines() {
+        if let Some((delim, drop)) = pending.front() {
+            let ends = line.trim_start_matches('\t').trim_end() == delim;
+            if !*drop || ends {
+                out.push(line);
+            }
+            if ends {
+                pending.pop_front();
+            }
+            continue;
+        }
+        out.push(line);
+        let (code, delims) = heredoc_opener(line);
+        // Any runner on the line, comment cut off: `cat <<'EOF' | bash` runs the body
+        // too, and `. /dev/stdin` sources it (#1148 review).
+        let runs_the_body = code.split_whitespace().any(|w| {
+            let p = program(trimmed(w));
+            SHELLS.contains(&p) || INTERPRETERS.contains(&p) || matches!(p, "ssh" | "." | "source")
+        });
+        for (delim, quoted) in delims {
+            pending.push_back((delim, quoted && !runs_the_body));
+        }
+    }
+    out.join("\n")
+}
+
+/// A line's code before any `#` comment, and each heredoc it opens with whether its
+/// delimiter is quoted. Quote-aware, so `echo "<<'EOF'"` opens nothing (#1148 review).
+fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
+    let chars: Vec<char> = line.chars().collect();
+    let word = |from: usize| -> (String, usize) {
+        let w: String = chars
+            .iter()
+            .skip(from)
+            .take_while(|c| !c.is_whitespace() && !";|&)<>".contains(**c))
+            .collect();
+        let end = from + w.chars().count();
+        (w, end)
+    };
+    let (mut code, mut delims, mut quote, mut i) = (String::new(), Vec::new(), None, 0);
+    while let Some(&c) = chars.get(i) {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            } else if c == '\\' && q == '"' {
+                code.push(c);
+                i += 1;
+                if let Some(&n) = chars.get(i) {
+                    code.push(n);
+                }
+                i += 1;
+                continue;
+            }
+            code.push(c);
+            i += 1;
+            continue;
+        }
+        match c {
+            '\\' => {
+                code.push(c);
+                code.extend(chars.get(i + 1));
+                i += 2;
+                continue;
+            }
+            '\'' | '"' => quote = Some(c),
+            '#' if i == 0 || chars.get(i - 1).is_some_and(|p| p.is_whitespace()) => break,
+            '<' if chars.get(i + 1) == Some(&'<') => {
+                if chars.get(i + 2) == Some(&'<') {
+                    code.push_str("<<<");
+                    i += 3;
+                    continue;
+                }
+                let mut j = i + 2;
+                if chars.get(j) == Some(&'-') {
+                    j += 1;
+                }
+                while chars.get(j).is_some_and(|c| c.is_whitespace()) {
+                    j += 1;
+                }
+                let (delim, quoted, end) = match chars.get(j) {
+                    Some(&q @ ('\'' | '"')) => {
+                        let body: String =
+                            chars.iter().skip(j + 1).take_while(|c| **c != q).collect();
+                        let end = j + 2 + body.chars().count();
+                        (body, true, end)
+                    }
+                    Some('\\') => {
+                        let (w, end) = word(j + 1);
+                        (w, true, end)
+                    }
+                    Some(_) => {
+                        let (w, end) = word(j);
+                        (w, false, end)
+                    }
+                    None => break,
+                };
+                if delim.is_empty() {
+                    break;
+                }
+                code.extend(chars.iter().take(end.min(chars.len())).skip(i));
+                delims.push((delim, quoted));
+                i = end;
+                continue;
+            }
+            _ => {}
+        }
+        code.push(c);
+        i += 1;
+    }
+    (code, delims)
 }
 
 /// `cat<file` as `cat <file`. A heredoc's `<<` and process substitution stay whole.
@@ -397,24 +535,67 @@ fn other_reader(raw: &[&str], words: &[&str], extra: &[String]) -> Option<String
 /// `ssh`, `sh -c` or `kubectl exec --`. `TOKEN=$(cat file) ./run` is not here: it loads
 /// the value without printing it.
 fn printer_position(stage: &[&str]) -> Option<usize> {
-    let first_is_ssh = stage.first().is_some_and(|w| program(w) == "ssh");
-    // `sudo -u app cat x` and `env -i cat x`: a wrapper's options, and a value after one.
-    let wrapped = |before: &[&str]| {
-        before.iter().enumerate().all(|(k, w)| {
-            WRAPPERS.contains(&program(w))
-                || (w.contains('=') && !w.starts_with('-'))
-                || w.starts_with('-')
-                || (k > 0 && before[k - 1].starts_with('-'))
-        })
-    };
     stage.iter().enumerate().find_map(|(i, word)| {
-        if !PRINTERS.contains(&program(trimmed(word))) {
-            return None;
-        }
-        let after_wrappers = wrapped(&stage[..i]);
-        let handed_over = i > 0 && matches!(stage[i - 1], "--" | "-c" | "-lc");
-        (after_wrappers || handed_over || first_is_ssh).then_some(i)
+        (PRINTERS.contains(&program(trimmed(word))) && in_command_position(stage, i)).then_some(i)
     })
+}
+
+/// Whether word `i` of a stage runs as a command: first after wrappers and
+/// assignments, anywhere under `ssh`, after `--`, or the script of a shell's `-c`.
+/// `grep -c` is not a shell, so its pattern is text (#1130).
+fn in_command_position(stage: &[&str], i: usize) -> bool {
+    if stage.first().is_some_and(|w| program(w) == "ssh") {
+        return true;
+    }
+    let before = &stage[..i];
+    // A `` ` `` or `$(` substitution runs wherever it sits, unless single quotes hold it,
+    // with the quote state tracked, not counted: `"it's" "$(x)"` runs (#1148 review).
+    let opens = stage[i].trim_start_matches('"');
+    let after_open = i
+        .checked_sub(1)
+        .is_some_and(|p| matches!(stage[p].trim_start_matches('"'), "$(" | "`"));
+    if (opens.starts_with('`') || opens.starts_with("$(") || after_open)
+        && !in_single_quotes(&before.join(" "))
+    {
+        return true;
+    }
+    // `sudo -u app cat x`, `env -i cat x`, `timeout 5 cat x`: a wrapper's options, and a
+    // value after one.
+    let after_wrappers = before.iter().enumerate().all(|(k, w)| {
+        WRAPPERS.contains(&program(w))
+            || (w.contains('=') && !w.starts_with('-'))
+            || w.starts_with('-')
+            || (k > 0 && before[k - 1].starts_with('-'))
+            || (k > 0 && program(before[k - 1]) == "timeout")
+    });
+    // `--`, or a `-c` option cluster (`-c`, `-lc`, `-ec`) of a shell earlier in the stage,
+    // so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
+    let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
+        Some("--") => true,
+        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => stage
+            .iter()
+            .take(i - 1)
+            .any(|w| SHELLS.contains(&program(trimmed(w)))),
+        _ => false,
+    };
+    after_wrappers || handed_over
+}
+
+/// Whether the end of `text` sits inside single quotes, as sh reads it.
+fn in_single_quotes(text: &str) -> bool {
+    let mut quote = None;
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (None, '\'' | '"') => quote = Some(c),
+            (Some(q), _) if c == q => quote = None,
+            (None | Some('"'), '\\') => {
+                chars.next();
+            }
+            _ => {}
+        }
+    }
+    quote == Some('\'')
 }
 
 /// The first argument of a printer that names a source. A quoted pattern is skipped
@@ -905,6 +1086,60 @@ mod tests {
     #[test]
     fn allows_a_formatted_docker_inspect() {
         assert!(!printed("docker inspect -f '{{.State.Status}}' app"));
+    }
+
+    /// A source named as text is not read: a pattern, a title, a quoted heredoc (#1130).
+    #[test]
+    fn allows_a_source_named_as_text() {
+        for c in [
+            "grep -c \"docker inspect\" README.md",
+            "grep -c \"cat .env\" notes.md",
+            "gh issue create --title 'agents run `docker inspect` on it' --body-file b.md",
+            "cat > notes.md <<'EOF'\nAgents run `docker inspect` on a broken container.\ndocker inspect web\nEOF",
+            "cat > probe.py <<'PYEOF'\ncmds = r'''python3 -c \"print(open('.env').read())\"\ncat ./.env'''\nPYEOF\nwc -l probe.py",
+        ] {
+            assert!(!printed(c), "{c}");
+        }
+    }
+
+    /// Still refused wherever the shell runs it (#1130).
+    #[test]
+    fn refuses_a_source_in_command_position() {
+        for c in [
+            "docker inspect web",
+            "sudo docker inspect web | jq .",
+            "timeout 5 docker inspect web",
+            "echo `docker inspect web`",
+            "echo \"$(docker inspect web)\"",
+            "bash -c \"docker inspect web\"",
+            "bash <<'EOF'\ncat .env\nEOF",
+            "cat > x.md <<'EOF'\ntext\nEOF\ncat .env",
+            "cat <<EOF\nx\nEOF\ndocker inspect web",
+        ] {
+            assert!(printed(c), "{c}");
+        }
+    }
+
+    /// The bypasses review of #1148 found in the first version of command position.
+    #[test]
+    fn refuses_the_shapes_review_found() {
+        for c in [
+            "echo \"<<'EOF'\"\ncat ~/.netrc\nEOF",
+            "bash -e -c \"cat ~/.netrc\"",
+            ". /dev/stdin <<'EOF'\ncat ~/.netrc\nEOF",
+            "echo \"it's\" \"$(docker inspect web)\"",
+            "( docker inspect web )",
+        ] {
+            assert!(printed(c), "{c}");
+        }
+    }
+
+    /// A shell named in a comment does not make the heredoc a script (#1148 review).
+    #[test]
+    fn allows_a_heredoc_whose_comment_names_a_shell() {
+        assert!(!printed(
+            "cat > notes.md <<'EOF' # bash examples\ncat .env\nEOF"
+        ));
     }
 
     #[test]
