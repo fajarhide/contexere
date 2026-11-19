@@ -113,7 +113,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     // Skips compression only: a model can set the variable through `exec`, so a
     // credential is still hidden (#1033, reversing #1028's carve-out).
     if crate::guard::env::is_passthrough() {
-        match crate::distillers::system_ops::redact_in_place(&input_text) {
+        match crate::guard::secret_source::redact_output(&input_text) {
             Some((body, count)) => {
                 output.write_all(body.as_bytes())?;
                 writeln!(
@@ -131,7 +131,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     if crate::pipeline::format::refuses_lossy_stages(&input_text)
         && let Some(kind) = crate::pipeline::format::sniff(&input_text)
     {
-        match crate::distillers::system_ops::redact_in_place(&input_text) {
+        match crate::guard::secret_source::redact_output(&input_text) {
             Some((body, count)) => {
                 output.write_all(body.as_bytes())?;
                 writeln!(
@@ -158,7 +158,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
 
     // Text too: every fallback below hands back `input_text`, so a redaction the
     // distiller made was undone by the guardrail and the secret delivered (#1032).
-    let input_text = match crate::distillers::system_ops::redact_in_place(&input_text) {
+    let input_text = match crate::guard::secret_source::redact_output(&input_text) {
         Some((body, count)) => {
             writeln!(
                 error,
@@ -868,6 +868,34 @@ mod tests {
             delivered.contains("omni retrieve "),
             "the caller cannot call what it was not told: {delivered}"
         );
+    }
+
+    /// A CSV column named `password` was masked by the post-hook only; pipe mode, and
+    /// `exec` through it, delivered every value (#1138).
+    #[test]
+    fn hides_a_secret_csv_column() {
+        let rows: String = (0..30)
+            .map(|i| format!("user{i},canary-col-1138-{i}\n"))
+            .collect();
+        for input in [
+            "user,password\nalice,canary-col-1138\n".to_string(),
+            format!("user,password\n{rows}"),
+        ] {
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            run_inner(
+                input.as_bytes(),
+                &mut out,
+                &mut err,
+                None,
+                None,
+                Some("cat"),
+            )
+            .expect("must succeed");
+            let delivered = String::from_utf8_lossy(&out);
+            assert!(!delivered.contains("canary-col-1138"), "{delivered}");
+            assert!(delivered.contains("user,password"), "{delivered}");
+        }
     }
 
     #[test]

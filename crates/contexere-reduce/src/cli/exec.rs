@@ -210,7 +210,7 @@ fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
 fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
     let mut count = 0;
     for chunk in bytes.utf8_chunks() {
-        match crate::distillers::system_ops::redact_in_place(chunk.valid()) {
+        match crate::guard::secret_source::redact_output(chunk.valid()) {
             Some((text, n)) => {
                 out.write_all(text.as_bytes())?;
                 count += n;
@@ -257,5 +257,14 @@ mod tests {
         let mut out = Vec::new();
         write_redacted(&mut out, bytes).expect("write to a Vec");
         assert!(!String::from_utf8_lossy(&out).contains("canary-cut-1037"));
+    }
+
+    /// A failed command's CSV keeps its secret column hidden too (#1138).
+    #[test]
+    fn hides_a_secret_csv_column_of_a_failed_command() {
+        let mut out = Vec::new();
+        write_redacted(&mut out, b"user,password\nalice,canary-col-1138\n").expect("write");
+        let delivered = String::from_utf8_lossy(&out);
+        assert!(!delivered.contains("canary-col-1138"), "{delivered}");
     }
 }
