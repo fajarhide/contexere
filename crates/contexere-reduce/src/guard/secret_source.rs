@@ -533,6 +533,14 @@ fn reads_as_a_column(cell: &str) -> bool {
 pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     let mut lines = content.lines();
     let header = lines.next()?;
+    // A Markdown heading, bullet or quote is prose that happens to hold a comma (#1133).
+    let head = header.trim_start();
+    if head.starts_with("# ")
+        || head.starts_with("##")
+        || ["- ", "* ", "> "].iter().any(|m| head.starts_with(m))
+    {
+        return None;
+    }
     let delimiter = ['\t', ','].into_iter().find(|d| header.contains(*d))?;
     let cells: Vec<&str> = header.split(delimiter).collect();
     let hidden: Vec<usize> = cells
@@ -641,6 +649,27 @@ mod tests {
         ] {
             assert!(mask_named_columns(output).is_none(), "{output}");
         }
+    }
+
+    /// A Markdown heading with a comma and "API key" hid the paragraph under it (#1133).
+    #[test]
+    fn a_markdown_heading_or_bullet_is_not_a_header() {
+        let row = "- **Decision:** a request made with an API key is refused, and never \
+                   sees it, whoever made it. One exception (`GET /v1/p/:id`), which a \
+                   member may do (#89).\n";
+        for head in [
+            "#### 14. An API key is never an admin, and the key belongs to a service account\n",
+            "# api_key, password\n",
+            "- api key, then the password\n",
+            "> the secret, and the token\n",
+        ] {
+            let output = format!("{head}{row}");
+            assert!(mask_named_columns(&output).is_none(), "{output}");
+        }
+        // No space after `#` can still be a commented CSV header.
+        let csv = "#user,password\nalice,opaque-private-value\n";
+        let (out, _) = mask_named_columns(csv).expect("hidden");
+        assert!(!out.contains("opaque"), "{out}");
     }
 
     /// A JS array item naming a secret, then a bracketed row: every later line used
