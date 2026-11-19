@@ -297,7 +297,10 @@ mod tests {
         for (path, content) in cases {
             let hint = content_hint_for_extension(path.rsplit('.').next().unwrap_or(""));
             let tokens = crate::util::token_estimate::estimate_tokens(content.len(), hint);
-            assert!(tokens >= MIN_DISTILL_TOKENS, "{path} is under the gate, so proves nothing");
+            assert!(
+                tokens >= MIN_DISTILL_TOKENS,
+                "{path} is under the gate, so proves nothing"
+            );
             assert_eq!(distill_readfile(&content, path), None, "{path} was cut");
         }
     }

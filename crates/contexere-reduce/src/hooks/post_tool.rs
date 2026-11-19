@@ -3515,7 +3515,10 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             }
         });
         let out = process_payload(&input.to_string(), None, None);
-        assert_eq!(out, None, "a full Read of source code must reach the agent whole");
+        assert_eq!(
+            out, None,
+            "a full Read of source code must reach the agent whole"
+        );
     }
 
     /// The ledger reaches `Read` too (#483).
