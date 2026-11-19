@@ -150,7 +150,8 @@ fn run_with_timeout(
     if err_text.is_empty() {
         out
     } else {
-        let err_text = crate::guard::secret_source::redact_output(&err_text).map_or(err_text, |(t, _)| t);
+        let err_text =
+            crate::guard::secret_source::redact_output(&err_text).map_or(err_text, |(t, _)| t);
         format!("{out}{err_text}")
     }
 }

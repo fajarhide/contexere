@@ -883,8 +883,15 @@ mod tests {
         ] {
             let mut out = Vec::new();
             let mut err = Vec::new();
-            run_inner(input.as_bytes(), &mut out, &mut err, None, None, Some("cat"))
-                .expect("must succeed");
+            run_inner(
+                input.as_bytes(),
+                &mut out,
+                &mut err,
+                None,
+                None,
+                Some("cat"),
+            )
+            .expect("must succeed");
             let delivered = String::from_utf8_lossy(&out);
             assert!(!delivered.contains("canary-col-1138"), "{delivered}");
             assert!(delivered.contains("user,password"), "{delivered}");
