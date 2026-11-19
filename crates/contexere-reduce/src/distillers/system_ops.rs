@@ -1932,7 +1932,12 @@ mod tests {
     /// A count under a URL key is delivered (#1144).
     #[test]
     fn delivers_a_count_under_a_url_key() {
-        for line in ["DATABASE_URL=1", "CLOUD_DATABASE_URL=0", "REDIS_URL=12", "MONGO_URL=\"3\""] {
+        for line in [
+            "DATABASE_URL=1",
+            "CLOUD_DATABASE_URL=0",
+            "REDIS_URL=12",
+            "MONGO_URL=\"3\"",
+        ] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
     }
