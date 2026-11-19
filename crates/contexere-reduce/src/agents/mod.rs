@@ -343,6 +343,18 @@ pub(crate) fn report_server_name(name: Option<&str>) {
     }
 }
 
+/// A host config or plugin written before 0.9.0 sets `OMNI_AGENT_ID`, which is no
+/// longer read, so the host is no longer told apart from the default (#1067).
+pub(crate) fn report_old_agent_id(config: &str) {
+    if config.contains("OMNI_AGENT_ID") {
+        crate::agent_report!(
+            "   {:<15} {}",
+            "Agent ID:".bright_black(),
+            "sets OMNI_AGENT_ID, ignored since 0.9.0; `contexere init` switches it".yellow()
+        );
+    }
+}
+
 /// Drop our MCP server from a `mcpServers` map under either name.
 pub(crate) fn drop_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
     servers.remove(SERVER_KEY).is_some() | drop_omni_server(servers)

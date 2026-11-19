@@ -81,7 +81,7 @@ pub struct DoctorCheck {
 /// Changelog entries this build carries that no release contains (#137),
 /// counted by `build.rs`. Unparseable means nothing to report.
 fn unreleased_entries() -> usize {
-    option_env!("OMNI_UNRELEASED_ENTRIES")
+    option_env!("CONTEXERE_UNRELEASED_ENTRIES")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0)
 }
@@ -91,11 +91,11 @@ fn unreleased_entries() -> usize {
 pub(crate) fn mcp_tool_line(agent_id: &str, keep_everything: bool) -> String {
     let total = crate::mcp::policy::ALL_TOOL_COUNT;
     let (active, note) = if keep_everything {
-        (total, "OMNI_MCP_TOOLS=all is set")
+        (total, "CONTEXERE_MCP_TOOLS=all is set")
     } else {
         (
             crate::mcp::policy::active_tools(agent_id).len(),
-            "OMNI_MCP_TOOLS=all restores the rest",
+            "CONTEXERE_MCP_TOOLS=all restores the rest",
         )
     };
     format!("  MCP tools:      {active} of {total} advertised to {agent_id} ({note})")
@@ -317,15 +317,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     println!("  {:<15} {}", "Binary:".bright_black(), version_info);
 
-    // Settings still on the old name keep working; listed so the move has a checklist (#876).
+    // Settings on the old name are ignored since 0.9.0; listed so none is lost quietly (#1067).
     let old = crate::legacy::settings_on_old_name(std::env::vars_os());
     if !old.is_empty() {
         println!(
             "  {:<15} {} {}",
             "Settings:".bright_black(),
             old.join(", "),
-            "use the old name, which stops working in 0.9.0; rename them to CONTEXERE_*"
-                .bright_black()
+            "are ignored since 0.9.0; rename them to CONTEXERE_*".bright_black()
         );
     }
 
@@ -737,7 +736,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      2 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all restores the rest)"
+             (CONTEXERE_MCP_TOOLS=all restores the rest)"
         );
     }
 
@@ -748,7 +747,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      25 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all is set)"
+             (CONTEXERE_MCP_TOOLS=all is set)"
         );
     }
 }

@@ -9,7 +9,7 @@ pub enum AgentFormat {
     VSCodeContinue, // role:tool + content + name
     CodexCLI,       // action:run + command + result
     CursorWindsurf, // seperti ClaudeCode tapi content bisa array
-    Aider,          // piped stdin, OMNI_CMD env
+    Aider,          // piped stdin, CONTEXERE_CMD env
     GenericMCP,     // JSON-RPC 2.0 tool result
     Pi,             // camelCase toolName + toolResponse from Pi extension
     /// `agent: "<host>"` plus `exit_code`, sent by a plugin this repo writes
@@ -595,8 +595,8 @@ fn normalize_plugin(input: &str, host: String, agent_id: String) -> Option<Norma
 }
 
 fn normalize_aider(input: &str, agent_id: String) -> Option<NormalizedInput> {
-    // Aider pipes stdin: the content is the raw string, the command from `OMNI_CMD`.
-    let command = std::env::var("OMNI_CMD").unwrap_or_default();
+    // Aider pipes stdin: the content is the raw string, the command from `CONTEXERE_CMD`.
+    let command = std::env::var("CONTEXERE_CMD").unwrap_or_default();
     if input.trim().is_empty() {
         return None;
     }
@@ -640,8 +640,8 @@ fn normalize_generic_mcp(input: &str, agent_id: String) -> Option<NormalizedInpu
         return None;
     }
 
-    // No command in a JSON-RPC result, so `OMNI_CMD`.
-    let command = std::env::var("OMNI_CMD").unwrap_or_default();
+    // No command in a JSON-RPC result, so `CONTEXERE_CMD`.
+    let command = std::env::var("CONTEXERE_CMD").unwrap_or_default();
 
     Some(NormalizedInput {
         agent: AgentFormat::GenericMCP,

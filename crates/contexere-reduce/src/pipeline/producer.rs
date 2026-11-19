@@ -498,7 +498,7 @@ mod label_fragments {
         assert_eq!(producer_label("FOO=1 cargo build --release"), "cargo");
         assert_eq!(producer_label("A=1 B=2 make ci"), "make");
         assert_eq!(
-            producer_label("OMNI_DB_PATH=/tmp/d.db kubectl get pods"),
+            producer_label("CONTEXERE_DB_PATH=/tmp/d.db kubectl get pods"),
             "kubectl"
         );
         assert_eq!(producer_label("/bin/ls -l /tmp"), "ls");

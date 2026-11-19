@@ -1,7 +1,7 @@
-//! #876: `CONTEXERE_*` settings are read first and `OMNI_*` ones still work.
+//! #1067: only `CONTEXERE_*` settings are read; an `OMNI_*` one does nothing.
 //!
-//! Driven through the real binary: the folding happens at the top of `main`,
-//! which no in-process test reaches.
+//! Driven through the real binary, so nothing in-process can stand in for how
+//! `main` reads its environment.
 
 use std::path::Path;
 use std::process::Command;
@@ -18,7 +18,7 @@ fn run_stats(home: &Path, vars: &[(&str, &Path)]) {
 }
 
 #[test]
-fn the_new_name_wins_and_the_old_name_still_works() {
+fn only_the_new_name_is_read() {
     let dir = tempfile::tempdir().expect("tempdir");
     let (new, old) = (dir.path().join("new.db"), dir.path().join("old.db"));
 
@@ -27,9 +27,8 @@ fn the_new_name_wins_and_the_old_name_still_works() {
         &[("CONTEXERE_DB_PATH", &new), ("OMNI_DB_PATH", &old)],
     );
     assert!(new.exists(), "CONTEXERE_DB_PATH was ignored");
-    assert!(!old.exists(), "OMNI_DB_PATH beat CONTEXERE_DB_PATH");
+    assert!(!old.exists(), "OMNI_DB_PATH was read");
 
-    std::fs::remove_file(&new).expect("remove");
     run_stats(dir.path(), &[("OMNI_DB_PATH", &old)]);
-    assert!(old.exists(), "OMNI_DB_PATH stopped working");
+    assert!(!old.exists(), "OMNI_DB_PATH is still read on its own");
 }

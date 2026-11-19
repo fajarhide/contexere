@@ -92,6 +92,7 @@ impl AgentIntegration for CursorIntegration {
                 "[OK]".green().bold()
             );
             super::report_server_name(super::registered_server(&content, "mcpServers"));
+            super::report_old_agent_id(&content);
         } else {
             all_ok = false;
             if fix_mode {
@@ -347,7 +348,7 @@ fn install_mcp_server(val: &mut Value, exe_path: &str) {
         super::SERVER_KEY.to_string(),
         json!({
             "type": "stdio", "command": exe_path, "args": ["--mcp"],
-            "env": { "OMNI_AGENT_ID": "cursor" }
+            "env": { "CONTEXERE_AGENT_ID": "cursor" }
         }),
     );
 }

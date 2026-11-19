@@ -140,9 +140,9 @@ pub fn is_source(path: &str, extra: &[String]) -> bool {
         && !NOT_A_CREDENTIAL_FILE.contains(&extension)
 }
 
-/// The user's own sources, from `OMNI_SECRET_SOURCES`, colon separated.
+/// The user's own sources, from `CONTEXERE_SECRET_SOURCES`, colon separated.
 pub fn user_sources() -> Vec<String> {
-    std::env::var("OMNI_SECRET_SOURCES")
+    std::env::var("CONTEXERE_SECRET_SOURCES")
         .map(|v| v.split(':').map(str::to_string).collect())
         .unwrap_or_default()
 }
@@ -1099,7 +1099,7 @@ mod tests {
 
     #[test]
     fn refuses_past_a_wrapper_or_a_passthrough_prefix() {
-        assert!(printed("OMNI_PASSTHROUGH=1 cat .env"));
+        assert!(printed("CONTEXERE_PASSTHROUGH=1 cat .env"));
         assert!(printed("omni exec cat .env"));
     }
 

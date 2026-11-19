@@ -44,7 +44,7 @@ impl AgentIntegration for GeminiIntegration {
                         "args": ["--mcp"],
                         "trust": true,
                         "env": {
-                            "OMNI_AGENT_ID": "gemini"
+                            "CONTEXERE_AGENT_ID": "gemini"
                         }
                     }),
                 );
@@ -131,6 +131,7 @@ impl AgentIntegration for GeminiIntegration {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
+            super::report_old_agent_id(&content);
         } else {
             all_ok = false;
             if fix_mode {

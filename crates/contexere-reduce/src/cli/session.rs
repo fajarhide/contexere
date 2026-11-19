@@ -714,7 +714,7 @@ fn run_json(state: &crate::pipeline::SessionState) -> anyhow::Result<()> {
         })
         .collect();
 
-    let agent_id = std::env::var("OMNI_AGENT_ID")
+    let agent_id = std::env::var("CONTEXERE_AGENT_ID")
         .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
     let project_path = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())

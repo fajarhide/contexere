@@ -35,7 +35,8 @@ install_side() { # install_side <old|new>
 as() { # as <old|new> <home> <cmd...>
   install_side "$1"
   local home=$2; shift 2
-  env -i HOME="$home" PATH="$ROOT/bin:/usr/bin:/bin" OMNI_QUIET=1 TERM=dumb "$@"
+  # The old release reads OMNI_QUIET, a 0.9.0 build only CONTEXERE_QUIET (#1067).
+  env -i HOME="$home" PATH="$ROOT/bin:/usr/bin:/bin" OMNI_QUIET=1 CONTEXERE_QUIET=1 TERM=dumb "$@"
 }
 
 # The post-hook command exactly as `omni init` wrote it into Claude Code's settings.

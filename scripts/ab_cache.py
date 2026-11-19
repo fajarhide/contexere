@@ -2,7 +2,7 @@
 """Paired A/B: does OMNI cost prompt-cache hits, and what does a session bill with it on?
 
 Each pair is the same prompt run twice through `claude -p`, seconds apart, once
-with the hook live and once with `OMNI_PASSTHROUGH=1`. The order alternates so a
+with the hook live and once with `CONTEXERE_PASSTHROUGH=1`. The order alternates so a
 warm cache cannot land on one arm every time. Every arm is recorded by the
 session id the host returns, so the report reads the host's own transcript and
 never OMNI's tables.
@@ -46,13 +46,13 @@ TOKENS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_token
 
 def run_arm(pair, arm, model, timeout, fresh):
     # Set for the control and removed for the other arm, whatever the caller's
-    # shell holds: an inherited OMNI_PASSTHROUGH would switch both arms off and
+    # shell holds: an inherited CONTEXERE_PASSTHROUGH would switch both arms off and
     # the run would still spend its tokens.
-    env = {k: v for k, v in os.environ.items() if k.upper() != "OMNI_PASSTHROUGH"}
+    env = {k: v for k, v in os.environ.items() if k.upper() != "CONTEXERE_PASSTHROUGH"}
     if arm == "off":
-        env["OMNI_PASSTHROUGH"] = "1"
+        env["CONTEXERE_PASSTHROUGH"] = "1"
     if fresh:
-        env["OMNI_FRESH"] = "1"
+        env["CONTEXERE_FRESH"] = "1"
     cmd = ["claude", "-p", "--output-format", "json"] + (["--model", model] if model else []) + [PROMPT]
     started = time.time()
     try:
@@ -177,7 +177,7 @@ def main():
     runner.add_argument("--out", default="arms.json")
     runner.add_argument("--timeout", type=int, default=600)
     runner.add_argument("--fresh", action="store_true",
-                        help="set OMNI_FRESH=1 on both arms, so no arm resumes state an earlier one left")
+                        help="set CONTEXERE_FRESH=1 on both arms, so no arm resumes state an earlier one left")
     runner.set_defaults(func=run)
     reporter = sub.add_parser("report", help="read each arm's transcript and print the paired table")
     reporter.add_argument("arms")

@@ -73,14 +73,12 @@ fn judge(code: Option<i32>, stdout: &str) -> Outcome {
     }
 }
 
-/// Points a child at a throwaway store. The child folds CONTEXERE_* over OMNI_*,
+/// Points a child at a throwaway store. The child folds CONTEXERE_* over CONTEXERE_*,
 /// so an inherited twin would send the canary into the user's real store.
 #[cfg(unix)]
 fn isolate(cmd: &mut std::process::Command, db: &std::path::Path, transcripts: &std::path::Path) {
-    cmd.env("OMNI_DB_PATH", db)
-        .env("OMNI_TRANSCRIPT_DIR", transcripts)
-        .env_remove("CONTEXERE_DB_PATH")
-        .env_remove("CONTEXERE_TRANSCRIPT_DIR");
+    cmd.env("CONTEXERE_DB_PATH", db)
+        .env("CONTEXERE_TRANSCRIPT_DIR", transcripts);
 }
 
 #[cfg(unix)]
@@ -277,18 +275,17 @@ mod isolate_tests {
     use std::path::Path;
     use std::process::Command;
 
-    /// #876: the probe child must not inherit the new-name twin of what it sets.
+    /// The probe child writes to its own database, never the user's (#1067: a rename
+    /// once set the path and then removed it).
     #[test]
-    fn the_probe_clears_the_contexere_twins() {
+    fn the_probe_gets_its_own_database() {
         let mut cmd = Command::new("sh");
         isolate(&mut cmd, Path::new("/t/db"), Path::new("/t/tr"));
         let envs: Vec<_> = cmd.get_envs().collect();
-        for twin in ["CONTEXERE_DB_PATH", "CONTEXERE_TRANSCRIPT_DIR"] {
-            assert!(
-                envs.contains(&(OsStr::new(twin), None)),
-                "{twin} not cleared"
-            );
-        }
-        assert!(envs.contains(&(OsStr::new("OMNI_DB_PATH"), Some(OsStr::new("/t/db")))));
+        assert!(envs.contains(&(OsStr::new("CONTEXERE_DB_PATH"), Some(OsStr::new("/t/db")))));
+        assert!(envs.contains(&(
+            OsStr::new("CONTEXERE_TRANSCRIPT_DIR"),
+            Some(OsStr::new("/t/tr"))
+        )));
     }
 }

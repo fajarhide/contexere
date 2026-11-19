@@ -16,8 +16,8 @@ fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
         let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
             .args(["exec", "--session", "s-1086", "cat"])
             .arg(file)
-            .env("OMNI_DB_PATH", db)
-            .env("OMNI_QUIET", "1")
+            .env("CONTEXERE_DB_PATH", db)
+            .env("CONTEXERE_QUIET", "1")
             .output()
             .expect("spawn contexere exec");
         String::from_utf8_lossy(&out.stdout).into_owned()

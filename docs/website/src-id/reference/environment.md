@@ -122,19 +122,19 @@ trace atau di konfigurasi yang dihasilkan bukan lagi misteri.
 |---|---|
 | `CONTEXERE_BIN` | Ditulis ke dalam plugin Hermes yang dihasilkan, menyebut jalur binary-nya |
 | `CONTEXERE_CMD` | Perintah yang sedang diproses, jatuh ke `CMD` kalau kosong |
-| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Dicap saat build, dilaporkan `contexere version` |
-| `OMNI_UNRELEASED_ENTRIES` | Dihitung `build.rs` dari `CHANGELOG.md`, jadi binary yang dibangun dari pohon tanpa tag mengatakannya di `contexere doctor` |
+| `CONTEXERE_GIT_HASH`, `CONTEXERE_BUILD_DATE` | Dicap saat build, dilaporkan `contexere version` |
+| `CONTEXERE_UNRELEASED_ENTRIES` | Dihitung `build.rs` dari `CHANGELOG.md`, jadi binary yang dibangun dari pohon tanpa tag mengatakannya di `contexere doctor` |
 | `CONTEXERE_PI_PACKAGE_SOURCE` | Sumber paket untuk integrasi agent Pi |
 
 ## Benchmark
 
 | variabel | efeknya |
 |---|---|
-| `OMNI_BENCH_DB` | Basis data yang diputar ulang |
-| `OMNI_BENCH_ALL=1` | Putar ulang populasi yang lebih luas termasuk keluaran terminal |
-| `OMNI_BENCH_RTK` | Jalur ke binary `rtk`, menambahkan lengan adu langsung |
+| `CONTEXERE_BENCH_DB` | Basis data yang diputar ulang |
+| `CONTEXERE_BENCH_ALL=1` | Putar ulang populasi yang lebih luas termasuk keluaran terminal |
+| `CONTEXERE_BENCH_RTK` | Jalur ke binary `rtk`, menambahkan lengan adu langsung |
 
-`OMNI_BENCH_ALL` ada supaya harness-nya bisa menyebut populasi mana yang ia ukur,
+`CONTEXERE_BENCH_ALL` ada supaya harness-nya bisa menyebut populasi mana yang ia ukur,
 bukan membiarkannya disimpulkan sendiri. Menyertakan keluaran terminal mencetak
 79,1% sementara populasi yang menghadap model mencetak 43,3%, atas data yang
 sama.

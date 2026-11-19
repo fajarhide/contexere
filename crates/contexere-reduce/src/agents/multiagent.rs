@@ -17,7 +17,7 @@ pub fn project_hash(path: &str) -> String {
 /// agent's work splits across two rows of `omni stats` (#160).
 pub fn detect_agent_id() -> String {
     // Explicit override, set by wrapper scripts.
-    if let Ok(id) = std::env::var("OMNI_AGENT_ID") {
+    if let Ok(id) = std::env::var("CONTEXERE_AGENT_ID") {
         return id;
     }
     // Claude Code first: in VS Code's terminal it sets `VSCODE_PID` too, and
@@ -334,7 +334,7 @@ mod tests {
     fn test_detect_agent_id_default_and_override() {
         // One test, because these env vars are process-global and parallel tests race.
         unsafe {
-            std::env::remove_var("OMNI_AGENT_ID");
+            std::env::remove_var("CONTEXERE_AGENT_ID");
             std::env::remove_var("CURSOR_TRACE_ID");
             std::env::remove_var("CURSOR_SESSION_ID");
             std::env::remove_var("CLINE_TASK_ID");
@@ -355,12 +355,12 @@ mod tests {
         assert_eq!(id, "terminal");
 
         unsafe {
-            std::env::set_var("OMNI_AGENT_ID", "windsurf");
+            std::env::set_var("CONTEXERE_AGENT_ID", "windsurf");
         }
         let id = detect_agent_id();
         assert_eq!(id, "windsurf");
         unsafe {
-            std::env::remove_var("OMNI_AGENT_ID");
+            std::env::remove_var("CONTEXERE_AGENT_ID");
         }
 
         // Claude Code must win over the VS Code branch (#160).

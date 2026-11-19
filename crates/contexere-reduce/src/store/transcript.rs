@@ -324,7 +324,7 @@ fn transcripts_dir() -> PathBuf {
         return mock;
     }
 
-    if let Ok(custom) = std::env::var("OMNI_TRANSCRIPT_DIR") {
+    if let Ok(custom) = std::env::var("CONTEXERE_TRANSCRIPT_DIR") {
         return PathBuf::from(custom);
     }
     crate::paths::data_home().join("transcripts")
