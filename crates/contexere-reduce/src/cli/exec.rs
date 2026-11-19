@@ -208,6 +208,17 @@ fn collect_stderr(chunks: &std::sync::mpsc::Receiver<Chunk>) -> Vec<u8> {
 /// run of valid UTF-8, so one bad byte (a cut at the cap, a binary blob) leaves the
 /// text around it covered (#1037 review); the invalid bytes go out as they are.
 fn write_redacted(out: &mut impl Write, bytes: &[u8]) -> std::io::Result<()> {
+    // A CSV header in one run masks the rows after a bad byte only when the buffer is
+    // read as one text; the bad bytes then go out as U+FFFD (#1140 review).
+    let lossy = String::from_utf8_lossy(bytes);
+    if matches!(lossy, std::borrow::Cow::Owned(_))
+        && crate::guard::secret_source::mask_named_columns(&lossy).is_some()
+        && let Some((text, count)) = crate::guard::secret_source::redact_output(&lossy)
+    {
+        out.write_all(text.as_bytes())?;
+        eprintln!("[OMNI: {count} sensitive value(s) redacted in place]");
+        return Ok(());
+    }
     let mut count = 0;
     for chunk in bytes.utf8_chunks() {
         match crate::guard::secret_source::redact_output(chunk.valid()) {
@@ -266,5 +277,14 @@ mod tests {
         write_redacted(&mut out, b"user,password\nalice,canary-col-1138\n").expect("write");
         let delivered = String::from_utf8_lossy(&out);
         assert!(!delivered.contains("canary-col-1138"), "{delivered}");
+    }
+
+    /// A bad byte inside a row no longer cuts it off from the header (#1140 review).
+    #[test]
+    fn hides_a_secret_csv_column_past_a_bad_byte() {
+        let mut out = Vec::new();
+        write_redacted(&mut out, b"user,password\nalic\xffe,canary-col-1140\n").expect("write");
+        let delivered = String::from_utf8_lossy(&out);
+        assert!(!delivered.contains("canary-col-1140"), "{delivered}");
     }
 }
