@@ -594,14 +594,15 @@ fn after_wrappers(before: &[&str]) -> bool {
     })
 }
 
-/// Whether a shell runs among the first `end` words: outside quotes, and where a command
-/// starts, after wrappers, a container's `exec`, `find -exec`, `--`, or a `$(` or backtick.
-/// `grep -c 'bash -e -c x'` and `printf '%s' bash -c x` name a shell as text (#1151, #1152
-/// review). One pass over the quote state, never recursive: a recursive version took 466 s
-/// on 26 repeated names.
+/// Whether a shell word sits outside quotes among the first `end` words, wherever it is:
+/// `grep -c 'bash -e -c x'` names it as text (#1151), `docker run app sh -c` and
+/// `busybox sh -c` run it. Fails closed on purpose: guessing where a command starts missed
+/// launchers and leaked (#1155), so a bare shell name a command only prints
+/// (`printf '%s' bash -c x`) is refused too. One pass over the quote state, never
+/// recursive: a recursive version took 466 s on 26 repeated names.
 fn runs_a_shell_before(stage: &[&str], end: usize) -> bool {
     let mut quotes = Quotes::default();
-    stage.iter().take(end).enumerate().any(|(k, w)| {
+    stage.iter().take(end).any(|w| {
         let lead: String = w.chars().take_while(|c| "\"'$(`".contains(*c)).collect();
         let (mut at_name, mut after) = (quotes.clone(), quotes.clone());
         at_name.read(&lead);
@@ -610,17 +611,9 @@ fn runs_a_shell_before(stage: &[&str], end: usize) -> bool {
         let own_quote = quotes.open.is_none() && after.open.is_none();
         let quoted = at_name.open.is_some() && !own_quote;
         let name = program(trimmed(w).trim_start_matches("$("));
-        let opener = lead.contains("$(") || lead.contains('`');
-        let starts = after_wrappers(&stage[..k])
-            || opener
-            || stage[..k]
-                .iter()
-                .any(|p| matches!(*p, "exec" | "-exec" | "--"))
-            || k.checked_sub(1)
-                .is_some_and(|p| matches!(stage[p].trim_start_matches('"'), "$(" | "`"));
         quotes = after;
         quotes.read(" ");
-        !quoted && starts && SHELLS.contains(&name)
+        !quoted && SHELLS.contains(&name)
     })
 }
 
@@ -1210,6 +1203,8 @@ mod tests {
         for c in [
             "docker exec app sh -c \"cat .env\"",
             "docker exec app \"bash\" -c \"cat .env\"",
+            "docker run --rm app sh -c 'cat .env'",
+            "busybox sh -c 'cat .env'",
         ] {
             assert!(printed(c), "{c}");
         }
@@ -1221,10 +1216,11 @@ mod tests {
         assert!(printed("echo \"$( bash -c 'cat .env')\""));
     }
 
-    /// A shell name a command only prints is text (#1152 review, round 2).
+    /// Fails closed: an unquoted shell name counts even when a command only prints it,
+    /// since guessing where commands start leaked launchers (#1155).
     #[test]
-    fn allows_a_shell_name_passed_as_an_argument() {
-        assert!(!printed("printf '%s\\n' bash -c 'docker inspect'"));
+    fn refuses_an_unquoted_shell_name_even_as_an_argument() {
+        assert!(printed("printf '%s\\n' bash -c 'docker inspect'"));
     }
 
     /// Shell names repeated inside quotes stay linear: the first version doubled its
