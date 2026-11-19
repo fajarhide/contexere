@@ -618,6 +618,23 @@ pub fn mask_named_columns(content: &str) -> Option<(String, usize)> {
     (count > 0).then(|| (out.join("\n") + "\n", count))
 }
 
+/// Output with a secret CSV column masked, then every credential hidden in place, as
+/// the post-hook delivers it. `exec` and pipe mode ran only the second half, so a
+/// `password` column reached the model there (#1138).
+pub fn redact_output(content: &str) -> Option<(String, u32)> {
+    let Some((body, count)) = mask_named_columns(content) else {
+        return crate::distillers::system_ops::redact_in_place(content);
+    };
+    let count = u32::try_from(count).unwrap_or(u32::MAX);
+    // The other cells still get the shape-based redactor.
+    Some(
+        match crate::distillers::system_ops::redact_in_place(&body) {
+            Some((rest, more)) => (rest, count.saturating_add(more)),
+            None => (body, count),
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -670,6 +687,18 @@ mod tests {
         let csv = "#user,password\nalice,opaque-private-value\n";
         let (out, _) = mask_named_columns(csv).expect("hidden");
         assert!(!out.contains("opaque"), "{out}");
+    }
+
+    /// Both halves run: the column, then a credential in another cell (#1138).
+    #[test]
+    fn redact_output_masks_the_column_and_the_other_cells() {
+        let key = concat!("AK", "IA", "IOSFODNN7", "EXAMPLE");
+        let csv = format!("user,password,note\nalice,canary-col-1138,{key}\n");
+        let (out, count) = redact_output(&csv).expect("hidden");
+        assert!(!out.contains("canary-col-1138"), "{out}");
+        assert!(!out.contains(key), "{out}");
+        assert_eq!(count, 2, "{out}");
+        assert_eq!(redact_output("plain text\n"), None);
     }
 
     /// A JS array item naming a secret, then a bracketed row: every later line used

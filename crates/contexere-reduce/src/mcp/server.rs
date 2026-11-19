@@ -121,7 +121,7 @@ fn run_with_timeout(
         let code = output.status.code().unwrap_or(-1);
         let text = format!("{raw_text}{err_text}");
         // Even on the A/B control: passthrough skips compression only (#1033).
-        let text = crate::distillers::system_ops::redact_in_place(&text).map_or(text, |(t, _)| t);
+        let text = crate::guard::secret_source::redact_output(&text).map_or(text, |(t, _)| t);
         return format!("{text}\n[exit {code}]");
     }
 
@@ -142,7 +142,7 @@ fn run_with_timeout(
     )
     .is_err()
     {
-        return crate::distillers::system_ops::scrub(&raw_text).into_owned();
+        return crate::guard::secret_source::redact_output(&raw_text).map_or(raw_text, |(t, _)| t);
     }
 
     let out = String::from_utf8_lossy(&distilled).to_string();
@@ -150,7 +150,8 @@ fn run_with_timeout(
     if err_text.is_empty() {
         out
     } else {
-        format!("{out}{}", crate::distillers::system_ops::scrub(&err_text))
+        let err_text = crate::guard::secret_source::redact_output(&err_text).map_or(err_text, |(t, _)| t);
+        format!("{out}{err_text}")
     }
 }
 
