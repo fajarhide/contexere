@@ -318,8 +318,18 @@ fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
         (w, end)
     };
     let (mut code, mut delims, mut quote, mut i) = (String::new(), Vec::new(), None, 0);
+    // The double quotes around a `$(...)`, restored at its `)`: a heredoc inside
+    // `"$(cat <<'EOF'` opens like any other (#1151).
+    let mut outer: Vec<char> = Vec::new();
     while let Some(&c) = chars.get(i) {
         if let Some(q) = quote {
+            if q == '"' && c == '$' && chars.get(i + 1) == Some(&'(') {
+                outer.push(q);
+                quote = None;
+                code.push_str("$(");
+                i += 2;
+                continue;
+            }
             if c == q {
                 quote = None;
             } else if c == '\\' && q == '"' {
@@ -343,6 +353,7 @@ fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
                 continue;
             }
             '\'' | '"' => quote = Some(c),
+            ')' if !outer.is_empty() => quote = outer.pop(),
             '#' if i == 0 || chars.get(i - 1).is_some_and(|p| p.is_whitespace()) => break,
             '<' if chars.get(i + 1) == Some(&'<') => {
                 if chars.get(i + 2) == Some(&'<') {
@@ -572,10 +583,20 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
     // so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
     let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
         Some("--") => true,
-        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => stage
-            .iter()
-            .take(i - 1)
-            .any(|w| SHELLS.contains(&program(trimmed(w)))),
+        // The shell must be outside quotes: in `grep -c 'bash -e -c x'` it is pattern text
+        // (#1151), while `docker exec app sh -c` runs it. One pass over the quote state, so
+        // repeated shell names cost nothing extra (#1152 review).
+        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => {
+            let mut quote = None;
+            stage.iter().take(i - 1).any(|w| {
+                // `'bash` leaves a quote open and is text; `"bash"` closes it and runs.
+                let quoted = quote.is_some() || quote_after(None, w).is_some();
+                let shell = !quoted && SHELLS.contains(&program(trimmed(w)));
+                quote = quote_after(quote, w);
+                quote = quote_after(quote, " ");
+                shell
+            })
+        }
         _ => false,
     };
     after_wrappers || handed_over
@@ -583,7 +604,11 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
 
 /// Whether the end of `text` sits inside single quotes, as sh reads it.
 fn in_single_quotes(text: &str) -> bool {
-    let mut quote = None;
+    quote_after(None, text) == Some('\'')
+}
+
+/// The sh quote open after reading `text`, starting from `quote`.
+fn quote_after(mut quote: Option<char>, text: &str) -> Option<char> {
     let mut chars = text.chars();
     while let Some(c) = chars.next() {
         match (quote, c) {
@@ -595,7 +620,7 @@ fn in_single_quotes(text: &str) -> bool {
             _ => {}
         }
     }
-    quote == Some('\'')
+    quote
 }
 
 /// The first argument of a printer that names a source. A quoted pattern is skipped
@@ -1132,6 +1157,45 @@ mod tests {
         ] {
             assert!(printed(c), "{c}");
         }
+    }
+
+    /// A shell inside a grep pattern hands nothing over (#1151).
+    #[test]
+    fn allows_a_shell_named_inside_a_pattern() {
+        assert!(!printed("grep -c 'bash -e -c docker inspect' README.md"));
+    }
+
+    /// A shell a container command launches still hands over its `-c` (#1152 review).
+    #[test]
+    fn refuses_a_shell_launched_in_a_container() {
+        for c in [
+            "docker exec app sh -c \"cat .env\"",
+            "docker exec app \"bash\" -c \"cat .env\"",
+        ] {
+            assert!(printed(c), "{c}");
+        }
+    }
+
+    /// Shell names repeated inside quotes stay linear: the first version doubled its
+    /// work per repetition, 63 ms at 20 (#1152 review).
+    #[test]
+    fn checks_repeated_quoted_shell_names_in_linear_time() {
+        let command = format!("printf '%s' '{}cat'", "bash -c ".repeat(26));
+        let start = std::time::Instant::now();
+        assert!(!printed(&command));
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(1),
+            "{:?}",
+            start.elapsed()
+        );
+    }
+
+    /// A heredoc inside a double-quoted substitution is text (#1151).
+    #[test]
+    fn allows_a_heredoc_inside_a_quoted_substitution() {
+        assert!(!printed(
+            "printf '%s\\n' \"$(cat <<'EOF'\ncat .env\nEOF\n)\""
+        ));
     }
 
     /// A shell named in a comment does not make the heredoc a script (#1148 review).
