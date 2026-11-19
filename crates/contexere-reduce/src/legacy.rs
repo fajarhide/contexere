@@ -32,15 +32,6 @@ pub fn adopt_env() {
     }
 }
 
-/// Whether this process was started under the old name. `omni` is a link to the
-/// same binary, and keeps serving `omni_*` tools so a registered host sees what
-/// it saw before.
-pub fn invoked_as_omni() -> bool {
-    std::env::args_os()
-        .next()
-        .is_some_and(|a| is_omni_name(Path::new(&a)))
-}
-
 fn is_omni_name(argv0: &Path) -> bool {
     argv0.file_stem().is_some_and(|s| s == "omni")
 }
@@ -55,32 +46,22 @@ pub fn old_name_notice(argv0: &Path, stderr_is_terminal: bool) -> Option<&'stati
     )
 }
 
-/// The MCP tool prefix and server key of the name this process runs under.
-pub fn mcp_name() -> &'static str {
-    if invoked_as_omni() {
+/// The name this process was started under, for `--version` (#958). Goes when the
+/// `omni` link does.
+pub fn invoked_name() -> &'static str {
+    let argv0 = std::env::args_os().next();
+    if argv0.is_some_and(|a| is_omni_name(Path::new(&a))) {
         "omni"
     } else {
         "contexere"
     }
 }
 
-/// A tool's name as this process serves it: `omni` keeps `omni_run`,
-/// `contexere` says `contexere_run`. Model-facing text inserts this into the
-/// message before any user value, so a file called `omni_build.sh` is never
-/// rewritten.
+/// A tool's name as the server serves it, under either binary name since 0.9.0
+/// (#1067). Model-facing text inserts this into the message before any user
+/// value, so a file called `omni_build.sh` is never rewritten.
 pub fn tool_name(short: &str) -> String {
-    format!("{}_{short}", mcp_name())
-}
-
-/// The tool prefix a registered server command serves, by its file name: the
-/// server names its tools after the name it was started under, which is the
-/// name init registered, not the one init itself ran as.
-pub fn prefix_of_command(command: &str) -> &'static str {
-    if file_name_is_omni(command) {
-        "omni"
-    } else {
-        "contexere"
-    }
+    format!("contexere_{short}")
 }
 
 /// Whether a whole command (a path, spaces allowed, quotes optional) names the omni binary.
@@ -192,8 +173,6 @@ mod tests {
         assert!(file_name_is_omni("/Users/Jane Doe/bin/omni"));
         assert!(file_name_is_omni("\"C:\\Users\\x y\\omni.exe\""));
         assert!(!file_name_is_omni("/Users/omni/bin/contexere"));
-        assert_eq!(prefix_of_command("/x y/omni"), "omni");
-        assert_eq!(prefix_of_command("/x/contexere"), "contexere");
     }
 
     #[test]
