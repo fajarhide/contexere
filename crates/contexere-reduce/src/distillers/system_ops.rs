@@ -1933,10 +1933,18 @@ mod tests {
     /// URL with a password are not (#1144).
     #[test]
     fn a_count_under_a_url_key_is_delivered() {
-        for line in ["DATABASE_URL=1", "CLOUD_DATABASE_URL=0", "REDIS_URL=12", "MONGO_URL=\"3\""] {
+        for line in [
+            "DATABASE_URL=1",
+            "CLOUD_DATABASE_URL=0",
+            "REDIS_URL=12",
+            "MONGO_URL=\"3\"",
+        ] {
             assert_eq!(redact_sensitive_assignments(line), None, "{line}");
         }
-        for line in ["DB_PASSWORD=123456", "DATABASE_URL=postgres://app:opaque9value@db/x"] {
+        for line in [
+            "DB_PASSWORD=123456",
+            "DATABASE_URL=postgres://app:opaque9value@db/x",
+        ] {
             assert!(redact_sensitive_assignments(line).is_some(), "{line}");
         }
     }
