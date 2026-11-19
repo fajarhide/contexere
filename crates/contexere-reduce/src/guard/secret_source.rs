@@ -613,7 +613,9 @@ fn runs_a_shell_before(stage: &[&str], end: usize) -> bool {
         let opener = lead.contains("$(") || lead.contains('`');
         let starts = after_wrappers(&stage[..k])
             || opener
-            || stage[..k].iter().any(|p| matches!(*p, "exec" | "-exec" | "--"))
+            || stage[..k]
+                .iter()
+                .any(|p| matches!(*p, "exec" | "-exec" | "--"))
             || k.checked_sub(1)
                 .is_some_and(|p| matches!(stage[p].trim_start_matches('"'), "$(" | "`"));
         quotes = after;
