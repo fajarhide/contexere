@@ -359,8 +359,40 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
         Some((_, flag)) if flag.starts_with("--") => flag,
         _ => return false,
     };
-    // Last token, not `contains`: `--pre-hook` ends with `-hook`.
-    names_us(command) && command.rsplit(' ').next() == Some(flag)
+    // Last token, not `contains`: `--pre-hook` ends with `-hook`. A wrapper's closing
+    // quote is not part of it: `filter.py --after '/x/omni --post-hook'` (#1123).
+    names_us(command)
+        && command
+            .trim_end()
+            .rsplit(' ')
+            .next()
+            .map(|t| t.trim_end_matches(['\'', '"']))
+            == Some(flag)
+}
+
+/// What to store for a hook `is_our_hook` matched. Ours alone is replaced whole; one a
+/// wrapper runs keeps the wrapper and gets only our path rewritten, since replacing it
+/// whole dropped a secret filter around the post-hook (#1123).
+pub(crate) fn retargeted_hook(command: &str, ours: &str) -> String {
+    let first = command.split_whitespace().next().unwrap_or("");
+    let Some((new_bin, flag)) = ours.rsplit_once(' ') else {
+        return ours.to_string();
+    };
+    if names_us(first.trim_matches(['\'', '"'])) {
+        return ours.to_string();
+    }
+    let Some((head, tail)) = command.rsplit_once(flag) else {
+        return ours.to_string();
+    };
+    let Some((prefix, bin)) = head.trim_end().rsplit_once(' ') else {
+        return ours.to_string();
+    };
+    let path = bin.trim_start_matches(['\'', '"']);
+    let quotes = bin.strip_suffix(path).unwrap_or("");
+    if !names_us(path) {
+        return command.to_string();
+    }
+    format!("{prefix} {quotes}{new_bin} {flag}{tail}")
 }
 
 /// Events that carry more than one OMNI hook, with the count. Finds machines

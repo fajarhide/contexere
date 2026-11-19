@@ -228,12 +228,11 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
         for v in arr.iter_mut() {
             if let Some(inner) = v.get_mut("hooks").and_then(|h| h.as_array_mut()) {
                 for h in inner.iter_mut() {
-                    if crate::agents::is_our_hook(
-                        h.get("command").and_then(|c| c.as_str()),
-                        hook_cmd,
-                    ) {
+                    let existing = h.get("command").and_then(|c| c.as_str());
+                    if crate::agents::is_our_hook(existing, hook_cmd) {
+                        let kept = crate::agents::retargeted_hook(existing.unwrap_or(""), hook_cmd);
                         if let Some(obj) = h.as_object_mut() {
-                            obj.insert("command".to_string(), json!(hook_cmd));
+                            obj.insert("command".to_string(), json!(kept));
                         }
                         return;
                     }

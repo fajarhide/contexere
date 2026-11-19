@@ -93,7 +93,10 @@ pub fn file_name_is_omni(command: &str) -> bool {
 /// Whether a registered post-hook still calls the binary by its old name, so
 /// `doctor` can point at `contexere init` (#876 step 5).
 pub fn hook_calls_omni(command: &str) -> bool {
-    file_name_is_omni(command.trim().trim_end_matches("--post-hook"))
+    // The path is the word before the flag, also inside a wrapper's quoted argument (#1123).
+    let rest = command.trim().trim_end_matches(['\'', '"']);
+    let rest = rest.trim_end_matches("--post-hook").trim_end();
+    file_name_is_omni(rest) || rest.rsplit(' ').next().is_some_and(file_name_is_omni)
 }
 
 /// `OMNI_*` settings with no `CONTEXERE_*` twin, sorted. A twin means the user
@@ -198,6 +201,17 @@ mod tests {
         assert!(hook_calls_omni("\"/Users/Jane Doe/bin/omni\" --post-hook"));
         assert!(!hook_calls_omni("/opt/homebrew/bin/contexere --post-hook"));
         assert!(!hook_calls_omni("/Users/omni/bin/contexere --post-hook"));
+    }
+
+    /// Inside a wrapper's quoted argument too (#1123).
+    #[test]
+    fn finds_a_wrapped_hook_on_the_old_name() {
+        assert!(hook_calls_omni(
+            "python3 f.py --after '/opt/homebrew/bin/omni --post-hook'"
+        ));
+        assert!(!hook_calls_omni(
+            "python3 f.py --after '/opt/homebrew/bin/contexere --post-hook'"
+        ));
     }
 
     #[test]
