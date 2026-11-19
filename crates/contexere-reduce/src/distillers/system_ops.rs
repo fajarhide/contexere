@@ -965,7 +965,13 @@ fn opens_code_on_a_later_line(value: &str) -> bool {
     if v.strip_suffix('(').is_some_and(callee) {
         return true;
     }
-    const REGEX: &[&str] = &["re.compile(", "regex.compile(", "Regex::new(", "RegExp(", "new RegExp("];
+    const REGEX: &[&str] = &[
+        "re.compile(",
+        "regex.compile(",
+        "Regex::new(",
+        "RegExp(",
+        "new RegExp(",
+    ];
     REGEX.iter().any(|p| v.starts_with(p)) && v.ends_with(')')
 }
 
@@ -2298,7 +2304,8 @@ mod tests {
     /// `SSH_ASKPASS_REQUIRE=force` is a mode, and the command after it was lost (#1136).
     #[test]
     fn delivers_askpass_settings_and_the_command_after_them() {
-        let line = "  printf x | SSH_ASKPASS=$A SSH_ASKPASS_REQUIRE=force DISPLAY=:0 setsid -w ssh host";
+        let line =
+            "  printf x | SSH_ASKPASS=$A SSH_ASKPASS_REQUIRE=force DISPLAY=:0 setsid -w ssh host";
         assert!(!redacted(line), "redacted: {line}");
         assert!(!redacted("GIT_ASKPASS=/usr/lib/git-core/askpass"));
         assert!(redacted("SSH_PASS=hunter2"));
