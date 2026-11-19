@@ -445,7 +445,9 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
                     })
                     .and_then(|h| h.as_object_mut())
                 {
-                    inner.insert("command".to_string(), json!(hook_cmd));
+                    let existing = inner.get("command").and_then(|c| c.as_str()).unwrap_or("");
+                    let kept = crate::agents::retargeted_hook(existing, hook_cmd);
+                    inner.insert("command".to_string(), json!(kept));
                 }
                 // Already installed, but an old matcher still has to be widened (#172).
                 if let Some(obj) = v.as_object_mut() {
@@ -471,12 +473,11 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
         for v in arr.iter_mut() {
             if let Some(inner) = v.get_mut("hooks").and_then(|h| h.as_array_mut()) {
                 for h in inner.iter_mut() {
-                    if crate::agents::is_our_hook(
-                        h.get("command").and_then(|c| c.as_str()),
-                        hook_cmd,
-                    ) {
+                    let existing = h.get("command").and_then(|c| c.as_str());
+                    if crate::agents::is_our_hook(existing, hook_cmd) {
+                        let kept = crate::agents::retargeted_hook(existing.unwrap_or(""), hook_cmd);
                         if let Some(obj) = h.as_object_mut() {
-                            obj.insert("command".to_string(), json!(hook_cmd));
+                            obj.insert("command".to_string(), json!(kept));
                         }
                         return;
                     }
@@ -676,6 +677,54 @@ mod tests {
         assert!(
             !val.to_string().contains("bin/contexere"),
             "uninstall leaves ours behind"
+        );
+    }
+
+    /// A post-hook another program wraps is rewritten in place, wrapper kept, and no
+    /// second post-hook is added (#1123).
+    #[test]
+    fn keeps_a_wrapped_post_hook_and_rewrites_only_its_path() {
+        let wrapped = "python3 ~/filter.py --after '/opt/homebrew/bin/omni --post-hook'";
+        let mut val = json!({ "hooks": { "PostToolUse": [
+            { "matcher": "Bash|Read|Grep|WebFetch", "hooks": [{ "type": "command", "command": wrapped }] }
+        ]}});
+        install_omni_hooks(&mut val, "/opt/homebrew/bin/contexere");
+
+        let post: Vec<&str> = val["hooks"]["PostToolUse"]
+            .as_array()
+            .expect("PostToolUse array")
+            .iter()
+            .flat_map(|m| m["hooks"].as_array().into_iter().flatten())
+            .filter_map(|h| h["command"].as_str())
+            .collect();
+        assert_eq!(
+            post,
+            ["python3 ~/filter.py --after '/opt/homebrew/bin/contexere --post-hook'"],
+            "{post:?}"
+        );
+    }
+
+    /// Our own hook on a spaced, quoted path is replaced whole, never split (#1149 review).
+    #[test]
+    fn replaces_our_hook_on_a_quoted_spaced_path() {
+        assert_eq!(
+            crate::agents::retargeted_hook(
+                "\"/dir sp/contexere\" --post-hook",
+                "/new/contexere --post-hook"
+            ),
+            "/new/contexere --post-hook"
+        );
+    }
+
+    /// A wrapper whose own path names us keeps its wrapper (#1149 review).
+    #[test]
+    fn keeps_a_wrapper_whose_directory_names_us() {
+        assert_eq!(
+            crate::agents::retargeted_hook(
+                "/opt/contexere/filter --after '/x/omni --post-hook'",
+                "/new/contexere --post-hook"
+            ),
+            "/opt/contexere/filter --after '/new/contexere --post-hook'"
         );
     }
 
