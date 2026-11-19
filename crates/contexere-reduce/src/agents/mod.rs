@@ -374,25 +374,39 @@ pub(crate) fn is_our_hook(command: Option<&str>, ours: &str) -> bool {
 /// wrapper runs keeps the wrapper and gets only our path rewritten, since replacing it
 /// whole dropped a secret filter around the post-hook (#1123).
 pub(crate) fn retargeted_hook(command: &str, ours: &str) -> String {
-    let first = command.split_whitespace().next().unwrap_or("");
     let Some((new_bin, flag)) = ours.rsplit_once(' ') else {
         return ours.to_string();
     };
-    if names_us(first.trim_matches(['\'', '"'])) {
-        return ours.to_string();
-    }
     let Some((head, tail)) = command.rsplit_once(flag) else {
         return ours.to_string();
     };
+    // Ours alone is one executable before the flag, quoted when its path has a space:
+    // `"/dir sp/contexere" --post-hook` (#1149 review).
+    let exe = head.trim();
+    let one_word = !exe.contains(char::is_whitespace)
+        || (exe.len() > 1 && exe.starts_with('"') && exe.ends_with('"'));
+    if tail.trim().is_empty() && one_word && is_our_exe(exe) {
+        return ours.to_string();
+    }
     let Some((prefix, bin)) = head.trim_end().rsplit_once(' ') else {
         return ours.to_string();
     };
     let path = bin.trim_start_matches(['\'', '"']);
     let quotes = bin.strip_suffix(path).unwrap_or("");
-    if !names_us(path) {
+    // shortcut: a spaced path quoted inside the wrapper's argument is left as it is,
+    // since its words cannot be told apart here; rewrite it by hand if one turns up.
+    if !is_our_exe(path) || path.ends_with(['\'', '"']) {
         return command.to_string();
     }
     format!("{prefix} {quotes}{new_bin} {flag}{tail}")
+}
+
+/// Whether an executable's file name is ours under either name, never a substring of
+/// its directory: `/opt/contexere/filter` is someone else's (#1149 review).
+fn is_our_exe(path: &str) -> bool {
+    let p = path.trim_matches(['\'', '"']);
+    let name = p.rsplit(['/', '\\']).next().unwrap_or(p);
+    matches!(name.trim_end_matches(".exe"), "omni" | "contexere")
 }
 
 /// Events that carry more than one OMNI hook, with the count. Finds machines

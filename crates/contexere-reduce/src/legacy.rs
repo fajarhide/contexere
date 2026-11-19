@@ -96,7 +96,8 @@ pub fn hook_calls_omni(command: &str) -> bool {
     // Also inside a wrapper's quoted argument, closing quote and all (#1123).
     let rest = command.trim().trim_end_matches(['\'', '"']);
     let rest = rest.trim_end_matches("--post-hook").trim_end();
-    file_name_is_omni(rest)
+    // The last word, so `'omni` found through PATH inside a wrapper counts (#1149 review).
+    rest.rsplit(' ').next().is_some_and(file_name_is_omni)
 }
 
 /// `OMNI_*` settings with no `CONTEXERE_*` twin, sorted. A twin means the user
@@ -201,6 +202,12 @@ mod tests {
         assert!(hook_calls_omni("\"/Users/Jane Doe/bin/omni\" --post-hook"));
         assert!(!hook_calls_omni("/opt/homebrew/bin/contexere --post-hook"));
         assert!(!hook_calls_omni("/Users/omni/bin/contexere --post-hook"));
+    }
+
+    /// A wrapped `omni` found through PATH (#1149 review).
+    #[test]
+    fn finds_a_wrapped_bare_omni() {
+        assert!(hook_calls_omni("python3 f.py --after 'omni --post-hook'"));
     }
 
     /// Inside a wrapper's quoted argument too (#1123).

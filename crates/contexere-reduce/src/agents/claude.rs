@@ -704,6 +704,27 @@ mod tests {
         );
     }
 
+    /// Our own hook on a spaced, quoted path is replaced whole, never split (#1149 review).
+    #[test]
+    fn replaces_our_hook_on_a_quoted_spaced_path() {
+        assert_eq!(
+            crate::agents::retargeted_hook("\"/dir sp/contexere\" --post-hook", "/new/contexere --post-hook"),
+            "/new/contexere --post-hook"
+        );
+    }
+
+    /// A wrapper whose own path names us keeps its wrapper (#1149 review).
+    #[test]
+    fn keeps_a_wrapper_whose_directory_names_us() {
+        assert_eq!(
+            crate::agents::retargeted_hook(
+                "/opt/contexere/filter --after '/x/omni --post-hook'",
+                "/new/contexere --post-hook"
+            ),
+            "/opt/contexere/filter --after '/new/contexere --post-hook'"
+        );
+    }
+
     #[test]
     fn reinstalling_from_another_path_moves_the_hook_rather_than_adding_one() {
         let mut val = json!({});
