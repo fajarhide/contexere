@@ -570,57 +570,94 @@ fn in_command_position(stage: &[&str], i: usize) -> bool {
     {
         return true;
     }
-    // `sudo -u app cat x`, `env -i cat x`, `timeout 5 cat x`: a wrapper's options, and a
-    // value after one.
-    let after_wrappers = before.iter().enumerate().all(|(k, w)| {
+    // `--`, or a `-c` option cluster (`-c`, `-lc`, `-ec`) of a shell that runs earlier in
+    // the stage, so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
+    let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
+        Some("--") => true,
+        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => {
+            runs_a_shell_before(stage, i - 1)
+        }
+        _ => false,
+    };
+    after_wrappers(before) || handed_over
+}
+
+/// `sudo -u app cat x`, `env -i cat x`, `timeout 5 cat x`: only wrappers, their options,
+/// a value after one, and assignments come before the command.
+fn after_wrappers(before: &[&str]) -> bool {
+    before.iter().enumerate().all(|(k, w)| {
         WRAPPERS.contains(&program(w))
             || (w.contains('=') && !w.starts_with('-'))
             || w.starts_with('-')
             || (k > 0 && before[k - 1].starts_with('-'))
             || (k > 0 && program(before[k - 1]) == "timeout")
-    });
-    // `--`, or a `-c` option cluster (`-c`, `-lc`, `-ec`) of a shell earlier in the stage,
-    // so `bash -e -c "cat x"` hands it over and `grep -c` does not (#1148 review).
-    let handed_over = match i.checked_sub(1).map(|p| stage[p]) {
-        Some("--") => true,
-        // The shell must be outside quotes: in `grep -c 'bash -e -c x'` it is pattern text
-        // (#1151), while `docker exec app sh -c` runs it. One pass over the quote state, so
-        // repeated shell names cost nothing extra (#1152 review).
-        Some(o) if o.starts_with('-') && !o.starts_with("--") && o.ends_with('c') => {
-            let mut quote = None;
-            stage.iter().take(i - 1).any(|w| {
-                // `'bash` leaves a quote open and is text; `"bash"` closes it and runs.
-                let quoted = quote.is_some() || quote_after(None, w).is_some();
-                let shell = !quoted && SHELLS.contains(&program(trimmed(w)));
-                quote = quote_after(quote, w);
-                quote = quote_after(quote, " ");
-                shell
-            })
-        }
-        _ => false,
-    };
-    after_wrappers || handed_over
+    })
+}
+
+/// Whether a shell runs among the first `end` words: outside quotes, and where a command
+/// starts, after wrappers, a container's `exec`, `find -exec`, `--`, or a `$(` or backtick.
+/// `grep -c 'bash -e -c x'` and `printf '%s' bash -c x` name a shell as text (#1151, #1152
+/// review). One pass over the quote state, never recursive: a recursive version took 466 s
+/// on 26 repeated names.
+fn runs_a_shell_before(stage: &[&str], end: usize) -> bool {
+    let mut quotes = Quotes::default();
+    stage.iter().take(end).enumerate().any(|(k, w)| {
+        let lead: String = w.chars().take_while(|c| "\"'$(`".contains(*c)).collect();
+        let (mut at_name, mut after) = (quotes.clone(), quotes.clone());
+        at_name.read(&lead);
+        after.read(w);
+        // `'bash` leaves its quote open and is text; `"bash"` closes its own and runs.
+        let own_quote = quotes.open.is_none() && after.open.is_none();
+        let quoted = at_name.open.is_some() && !own_quote;
+        let name = program(trimmed(w).trim_start_matches("$("));
+        let opener = lead.contains("$(") || lead.contains('`');
+        let starts = after_wrappers(&stage[..k])
+            || opener
+            || stage[..k].iter().any(|p| matches!(*p, "exec" | "-exec" | "--"))
+            || k.checked_sub(1)
+                .is_some_and(|p| matches!(stage[p].trim_start_matches('"'), "$(" | "`"));
+        quotes = after;
+        quotes.read(" ");
+        !quoted && starts && SHELLS.contains(&name)
+    })
 }
 
 /// Whether the end of `text` sits inside single quotes, as sh reads it.
 fn in_single_quotes(text: &str) -> bool {
-    quote_after(None, text) == Some('\'')
+    let mut quotes = Quotes::default();
+    quotes.read(text);
+    quotes.open == Some('\'')
 }
 
-/// The sh quote open after reading `text`, starting from `quote`.
-fn quote_after(mut quote: Option<char>, text: &str) -> Option<char> {
-    let mut chars = text.chars();
-    while let Some(c) = chars.next() {
-        match (quote, c) {
-            (None, '\'' | '"') => quote = Some(c),
-            (Some(q), _) if c == q => quote = None,
-            (None | Some('"'), '\\') => {
-                chars.next();
+/// sh quote state: the quote open now, and for each `$(` entered, the quote it left, so
+/// `"$( bash -c x)"` reads `bash` as code and the `"` comes back at `)` (#1152 review).
+#[derive(Default, Clone)]
+struct Quotes {
+    open: Option<char>,
+    outer: Vec<Option<char>>,
+}
+
+impl Quotes {
+    fn read(&mut self, text: &str) {
+        let mut chars = text.chars().peekable();
+        while let Some(c) = chars.next() {
+            match (self.open, c) {
+                (None | Some('"'), '$') if chars.peek() == Some(&'(') => {
+                    chars.next();
+                    self.outer.push(self.open.take());
+                }
+                (None, ')') if !self.outer.is_empty() => {
+                    self.open = self.outer.pop().flatten();
+                }
+                (None, '\'' | '"') => self.open = Some(c),
+                (Some(q), _) if c == q => self.open = None,
+                (None | Some('"'), '\\') => {
+                    chars.next();
+                }
+                _ => {}
             }
-            _ => {}
         }
     }
-    quote
 }
 
 /// The first argument of a printer that names a source. A quoted pattern is skipped
@@ -1174,6 +1211,18 @@ mod tests {
         ] {
             assert!(printed(c), "{c}");
         }
+    }
+
+    /// A shell inside a quoted substitution runs (#1152 review, round 2).
+    #[test]
+    fn refuses_a_shell_inside_a_quoted_substitution() {
+        assert!(printed("echo \"$( bash -c 'cat .env')\""));
+    }
+
+    /// A shell name a command only prints is text (#1152 review, round 2).
+    #[test]
+    fn allows_a_shell_name_passed_as_an_argument() {
+        assert!(!printed("printf '%s\\n' bash -c 'docker inspect'"));
     }
 
     /// Shell names repeated inside quotes stay linear: the first version doubled its
