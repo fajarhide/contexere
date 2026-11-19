@@ -972,7 +972,29 @@ fn opens_code_on_a_later_line(value: &str) -> bool {
         "RegExp(",
         "new RegExp(",
     ];
-    REGEX.iter().any(|p| v.starts_with(p)) && v.ends_with(')')
+    let Some(args) = REGEX
+        .iter()
+        .find_map(|p| v.strip_prefix(p))
+        .and_then(|a| a.strip_suffix(')'))
+    else {
+        return false;
+    };
+    // The constructor is the whole value: one pattern literal, then flags at most, so
+    // `re.compile("x").sub("", decrypt("..."))` is judged as the expression it is
+    // (#1139 review).
+    let literal = args.trim_start_matches(['r', 'b']);
+    let Some(quote) = literal.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+        return false;
+    };
+    let Some(flags) = literal
+        .get(1..)
+        .and_then(|body| body.find(quote).and_then(|end| body.get(end + 1..)))
+    else {
+        return false;
+    };
+    flags
+        .chars()
+        .all(|c| c.is_ascii_alphabetic() || matches!(c, '_' | '.' | '|' | ',' | ' '))
 }
 
 /// SQL's `excluded.<column>` in an upsert, or a trigger's `new.` / `old.`, naming
@@ -2265,6 +2287,7 @@ mod tests {
         for line in [
             "SECRET_NAME = re.compile(",
             r#"API_TOKEN = re.compile(r"x")"#,
+            r#"SECRET_RE = re.compile(r"^\.env$", re.I | re.M)"#,
             "TOKEN_PATTERNS = [",
             "AUTH_HEADERS = {",
             "DB_PASSWORD = Regex::new(",
@@ -2278,6 +2301,9 @@ mod tests {
             "PASSWORD=my.pass1(",
             "PASSWORD=hunter(",
             r#"API_TOKEN = decrypt("opaque-private-value")"#,
+            // A regex constructor followed by more expression (#1139 review).
+            r#"API_TOKEN = re.compile("x").sub("", decrypt("opaque-private-value"))"#,
+            r#"API_TOKEN = re.compile("x") + "opaque-private-value""#,
         ] {
             assert!(redacted(line), "delivered: {line}");
         }
