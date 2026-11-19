@@ -103,9 +103,6 @@ fn omitted_note(total_lines: usize, kept_lines: usize) -> String {
     )
 }
 
-/// Sections scan the whole file, so an empty one says "absent from the file".
-const NONE_IN_FULL_FILE: &str = "None in the full file\n";
-
 fn content_hint_for_extension(ext: &str) -> crate::util::token_estimate::ContentHint {
     match ext {
         "rs" | "py" | "ts" | "tsx" | "js" | "jsx" | "go" | "java" | "kt" | "c" | "cpp" | "h"
@@ -204,20 +201,13 @@ mod tests {
     /// The suggested command quotes the path for a shell (#609).
     #[test]
     fn the_suggested_command_quotes_the_path() {
-        // The fixture known to clear both gates.
-        let mut content = String::new();
-        for i in 0..400 {
-            content.push_str(&format!(
-                "// comment line {i} explaining a thing at some length for bulk\n"
-            ));
-            content.push_str(&format!("fn helper_{i}(x: usize) -> usize {{ x + {i} }}\n"));
-        }
+        let content = bulky("top:\n  nested: value\n  other: value\n");
 
-        let out = super::distill_readfile_with_context(&content, "src/my file.rs", || 9)
+        let out = super::distill_readfile_with_context(&content, "deploy/my file.yaml", || 9)
             .expect("a file this size distils");
 
         assert!(
-            out.contains("contexere context 'src/my file.rs'"),
+            out.contains("contexere context 'deploy/my file.yaml'"),
             "a path with a space was pasted into a command unquoted, so the \
              reader is told to run something that means two arguments:\n{out}"
         );
@@ -245,15 +235,9 @@ mod tests {
     /// When reached, the guard consults the count.
     #[test]
     fn the_dependents_guard_still_fires_when_it_is_reached() {
-        let mut content = String::new();
-        for i in 0..400 {
-            content.push_str(&format!(
-                "// comment line {i} explaining a thing at some length for bulk\n"
-            ));
-            content.push_str(&format!("fn helper_{i}(x: usize) -> usize {{ x + {i} }}\n"));
-        }
+        let content = bulky("top:\n  nested: value\n  other: value\n");
 
-        let out = distill_readfile_with_context(&content, "src/lib.rs", || 9)
+        let out = distill_readfile_with_context(&content, "deploy/app.yaml", || 9)
             .expect("large enough to distil");
 
         assert!(
@@ -274,9 +258,9 @@ mod tests {
         unit.repeat(200)
     }
 
-    /// Every code distiller states how many lines went (#176).
+    /// A full Read of source code reaches the agent whole, past the size gate (#1116).
     #[test]
-    fn every_code_distiller_reports_how_many_lines_it_dropped() {
+    fn passes_a_full_read_of_source_code_through() {
         let cases = [
             (
                 "billing.py",
@@ -311,21 +295,19 @@ mod tests {
         ];
 
         for (path, content) in cases {
-            let out = distill_readfile(&content, path)
-                .unwrap_or_else(|| panic!("{path} should distill at this size"));
-            assert!(
-                out.contains("file lines not rendered here"),
-                "{path} dropped lines without saying so:\n{out}"
-            );
+            let hint = content_hint_for_extension(path.rsplit('.').next().unwrap_or(""));
+            let tokens = crate::util::token_estimate::estimate_tokens(content.len(), hint);
+            assert!(tokens >= MIN_DISTILL_TOKENS, "{path} is under the gate, so proves nothing");
+            assert_eq!(distill_readfile(&content, path), None, "{path} was cut");
         }
     }
 
     #[test]
     fn states_the_omitted_line_count_against_the_file_total() {
-        let content = bulky("def f(o):\n    return o.total * 2\n");
+        let content = bulky("top:\n  nested: value\n  other: value\n");
         let total = content.lines().count();
 
-        let out = distill_readfile(&content, "a.py").unwrap();
+        let out = distill_readfile(&content, "a.yaml").expect("large enough to distill");
 
         assert!(
             out.contains(&format!("of {total} file lines not rendered here")),
@@ -343,36 +325,6 @@ mod tests {
             distill_readfile(&content, "notes.txt"),
             None,
             "prose OMNI cannot parse has to reach the agent whole"
-        );
-    }
-
-    /// Recalibrating to Claude's tokenizer moved the unit, not the gate: a Rust
-    /// file is still distilled from 6,400 bytes, as before #584.
-    #[test]
-    fn keeps_the_code_read_gate_at_6400_bytes() {
-        let sized = |len: usize| {
-            let mut s = String::new();
-            let mut i = 0;
-            while s.len() < len - 64 {
-                s.push_str(&format!(
-                    "pub fn handler_{i}(req: &Request) -> Response {{\n    let id = req.id({i});\n    respond(id)\n}}\n"
-                ));
-                i += 1;
-            }
-            s.push_str("//");
-            s.push_str(&"x".repeat(len - s.len() - 1));
-            s.push('\n');
-            assert_eq!(s.len(), len);
-            s
-        };
-        assert_eq!(
-            distill_readfile(&sized(6_390), "/tmp/handlers.rs"),
-            None,
-            "below the gate a Rust file reaches the agent whole"
-        );
-        assert!(
-            distill_readfile(&sized(6_400), "/tmp/handlers.rs").is_some(),
-            "at 6,400 bytes a Rust file is distilled, as it was before #584"
         );
     }
 
@@ -442,29 +394,6 @@ mod tests {
         assert_eq!(omitted_note(10, 10), "");
         assert_eq!(omitted_note(10, 99), "", "kept > total must not underflow");
         assert_eq!(omitted_note(0, 0), "");
-    }
-
-    #[test]
-    fn qualifies_an_empty_section_as_covering_the_whole_file() {
-        let content = bulky("def f(o):\n    return o.total * 2\n");
-
-        let out = distill_readfile(&content, "a.py").unwrap();
-
-        assert!(out.contains("--- Risk Markers ---"));
-        assert!(out.contains("None in the full file"), "got:\n{out}");
-    }
-
-    #[test]
-    fn readfile_distills_when_above_token_threshold_even_if_few_lines() {
-        let mut content = String::from("pub fn a() {}\n");
-        for _ in 0..9 {
-            content.push_str("// ");
-            content.push_str(&"a".repeat(3000));
-            content.push('\n');
-        }
-
-        let out = distill_readfile(&content, "src/lib.rs");
-        assert!(out.is_some());
     }
 
     /// The note offers no re-read route, and says nothing at zero omitted (#598).

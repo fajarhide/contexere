@@ -506,7 +506,8 @@ pub fn install_omni_hooks(val: &mut Value, exe_path: &str) {
     );
     // `Bash|Read|Grep|WebFetch` (#172). Not free: the 7.6% of `Read` calls over
     // `MIN_DISTILL_TOKENS` hold 44% of `Read` bytes, so this changes the reads
-    // that matter. Taken knowingly; everything cut is archived (#273).
+    // that matter. Taken knowingly; everything cut is archived (#273). Source code
+    // passes through since #1116.
     ensure_hook(
         hooks.entry("PostToolUse").or_insert_with(|| json!([])),
         POST_TOOL_MATCHER,

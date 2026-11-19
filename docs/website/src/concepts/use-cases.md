@@ -110,8 +110,9 @@ matters: a fold that renumbers what is under it is worse than no fold, and it is
 case was refused for a release until the numbering could be kept true.
 
 **The number: 0.0% before, 4.7% after**, measured on four overlapping windows of one
-markdown file. Source files are unaffected, since the readfile distiller reaches those
-first at 46.6% either way.
+markdown file. Source files took the readfile skeleton before this fold until #1116; a full
+`Read` of one now arrives whole and goes through the same fold, which has not been measured
+on source yet.
 
 ## 8. You dispatch a subagent
 

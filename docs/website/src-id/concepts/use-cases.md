@@ -121,8 +121,9 @@ lebih buruk daripada tidak melipat sama sekali, dan itu sebabnya kasus ini ditol
 satu rilis sampai penomorannya bisa dijaga benar.
 
 **Angkanya: 0,0% sebelumnya, 4,7% sesudahnya**, diukur pada empat jendela yang tumpang
-tindih dari satu berkas markdown. Berkas source tidak terpengaruh, karena distiller
-readfile menjangkaunya lebih dulu di 46,6% bagaimanapun.
+tindih dari satu berkas markdown. Berkas source mendapat kerangka readfile sebelum lipatan
+ini sampai #1116; `Read` penuh atas berkas source kini tiba utuh dan melewati lipatan yang
+sama, yang belum diukur untuk source.
 
 ## 8. Anda mengirim subagent
 
