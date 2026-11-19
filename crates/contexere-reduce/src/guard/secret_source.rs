@@ -359,7 +359,8 @@ fn heredoc_opener(line: &str) -> (String, Vec<(String, bool)>) {
                 }
                 let (delim, quoted, end) = match chars.get(j) {
                     Some(&q @ ('\'' | '"')) => {
-                        let body: String = chars.iter().skip(j + 1).take_while(|c| **c != q).collect();
+                        let body: String =
+                            chars.iter().skip(j + 1).take_while(|c| **c != q).collect();
                         let end = j + 2 + body.chars().count();
                         (body, true, end)
                     }
@@ -1136,7 +1137,9 @@ mod tests {
     /// A shell named in a comment does not make the heredoc a script (#1148 review).
     #[test]
     fn allows_a_heredoc_whose_comment_names_a_shell() {
-        assert!(!printed("cat > notes.md <<'EOF' # bash examples\ncat .env\nEOF"));
+        assert!(!printed(
+            "cat > notes.md <<'EOF' # bash examples\ncat .env\nEOF"
+        ));
     }
 
     #[test]
