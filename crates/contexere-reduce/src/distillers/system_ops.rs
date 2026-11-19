@@ -2269,6 +2269,7 @@ mod tests {
         // to any other call can be the credential.
         for line in [
             "PASSWORD=abc123(",
+            "PASSWORD=my.pass1(",
             "PASSWORD=hunter(",
             r#"API_TOKEN = decrypt("opaque-private-value")"#,
         ] {
