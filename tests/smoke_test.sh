@@ -39,7 +39,7 @@ check() {
     local expected="$3"
     TOTAL=$((TOTAL + 1))
 
-    if echo "$output" | grep -qi "$expected"; then
+    if grep -qi -- "$expected" <<<"$output"; then
         echo "  ✓ $name"
         PASS=$((PASS + 1))
     else
@@ -217,7 +217,7 @@ STATS_OUT=$("$OMNI" stats 2>&1 || true)
 check "stats names its window" "$STATS_OUT" "last 30 days"
 # #665: the default view leads with what never reached the model and names both
 # engines. A fresh store here takes the no-data path, same as the share card.
-if echo "$STATS_OUT" | grep -q "No data yet"; then
+if grep -q "No data yet" <<<"$STATS_OUT"; then
     check "stats says so when there is no data" "$STATS_OUT" "No data yet"
 else
     check "stats leads with the bytes" "$STATS_OUT" "never reached your model"
@@ -231,7 +231,7 @@ fi
 SHARE_OUT=$("$OMNI" stats --share 2>&1)
 SHARE_EXIT=$?
 check_exit "stats --share exits 0" "$SHARE_EXIT" "0"
-if echo "$SHARE_OUT" | grep -q "Contexere saved me"; then
+if grep -q "Contexere saved me" <<<"$SHARE_OUT"; then
     check "share card names the source" "$SHARE_OUT" "terminal output excluded"
 else
     check "share card says so when there is no data" "$SHARE_OUT" "No data yet"
