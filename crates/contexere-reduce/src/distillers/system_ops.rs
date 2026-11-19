@@ -969,21 +969,17 @@ fn opens_code_on_a_later_line(value: &str) -> bool {
     REGEX.iter().any(|p| v.starts_with(p)) && v.ends_with(')')
 }
 
-/// An SQL upsert's `excluded.<column>` or any dotted reference ending in the key's
-/// own name, as in `limit = excluded.limit` (#1119). A secret is never spelled
-/// as the name it is stored under, and a JWT's segments are not identifiers.
+/// SQL's `excluded.<column>` in an upsert, or a trigger's `new.` / `old.`, naming
+/// the key's own column: `limit = excluded.limit` (#1119). Only these row names:
+/// `api_key = cfg.api_key` stays hidden, as the #784 review decided.
 fn references_its_own_name(key: &str, value: &str) -> bool {
     let v = value.trim().trim_end_matches([',', ';']).trim();
-    let segments: Vec<&str> = v.split('.').collect();
-    let ident = |s: &str| {
-        s.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
-            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-    };
-    segments.len() >= 2
-        && segments.iter().all(|s| ident(s))
-        && segments
-            .last()
-            .is_some_and(|last| last.eq_ignore_ascii_case(key.trim()))
+    v.split_once('.').is_some_and(|(row, column)| {
+        ["excluded", "new", "old"]
+            .iter()
+            .any(|r| row.eq_ignore_ascii_case(r))
+            && column.eq_ignore_ascii_case(key.trim())
+    })
 }
 
 /// One line's redaction decision and its replacement, shared by both callers:
@@ -2289,7 +2285,11 @@ mod tests {
         ] {
             assert!(!redacted(line), "redacted: {line}");
         }
-        for line in ["api_key = excluded.other_key", "PASSWORD=correct.horse.battery"] {
+        for line in [
+            "api_key = excluded.other_key",
+            "api_key = cfg.api_key",
+            "PASSWORD=correct.horse.battery",
+        ] {
             assert!(redacted(line), "delivered: {line}");
         }
     }
