@@ -3479,25 +3479,24 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// A windowed `Read` is not summarised (#799).
     #[test]
     fn a_read_window_is_not_summarised_as_the_whole_file() {
-        let body: String = (0..120)
-            .map(|i| format!("pub fn function_{i}() -> i32 {{\n    let x = {i};\n    println!(\"computing result for iteration\");\n    x\n}}\n\n"))
-            .collect();
+        let body = "2026-08-02T03:43:16Z request served in 12ms\n".repeat(200)
+            + "2026-08-02T03:44:01Z ERROR upstream timed out\n";
         let read = |tool_input: serde_json::Value| {
             json!({ "tool_name": "Read", "tool_input": tool_input, "tool_response": { "content": body } })
                 .to_string()
         };
-        let whole = process_payload(&read(json!({ "path": "src/big.rs" })), None, None);
+        let whole = process_payload(&read(json!({ "path": "logs/big.log" })), None, None);
         assert!(
             whole.is_some_and(|o| o.contains("OMNI ReadFile")),
             "fixture no longer clears the distiller's gate, so the window arm proves nothing"
         );
-        let window = read(json!({ "path": "src/big.rs", "offset": 780, "limit": 340 }));
+        let window = read(json!({ "path": "logs/big.log", "offset": 780, "limit": 340 }));
         assert_eq!(process_payload(&window, None, None), None);
     }
 
     #[test]
-    fn distills_large_rust_readfile() {
-        // Over `MIN_DISTILL_TOKENS`.
+    fn passes_a_large_rust_read_through() {
+        // Over `MIN_DISTILL_TOKENS`: a full Read of code is not cut (#1116).
         let mut big_rust = String::new();
         for i in 0..80 {
             big_rust.push_str(&format!("pub fn function_{}() -> i32 {{\n", i));
@@ -3517,15 +3516,9 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             }
         });
         let out = process_payload(&input.to_string(), None, None);
-        assert!(out.is_some(), "Large ReadFile must be distilled");
-        let res = out.expect("Output exists");
-        assert!(
-            res.contains("OMNI ReadFile"),
-            "Must have OMNI ReadFile label"
-        );
-        assert!(
-            res.contains("pub fn function_0"),
-            "Must contain pub fn signatures"
+        assert_eq!(
+            out, None,
+            "a full Read of source code must reach the agent whole"
         );
     }
 
