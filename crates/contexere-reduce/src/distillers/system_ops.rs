@@ -947,6 +947,45 @@ fn references_instead_of_holding(value: &str) -> bool {
     depth == 0 && !holds_a_literal
 }
 
+/// Source whose value starts on a later line or is a pattern, never a literal on
+/// this one (#1113): a lone `[`, `(` or `{`, a call left open at the end of the
+/// line (`re.compile(`), or a regex constructor, whose argument is a pattern.
+fn opens_code_on_a_later_line(value: &str) -> bool {
+    let v = value.trim().trim_end_matches([',', ';']).trim();
+    if matches!(v, "[" | "(" | "{") {
+        return true;
+    }
+    // A qualified name with no digit, so `PASSWORD=abc123(` stays hidden.
+    let callee = |s: &str| {
+        (s.contains('.') || s.contains("::"))
+            && s.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && s.chars()
+                .all(|c| c.is_ascii_alphabetic() || matches!(c, '_' | '.' | ':'))
+    };
+    if v.strip_suffix('(').is_some_and(callee) {
+        return true;
+    }
+    const REGEX: &[&str] = &["re.compile(", "regex.compile(", "Regex::new(", "RegExp(", "new RegExp("];
+    REGEX.iter().any(|p| v.starts_with(p)) && v.ends_with(')')
+}
+
+/// An SQL upsert's `excluded.<column>` or any dotted reference ending in the key's
+/// own name, as in `limit = excluded.limit` (#1119). A secret is never spelled
+/// as the name it is stored under, and a JWT's segments are not identifiers.
+fn references_its_own_name(key: &str, value: &str) -> bool {
+    let v = value.trim().trim_end_matches([',', ';']).trim();
+    let segments: Vec<&str> = v.split('.').collect();
+    let ident = |s: &str| {
+        s.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    segments.len() >= 2
+        && segments.iter().all(|s| ident(s))
+        && segments
+            .last()
+            .is_some_and(|last| last.eq_ignore_ascii_case(key.trim()))
+}
+
 /// One line's redaction decision and its replacement, shared by both callers:
 /// two copies of the application diverged once (#486). `None` delivers the
 /// line as written.
@@ -965,6 +1004,8 @@ fn redact_assignment(key: &str, value: &str) -> Option<String> {
         || (literal.trim().is_empty() && is_only_punctuation(tail))
         || looks_like_shell_expansion(value)
         || references_instead_of_holding(value)
+        || opens_code_on_a_later_line(value)
+        || references_its_own_name(key, value)
         || looks_like_parenthesized_code(key, value)
         || (is_a_url_without_credentials(key, literal) && is_only_punctuation(tail))
         || (names_a_path(key, literal) && is_only_punctuation(tail))
@@ -1482,7 +1523,8 @@ pub fn redact_sensitive_assignments(input: &str) -> Option<String> {
 /// once lost their values (#408). A pattern ending in `_` is a prefix of the
 /// first segment, one with `_` spans segments, anything else matches a segment
 /// or its tail (`MYPASSWORD`). `BYPASS` is a known false positive, the safe
-/// direction.
+/// direction. `ASKPASS` is not one: `SSH_ASKPASS` names a helper program and
+/// `SSH_ASKPASS_REQUIRE` a mode, and hiding them hid a whole command (#1136).
 fn is_sensitive_key(key: &str) -> bool {
     let k = key.trim().trim_start_matches("export ").trim();
     if k.is_empty() || !k.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -1502,7 +1544,9 @@ fn is_sensitive_key(key: &str) -> bool {
                 let want: Vec<&str> = p.split('_').collect();
                 segments.windows(want.len()).any(|w| w == want.as_slice())
             }
-            None => segments.iter().any(|s| s == p || s.ends_with(p)),
+            None => segments
+                .iter()
+                .any(|s| (s == p || s.ends_with(p)) && *s != "ASKPASS"),
         })
 }
 
@@ -2211,6 +2255,52 @@ mod tests {
     #[test]
     fn redacts_a_list_holding_a_mixed_case_element() {
         assert!(redacted(r#"KEY = ["Ab3dEf9Gh2"]"#));
+    }
+
+    /// Source that opens on this line and holds its value on a later one (#1113).
+    #[test]
+    fn delivers_an_opening_bracket_an_open_call_and_a_regex() {
+        for line in [
+            "SECRET_NAME = re.compile(",
+            r#"API_TOKEN = re.compile(r"x")"#,
+            "TOKEN_PATTERNS = [",
+            "AUTH_HEADERS = {",
+            "DB_PASSWORD = Regex::new(",
+        ] {
+            assert!(!redacted(line), "redacted: {line}");
+        }
+        // A digit or no qualifier before `(` can be a password; a quoted argument
+        // to any other call can be the credential.
+        for line in [
+            "PASSWORD=abc123(",
+            "PASSWORD=hunter(",
+            r#"API_TOKEN = decrypt("opaque-private-value")"#,
+        ] {
+            assert!(redacted(line), "delivered: {line}");
+        }
+    }
+
+    /// `ON CONFLICT DO UPDATE SET col = excluded.col` names a column (#1119).
+    #[test]
+    fn delivers_a_reference_to_the_keys_own_name() {
+        for line in [
+            "  monthly_llm_token_limit = excluded.monthly_llm_token_limit,",
+            "  api_key = EXCLUDED.api_key;",
+        ] {
+            assert!(!redacted(line), "redacted: {line}");
+        }
+        for line in ["api_key = excluded.other_key", "PASSWORD=correct.horse.battery"] {
+            assert!(redacted(line), "delivered: {line}");
+        }
+    }
+
+    /// `SSH_ASKPASS_REQUIRE=force` is a mode, and the command after it was lost (#1136).
+    #[test]
+    fn delivers_askpass_settings_and_the_command_after_them() {
+        let line = "  printf x | SSH_ASKPASS=$A SSH_ASKPASS_REQUIRE=force DISPLAY=:0 setsid -w ssh host";
+        assert!(!redacted(line), "redacted: {line}");
+        assert!(!redacted("GIT_ASKPASS=/usr/lib/git-core/askpass"));
+        assert!(redacted("SSH_PASS=hunter2"));
     }
 
     #[test]
