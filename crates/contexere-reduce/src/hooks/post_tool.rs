@@ -3479,17 +3479,18 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// A windowed `Read` is not summarised (#799).
     #[test]
     fn a_read_window_is_not_summarised_as_the_whole_file() {
-        let body = "top:\n  nested: value\n  other: value\n".repeat(200);
+        let body = "2026-08-02T03:43:16Z request served in 12ms\n".repeat(200)
+            + "2026-08-02T03:44:01Z ERROR upstream timed out\n";
         let read = |tool_input: serde_json::Value| {
             json!({ "tool_name": "Read", "tool_input": tool_input, "tool_response": { "content": body } })
                 .to_string()
         };
-        let whole = process_payload(&read(json!({ "path": "deploy/big.yaml" })), None, None);
+        let whole = process_payload(&read(json!({ "path": "logs/big.log" })), None, None);
         assert!(
             whole.is_some_and(|o| o.contains("OMNI ReadFile")),
             "fixture no longer clears the distiller's gate, so the window arm proves nothing"
         );
-        let window = read(json!({ "path": "deploy/big.yaml", "offset": 780, "limit": 340 }));
+        let window = read(json!({ "path": "logs/big.log", "offset": 780, "limit": 340 }));
         assert_eq!(process_payload(&window, None, None), None);
     }
 
