@@ -294,20 +294,25 @@ fn without_data_heredocs(command: &str) -> String {
             SHELLS.contains(&p) || INTERPRETERS.contains(&p) || p == "ssh"
         });
         let mut rest = line;
-        while let Some(at) = rest.find("<<") {
-            rest = rest[at + 2..].trim_start_matches('-').trim_start();
+        while let Some((_, after)) = rest.split_once("<<") {
+            rest = after.trim_start_matches('-').trim_start();
             if rest.starts_with('<') {
                 continue; // `<<<`, a here-string
             }
-            let (delim, quoted) = match rest.chars().next() {
-                Some(q @ ('\'' | '"')) => match rest[1..].find(q) {
-                    Some(end) => (&rest[1..=end], true),
+            let quote = rest.chars().next().filter(|c| matches!(c, '\'' | '"'));
+            let (delim, quoted) = if let Some(q) = quote {
+                match rest.get(1..).and_then(|body| body.split_once(q)) {
+                    Some((delim, _)) => (delim, true),
                     None => break,
-                },
-                Some('\\') => (word_end(&rest[1..]), true),
-                Some(_) => (word_end(rest), false),
-                None => break,
+                }
+            } else if let Some(body) = rest.strip_prefix('\\') {
+                (word_end(body), true)
+            } else {
+                (word_end(rest), false)
             };
+            if delim.is_empty() {
+                break;
+            }
             pending.push_back((delim.to_string(), quoted && !runs_the_body));
         }
     }
@@ -316,10 +321,9 @@ fn without_data_heredocs(command: &str) -> String {
 
 /// The leading word of `s`, up to whitespace or a shell operator.
 fn word_end(s: &str) -> &str {
-    let end = s
-        .find(|c: char| c.is_whitespace() || ";|&)<>".contains(c))
-        .unwrap_or(s.len());
-    &s[..end]
+    s.split(|c: char| c.is_whitespace() || ";|&)<>".contains(c))
+        .next()
+        .unwrap_or("")
 }
 
 /// `cat<file` as `cat <file`. A heredoc's `<<` and process substitution stay whole.
