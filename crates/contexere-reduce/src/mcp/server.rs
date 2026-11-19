@@ -121,7 +121,8 @@ fn run_with_timeout(
         let code = output.status.code().unwrap_or(-1);
         // Even on the A/B control: passthrough skips compression only (#1033). Each
         // stream on its own, or a CSV header on stderr is not the first line (#1140 review).
-        let redact = |t: String| crate::guard::secret_source::redact_output(&t).map_or(t, |(r, _)| r);
+        let redact =
+            |t: String| crate::guard::secret_source::redact_output(&t).map_or(t, |(r, _)| r);
         let text = format!("{}{}", redact(raw_text), redact(err_text));
         return format!("{text}\n[exit {code}]");
     }
