@@ -1183,7 +1183,11 @@ mod tests {
         let command = format!("printf '%s' '{}cat'", "bash -c ".repeat(26));
         let start = std::time::Instant::now();
         assert!(!printed(&command));
-        assert!(start.elapsed() < std::time::Duration::from_secs(1), "{:?}", start.elapsed());
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(1),
+            "{:?}",
+            start.elapsed()
+        );
     }
 
     /// A heredoc inside a double-quoted substitution is text (#1151).
