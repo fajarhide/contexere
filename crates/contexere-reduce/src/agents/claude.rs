@@ -708,7 +708,10 @@ mod tests {
     #[test]
     fn replaces_our_hook_on_a_quoted_spaced_path() {
         assert_eq!(
-            crate::agents::retargeted_hook("\"/dir sp/contexere\" --post-hook", "/new/contexere --post-hook"),
+            crate::agents::retargeted_hook(
+                "\"/dir sp/contexere\" --post-hook",
+                "/new/contexere --post-hook"
+            ),
             "/new/contexere --post-hook"
         );
     }
