@@ -7,7 +7,7 @@ use std::io::Write;
 const FLAGS: super::Flags = &[
     (
         "--all",
-        "Uninstall every integration and offer to wipe omni.db",
+        "Uninstall every integration and offer to wipe the database",
     ),
     ("--claude", "Uninstall Claude Code (Anthropic)"),
     ("--cursor", "Uninstall Cursor AI"),
@@ -156,8 +156,9 @@ fn perform_reset(is_all: bool, target_ids: Vec<&str>) -> anyhow::Result<()> {
         }
 
         println!(
-            "\n{} Would you like to wipe the SQLite database (~/.omni/omni.db)? [y/N]",
-            "?".yellow()
+            "\n{} Would you like to wipe the SQLite database ({})? [y/N]",
+            "?".yellow(),
+            crate::paths::database_path().display()
         );
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
