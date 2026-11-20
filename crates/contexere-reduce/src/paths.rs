@@ -16,17 +16,18 @@ fn legacy_home() -> PathBuf {
 }
 
 /// Moves `legacy` to `new` in one rename, so the store, ledger and archive move
-/// together and a failure leaves no second copy to diverge (#1063). On Unix a
-/// symlink takes its place, so an `omni` release and any path a host config
-/// still names keep finding the data. Returns the tree to use: `new` when the
-/// move happened here or in a racing process, else `legacy` as before.
+/// together and a failure leaves no second copy to diverge (#1063). Since 0.9.0
+/// no symlink is left behind (#1067). Returns the tree to use: `new` when the move
+/// happened here or in a racing process, else `legacy`, so a move that cannot
+/// happen (permissions, an open file on Windows) never shows an empty store.
 fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
-    if std::fs::rename(legacy, new).is_ok() {
-        #[cfg(unix)]
-        let _ = std::os::unix::fs::symlink(new, legacy);
+    // The link 0.8.6 to 0.8.7 left pointing at `new`: moving it would make `new` a
+    // link to itself.
+    let is_link = std::fs::symlink_metadata(legacy).is_ok_and(|m| m.file_type().is_symlink());
+    if !is_link && std::fs::rename(legacy, new).is_ok() {
         return new.to_path_buf();
     }
-    if new.exists() {
+    if new.exists() || is_link {
         new.to_path_buf()
     } else {
         legacy.to_path_buf()
@@ -40,8 +41,8 @@ fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
 /// 3. An existing `~/.contexere`, then an existing `~/.omni` (moved to
 ///    `~/.contexere` when it can be), win over XDG, so an upgrade never appears
 ///    to lose a database.
-/// 4. `XDG_CONFIG_HOME/contexere` / `XDG_DATA_HOME/contexere` on a fresh
-///    install, or the `omni` directory beside it when only that one exists.
+/// 4. `XDG_CONFIG_HOME/contexere` / `XDG_DATA_HOME/contexere`, moved from the
+///    `omni` directory beside it when only that one exists.
 /// 5. `~/.contexere`.
 ///
 /// Read once through a `LazyLock`: tests run in parallel in one process.
@@ -68,7 +69,7 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
         let base = PathBuf::from(p);
         let (new, old) = (base.join("contexere"), base.join("omni"));
         return if !new.exists() && old.exists() {
-            old
+            adopt_legacy(&new, &old)
         } else {
             new
         };
@@ -108,15 +109,50 @@ pub fn database_path() -> PathBuf {
     database_in(&data_home())
 }
 
-/// `contexere.db`, except in a tree an `omni` install left behind, where
-/// `omni.db` is read in place until a `contexere.db` exists beside it (#876).
+/// `contexere.db`. An `omni.db` an older install left is renamed to it once
+/// (#1067), and read in place only when that rename cannot happen.
 fn database_in(dir: &std::path::Path) -> PathBuf {
     let new = dir.join("contexere.db");
     let old = dir.join("omni.db");
-    if !new.exists() && old.exists() {
-        old
-    } else {
+    if new.exists() || !old.exists() || move_database(&old, &new) {
         new
+    } else {
+        old
+    }
+}
+
+/// Renames a SQLite file with its `-wal` and `-shm`. Those go first: a database
+/// opened without its WAL loses every transaction not yet checkpointed into it.
+/// When the database itself will not move, they are put back, unless another
+/// process moved it meanwhile, in which case they already sit beside it.
+fn move_database(old: &std::path::Path, new: &std::path::Path) -> bool {
+    let side = |p: &std::path::Path, suffix: &str| {
+        let mut s = p.as_os_str().to_owned();
+        s.push(suffix);
+        PathBuf::from(s)
+    };
+    let mut moved = Vec::new();
+    for suffix in ["-wal", "-shm"] {
+        let (from, to) = (side(old, suffix), side(new, suffix));
+        if !from.exists() {
+            continue;
+        }
+        if std::fs::rename(&from, &to).is_err() {
+            undo(&moved);
+            return new.exists();
+        }
+        moved.push((from, to));
+    }
+    if std::fs::rename(old, new).is_ok() || new.exists() {
+        return true;
+    }
+    undo(&moved);
+    false
+}
+
+fn undo(moved: &[(PathBuf, PathBuf)]) {
+    for (from, to) in moved.iter().rev() {
+        let _ = std::fs::rename(to, from);
     }
 }
 
@@ -189,16 +225,42 @@ mod tests {
         assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
     }
 
-    /// #876: an upgraded install keeps reading `omni.db` where it is, and a
-    /// `contexere.db` beside it wins once one exists.
+    /// #1067: `omni.db` becomes `contexere.db` with its WAL and shared memory,
+    /// so no transaction still in the WAL is left behind.
     #[test]
-    fn reads_omni_db_in_place_until_a_contexere_db_exists() {
+    fn renames_omni_db_with_its_wal() {
         let dir = tempfile::tempdir().expect("tempdir");
         assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
-        std::fs::write(dir.path().join("omni.db"), b"").expect("write");
-        assert_eq!(database_in(dir.path()), dir.path().join("omni.db"));
-        std::fs::write(dir.path().join("contexere.db"), b"").expect("write");
+        for (name, body) in [
+            ("omni.db", "db"),
+            ("omni.db-wal", "wal"),
+            ("omni.db-shm", "shm"),
+        ] {
+            std::fs::write(dir.path().join(name), body).expect("write");
+        }
         assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
+        for (name, body) in [
+            ("contexere.db", "db"),
+            ("contexere.db-wal", "wal"),
+            ("contexere.db-shm", "shm"),
+        ] {
+            assert_eq!(
+                std::fs::read_to_string(dir.path().join(name)).expect(name),
+                body
+            );
+        }
+        assert!(!dir.path().join("omni.db").exists());
+        assert!(!dir.path().join("omni.db-wal").exists());
+    }
+
+    /// A `contexere.db` already there wins, and the old file is left alone.
+    #[test]
+    fn leaves_omni_db_alone_beside_a_contexere_db() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("omni.db"), b"old").expect("write");
+        std::fs::write(dir.path().join("contexere.db"), b"new").expect("write");
+        assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
+        assert!(dir.path().join("omni.db").exists());
     }
 
     /// `.cargo/config.toml` points `CONTEXERE_HOME` at `target/`; fails if either half
@@ -248,7 +310,7 @@ mod tests {
         }
     }
 
-    /// #1063: the old tree moves whole, and the old path still reaches it.
+    /// #1063: the old tree moves whole. #1067: no link is left at the old path.
     #[test]
     fn moves_the_omni_tree_to_contexere_in_one_rename() {
         let home = tempfile::tempdir().expect("tempdir");
@@ -265,11 +327,23 @@ mod tests {
             new.join("archive").is_dir(),
             "the whole tree moves, not just the db"
         );
-        #[cfg(unix)]
-        assert_eq!(
-            std::fs::read(legacy.join("omni.db")).expect("read through the symlink"),
-            b"rows",
-            "an omni release still finds its data at the old path"
+        assert!(
+            std::fs::symlink_metadata(&legacy).is_err(),
+            "nothing is left at the old path"
+        );
+    }
+
+    /// The link 0.8.6 left is not moved over the tree it points at.
+    #[cfg(unix)]
+    #[test]
+    fn leaves_the_link_an_earlier_move_made() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let (new, legacy) = (home.path().join(".contexere"), home.path().join(".omni"));
+        std::os::unix::fs::symlink(&new, &legacy).expect("link");
+        assert_eq!(adopt_legacy(&new, &legacy), new);
+        assert!(
+            std::fs::symlink_metadata(&new).is_err(),
+            "the dangling link must not become the new tree"
         );
     }
 

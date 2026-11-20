@@ -1,5 +1,6 @@
 //! #1063: the first run of a Contexere build moves an `omni` install's
-//! `~/.omni` to `~/.contexere`, and `stats` still reads the old history.
+//! `~/.omni` to `~/.contexere`, and `stats` still reads the old history. Since
+//! 0.9.0 `omni.db` becomes `contexere.db` and no link is left behind (#1067).
 //! Unix only: `dirs::home_dir()` ignores `HOME` on Windows, so a fake home there
 //! would be the developer's real profile.
 #![cfg(unix)]
@@ -8,10 +9,10 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-fn contexere(home: &Path, omni_home: Option<&Path>) -> Command {
+fn contexere(home: &Path, data_home: Option<&Path>) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_contexere"));
     cmd.env_clear().env("HOME", home);
-    if let Some(dir) = omni_home {
+    if let Some(dir) = data_home {
         cmd.env("CONTEXERE_HOME", dir);
     }
     cmd
@@ -35,11 +36,9 @@ fn moves_the_omni_home_and_keeps_its_history() {
     let home = tempfile::tempdir().expect("tempdir");
     let old = home.path().join(".omni");
 
-    // An `omni` install with one distilled command in its history. An empty
-    // `omni.db` makes the hook write under that name; renaming a `contexere.db`
-    // afterwards left its WAL behind, and the history with it on a CI runner.
+    // An `omni` install with one distilled command in its history: the hook
+    // records it in `~/.omni`, then the files take the name an `omni` release gave them.
     std::fs::create_dir_all(&old).expect("mkdir");
-    std::fs::write(old.join("omni.db"), b"").expect("touch");
     let noise: String = (0..300)
         .map(|i| format!("   Compiling crate{i} v0.1.{i}\n"))
         .collect();
@@ -62,20 +61,24 @@ fn moves_the_omni_home_and_keeps_its_history() {
     hook.wait().expect("hook exits");
     let before = commands_in_stats(contexere(home.path(), Some(&old)));
     assert!(before > 0, "the fixture recorded no history to carry over");
+    for suffix in ["", "-wal", "-shm"] {
+        let from = old.join(format!("contexere.db{suffix}"));
+        if from.exists() {
+            std::fs::rename(&from, old.join(format!("omni.db{suffix}"))).expect("rename");
+        }
+    }
 
     let after = commands_in_stats(contexere(home.path(), None));
 
     let new = home.path().join(".contexere");
     assert!(
-        new.join("omni.db").is_file(),
-        "~/.omni was not moved to ~/.contexere"
+        new.join("contexere.db").is_file(),
+        "~/.omni/omni.db was not moved to ~/.contexere/contexere.db"
     );
+    assert!(!new.join("omni.db").exists(), "omni.db was left beside it");
     assert_eq!(after, before, "stats lost the old history in the move");
     assert!(
-        std::fs::symlink_metadata(&old)
-            .expect("old path")
-            .file_type()
-            .is_symlink(),
-        "~/.omni should point at ~/.contexere for an omni release"
+        std::fs::symlink_metadata(&old).is_err(),
+        "nothing should be left at ~/.omni"
     );
 }
