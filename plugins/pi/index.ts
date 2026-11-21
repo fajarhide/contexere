@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
 import type { ExtensionAPI, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 
-const OMNI_AGENT_ID = "pi";
-const DEFAULT_OMNI_PATH = "omni";
-const OMNI_TIMEOUT_MS = 10_000;
-const OMNI_STDIN_LIMIT_BYTES = 16 * 1024 * 1024;
+const CONTEXERE_AGENT_ID = "pi";
+const DEFAULT_CONTEXERE_PATH = "omni";
+const CONTEXERE_TIMEOUT_MS = 10_000;
+const CONTEXERE_STDIN_LIMIT_BYTES = 16 * 1024 * 1024;
 
 /** Tools whose results are NOT sent to OMNI (mutation ops handled separately). */
 const EXCLUDE_TOOL_NAMES = new Set(["edit", "write"]);
@@ -53,7 +53,7 @@ function omniPathOrDefault(config?: unknown): string {
     const ext = obj.extensionConfig as JsonObject | undefined;
     if (ext?.omniPath && typeof ext.omniPath === "string") return ext.omniPath as string;
   }
-  return DEFAULT_OMNI_PATH;
+  return DEFAULT_CONTEXERE_PATH;
 }
 
 function sessionId(ctx: unknown): string {
@@ -68,7 +68,7 @@ function sessionId(ctx: unknown): string {
 
 /**
  * Call the `omni` binary.
- * JSON goes in via stdin; OMNI_AGENT_ID is injected as an env var.
+ * JSON goes in via stdin; CONTEXERE_AGENT_ID is injected as an env var.
  * The extension flags used by the Pi runtime have NO relation to OMNI CLI flags —
  * `--stdin` and `--agent-id` do NOT exist on the OMNI binary and would cause
  * "unknown command" failures that get silently swallowed.
@@ -83,7 +83,7 @@ function runOmni(
     const omni = omniPathOrDefault(ctxForConfig);
     const body = JSON.stringify(payload);
 
-    if (Buffer.byteLength(body, "utf8") > OMNI_STDIN_LIMIT_BYTES) {
+    if (Buffer.byteLength(body, "utf8") > CONTEXERE_STDIN_LIMIT_BYTES) {
       resolve(undefined);
       return;
     }
@@ -93,9 +93,9 @@ function runOmni(
       [omniFlag],
       {
         cwd,
-        timeout: OMNI_TIMEOUT_MS,
-        maxBuffer: OMNI_STDIN_LIMIT_BYTES,
-        env: { ...process.env, OMNI_AGENT_ID },
+        timeout: CONTEXERE_TIMEOUT_MS,
+        maxBuffer: CONTEXERE_STDIN_LIMIT_BYTES,
+        env: { ...process.env, CONTEXERE_AGENT_ID },
       },
       (error, stdout) => {
         if (error) {

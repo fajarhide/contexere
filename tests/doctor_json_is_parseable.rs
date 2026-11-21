@@ -11,7 +11,7 @@ fn doctor_stdout(args: &[&str]) -> String {
         .args(args)
         // Keep the suite off the developer's real database.
         .env(
-            "OMNI_DB_PATH",
+            "CONTEXERE_DB_PATH",
             std::env::temp_dir().join("omni_doctor_json.db"),
         )
         .output()

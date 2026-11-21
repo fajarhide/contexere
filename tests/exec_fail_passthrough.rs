@@ -21,8 +21,8 @@ fn run_exec(script: &str) -> (String, i32) {
     let out = Command::new(omni())
         .arg("exec")
         .arg(script)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .output()
         .expect("spawn omni exec");
     (
@@ -70,9 +70,9 @@ fn run_exec_args(args: &[&str]) -> String {
     let out = Command::new(omni())
         .arg("exec")
         .args(args)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
-        .env("OMNI_PASSTHROUGH", "1") // isolate from distillation, this is about which command ran
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
+        .env("CONTEXERE_PASSTHROUGH", "1") // isolate from distillation, this is about which command ran
         .output()
         .expect("spawn omni exec");
     String::from_utf8_lossy(&out.stdout).into_owned()
@@ -100,8 +100,8 @@ fn run_exec_with_env(args: &[&str], env: &[(&str, &str)]) -> (String, i32) {
     let mut cmd = Command::new(omni());
     cmd.arg("exec")
         .args(args)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1");
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1");
     for (k, v) in env {
         cmd.env(k, v);
     }

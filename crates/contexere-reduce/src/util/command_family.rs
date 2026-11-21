@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn skips_leading_environment_assignments() {
         assert_eq!(
-            command_family("OMNI_DB_PATH=/tmp/a1b2/d.db cargo test foo"),
+            command_family("CONTEXERE_DB_PATH=/tmp/a1b2/d.db cargo test foo"),
             "cargo test"
         );
         assert_eq!(command_family("FOO=1 BAR=2 git status -s"), "git status");

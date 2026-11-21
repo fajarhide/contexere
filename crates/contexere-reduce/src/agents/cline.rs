@@ -38,7 +38,7 @@ impl AgentIntegration for ClineIntegration {
                         "command": exe_path,
                         "args": ["--mcp"],
                         "disabled": false,
-                        "env": { "OMNI_AGENT_ID": "cline" }
+                        "env": { "CONTEXERE_AGENT_ID": "cline" }
                     }),
                 );
             }
@@ -118,6 +118,7 @@ impl AgentIntegration for ClineIntegration {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
+            super::report_old_agent_id(&content);
         } else {
             all_ok = false;
             if fix_mode {

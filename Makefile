@@ -83,7 +83,7 @@ binary-check:
 	# session history feeds the scorer, so inheriting whatever `cargo test`
 	# left behind makes those assertions depend on test ordering.
 	rm -rf $(CURDIR)/target/omni-smoke
-	OMNI_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh "$(CI_BIN)"
+	CONTEXERE_HOME=$(CURDIR)/target/omni-smoke tests/smoke_test.sh "$(CI_BIN)"
 
 ci: fmt clippy test security binary-check
 	@echo "========================================"

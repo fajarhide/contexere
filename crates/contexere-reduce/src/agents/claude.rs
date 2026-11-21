@@ -251,6 +251,7 @@ impl AgentIntegration for ClaudeIntegration {
                     "[OK]".green().bold()
                 );
                 super::report_server_name(server_on_old_name(&c));
+                super::report_old_agent_id(&c);
                 break;
             }
         }
@@ -584,7 +585,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             "command": exe_path,
             "args": ["--mcp"],
             "env": {
-                "OMNI_AGENT_ID": "claude_code"
+                "CONTEXERE_AGENT_ID": "claude_code"
             },
         }),
     );
@@ -601,7 +602,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
                         "command": exe_path,
                         "args": ["--mcp"],
                         "env": {
-                            "OMNI_AGENT_ID": "claude_code"
+                            "CONTEXERE_AGENT_ID": "claude_code"
                         },
                     }),
                 );
@@ -626,7 +627,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
                     "command": exe_path,
                     "args": ["--mcp"],
                     "env": {
-                        "OMNI_AGENT_ID": "claude_code"
+                        "CONTEXERE_AGENT_ID": "claude_code"
                     },
                 }),
             );

@@ -571,7 +571,7 @@ fn persist<E: Write>(
 fn resolve_pipe_agent_id() -> String {
     pipe_agent_id_from(
         HOST_THAT_REWROTE.get().map(String::as_str),
-        std::env::var("OMNI_AGENT_ID").ok().as_deref(),
+        std::env::var("CONTEXERE_AGENT_ID").ok().as_deref(),
     )
 }
 
@@ -636,7 +636,7 @@ fn emit_output<W: Write, E: Write>(
         return Ok(());
     }
 
-    if std::env::var("OMNI_OUTPUT_JSON").is_ok() {
+    if std::env::var("CONTEXERE_OUTPUT_JSON").is_ok() {
         let tokens_saved = if result.input_text.len() > result.best_output().len() {
             (result.input_text.len() - result.best_output().len()) / 4
         } else {
@@ -798,7 +798,7 @@ mod tests {
         );
     }
 
-    /// An empty flag or `OMNI_AGENT_ID` is not an identity.
+    /// An empty flag or `CONTEXERE_AGENT_ID` is not an identity.
     #[test]
     fn falls_through_when_a_source_is_present_but_empty() {
         assert_eq!(

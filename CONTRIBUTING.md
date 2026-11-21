@@ -41,7 +41,7 @@ first: it carries hostnames, account ids and keys more often than people expect.
 git clone https://github.com/fajarhide/contexere
 cd contexere
 cargo build
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+CONTEXERE_DB_PATH=/tmp/omni-test.db cargo test
 ```
 
 The toolchain is pinned in `rust-toolchain.toml`. `rustup` reads it automatically; a
@@ -50,7 +50,7 @@ so run `source "$HOME/.cargo/env"` first if you have both.
 
 `cargo install cargo-insta` for snapshot review.
 
-**Set `OMNI_DB_PATH` before running tests.** Parallel tests competing for
+**Set `CONTEXERE_DB_PATH` before running tests.** Parallel tests competing for
 `~/.omni/omni.db` cause SQLite locks: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one.
 
@@ -69,7 +69,7 @@ list these once, in the manual's install page under "Moving off the omni name":
 | --- | --- |
 | the `omni` command | existing hooks and MCP entries call it; it is the same program |
 | `[OMNI` markers and the `omni retrieve` hint | agents and skills parse them |
-| `OMNI_*` variables, `~/.omni`, `omni.db` | the code reads them; `CONTEXERE_*` is folded onto `OMNI_*` at startup and wins |
+| `~/.omni`, `omni.db` | an install that predates the move still keeps its data there |
 | `omni_*` MCP tools when run as `omni` | a host registered against `omni --mcp` keeps calling them |
 
 ## What Contexere is trying to be
@@ -268,7 +268,7 @@ The CI matrix includes `windows-latest`. Four rules keep it green.
 ## Testing
 
 ```bash
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+CONTEXERE_DB_PATH=/tmp/omni-test.db cargo test
 cargo test --test hook_e2e
 cargo test --test savings_assertions
 cargo test --test security_tests
@@ -375,7 +375,7 @@ people expect.
 
 Read the **whole** distilled output before filing. Grepping it hides the group headers
 that often make the output lossless after all, and Contexere is non-deterministic against a
-warm database, so isolate `OMNI_DB_PATH` per run.
+warm database, so isolate `CONTEXERE_DB_PATH` per run.
 
 Three classes, and they are not equally urgent:
 

@@ -137,6 +137,7 @@ impl AgentIntegration for CodexIntegration {
             let legacy = fs::read_to_string(&config_path)
                 .is_ok_and(|c| !declares_transport(&c) && strip_legacy_server(&c).is_some());
             super::report_server_name(legacy.then_some("omni"));
+            super::report_old_agent_id(&fs::read_to_string(&config_path).unwrap_or_default());
         } else {
             all_ok = false;
             if fix_mode {

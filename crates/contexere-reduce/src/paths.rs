@@ -35,8 +35,8 @@ fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
 
 /// Resolve one of the two roots, most specific first (#217):
 ///
-/// 1. `OMNI_HOME` puts the whole tree in one place.
-/// 2. `OMNI_CONFIG_HOME` / `OMNI_DATA_HOME` split config from data.
+/// 1. `CONTEXERE_HOME` puts the whole tree in one place.
+/// 2. `CONTEXERE_CONFIG_HOME` / `CONTEXERE_DATA_HOME` split config from data.
 /// 3. An existing `~/.contexere`, then an existing `~/.omni` (moved to
 ///    `~/.contexere` when it can be), win over XDG, so an upgrade never appears
 ///    to lose a database.
@@ -46,7 +46,7 @@ fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
 ///
 /// Read once through a `LazyLock`: tests run in parallel in one process.
 fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
-    if let Some(p) = env::var_os("OMNI_HOME").filter(|p| !p.is_empty()) {
+    if let Some(p) = env::var_os("CONTEXERE_HOME").filter(|p| !p.is_empty()) {
         return PathBuf::from(p);
     }
     if let Some(p) = env::var_os(split_var).filter(|p| !p.is_empty()) {
@@ -80,7 +80,7 @@ fn resolve_root(split_var: &str, xdg_var: &str) -> PathBuf {
 #[inline]
 pub fn config_home() -> PathBuf {
     static ROOT: std::sync::LazyLock<PathBuf> =
-        std::sync::LazyLock::new(|| resolve_root("OMNI_CONFIG_HOME", "XDG_CONFIG_HOME"));
+        std::sync::LazyLock::new(|| resolve_root("CONTEXERE_CONFIG_HOME", "XDG_CONFIG_HOME"));
     ROOT.clone()
 }
 
@@ -88,7 +88,7 @@ pub fn config_home() -> PathBuf {
 #[inline]
 pub fn data_home() -> PathBuf {
     static ROOT: std::sync::LazyLock<PathBuf> =
-        std::sync::LazyLock::new(|| resolve_root("OMNI_DATA_HOME", "XDG_DATA_HOME"));
+        std::sync::LazyLock::new(|| resolve_root("CONTEXERE_DATA_HOME", "XDG_DATA_HOME"));
     ROOT.clone()
 }
 
@@ -201,14 +201,14 @@ mod tests {
         assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
     }
 
-    /// `.cargo/config.toml` points `OMNI_HOME` at `target/`; fails if either half
+    /// `.cargo/config.toml` points `CONTEXERE_HOME` at `target/`; fails if either half
     /// is removed (#307).
     #[test]
     fn a_test_run_never_resolves_to_the_developers_real_home() {
         let home = omni_home();
         assert!(
             home.ends_with("omni-home"),
-            "OMNI_HOME is not in effect: a test run would write to {}",
+            "CONTEXERE_HOME is not in effect: a test run would write to {}",
             home.display()
         );
 

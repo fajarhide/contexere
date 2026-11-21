@@ -3,34 +3,7 @@
 use std::ffi::OsString;
 use std::path::Path;
 
-const NEW_ENV_PREFIX: &str = "CONTEXERE_";
 const OLD_ENV_PREFIX: &str = "OMNI_";
-
-/// `CONTEXERE_*` settings to write over their `OMNI_*` twin.
-///
-/// The code still reads `OMNI_*`, so the new name is folded onto the old one
-/// and wins when both are set. Pure so it can be tested without touching the
-/// process environment, which parallel tests share.
-pub fn env_to_adopt<I>(vars: I) -> Vec<(String, OsString)>
-where
-    I: IntoIterator<Item = (OsString, OsString)>,
-{
-    vars.into_iter()
-        .filter_map(|(key, value)| {
-            let rest = key.to_str()?.strip_prefix(NEW_ENV_PREFIX)?;
-            Some((format!("{OLD_ENV_PREFIX}{rest}"), value))
-        })
-        .collect()
-}
-
-/// Call first thing in `main`, before any thread exists: changing the
-/// environment is only sound while the process is single threaded.
-pub fn adopt_env() {
-    for (key, value) in env_to_adopt(std::env::vars_os()) {
-        // SAFETY: `main` calls this before it spawns anything.
-        unsafe { std::env::set_var(key, value) };
-    }
-}
 
 /// Whether this process was started under the old name. `omni` is a link to the
 /// same binary, and keeps serving `omni_*` tools so a registered host sees what
@@ -100,31 +73,20 @@ pub fn hook_calls_omni(command: &str) -> bool {
     rest.rsplit(' ').next().is_some_and(file_name_is_omni)
 }
 
-/// `OMNI_*` settings with no `CONTEXERE_*` twin, sorted. A twin means the user
-/// already moved it; `adopt_env` folded it onto the old name at startup.
+/// `OMNI_*` settings, sorted. Since 0.9.0 nothing reads them (#1067), so `doctor`
+/// names each one. Matched without case, as Windows reads environment names.
 pub fn settings_on_old_name<I>(vars: I) -> Vec<String>
 where
     I: IntoIterator<Item = (OsString, OsString)>,
 {
-    let keys: Vec<String> = vars
+    let mut old: Vec<String> = vars
         .into_iter()
         .filter_map(|(k, _)| k.into_string().ok())
-        .collect();
-    // A twin is what `env_to_adopt` folds: the exact `CONTEXERE_` prefix. Its rest
-    // and the old name compare without case, as every setting reader does.
-    let twins: Vec<String> = keys
-        .iter()
-        .filter_map(|k| k.strip_prefix(NEW_ENV_PREFIX))
-        .map(str::to_ascii_uppercase)
-        .collect();
-    let mut old: Vec<String> = keys
-        .iter()
         .filter(|k| {
             k.to_ascii_uppercase()
                 .strip_prefix(OLD_ENV_PREFIX)
-                .is_some_and(|rest| !rest.is_empty() && !twins.iter().any(|t| t == rest))
+                .is_some_and(|rest| !rest.is_empty())
         })
-        .cloned()
         .collect();
     old.sort();
     old
@@ -172,22 +134,6 @@ mod tests {
     }
 
     #[test]
-    fn folds_only_the_exact_new_prefix_onto_the_old_name() {
-        let vars = vec![
-            (
-                OsString::from("CONTEXERE_AGENT_ID"),
-                OsString::from("cursor"),
-            ),
-            (OsString::from("OMNI_QUIET"), OsString::from("1")),
-            (OsString::from("CONTEXEREX_Y"), OsString::from("no")),
-        ];
-        assert_eq!(
-            env_to_adopt(vars),
-            vec![("OMNI_AGENT_ID".to_string(), OsString::from("cursor"))]
-        );
-    }
-
-    #[test]
     fn a_command_is_omni_by_its_whole_path() {
         assert!(file_name_is_omni("/Users/Jane Doe/bin/omni"));
         assert!(file_name_is_omni("\"C:\\Users\\x y\\omni.exe\""));
@@ -221,8 +167,10 @@ mod tests {
         ));
     }
 
+    /// #1067: a `CONTEXERE_*` twin no longer covers an old setting, since the old
+    /// one is ignored either way.
     #[test]
-    fn lists_a_setting_on_the_old_name_only_without_its_twin() {
+    fn lists_every_setting_on_the_old_name() {
         let vars = vec![
             (OsString::from("OMNI_QUIET"), OsString::from("1")),
             (OsString::from("OMNI_AGENT_ID"), OsString::from("cursor")),
@@ -231,21 +179,15 @@ mod tests {
                 OsString::from("cursor"),
             ),
             (OsString::from("OMNIX"), OsString::from("no")),
-            // Windows reads environment names without case, and so does the code.
+            (OsString::from("OMNI_"), OsString::from("no")),
+            // Windows reads environment names without case.
             (OsString::from("omni_passthrough"), OsString::from("1")),
-            // `adopt_env` folds only the exact `CONTEXERE_` prefix, so this twin
-            // is never read and `omni_db_path` still carries the setting.
-            (OsString::from("omni_db_path"), OsString::from("/x")),
-            (OsString::from("Contexere_Db_Path"), OsString::from("/x")),
-            // An adopted twin whose rest differs in case still covers the old one.
-            (OsString::from("OMNI_LOG"), OsString::from("1")),
-            (OsString::from("CONTEXERE_log"), OsString::from("1")),
         ];
         assert_eq!(
             settings_on_old_name(vars),
             vec![
+                "OMNI_AGENT_ID".to_string(),
                 "OMNI_QUIET".to_string(),
-                "omni_db_path".to_string(),
                 "omni_passthrough".to_string()
             ]
         );

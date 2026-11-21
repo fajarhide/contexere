@@ -30,10 +30,10 @@ pub fn run_version(args: &[String]) {
     if json_flag {
         let output = VersionJson {
             version: version_str,
-            build_date: option_env!("OMNI_BUILD_DATE")
+            build_date: option_env!("CONTEXERE_BUILD_DATE")
                 .unwrap_or("unknown")
                 .to_string(),
-            git_hash: option_env!("OMNI_GIT_HASH")
+            git_hash: option_env!("CONTEXERE_GIT_HASH")
                 .unwrap_or("unknown")
                 .to_string(),
             features: vec![

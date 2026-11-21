@@ -1,4 +1,4 @@
-//! #1033: `OMNI_PASSTHROUGH=1` in the environment skips compression only. A model can
+//! #1033: `CONTEXERE_PASSTHROUGH=1` in the environment skips compression only. A model can
 //! set it through `exec`, so a credential is hidden on pipe, `exec` and the hook alike.
 //! A child process, because the variable is process-wide and tests run in parallel.
 #![cfg(unix)]
@@ -12,9 +12,9 @@ fn run(args: &[&str], stdin: &str) -> Output {
     let db = tempfile::NamedTempFile::new().expect("temp db");
     let mut child = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(args)
-        .env("OMNI_PASSTHROUGH", "1")
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_PASSTHROUGH", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

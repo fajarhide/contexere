@@ -14,7 +14,7 @@ use std::process::Command;
 fn post_hook(payload: &str, db: &str) -> String {
     let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("--post-hook")
-        .env("OMNI_DB_PATH", db)
+        .env("CONTEXERE_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
