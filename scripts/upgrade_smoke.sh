@@ -110,11 +110,12 @@ HANDLE=$(grep -o 'retrieve [0-9a-f]\{16\}' "$ROOT/out-new/1.json" | head -1 | cu
 [ -n "$HANDLE" ] || fail "the repeated file did not fold, so there is no handle to follow"
 echo "upgrade: ${#CALLS[@]} hook replies byte for byte, fold handle $HANDLE"
 
-# Each side reads its own copy of the history the old release wrote. The homes
-# above also hold rows each binary booked itself, and those may be figured
-# differently from one release to the next without the history being misread.
+# Each side reads its own copy of home-old, folds included, which only the old
+# release wrote to. home-new also holds rows the new binary booked itself, and
+# those may be figured differently from one release to the next without the
+# history being misread.
 for side in old new; do
-  cp -R "$H0" "$ROOT/stats-home-$side"
+  cp -R "$ROOT/home-old" "$ROOT/stats-home-$side"
   as "$side" "$ROOT/stats-home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
 done
 # Only the latency line differs: it is timed per run, not history.
