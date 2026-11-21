@@ -219,7 +219,7 @@ footer {{ margin-top: 3rem; font-size: .8rem; opacity: .6; }}
 <table><tr><th>agent</th><th class="n">calls</th><th class="n">share</th><th class="n">saved</th></tr>{agents}</table>
 <h2>Why payloads were passed through</h2>
 <table><tr><th>gate</th><th class="n">calls</th></tr>{gates}</table>
-<footer>Read-only, from ~/.omni/omni.db. Same figures as <code>omni stats</code>. Reload to refresh.</footer>
+<footer>Read-only, from the local database. Same figures as <code>contexere stats</code>. Reload to refresh.</footer>
 </body></html>"#
     )
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# An existing omni install keeps working across the rename, and back (#876).
+# An existing omni install keeps working across the rename (#876).
 #
 #   scripts/upgrade_smoke.sh <old omni binary> <new contexere binary>
 #
@@ -7,7 +7,8 @@
 # store with a real fold, then copies that HOME twice. The same payloads go
 # through the hook command `omni init` wrote, once with the old binary on PATH
 # and once with `omni` pointing at the new one, and the replies must match byte
-# for byte. Then the old binary goes back on PATH and must still read the store.
+# for byte. Since 0.9.0 the store moves to ~/.contexere with nothing left at
+# ~/.omni, so a downgrade starts empty and is not tested (#1067).
 set -euo pipefail
 
 OLD=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
@@ -16,17 +17,19 @@ ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# One bin dir whose links change underneath, the way `brew upgrade` repoints
-# /opt/homebrew/bin/omni. `omni init` writes that absolute path into each host's
-# config, so the hook a host runs is whatever the link points at.
+# One bin dir whose binaries change underneath, the way an upgrade replaces
+# /usr/local/bin/omni. `omni init` writes that absolute path into each host's
+# config, so the hook a host runs is whatever sits there. Copies, not links:
+# `omni init` writes the resolved path of a link, which would keep every hook
+# on the old binary and compare the old release with itself.
 mkdir -p "$ROOT/bin"
 install_side() { # install_side <old|new>
   rm -f "$ROOT/bin/omni" "$ROOT/bin/contexere"
   if [ "$1" = old ]; then
-    ln -s "$OLD" "$ROOT/bin/omni"
+    cp "$OLD" "$ROOT/bin/omni"
   else
-    ln -s "$NEW" "$ROOT/bin/contexere"
-    ln -s "$NEW" "$ROOT/bin/omni"
+    cp "$NEW" "$ROOT/bin/contexere"
+    cp "$NEW" "$ROOT/bin/omni"
   fi
 }
 
@@ -108,15 +111,20 @@ HANDLE=$(grep -o 'retrieve [0-9a-f]\{16\}' "$ROOT/out-new/1.json" | head -1 | cu
 [ -n "$HANDLE" ] || fail "the repeated file did not fold, so there is no handle to follow"
 echo "upgrade: ${#CALLS[@]} hook replies byte for byte, fold handle $HANDLE"
 
+# Each side reads its own copy of home-old, folds included, which only the old
+# release wrote to. home-new also holds rows the new binary booked itself, and
+# those may be figured differently from one release to the next without the
+# history being misread.
 for side in old new; do
-  as "$side" "$ROOT/home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
+  cp -R "$ROOT/home-old" "$ROOT/stats-home-$side"
+  as "$side" "$ROOT/stats-home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
 done
 # Only the latency line differs: it is timed per run, not history.
 norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }
 diff <(norm "$ROOT/stats-old.txt") <(norm "$ROOT/stats-new.txt") || fail "omni stats reads the old history differently"
 as new "$ROOT/home-new" omni retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "new binary: omni retrieve $HANDLE"
-# The first run moves the tree and leaves a link, so the downgrade below still finds it (#1063).
-[ -d "$ROOT/home-new/.contexere" ] && [ -L "$ROOT/home-new/.omni" ] || fail "the upgrade did not move ~/.omni to ~/.contexere behind a link"
+# The first run moves the tree and renames the database, leaving nothing behind (#1067).
+[ -f "$ROOT/home-new/.contexere/contexere.db" ] && [ ! -e "$ROOT/home-new/.omni" ] && [ ! -L "$ROOT/home-new/.omni" ] || fail "the upgrade did not move ~/.omni/omni.db to ~/.contexere/contexere.db"
 echo "upgrade: omni stats matches, omni retrieve follows an old handle, ~/.omni moved to ~/.contexere"
 
 # `contexere init` over the old install replaces omni's hooks: one post-hook, ours.
@@ -132,9 +140,4 @@ HOOK2=$(hook_cmd "$ROOT/home-init")
 payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as new "$ROOT/home-init" sh -c "$HOOK2") | grep -q 'retrieve' || fail "the replaced hook did not fold"
 echo "init: contexere init replaced omni's hook with $HOOK2"
 
-# Downgrade: the old release on the store the new one has written to.
-payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as old "$ROOT/home-new" sh -c "$HOOK") >/dev/null || fail "downgrade: hook"
-as old "$ROOT/home-new" omni stats </dev/null >/dev/null 2>&1 || fail "downgrade: omni stats"
-as old "$ROOT/home-new" omni retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "downgrade: omni retrieve $HANDLE"
-echo "downgrade: the old release still runs its hook, stats and retrieve on the same store"
 echo "PASS"
