@@ -1554,18 +1554,12 @@ impl OmniServer {
 
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
-        let router = Self::router_for(&agent_id);
-        if crate::legacy::invoked_as_omni() {
-            router
-        } else {
-            Self::with_prefix(router, "contexere")
-        }
+        Self::with_prefix(Self::router_for(&agent_id), "contexere")
     }
 
     /// Serve every `omni_*` tool as `<prefix>_*`. The tools keep their `omni_`
-    /// names inside, as policy and analytics key on them; `contexere` presents
-    /// them under its own name and `omni` as before, so a host registered
-    /// against `omni --mcp` sees what it saw (#876). Renamed rather than doubled,
+    /// names inside, as policy and analytics key on them. Since 0.9.0 the old
+    /// `omni` name serves `contexere_*` too (#1067). Renamed rather than doubled,
     /// so the advertised surface costs the same bytes.
     fn with_prefix(
         mut router: rmcp::handler::server::router::tool::ToolRouter<Self>,
