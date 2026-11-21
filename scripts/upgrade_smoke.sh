@@ -16,17 +16,19 @@ ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# One bin dir whose links change underneath, the way `brew upgrade` repoints
-# /opt/homebrew/bin/omni. `omni init` writes that absolute path into each host's
-# config, so the hook a host runs is whatever the link points at.
+# One bin dir whose binaries change underneath, the way an upgrade replaces
+# /usr/local/bin/omni. `omni init` writes that absolute path into each host's
+# config, so the hook a host runs is whatever sits there. Copies, not links:
+# `omni init` writes the resolved path of a link, which would keep every hook
+# on the old binary and compare the old release with itself.
 mkdir -p "$ROOT/bin"
 install_side() { # install_side <old|new>
   rm -f "$ROOT/bin/omni" "$ROOT/bin/contexere"
   if [ "$1" = old ]; then
-    ln -s "$OLD" "$ROOT/bin/omni"
+    cp "$OLD" "$ROOT/bin/omni"
   else
-    ln -s "$NEW" "$ROOT/bin/contexere"
-    ln -s "$NEW" "$ROOT/bin/omni"
+    cp "$NEW" "$ROOT/bin/contexere"
+    cp "$NEW" "$ROOT/bin/omni"
   fi
 }
 
@@ -108,8 +110,12 @@ HANDLE=$(grep -o 'retrieve [0-9a-f]\{16\}' "$ROOT/out-new/1.json" | head -1 | cu
 [ -n "$HANDLE" ] || fail "the repeated file did not fold, so there is no handle to follow"
 echo "upgrade: ${#CALLS[@]} hook replies byte for byte, fold handle $HANDLE"
 
+# Each side reads its own copy of the history the old release wrote. The homes
+# above also hold rows each binary booked itself, and those may be figured
+# differently from one release to the next without the history being misread.
 for side in old new; do
-  as "$side" "$ROOT/home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
+  cp -R "$H0" "$ROOT/stats-home-$side"
+  as "$side" "$ROOT/stats-home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
 done
 # Only the latency line differs: it is timed per run, not history.
 norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }
