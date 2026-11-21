@@ -3,14 +3,14 @@
 A marker is Contexere telling you what it did. There are only a few shapes, and knowing
 them is the difference between trusting the tool and suspecting it.
 
-The examples below print `[OMNI`. From 0.9.0 the same markers start with `[CONTEXERE`
-and name `contexere retrieve`, so anything that matches a marker should accept both
+Releases before 0.9.0 printed the same markers with `[OMNI` and named `omni retrieve`.
+Old transcripts still carry them, so anything that matches a marker should accept both
 prefixes.
 
 ## The shapes
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
 ```
 
 Content was cut and archived. The 16 characters are a handle:
@@ -18,7 +18,7 @@ Content was cut and archived. The 16 characters are a handle:
 shell in any session.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 The ledger. These lines were emitted earlier **in this session**, so the claim is that
@@ -26,7 +26,7 @@ the agent is still holding them and the handle costs nothing unless it wants to
 re-read.
 
 ```
-[OMNI: 40 lines identical to an earlier run, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines identical to an earlier run, contexere retrieve 0000000000000000]
 ```
 
 The ledger again, for the case where the identity is the answer. You ran the same
@@ -35,7 +35,7 @@ than "already shown": a poll re-run to find out whether a value moved is answere
 the value not having moved, and a re-read is answered by the file not having changed.
 
 ```
-[OMNI: 40 lines not shown here, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines not shown here, contexere retrieve 0000000000000000]
 ```
 
 Also the ledger, different claim. These lines went to a **different session** of this
@@ -48,8 +48,8 @@ on the directory, so anything running in this repository contributes to it. See
 [what two agents share](../concepts/the-ledger.md#what-two-agents-in-one-repo-share).
 
 ```
-[OMNI: identical to the 40 lines already shown, omni retrieve 0000000000000000]
-[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve 0000000000000000]
+[CONTEXERE: identical to the 40 lines already shown, contexere retrieve 0000000000000000]
+[CONTEXERE: identical to 40 lines from an earlier session, none shown here, contexere retrieve 0000000000000000]
 ```
 
 The same two claims, for a reply that is repeated **in full**. When the fold covers
@@ -58,7 +58,7 @@ every line, the marker is the whole output rather than a gap inside it, so it sa
 hundreds. Anything less than the whole reply keeps the wording above.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ⋮
 ⋮
 ```
@@ -70,7 +70,7 @@ what lets a fold sit between two pieces of content you still need. The filler is
 retrievable content: `contexere retrieve` on the handle above prints the real lines.
 
 ```
-[OMNI: 40 lines already shown from charlie.tf, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown from charlie.tf, contexere retrieve 0000000000000000]
 ```
 
 Any of the four can carry `from <source>`, naming the command whose output first
@@ -91,7 +91,7 @@ every marker would cost savings on the common case to label the rare one.
 Collapse. A run of near-identical lines, replaced by a count.
 
 ```
-[OMNI Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
+[CONTEXERE Active] ⏺ 93.7% reduction (2.3 KB → 147 B) 3ms
 ```
 
 The footer, on `contexere exec` and pipe mode. Input size, output size, and how long the
@@ -104,8 +104,8 @@ pipeline took.
 The pipeline recognised some of the output but not all of it.
 
 ```
-[OMNI: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, omni retrieve 0000000000000000]
-[OMNI: output truncated, 50000 of 180000 bytes kept]
+[CONTEXERE: output truncated, 1200 of 4000 lines kept, 2800 dropped from the middle, contexere retrieve 0000000000000000]
+[CONTEXERE: output truncated, 50000 of 180000 bytes kept]
 ```
 
 The last cut before a reply leaves, at 50 KB. The line form keeps the start and the end,
@@ -115,13 +115,13 @@ keeps the start only, so a single enormous line loses its tail. The handle is th
 the dropped part was archived; without one, the marker still says what was removed.
 
 ```
-[OMNI: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
+[CONTEXERE: output of .env withheld, it is a credential source. 3 lines, up to 2 columns, field lengths by line: 20 40 / 8 12 / 4 9]
 ```
 
 The command printed a credential source, so you get its shape and never its bytes. A command that prints one is normally refused before it runs, with what to run instead. Sources are `~/.aws/credentials`, `~/.config/gh/hosts.yml`, `.env*`, `~/.ssh/id_*`, files named `*secret*`, `*credential*` or `*creds*`, `crontab -l`, `systemctl cat`, an unformatted `docker inspect`, also inside `ssh`, plus `CONTEXERE_SECRET_SOURCES`. Loading a value without printing it still works: `. file`, `jq --rawfile`, `wc -l`, `stat`, `shasum`, `cmp`.
 
 ```
-[OMNI: 2 sensitive value(s) redacted]
+[CONTEXERE: 2 sensitive value(s) redacted]
 ```
 
 Credential redaction on command output. A line that assigns a value to a sensitive name
@@ -163,7 +163,7 @@ Redaction protects what the agent receives, not your disk. Contexere's local tra
 the raw output, secret included, for seven days.
 
 ```
-[OMNI: Re-injecting critical files due to Warning pressure]
+[CONTEXERE: Re-injecting critical files due to Warning pressure]
 ```
 
 When the context is under pressure (`Warning` or `Critical`), Contexere periodically puts up to

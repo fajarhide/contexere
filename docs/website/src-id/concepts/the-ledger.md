@@ -20,13 +20,13 @@ penanda yang menyebut jumlahnya dan sebuah handle. Sisanya lewat persis byte dem
 byte.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 Di sebuah `Read`, markernya diikuti satu `⋮` untuk tiap baris yang digantikannya:
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ⋮
 ⋮      (38 baris lagi)
 ⋮

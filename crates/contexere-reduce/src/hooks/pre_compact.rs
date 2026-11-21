@@ -247,7 +247,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     if current_tokens > 6000 {
         let target_chars = ((6000.0 / current_tokens as f64) * out.len() as f64) as usize;
         crate::util::text::safe_truncate(&mut out, target_chars.saturating_sub(50));
-        out.push_str("\n... [OMNI: Intelligently omitted to stay within 6000 token budget]\n");
+        out.push_str("\n... [CONTEXERE: Intelligently omitted to stay within 6000 token budget]\n");
     }
 
     out

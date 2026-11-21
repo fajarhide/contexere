@@ -169,7 +169,7 @@ pub struct OmniRetrieveParams {
     // Not a doc comment: schemars puts one in the advertised schema, and that
     // schema is billed on every session (#609).
     //
-    // Every marker says `omni retrieve <handle>`, and so does the CLI's usage
+    // Every marker says `contexere retrieve <handle>`, and so does the CLI's usage
     // line, so an agent that copies what it was told to run sent `handle` and got
     // `missing field hash` back (#826). The schema now names what the marker
     // names; `hash` stays as an alias so a caller written against the old field
@@ -791,7 +791,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 let mut msg = format!(
-                    "{}{}[OMNI Context] Task: {}. Hot: {}. Error: {}",
+                    "{}{}[CONTEXERE Context] Task: {}. Hot: {}. Error: {}",
                     goal_str, last_session_str, task, hot_str, err
                 );
                 if msg.len() > 400 {
@@ -1818,7 +1818,7 @@ mod tests {
         assert_eq!(output, "testing_payload");
     }
 
-    /// The marker says `omni retrieve <handle>` while older callers send `hash`;
+    /// The marker says `contexere retrieve <handle>` while older callers send `hash`;
     /// both must work (#826).
     #[tokio::test]
     async fn the_word_in_the_marker_and_the_old_field_both_deserialize() {

@@ -125,7 +125,7 @@ def test_falls_back_to_compact_on_a_host_without_request_compaction():
 
 
 def test_asks_nothing_without_a_pressure_warning():
-    assert compactions("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
+    assert compactions("[CONTEXERE: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
     assert compactions(None) == []
 
 

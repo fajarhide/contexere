@@ -730,7 +730,7 @@ pub fn summary(source: &str, content: &str) -> String {
         .map(|w| w.iter().map(usize::to_string).collect::<Vec<_>>().join(" "))
         .collect();
     format!(
-        "[OMNI: output of {source} withheld, it is a credential source. {lines} lines, up to \
+        "[CONTEXERE: output of {source} withheld, it is a credential source. {lines} lines, up to \
          {columns} columns, field lengths by line: {}]",
         shown.join(" / ")
     )

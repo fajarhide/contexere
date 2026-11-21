@@ -35,7 +35,7 @@ pub fn distill_grep(content: &str) -> Option<String> {
     });
 
     let mut out = format!(
-        "[OMNI Grep: {} matches in {} files]\n",
+        "[CONTEXERE Grep: {} matches in {} files]\n",
         line_count, file_count
     );
 
@@ -103,7 +103,7 @@ pub fn distill_grep(content: &str) -> Option<String> {
         }
         // Tail files are named, their match lines not shown.
         out.push_str(
-            "[OMNI Guard: match lines shown for the 10 densest files only; run omni retrieve on the handle for the rest]\n",
+            "[CONTEXERE Guard: match lines shown for the 10 densest files only; run contexere retrieve on the handle for the rest]\n",
         );
     }
 

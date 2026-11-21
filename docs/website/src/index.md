@@ -59,7 +59,7 @@ remembered the first read. You pay full price both times.
 Contexere remembers. The second read comes back as one line:
 
 ```
-[OMNI: 178 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 178 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 **A 7.6 KB file read twice costs 7.6 KB and then 214 bytes.** Nothing was deleted: those

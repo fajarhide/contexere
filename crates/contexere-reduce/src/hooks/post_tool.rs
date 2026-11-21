@@ -155,16 +155,16 @@ fn rewind_marker_text(content: &str, kept_lines: usize, kept_bytes: usize, hash:
 
     if content.len() > crate::guard::limits::MAX_REWIND_BYTES {
         return format!(
-            "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+            "\n[CONTEXERE: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
             content.len(),
             crate::guard::limits::MAX_REWIND_BYTES
         );
     }
     // A failed write is no handle at all (#388).
     if hash.is_empty() {
-        format!("\n[OMNI: {lost} omitted, full output not archived]\n")
+        format!("\n[CONTEXERE: {lost} omitted, full output not archived]\n")
     } else {
-        format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
+        format!("\n[CONTEXERE: {lost} omitted, contexere retrieve {hash} for full output]\n")
     }
 }
 
@@ -183,7 +183,7 @@ fn archive_tool_reply(
     (distilled.len() + marker.len() < content.len()).then(|| distilled + &marker)
 }
 
-/// Whether this command hands archived bytes back verbatim (`omni retrieve`,
+/// Whether this command hands archived bytes back verbatim (`contexere retrieve`,
 /// `omni diff`): distilling it returned another marker (#456). Matched on the
 /// subcommand token, not a substring.
 pub(crate) fn returns_archived_bytes(command: &str) -> bool {
@@ -320,7 +320,7 @@ fn trim_enormous(content: &str) -> std::borrow::Cow<'_, str> {
     let head = lines[..HEAD_LINES].join("\n");
     let tail = lines[lines.len() - TAIL_LINES..].join("\n");
     Cow::Owned(format!(
-        "{head}\n\n... [OMNI: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
+        "{head}\n\n... [CONTEXERE: {} lines omitted due to extreme length (>2MB)] ...\n\n{tail}",
         lines.len() - (HEAD_LINES + TAIL_LINES)
     ))
 }
@@ -464,7 +464,7 @@ fn distil_tool_reply(
             }
             let lines: Vec<&str> = content.lines().collect();
             let summary = format!(
-                "[OMNI MultiEdit: {} lines]\n{}",
+                "[CONTEXERE MultiEdit: {} lines]\n{}",
                 lines.len(),
                 lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
             );
@@ -483,7 +483,7 @@ fn distil_tool_reply(
             if content.len() > 2000 {
                 let lines: Vec<&str> = content.lines().collect();
                 let summary = format!(
-                    "[OMNI {}: {} lines]\n{}",
+                    "[CONTEXERE {}: {} lines]\n{}",
                     normalized.tool_name,
                     lines.len(),
                     lines.into_iter().take(30).collect::<Vec<&str>>().join("\n")
@@ -525,7 +525,10 @@ fn withheld_reply(
             );
         }
         let body = source::summary(&name, &normalized.content);
-        (body, "[OMNI: a credential source was withheld]".to_string())
+        (
+            body,
+            "[CONTEXERE: a credential source was withheld]".to_string(),
+        )
     } else {
         let (mut body, mut count) = source::mask_named_columns(&normalized.content)?;
         // The other cells still get the shape-based redactor.
@@ -535,7 +538,7 @@ fn withheld_reply(
         }
         (
             body,
-            format!("[OMNI: {count} sensitive value(s) redacted in place]"),
+            format!("[CONTEXERE: {count} sensitive value(s) redacted in place]"),
         )
     };
     if let Some(sess) = session {
@@ -588,7 +591,7 @@ pub fn process_payload(
                     hook_event_name: "PostToolUse",
                     updated_tool_output: shape_for_host(normalized.raw_response.as_ref(), body),
                     additional_context: Some(format!(
-                        "[OMNI: {count} sensitive value(s) redacted in place]"
+                        "[CONTEXERE: {count} sensitive value(s) redacted in place]"
                     )),
                 },
             })
@@ -1098,7 +1101,7 @@ fn build_additional_context(
         let pinned_content = crate::hooks::session_start::read_pinned_files(&cwd);
         if !pinned_content.is_empty() {
             msgs.push(format!(
-                "[OMNI: Re-injecting critical files due to {} pressure]\n{}",
+                "[CONTEXERE: Re-injecting critical files due to {} pressure]\n{}",
                 s.context_pressure, pinned_content
             ));
             s.pinned_reinject_at = s.command_count;
@@ -1110,7 +1113,7 @@ fn build_additional_context(
     // (#589); the old gate fired over a three-byte window this one does not.
     if saved_bytes_this_call >= 1800 {
         msgs.push(format!(
-            "[OMNI: -{} this call | -{} session | {savings:.0}% compression]",
+            "[CONTEXERE: -{} this call | -{} session | {savings:.0}% compression]",
             crate::cli::stats::format_bytes(saved_bytes_this_call as u64),
             crate::cli::stats::format_bytes(session_bytes_total),
             savings = result.savings_pct()
@@ -1118,7 +1121,7 @@ fn build_additional_context(
     } else if command_count > 0 && command_count.is_multiple_of(10) && session_bytes_total >= 3600 {
         // A milestone summary every 10 commands when savings are significant.
         msgs.push(format!(
-            "[OMNI session milestone: -{} saved across {command_count} commands]",
+            "[CONTEXERE session milestone: -{} saved across {command_count} commands]",
             crate::cli::stats::format_bytes(session_bytes_total)
         ));
     }
@@ -1130,11 +1133,14 @@ fn build_additional_context(
     }
 }
 
-/// True when this text is an OMNI summary, by its bracketed marker line.
+/// True when this text is our summary, by its bracketed marker line. `[OMNI` is what
+/// releases before 0.9.0 wrote, and old transcripts still carry it.
 fn carries_our_marker(content: &str) -> bool {
     content.lines().any(|l| {
         let l = l.trim_start();
-        l.starts_with("[OMNI:") || l.starts_with("[OMNI ")
+        ["[CONTEXERE", "[OMNI"]
+            .iter()
+            .any(|p| l.strip_prefix(p).is_some_and(|r| r.starts_with([':', ' '])))
     })
 }
 
@@ -1170,7 +1176,7 @@ fn process_web_content(content: &str) -> Option<String> {
         .copied()
         .collect();
     let summary = format!(
-        "[OMNI WebFetch: {} lines → {} relevant]\n{}{}",
+        "[CONTEXERE WebFetch: {} lines → {} relevant]\n{}{}",
         line_count,
         total_clean,
         meaningful.join("\n"),
@@ -1203,13 +1209,13 @@ fn strip_html_simple(html: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    /// `omni retrieve` output is never distilled into another marker (#456).
+    /// `contexere retrieve` output is never distilled into another marker (#456).
     #[test]
     fn never_distils_the_command_that_undoes_distillation() {
         for cmd in [
-            "omni retrieve 0000000000000000",
-            "/opt/homebrew/bin/omni retrieve 0000000000000000",
-            "cd /tmp && omni retrieve 0000000000000000",
+            "contexere retrieve 0000000000000000",
+            "/opt/homebrew/bin/contexere retrieve 0000000000000000",
+            "cd /tmp && contexere retrieve 0000000000000000",
             "/opt/homebrew/bin/contexere retrieve 0000000000000000",
             "omni diff",
         ] {
@@ -1301,7 +1307,7 @@ mod tests {
         );
 
         let retrieval = process_payload(
-            &payload("omni retrieve 0000000000000000"),
+            &payload("contexere retrieve 0000000000000000"),
             Some(store.clone()),
             None,
         );
@@ -1423,7 +1429,7 @@ mod tests {
 
         // The handle is the hex run after the marker phrase.
         let mut reachable = String::new();
-        for part in second.split("omni retrieve ").skip(1) {
+        for part in second.split("contexere retrieve ").skip(1) {
             let handle: String = part.chars().take_while(char::is_ascii_hexdigit).collect();
             if let Some(text) = store.retrieve_rewind(&handle) {
                 reachable.push_str(&text);
@@ -1678,11 +1684,11 @@ Ran 6 tests across 1 file. [4.00ms]
         let second =
             process_payload(&payload, Some(store.clone()), None).expect("the repeat is rewritten");
 
-        let markers = second.matches("[OMNI:").count();
+        let markers = second.matches("[CONTEXERE:").count();
         assert_eq!(markers, 1, "expected one marker, got {markers}: {second}");
 
         let handles: std::collections::HashSet<&str> = second
-            .split("omni retrieve ")
+            .split("contexere retrieve ")
             .skip(1)
             .filter_map(|t| t.split([']', ' ']).next())
             .collect();
@@ -1772,8 +1778,8 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn recognises_a_summary_omni_wrote() {
         // Both marker wordings, before and after 0.7.1.
-        let legacy = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]";
-        let current = "test result: ok. 600 passed; 0 failed;\n[OMNI: 600 lines omitted, omni retrieve abc123 for full output]";
+        let legacy = "test result: ok. 600 passed; 0 failed;\n[CONTEXERE: 600 lines omitted, omni_retrieve(\"abc123\") for full output]";
+        let current = "test result: ok. 600 passed; 0 failed;\n[CONTEXERE: 600 lines omitted, contexere retrieve abc123 for full output]";
 
         assert!(
             carries_our_marker(legacy),
@@ -2255,7 +2261,7 @@ Ran 6 tests across 1 file. [4.00ms]
 
         let marker = stdout
             .lines()
-            .find(|l| l.starts_with("[OMNI:"))
+            .find(|l| l.starts_with("[CONTEXERE:"))
             .expect("a lossy reply carries a marker");
         assert!(
             stdout.contains("[Partial signal"),
@@ -2266,7 +2272,7 @@ Ran 6 tests across 1 file. [4.00ms]
         let survived = stdout
             .lines()
             .filter(|l| {
-                !l.trim().is_empty() && !l.starts_with("[OMNI:") && !l.starts_with("[Partial")
+                !l.trim().is_empty() && !l.starts_with("[CONTEXERE:") && !l.starts_with("[Partial")
             })
             .count();
         let claimed: usize = marker
@@ -3031,7 +3037,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "the recorded row must name the archive it belongs to"
         );
         assert!(
-            out.contains("omni retrieve "),
+            out.contains("contexere retrieve "),
             "the agent cannot call what it was not told: {out}"
         );
     }
@@ -3487,7 +3493,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         };
         let whole = process_payload(&read(json!({ "path": "logs/big.log" })), None, None);
         assert!(
-            whole.is_some_and(|o| o.contains("OMNI ReadFile")),
+            whole.is_some_and(|o| o.contains("CONTEXERE ReadFile")),
             "fixture no longer clears the distiller's gate, so the window arm proves nothing"
         );
         let window = read(json!({ "path": "logs/big.log", "offset": 780, "limit": 340 }));
@@ -3584,7 +3590,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             file["content"]
                 .as_str()
                 .expect("content")
-                .contains("[OMNI:"),
+                .contains("[CONTEXERE:"),
             "the repeated head was not folded: {out}"
         );
         // 30 lines, one marker: start 29 later.
@@ -3625,12 +3631,15 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        assert!(content.contains("[OMNI:"), "neither end was folded: {out}");
+        assert!(
+            content.contains("[CONTEXERE:"),
+            "neither end was folded: {out}"
+        );
 
         // The tail fold moves nothing.
         let above = content
             .lines()
-            .take_while(|l| l.starts_with("[OMNI:"))
+            .take_while(|l| l.starts_with("[CONTEXERE:"))
             .count() as u64;
         assert_eq!(
             file["startLine"],
@@ -3685,7 +3694,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .map(|v| v["hookSpecificOutput"]["updatedToolOutput"]["file"]["content"].to_string())
             .unwrap_or_default();
         assert!(
-            !content.contains("[OMNI:"),
+            !content.contains("[CONTEXERE:"),
             "the run folded without paying for the filler it needs: {content}"
         );
     }
@@ -3773,7 +3782,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let content = file["content"].as_str().expect("content");
 
         assert!(
-            content.matches("[OMNI:").count() >= 2,
+            content.matches("[CONTEXERE:").count() >= 2,
             "a split payload folds each of its runs: {content}"
         );
         assert_eq!(
@@ -3872,14 +3881,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             .expect("content")
             .to_string();
         assert_eq!(
-            content.matches("[OMNI:").count(),
+            content.matches("[CONTEXERE:").count(),
             2,
             "the head has to fold as two runs for this to test anything: {content}"
         );
 
         // The first run now owes a verbatim delivery.
         let handle = content
-            .split("omni retrieve ")
+            .split("contexere retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("a handle in the first marker")
@@ -3931,7 +3940,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let v: serde_json::Value = serde_json::from_str(&out).expect("hook json");
         let file = &v["hookSpecificOutput"]["updatedToolOutput"]["file"];
         let content = file["content"].as_str().expect("content");
-        let markers = content.matches("[OMNI:").count();
+        let markers = content.matches("[CONTEXERE:").count();
         assert!(markers >= 1, "the repeated head was not folded: {out}");
 
         // 30 lines above become `markers` lines.
@@ -3976,7 +3985,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let content = file["content"].as_str().expect("content");
 
         assert!(
-            content.contains("[OMNI:"),
+            content.contains("[CONTEXERE:"),
             "the middle did not fold: {content}"
         );
         assert_eq!(
@@ -4002,7 +4011,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let (parent, sub) = two_reads_of_one_file("parent-session-581", Some("aca4e7ff"));
 
         assert!(
-            !parent.contains("[OMNI:"),
+            !parent.contains("[CONTEXERE:"),
             "the parent's own first read must be delivered whole: {parent}"
         );
         assert!(
@@ -4010,7 +4019,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
             "a subagent was told bytes it never received were already shown: {sub}"
         );
         assert!(
-            !sub.contains("[OMNI:"),
+            !sub.contains("[CONTEXERE:"),
             "a subagent's first Read was folded from the project scope: {sub}"
         );
     }
@@ -4085,7 +4094,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let _ = process_payload(&payload, Some(store.clone()), None);
         let folded = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         let handle = folded
-            .split("omni retrieve ")
+            .split("contexere retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(|c: char| !c.is_ascii_hexdigit()).next())
             .map(str::to_string)
@@ -4099,14 +4108,14 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
 
         let answering = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            !answering.contains("omni retrieve"),
+            !answering.contains("contexere retrieve"),
             "the delivery answering the pull was folded back into the marker \
              that sent the reader to it: {answering}"
         );
 
         let after = process_payload(&payload, Some(store.clone()), None).unwrap_or_default();
         assert!(
-            after.contains("omni retrieve"),
+            after.contains("contexere retrieve"),
             "folding did not resume, so a pulled handle is exempt for good \
              rather than for one delivery: {after}"
         );
@@ -4246,7 +4255,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
     /// File lines that look like markers cannot spoof the shift (#557 review).
     #[test]
     fn content_that_looks_like_a_marker_does_not_defeat_the_guard() {
-        let line = |i: usize| format!("[OMNI: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
+        let line =
+            |i: usize| format!("[CONTEXERE: unique_marker_{i:03} = \"quokka-{i:03}-xyzzy\"]\n");
         let range = |from: usize, to: usize| (from..to).map(line).collect::<String>();
         let payload = |from: usize, to: usize| {
             json!({
@@ -4301,7 +4311,10 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let out = process_payload(&input.to_string(), None, None);
         assert!(out.is_some(), "Grep output must be distilled");
         let res = out.expect("Output exists");
-        assert!(res.contains("OMNI Grep"), "Must have OMNI Grep label");
+        assert!(
+            res.contains("CONTEXERE Grep"),
+            "Must have CONTEXERE Grep label"
+        );
         assert!(res.contains("matches"), "Must show match count");
     }
 
@@ -4582,8 +4595,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         assert!(out.is_some(), "Large MultiEdit must be distilled");
         let res = out.expect("Output exists");
         assert!(
-            res.contains("OMNI MultiEdit"),
-            "Must have OMNI MultiEdit label"
+            res.contains("CONTEXERE MultiEdit"),
+            "Must have CONTEXERE MultiEdit label"
         );
     }
 
@@ -4607,8 +4620,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         );
         let res = out.expect("Output exists");
         assert!(
-            res.contains("OMNI SomeRandomTool"),
-            "Must have OMNI SomeRandomTool label"
+            res.contains("CONTEXERE SomeRandomTool"),
+            "Must have CONTEXERE SomeRandomTool label"
         );
     }
 

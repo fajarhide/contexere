@@ -1432,7 +1432,7 @@ impl SqliteBackend {
     /// row did not land: a handle for missing content breaks the one promise this
     /// store makes (#388). The key is the content address only (#274). A repeat
     /// refreshes `ts` so live content does not age out; `retrieved` is untouched.
-    /// `whole_len` is the payload `content` was cut from, so `omni retrieve` can
+    /// `whole_len` is the payload `content` was cut from, so `contexere retrieve` can
     /// say whether it holds the whole answer (#627).
     pub fn store_rewind(&self, content: &str, whole_len: usize) -> Option<String> {
         // The reserved example handle must never name real content (#583).
@@ -3378,8 +3378,8 @@ mod tests {
     #[test]
     fn prunes_old_retrieve_events_and_keeps_feedback() {
         let (store, _dir) = get_temp_store();
-        store.record_retrieve_event("omni retrieve", "aaaa", "a");
-        store.record_retrieve_event("omni retrieve", "bbbb", "a");
+        store.record_retrieve_event("contexere retrieve", "aaaa", "a");
+        store.record_retrieve_event("contexere retrieve", "bbbb", "a");
         let conn = store.pool.get().unwrap();
         conn.execute(
             "INSERT INTO retrieval_feedback (query, hit_source, hit_key, project_hash, ts)
@@ -3405,7 +3405,7 @@ mod tests {
     fn prunes_once_a_day() {
         let (store, _dir) = get_temp_store();
         let old_event = |store: &Store| {
-            store.record_retrieve_event("omni retrieve", "aaaa", "a");
+            store.record_retrieve_event("contexere retrieve", "aaaa", "a");
             let conn = store.pool.get().expect("open connection to age the event");
             conn.execute("UPDATE retrieve_events SET ts = ts - 40 * 86400", [])
                 .expect("age the event");
@@ -3870,7 +3870,7 @@ mod tests {
             &[fold()],
             &[marker("bbbb")],
         );
-        store.record_retrieve_event("omni retrieve", "aaaa", "claude_code");
+        store.record_retrieve_event("contexere retrieve", "aaaa", "claude_code");
 
         let rates = store.marker_retrieve_rates(0);
         let read = rates

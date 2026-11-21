@@ -16,17 +16,19 @@ ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# One bin dir whose links change underneath, the way `brew upgrade` repoints
-# /opt/homebrew/bin/omni. `omni init` writes that absolute path into each host's
-# config, so the hook a host runs is whatever the link points at.
+# One bin dir whose binaries change underneath, the way an upgrade replaces
+# /usr/local/bin/omni. `omni init` writes that absolute path into each host's
+# config, so the hook a host runs is whatever sits there. Copies, not links:
+# `omni init` writes the resolved path of a link, which would keep every hook
+# on the old binary and compare the old release with itself.
 mkdir -p "$ROOT/bin"
 install_side() { # install_side <old|new>
   rm -f "$ROOT/bin/omni" "$ROOT/bin/contexere"
   if [ "$1" = old ]; then
-    ln -s "$OLD" "$ROOT/bin/omni"
+    cp "$OLD" "$ROOT/bin/omni"
   else
-    ln -s "$NEW" "$ROOT/bin/contexere"
-    ln -s "$NEW" "$ROOT/bin/omni"
+    cp "$NEW" "$ROOT/bin/contexere"
+    cp "$NEW" "$ROOT/bin/omni"
   fi
 }
 
@@ -97,9 +99,13 @@ run_calls old "$ROOT/home-old" "$ROOT/out-old"
 run_calls new "$ROOT/home-new" "$ROOT/out-new"
 # The footer's running session total depends on when the previous call's
 # write landed, and was seen to differ in 1 of 3 local runs with the same
-# binaries. Everything the agent reads, the per-call figure included, must match.
+# binaries. 0.9.0 renamed the marker and retrieve names (#1067), and the 10
+# bytes they add shift the per-call figure and the compression ratio. Everything
+# else the agent reads, the output above all, must match.
 for d in out-old out-new; do
-    sed -i.bak -E 's/\| -?[0-9.]+ [KM]?B session \|/| N session |/' "$ROOT/$d"/*.json
+    sed -i.bak -E -e 's/\| -?[0-9.]+ [KM]?B session \|/| N session |/' \
+        -e 's/\[CONTEXERE/[OMNI/g; s/contexere retrieve/omni retrieve/g' \
+        -e 's/-?[0-9.]+ [KM]?B this call/N this call/; s/[0-9]+% compression/N% compression/' "$ROOT/$d"/*.json
     rm -f "$ROOT/$d"/*.bak
 done
 diff -r "$ROOT/out-old" "$ROOT/out-new" || fail "hook replies differ after the upgrade"
@@ -108,8 +114,13 @@ HANDLE=$(grep -o 'retrieve [0-9a-f]\{16\}' "$ROOT/out-new/1.json" | head -1 | cu
 [ -n "$HANDLE" ] || fail "the repeated file did not fold, so there is no handle to follow"
 echo "upgrade: ${#CALLS[@]} hook replies byte for byte, fold handle $HANDLE"
 
+# Each side reads its own copy of home-old, folds included, which only the old
+# release wrote to. home-new also holds rows the new binary booked itself, and
+# those may be figured differently from one release to the next without the
+# history being misread.
 for side in old new; do
-  as "$side" "$ROOT/home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
+  cp -R "$ROOT/home-old" "$ROOT/stats-home-$side"
+  as "$side" "$ROOT/stats-home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
 done
 # Only the latency line differs: it is timed per run, not history.
 norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }

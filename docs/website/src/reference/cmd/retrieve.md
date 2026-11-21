@@ -9,8 +9,8 @@ contexere retrieve <handle>
 The handle is the 16 characters inside a marker:
 
 ```
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 It returns the original bytes. Not a summary, not a re-run of your command, and not an

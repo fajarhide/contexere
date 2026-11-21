@@ -80,19 +80,23 @@ impl Origin {
             // identity rather than "already shown" (#755).
             Self::Session if matches!(source, SourceOfSighting::ThisCommandAgain) => (
                 format!(
-                    "[OMNI: {lines} lines identical to an earlier run, omni retrieve {handle}]"
+                    "[CONTEXERE: {lines} lines identical to an earlier run, contexere retrieve {handle}]"
                 ),
                 "session_rerun",
             ),
             Self::Session => (
-                format!("[OMNI: {lines} lines already shown{from}, omni retrieve {handle}]"),
+                format!(
+                    "[CONTEXERE: {lines} lines already shown{from}, contexere retrieve {handle}]"
+                ),
                 "session_run",
             ),
             // "Not shown here", not "from an earlier session": the provenance wording read
             // as "you have seen this" and a reader took a truncated help page as complete
             // (#567).
             Self::Project => (
-                format!("[OMNI: {lines} lines not shown here{from}, omni retrieve {handle}]"),
+                format!(
+                    "[CONTEXERE: {lines} lines not shown here{from}, contexere retrieve {handle}]"
+                ),
                 "project_run",
             ),
         }
@@ -114,14 +118,14 @@ impl Origin {
         match self {
             Self::Session => (
                 format!(
-                    "[OMNI: identical to the {lines} lines already shown{from}, omni retrieve {handle}]"
+                    "[CONTEXERE: identical to the {lines} lines already shown{from}, contexere retrieve {handle}]"
                 ),
                 "session_whole",
             ),
             // Nothing of this was delivered here; gated at `MIN_WHOLE_OUTPUT_FOLD` (#567).
             Self::Project => (
                 format!(
-                    "[OMNI: identical to {lines} lines from an earlier session{from}, none shown here, omni retrieve {handle}]"
+                    "[CONTEXERE: identical to {lines} lines from an earlier session{from}, none shown here, contexere retrieve {handle}]"
                 ),
                 "project_whole",
             ),
@@ -668,7 +672,7 @@ impl<'a> Ledger<'a> {
 
             // A handle only for content that is provably archived (#388). A run whose
             // handle was just pulled stays verbatim once, since that delivery answers the
-            // pull (#581). The payload size goes with it, so `omni retrieve` never presents
+            // pull (#581). The payload size goes with it, so `contexere retrieve` never presents
             // one block as the whole reply (#627).
             match long_enough
                 .then(|| self.store.store_rewind(&body, payload_bytes))
@@ -949,11 +953,11 @@ mod tests {
 
         // An earlier draft passed with the handle column blank.
         let handle = again
-            .split("omni retrieve ")
+            .split("contexere retrieve ")
             .nth(1)
             .and_then(|rest| rest.split(']').next())
             .expect("the marker carries a handle");
-        store.record_retrieve_event("omni retrieve", handle, "claude_code");
+        store.record_retrieve_event("contexere retrieve", handle, "claude_code");
 
         let after = store.marker_retrieve_rates(0);
         let rerun = after
@@ -971,7 +975,7 @@ mod tests {
         );
 
         // A handle pulled twice must not multiply its own marker through the join (#771).
-        store.record_retrieve_event("omni retrieve", handle, "claude_code");
+        store.record_retrieve_event("contexere retrieve", handle, "claude_code");
         let twice = store.marker_retrieve_rates(0);
         let after_two = twice
             .iter()
@@ -1009,7 +1013,7 @@ mod tests {
         let view = ledger.project(&second_input).expect("the repeat folds");
 
         let handle = view
-            .split("omni retrieve ")
+            .split("contexere retrieve ")
             .nth(1)
             .and_then(|s| s.split(']').next())
             .expect("the marker names a handle");
@@ -1249,7 +1253,7 @@ mod tests {
         let second = ledger.project(&text).expect("projectable");
 
         let handle = second
-            .split_once("omni retrieve ")
+            .split_once("contexere retrieve ")
             .and_then(|(_, rest)| rest.split_once(']'))
             .map(|(h, _)| h.to_string())
             .expect("a handle was offered");
@@ -2227,7 +2231,7 @@ mod tests {
             "the error was elided on the re-run: {second}"
         );
         assert!(
-            second.contains("[OMNI:"),
+            second.contains("[CONTEXERE:"),
             "the repeated context should still fold, or this proves nothing: {second}"
         );
     }
@@ -2265,7 +2269,7 @@ mod tests {
             );
         }
         assert!(
-            second.contains("[OMNI:"),
+            second.contains("[CONTEXERE:"),
             "the repeated worker lines should still fold, or this proves nothing: {second}"
         );
     }
