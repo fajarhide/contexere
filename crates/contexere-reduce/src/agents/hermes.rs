@@ -217,18 +217,30 @@ fn configured_omni_mcp(config_path: &Path) -> bool {
 /// each line keeps its own ending. `None` when there is nothing to change.
 fn rename_old_agent_id(config: &str) -> Option<String> {
     let lines: Vec<&str> = config.split_inclusive('\n').collect();
+    // A line without its YAML comment, so `mcp_servers: # tools` still matches.
+    fn code(l: &str) -> &str {
+        let Some(i) = l.find('#') else { return l };
+        let (before, _) = l.split_at(i);
+        if before.is_empty() || before.ends_with(char::is_whitespace) {
+            before
+        } else {
+            l
+        }
+    }
     let indent = |l: &str| l.len() - l.trim_start().len();
-    let is_key = |l: &str, key: &str| l.trim_start().starts_with(&format!("{key}:"));
-    // The end of the block that starts at `from`: the next non-blank line indented
-    // no deeper than `depth`.
+    let is_key = |l: &str, key: &str| code(l).trim_start().starts_with(&format!("{key}:"));
+    // The end of the block that starts at `from`: the next line with content
+    // indented no deeper than `depth`. Blank and comment-only lines never end it.
     let end_of = |from: usize, depth: usize| {
         (from + 1..lines.len())
-            .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= depth)
+            .find(|&i| !code(lines[i]).trim().is_empty() && indent(lines[i]) <= depth)
             .unwrap_or(lines.len())
     };
-    let section = lines.iter().position(|l| l.trim_end() == "mcp_servers:")?;
+    let section = lines
+        .iter()
+        .position(|l| code(l).trim_end() == "mcp_servers:")?;
     let start = (section + 1..end_of(section, 0))
-        .find(|&i| matches!(lines[i].trim(), "omni:" | "contexere:"))?;
+        .find(|&i| matches!(code(lines[i]).trim(), "omni:" | "contexere:"))?;
     let entry = start..end_of(start, indent(lines[start]));
     let old = entry.clone().find(|&i| is_key(lines[i], "OMNI_AGENT_ID"))?;
     let has_new = entry
@@ -822,6 +834,17 @@ mod tests {
             ),
             None
         );
+    }
+
+    /// #1164 review: YAML comments neither hide the section nor end our entry.
+    #[test]
+    fn finds_our_entry_past_yaml_comments() {
+        let config = "mcp_servers: # MCP tools\n# Contexere\n  omni: # ours\n    env:\n      # host id\n      OMNI_AGENT_ID: \"hermes\" # set by init\n";
+        let want: Vec<String> = config
+            .lines()
+            .map(|l| l.replace("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID"))
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
     }
 
     /// A config saved with CRLF endings keeps them.
