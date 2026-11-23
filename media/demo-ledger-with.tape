@@ -28,12 +28,12 @@ Type `cd crates/contexere-reduce`
 Enter
 Type `export PS1="❯ "`
 Enter
-# vhs inherits the recorder's environment, and OMNI_PASSTHROUGH=1 there turns
+# vhs inherits the recorder's environment, and CONTEXERE_PASSTHROUGH=1 there turns
 # every command into a passthrough, so the second read comes back in full and
 # the recording silently shows the opposite of the point.
-Type `unset OMNI_PASSTHROUGH`
+Type `unset CONTEXERE_PASSTHROUGH`
 Enter
-Type `export OMNI_DB_PATH="$(mktemp -d)/demo.db"`
+Type `export CONTEXERE_DB_PATH="$(mktemp -d)/demo.db"`
 Enter
 # Piped, because an agent's tool output is never a terminal: on a terminal exec
 # streams the command live and folds nothing (#1000). stderr carries the savings

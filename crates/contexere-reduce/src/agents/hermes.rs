@@ -182,7 +182,7 @@ fn config_mentions_omni_plugin(config: &str) -> Option<&'static str> {
 fn config_mentions_omni_mcp(config: &str) -> bool {
     let has_mcp_section = config.contains("mcp_servers:") || config.contains("mcp:");
     let has_omni_server = config.contains("omni:");
-    let has_omni_command = config.contains("--mcp") || config.contains("OMNI_AGENT_ID");
+    let has_omni_command = config.contains("--mcp") || config.contains("CONTEXERE_AGENT_ID");
     has_mcp_section && has_omni_server && has_omni_command
 }
 
@@ -315,7 +315,7 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
 fn render_plugin(exe_path: &str) -> String {
     let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
     // The crate's own copy, so it can be published; a test keeps it equal to plugins/.
-    include_str!("../../assets/hermes_plugin.py").replace("\"{{OMNI_BIN}}\"", &literal)
+    include_str!("../../assets/hermes_plugin.py").replace("\"{{CONTEXERE_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {
@@ -408,7 +408,7 @@ description: Contexere integration for Hermes Agent hooks
                     .to_string(),
                 );
             } else {
-                let mcp_block = "\nmcp_servers:\n  omni:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n\n";
+                let mcp_block = "\nmcp_servers:\n  omni:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n\n";
                 let mcp_block = mcp_block.replace("{}", exe_path);
 
                 let updated = append_top_level_block(&config, &mcp_block);
@@ -630,6 +630,11 @@ description: Contexere integration for Hermes Agent hooks
                 "not registered [MISSING]".red().bold()
             }
         );
+        // The config's MCP env and an installed plugin's own copy both set it.
+        super::report_old_agent_id(&fs::read_to_string(&config_path).unwrap_or_default());
+        super::report_old_agent_id(
+            &fs::read_to_string(dest.join("__init__.py")).unwrap_or_default(),
+        );
         if !mcp_configured {
             warnings.push("OMNI MCP server is not registered in Hermes config.".to_string());
         }
@@ -708,7 +713,7 @@ description: Contexere integration for Hermes Agent hooks
     }
 }
 
-/// Hermes defaults: pipe mode via `OMNI_CMD`, no PreToolUse hook, and more
+/// Hermes defaults: pipe mode via `CONTEXERE_CMD`, no PreToolUse hook, and more
 /// aggressive compression since Hermes summarises its own context.
 pub fn hermes_default_config() -> crate::guard::config::AgentConfig {
     crate::guard::config::AgentConfig {
@@ -772,12 +777,15 @@ mod tests {
     }
     #[test]
     fn removes_the_omni_server_and_leaves_the_users_own() {
-        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
+        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
 
         let out = super::remove_omni_mcp_server(config).expect("ours was there");
 
         assert!(!out.contains("omni:"), "our entry must go: {out}");
-        assert!(!out.contains("OMNI_AGENT_ID"), "and its children: {out}");
+        assert!(
+            !out.contains("CONTEXERE_AGENT_ID"),
+            "and its children: {out}"
+        );
         assert!(out.contains("their-server:"), "theirs must stay: {out}");
         assert!(
             out.contains("mcp_servers:"),
@@ -951,7 +959,7 @@ mcp_servers:
     command: "omni"
     args: ["--mcp"]
     env:
-      OMNI_AGENT_ID: "hermes"
+      CONTEXERE_AGENT_ID: "hermes"
 "#;
 
         assert!(config_mentions_omni_mcp(config));
@@ -1035,11 +1043,11 @@ plugins:
             );
         }
         assert!(
-            !src.contains("{{OMNI_BIN}}"),
+            !src.contains("{{CONTEXERE_BIN}}"),
             "the placeholder must not survive into the installed file"
         );
         assert!(
-            src.contains("_OMNI_BIN = \"/usr/local/bin/omni\""),
+            src.contains("_CONTEXERE_BIN = \"/usr/local/bin/omni\""),
             "the binary path is what the hooks shell out to: {src:.400}"
         );
     }

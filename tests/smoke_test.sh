@@ -18,16 +18,12 @@ fi
 # why it is empty" assume nothing was recorded, and `omni-release.sh` ran this
 # against the maintainer's own ~/.omni, where 0.7.10 and later record fold
 # markers, so the release gate failed on history rather than on the build (#877).
-# The binary copies CONTEXERE_* over OMNI_* at startup, so a caller's store may come
-# under either name; settle it in OMNI_HOME and clear the new names (#1074).
-OMNI_HOME="${CONTEXERE_HOME:-${OMNI_HOME:-}}"
-unset CONTEXERE_HOME CONTEXERE_DB_PATH
-if [ -z "${OMNI_HOME:-}" ]; then
-    OMNI_HOME="$(mktemp -d)"
-    trap 'rm -rf "$OMNI_HOME"' EXIT
+if [ -z "${CONTEXERE_HOME:-}" ]; then
+    CONTEXERE_HOME="$(mktemp -d)"
+    trap 'rm -rf "$CONTEXERE_HOME"' EXIT
 fi
-export OMNI_HOME
-unset OMNI_DB_PATH
+export CONTEXERE_HOME
+unset CONTEXERE_DB_PATH
 
 PASS=0
 FAIL=0
@@ -111,18 +107,18 @@ check "doctor shows header" "$DOCTOR_OUT" "Contexere Doctor"
 check "doctor shows binary" "$DOCTOR_OUT" "Binary"
 # The resolved paths, not a hardcoded tilde path that may not be the one in use (#1074).
 # check() takes a regex, and a temp path may hold [ or . (#1074 review).
-HOME_RE=$(printf '%s' "$OMNI_HOME" | sed 's/[][\.*^$]/\\&/g')
+HOME_RE=$(printf '%s' "$CONTEXERE_HOME" | sed 's/[][\.*^$]/\\&/g')
 check "doctor prints the config dir it checked" "$DOCTOR_OUT" "Config dir: *$HOME_RE"
 check "doctor prints the database it opened" "$DOCTOR_OUT" "Database: *$HOME_RE"
 
-# The env read behind OMNI_MCP_TOOLS cannot be covered by a cargo test: this crate
+# The env read behind CONTEXERE_MCP_TOOLS cannot be covered by a cargo test: this crate
 # already mutates process environment in tests, cargo runs them in parallel, and that
 # combination has reddened CI here before. A subprocess has its own environment, so the
 # escape hatch is verified across the boundary that can actually be wrong.
-LEAN_OUT=$(OMNI_AGENT_ID=claude_code "$OMNI" doctor 2>&1 || true)
+LEAN_OUT=$(CONTEXERE_AGENT_ID=claude_code "$OMNI" doctor 2>&1 || true)
 check "doctor reports the lean MCP surface" "$LEAN_OUT" "2 of 25"
-ALL_OUT=$(OMNI_AGENT_ID=claude_code OMNI_MCP_TOOLS=all "$OMNI" doctor 2>&1 || true)
-check "OMNI_MCP_TOOLS=all restores every tool" "$ALL_OUT" "25 of 25"
+ALL_OUT=$(CONTEXERE_AGENT_ID=claude_code CONTEXERE_MCP_TOOLS=all "$OMNI" doctor 2>&1 || true)
+check "CONTEXERE_MCP_TOOLS=all restores every tool" "$ALL_OUT" "25 of 25"
 
 # ─── 4. PostToolUse Hook E2E ─────────────────────────────
 echo "▸ Scenario 4: PostToolUse Hook E2E"
@@ -180,8 +176,8 @@ if [ "$PIPE_OUT_LEN" -gt "$PIPE_INPUT_LEN" ]; then
     # home I can build locally, so print what the binary actually returned
     # rather than guess at it a fourth time.
     echo "  ── pipe diagnostic ──"
-    echo "  OMNI_HOME=${OMNI_HOME:-<unset>}"
-    ls -la "${OMNI_HOME:-$HOME/.omni}" 2>&1 | sed 's/^/  ls| /' | head -8
+    echo "  CONTEXERE_HOME=${CONTEXERE_HOME:-<unset>}"
+    ls -la "${CONTEXERE_HOME:-$HOME/.omni}" 2>&1 | sed 's/^/  ls| /' | head -8
     printf '%s' "$PIPE_OUT" | sed 's/^/  out| /' | tail -12
 fi
 

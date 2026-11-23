@@ -12,7 +12,7 @@ fn contexere(home: &Path, omni_home: Option<&Path>) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_contexere"));
     cmd.env_clear().env("HOME", home);
     if let Some(dir) = omni_home {
-        cmd.env("OMNI_HOME", dir);
+        cmd.env("CONTEXERE_HOME", dir);
     }
     cmd
 }

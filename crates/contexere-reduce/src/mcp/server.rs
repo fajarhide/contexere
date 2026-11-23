@@ -20,7 +20,7 @@ const MIN_COMMANDS_FOR_NOISE: usize = 2;
 const RUN_TIMEOUT_SECS: u64 = 60;
 
 fn run_timeout() -> std::time::Duration {
-    let secs = std::env::var("OMNI_RUN_TIMEOUT_SECS")
+    let secs = std::env::var("CONTEXERE_RUN_TIMEOUT_SECS")
         .ok()
         .and_then(|v| v.trim().parse::<u64>().ok())
         .filter(|s| *s > 0)
@@ -40,7 +40,7 @@ pub(crate) fn run_and_distill(
 }
 
 /// `run_and_distill` with the deadline passed in, so tests never set
-/// `OMNI_RUN_TIMEOUT_SECS` on the whole process.
+/// `CONTEXERE_RUN_TIMEOUT_SECS` on the whole process.
 fn run_with_timeout(
     command: &str,
     store: Arc<Store>,
@@ -895,7 +895,7 @@ impl OmniServer {
             "\nSession totals:\n  Commands: {} | Tokens saved: ~{} | Agent: {}\n",
             cmd_count,
             total_saved,
-            std::env::var("OMNI_AGENT_ID")
+            std::env::var("CONTEXERE_AGENT_ID")
                 .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id())
         ));
         out
@@ -1153,7 +1153,7 @@ impl OmniServer {
             .unwrap_or_else(|_| "unknown".to_string());
 
         let project_hash = compute_project_hash_str(&project_path);
-        let my_agent = std::env::var("OMNI_AGENT_ID")
+        let my_agent = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
         let peers = self
@@ -1282,7 +1282,7 @@ impl OmniServer {
             .as_deref()
             .unwrap_or("general development");
         let domain = session.inferred_domain.as_deref().unwrap_or("unknown");
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
         let mut out = String::from("# OMNI Session Handoff\n\n");
@@ -1587,7 +1587,7 @@ impl rmcp::ServerHandler for OmniServer {}
 fn run_timeout_message(run: &str, command: &str, secs: u64) -> String {
     format!(
         "{run}: `{command}` did not finish within {secs}s and was abandoned. \
-         Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher."
+         Run it outside OMNI, or set CONTEXERE_RUN_TIMEOUT_SECS higher."
     )
 }
 

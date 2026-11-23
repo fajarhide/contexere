@@ -1797,7 +1797,7 @@ mod tests {
             "cat a.md;tail -5 b.md",
             // #751: words that introduce a command.
             "sudo tail -20 /var/log/app.log",
-            "env OMNI_PASSTHROUGH=1 sed -n '335,360p' src/hooks/post_tool.rs",
+            "env CONTEXERE_PASSTHROUGH=1 sed -n '335,360p' src/hooks/post_tool.rs",
             // #751: inside a wrapper the name counts anywhere.
             "docker exec app tail -5 /var/log/app.log",
             "kubectl exec pod -- head -30 /etc/config.yaml",

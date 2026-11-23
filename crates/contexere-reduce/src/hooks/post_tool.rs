@@ -209,7 +209,7 @@ enum Declined {
     /// (#725).
     KeepsAPreview,
     Structured,
-    /// `OMNI_PASSTHROUGH=1`, typed (#1003) or in the environment (#1033): it skips
+    /// `CONTEXERE_PASSTHROUGH=1`, typed (#1003) or in the environment (#1033): it skips
     /// compression but never redaction.
     Passthrough,
 }
@@ -1739,7 +1739,7 @@ Ran 6 tests across 1 file. [4.00ms]
         );
     }
 
-    /// `OMNI_PASSTHROUGH=1 <cmd>` works through the hook, read from the command text (#534).
+    /// `CONTEXERE_PASSTHROUGH=1 <cmd>` works through the hook, read from the command text (#534).
     #[test]
     fn the_prefix_the_manual_documents_reaches_the_hook() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1765,7 +1765,7 @@ Ran 6 tests across 1 file. [4.00ms]
         );
         assert_eq!(
             process_payload(
-                &payload("OMNI_PASSTHROUGH=1 cat synth.sh"),
+                &payload("CONTEXERE_PASSTHROUGH=1 cat synth.sh"),
                 Some(store.clone()),
                 None
             ),
@@ -1843,7 +1843,10 @@ Ran 6 tests across 1 file. [4.00ms]
 
     #[test]
     fn withholds_a_source_even_with_a_typed_passthrough() {
-        let reply = bash_reply("OMNI_PASSTHROUGH=1 cat .env", "A=wJalrXUtnFEMIK7MDENGbPx\n");
+        let reply = bash_reply(
+            "CONTEXERE_PASSTHROUGH=1 cat .env",
+            "A=wJalrXUtnFEMIK7MDENGbPx\n",
+        );
         assert!(!reply.contains("wJalrXUt"));
     }
 
@@ -1851,7 +1854,7 @@ Ran 6 tests across 1 file. [4.00ms]
     #[test]
     fn a_typed_passthrough_still_redacts() {
         let reply = bash_reply(
-            "OMNI_PASSTHROUGH=1 printenv",
+            "CONTEXERE_PASSTHROUGH=1 printenv",
             "HOME=/home/dev\nDB_PASSWORD=canary-pt-789\n",
         );
         assert!(!reply.contains("canary-pt-789"), "{reply}");

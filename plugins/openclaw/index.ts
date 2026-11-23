@@ -18,7 +18,7 @@ function sanitizeEnv(): NodeJS.ProcessEnv {
   }
   // Names this host, so rows file under `openclaw` instead of whatever
   // `detect_agent_id` guesses from the surrounding shell.
-  sanitized.OMNI_AGENT_ID = "openclaw";
+  sanitized.CONTEXERE_AGENT_ID = "openclaw";
   return sanitized;
 }
 

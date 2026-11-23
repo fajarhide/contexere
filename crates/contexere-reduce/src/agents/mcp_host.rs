@@ -146,7 +146,7 @@ impl AgentIntegration for &'static McpHost {
                         "type": "stdio",
                         "command": exe_path,
                         "args": ["--mcp"],
-                        "env": { "OMNI_AGENT_ID": self.agent_id() }
+                        "env": { "CONTEXERE_AGENT_ID": self.agent_id() }
                     }),
                 );
             }
@@ -191,8 +191,8 @@ impl AgentIntegration for &'static McpHost {
         let path = self.path();
         crate::agent_report!("\n  {}", format!("{}:", self.display).cyan());
 
-        let server =
-            super::registered_server(&fs::read_to_string(&path).unwrap_or_default(), self.key);
+        let config = fs::read_to_string(&path).unwrap_or_default();
+        let server = super::registered_server(&config, self.key);
         if server.is_some() {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -201,6 +201,7 @@ impl AgentIntegration for &'static McpHost {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
+            super::report_old_agent_id(&config);
             return true;
         }
 

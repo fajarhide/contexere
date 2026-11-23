@@ -48,7 +48,7 @@ tests/smoke_test.sh ./target/debug/contexere
 ### 1. Database Isolation in Tests
 - **Issue**: Parallel integration tests competing for `~/.omni/omni.db` cause SQLite locks and hangs.
 - **Rule**: Never use the default DB path in tests.
-- **Solution**: Use the `omni_cmd()` helper in `tests/hook_e2e.rs` to spawn the `omni` binary with a unique `OMNI_DB_PATH` (using `tempfile::NamedTempFile`).
+- **Solution**: Use the `omni_cmd()` helper in `tests/hook_e2e.rs` to spawn the `omni` binary with a unique `CONTEXERE_DB_PATH` (using `tempfile::NamedTempFile`).
 
 ### 2. Mutex Locking Strategy
 - **Issue**: Nested or redundant `lock()` calls on `session_arc` cause deadlocks (Rust Mutexes are not reentrant).

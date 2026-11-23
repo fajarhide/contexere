@@ -233,7 +233,7 @@ mod tests {
         let session = Arc::new(Mutex::new(SessionState::new()));
 
         unsafe {
-            std::env::set_var("OMNI_CONTINUE", "1");
+            std::env::set_var("CONTEXERE_CONTINUE", "1");
         }
 
         let input = json!({
@@ -245,7 +245,7 @@ mod tests {
         let out = process_payload(&input.to_string(), store, session);
 
         unsafe {
-            std::env::remove_var("OMNI_CONTINUE");
+            std::env::remove_var("CONTEXERE_CONTINUE");
         }
 
         let res = out.expect("must produce output for continued session");

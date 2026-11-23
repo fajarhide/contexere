@@ -1,4 +1,4 @@
-# Anything cargo launches from this workspace gets its own OMNI home.
+# Anything cargo launches from this workspace gets its own Contexere home.
 #
 # Without it the test suite wrote into the developer's live `~/.omni`:
 # `cargo test --all` left 11 auto-learned filters behind, one `make ci` added
@@ -7,8 +7,8 @@
 # slower for the person running them, and the filters then competed with the
 # shipped signals for which one claims a command (#307).
 #
-# `force` is left at its default, so exporting `OMNI_HOME` yourself still wins.
+# `force` is left at its default, so exporting `CONTEXERE_HOME` yourself still wins.
 # `relative = true` resolves against this file's parent, so it is the workspace
 # root on every machine and every platform.
 [env]
-OMNI_HOME = { value = "target/omni-home", relative = true }
+CONTEXERE_HOME = { value = "target/omni-home", relative = true }
