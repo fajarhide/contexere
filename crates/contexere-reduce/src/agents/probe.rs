@@ -73,12 +73,14 @@ fn judge(code: Option<i32>, stdout: &str) -> Outcome {
     }
 }
 
-/// Points a child at a throwaway store. The child folds CONTEXERE_* over CONTEXERE_*,
-/// so an inherited twin would send the canary into the user's real store.
+/// Points a child at a throwaway store. The saved hook command may still run an
+/// `omni` release, which reads only the `OMNI_*` names (#1163), so both are set.
 #[cfg(unix)]
 fn isolate(cmd: &mut std::process::Command, db: &std::path::Path, transcripts: &std::path::Path) {
-    cmd.env("CONTEXERE_DB_PATH", db)
-        .env("CONTEXERE_TRANSCRIPT_DIR", transcripts);
+    for prefix in ["CONTEXERE", "OMNI"] {
+        cmd.env(format!("{prefix}_DB_PATH"), db)
+            .env(format!("{prefix}_TRANSCRIPT_DIR"), transcripts);
+    }
 }
 
 #[cfg(unix)]
@@ -275,17 +277,24 @@ mod isolate_tests {
     use std::path::Path;
     use std::process::Command;
 
-    /// The probe child writes to its own database, never the user's (#1067: a rename
-    /// once set the path and then removed it).
+    /// The probe child writes to its own database, never the user's, whichever
+    /// release the hook runs (#1067, #1163).
     #[test]
     fn the_probe_gets_its_own_database() {
         let mut cmd = Command::new("sh");
         isolate(&mut cmd, Path::new("/t/db"), Path::new("/t/tr"));
         let envs: Vec<_> = cmd.get_envs().collect();
-        assert!(envs.contains(&(OsStr::new("CONTEXERE_DB_PATH"), Some(OsStr::new("/t/db")))));
-        assert!(envs.contains(&(
-            OsStr::new("CONTEXERE_TRANSCRIPT_DIR"),
-            Some(OsStr::new("/t/tr"))
-        )));
+        for prefix in ["CONTEXERE", "OMNI"] {
+            let db = format!("{prefix}_DB_PATH");
+            let tr = format!("{prefix}_TRANSCRIPT_DIR");
+            assert!(
+                envs.contains(&(OsStr::new(&db), Some(OsStr::new("/t/db")))),
+                "{db}"
+            );
+            assert!(
+                envs.contains(&(OsStr::new(&tr), Some(OsStr::new("/t/tr")))),
+                "{tr}"
+            );
+        }
     }
 }
