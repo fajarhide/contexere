@@ -68,9 +68,22 @@ fn moves_the_omni_home_and_keeps_its_history() {
         }
     }
 
-    let after = commands_in_stats(contexere(home.path(), None));
-
+    // The hook leaves `--upkeep` running in the background with the database
+    // open, and the rename waits for every connection to close (#1162): a run
+    // before that reads `omni.db` in place, and the first run after renames it.
     let new = home.path().join(".contexere");
+    let mut after = commands_in_stats(contexere(home.path(), None));
+    for _ in 0..100 {
+        if new.join("contexere.db").is_file() {
+            break;
+        }
+        assert_eq!(
+            after, before,
+            "stats read omni.db in place and lost history"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        after = commands_in_stats(contexere(home.path(), None));
+    }
     assert!(
         new.join("contexere.db").is_file(),
         "~/.omni/omni.db was not moved to ~/.contexere/contexere.db"

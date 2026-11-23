@@ -22,16 +22,35 @@ fn legacy_home() -> PathBuf {
 /// happen (permissions, an open file on Windows) never shows an empty store.
 fn adopt_legacy(new: &std::path::Path, legacy: &std::path::Path) -> PathBuf {
     // The link 0.8.6 to 0.8.7 left pointing at `new`: moving it would make `new` a
-    // link to itself.
-    let is_link = std::fs::symlink_metadata(legacy).is_ok_and(|m| m.file_type().is_symlink());
-    if !is_link && std::fs::rename(legacy, new).is_ok() {
+    // link to itself. Any other link moves as a link, so a tree kept on another
+    // disk is still found through it.
+    let to_new = points_at(legacy, new);
+    if !to_new && std::fs::rename(legacy, new).is_ok() {
         return new.to_path_buf();
     }
-    if new.exists() || is_link {
+    if new.exists() || to_new {
         new.to_path_buf()
     } else {
         legacy.to_path_buf()
     }
+}
+
+/// Whether `link` is a symlink to `path`, compared through the real directory
+/// each one sits in, since `path` itself may not exist.
+fn points_at(link: &std::path::Path, path: &std::path::Path) -> bool {
+    let Ok(target) = std::fs::read_link(link) else {
+        return false;
+    };
+    // `join` keeps an absolute target as it is and puts a relative one beside the link.
+    let target = match link.parent() {
+        Some(dir) => dir.join(target),
+        None => target,
+    };
+    let real = |p: &std::path::Path| {
+        let dir = std::fs::canonicalize(p.parent()?).ok()?;
+        Some(dir.join(p.file_name()?))
+    };
+    real(&target).is_some_and(|t| Some(t) == real(path))
 }
 
 /// Resolve one of the two roots, most specific first (#217):
@@ -110,15 +129,59 @@ pub fn database_path() -> PathBuf {
 }
 
 /// `contexere.db`. An `omni.db` an older install left is renamed to it once
-/// (#1067), and read in place only when that rename cannot happen.
+/// (#1067), and read in place while that rename cannot happen: another process
+/// has it open, or the rename fails.
+///
+/// One process decides at a time, through a lock file beside the database. A
+/// process that keeps `omni.db` holds that lock shared until it exits, so no
+/// other one renames the file between this choice and its own open.
 fn database_in(dir: &std::path::Path) -> PathBuf {
     let new = dir.join("contexere.db");
     let old = dir.join("omni.db");
-    if new.exists() || !old.exists() || move_database(&old, &new) {
-        new
-    } else {
-        old
+    if new.exists() || !old.exists() {
+        return new;
     }
+    let lock = dir.join("omni.db.lock");
+    let Ok(gate) = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&lock)
+    else {
+        return old;
+    };
+    // A file system without locks moves without them, as before the gate.
+    let mover = !matches!(gate.try_lock(), Err(std::fs::TryLockError::WouldBlock));
+    if mover {
+        if !in_use(&old) && move_database(&old, &new) {
+            // Anyone still waiting holds the unlinked file and finds `new` below.
+            let _ = std::fs::remove_file(&lock);
+        }
+        let _ = gate.unlock();
+    }
+    let _ = gate.lock_shared();
+    if new.exists() || !old.exists() {
+        return new;
+    }
+    // Kept until exit on purpose: closing it would let a mover rename `old` first.
+    std::mem::forget(gate);
+    old
+}
+
+/// Whether another connection has `db` open, an 0.8 `omni --mcp` server among
+/// them. A WAL connection holds a shared lock on the file until it closes, so an
+/// exclusive lock is refused while one does. Any other failure is not ours to
+/// judge, and the rename goes ahead.
+fn in_use(db: &std::path::Path) -> bool {
+    use rusqlite::{Connection, ErrorCode, OpenFlags};
+    let Ok(conn) = Connection::open_with_flags(db, OpenFlags::SQLITE_OPEN_READ_WRITE) else {
+        return false;
+    };
+    let _ = conn.busy_timeout(std::time::Duration::ZERO);
+    conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
+        .err()
+        .and_then(|e| e.sqlite_error_code())
+        .is_some_and(|c| matches!(c, ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked))
 }
 
 /// Renames a SQLite file with its `-wal` and `-shm`. Those go first: a database
@@ -225,32 +288,69 @@ mod tests {
         assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
     }
 
-    /// #1067: `omni.db` becomes `contexere.db` with its WAL and shared memory,
-    /// so no transaction still in the WAL is left behind.
+    /// #1067: `omni.db` becomes `contexere.db`, and a transaction still in its
+    /// WAL, as a process killed mid-session leaves it, comes along.
     #[test]
     fn renames_omni_db_with_its_wal() {
         let dir = tempfile::tempdir().expect("tempdir");
         assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
-        for (name, body) in [
-            ("omni.db", "db"),
-            ("omni.db-wal", "wal"),
-            ("omni.db-shm", "shm"),
-        ] {
-            std::fs::write(dir.path().join(name), body).expect("write");
+
+        // The files of a live database, copied while its connection is open:
+        // the row sits in the WAL only.
+        let live = tempfile::tempdir().expect("tempdir");
+        let conn = rusqlite::Connection::open(live.path().join("omni.db")).expect("open");
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;
+             CREATE TABLE t(x); INSERT INTO t VALUES (42);",
+        )
+        .expect("write");
+        for suffix in ["", "-wal", "-shm"] {
+            let name = format!("omni.db{suffix}");
+            std::fs::copy(live.path().join(&name), dir.path().join(&name)).expect("copy");
         }
-        assert_eq!(database_in(dir.path()), dir.path().join("contexere.db"));
-        for (name, body) in [
-            ("contexere.db", "db"),
-            ("contexere.db-wal", "wal"),
-            ("contexere.db-shm", "shm"),
-        ] {
-            assert_eq!(
-                std::fs::read_to_string(dir.path().join(name)).expect(name),
-                body
-            );
+        drop(conn);
+
+        let db = database_in(dir.path());
+        assert_eq!(db, dir.path().join("contexere.db"));
+        let moved = rusqlite::Connection::open(&db).expect("open moved");
+        let x: i64 = moved
+            .query_row("SELECT x FROM t", [], |r| r.get(0))
+            .expect("the row from the WAL");
+        assert_eq!(x, 42);
+        for suffix in ["", "-wal", "-shm"] {
+            assert!(!dir.path().join(format!("omni.db{suffix}")).exists());
         }
-        assert!(!dir.path().join("omni.db").exists());
-        assert!(!dir.path().join("omni.db-wal").exists());
+    }
+
+    /// #1162: an open connection, such as an MCP server still running from before
+    /// the upgrade, keeps its `omni.db`; renaming it would split the store.
+    #[test]
+    fn keeps_omni_db_while_another_connection_has_it_open() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let old = dir.path().join("omni.db");
+        let conn = rusqlite::Connection::open(&old).expect("open");
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; CREATE TABLE t(x); INSERT INTO t VALUES (1);",
+        )
+        .expect("write");
+        assert_eq!(database_in(dir.path()), old);
+        assert!(!dir.path().join("contexere.db").exists());
+        assert!(
+            dir.path().join("omni.db-wal").exists(),
+            "the WAL stays with it"
+        );
+    }
+
+    /// #1162: a process that chose `omni.db` holds the gate shared, and no other
+    /// one moves the file out from under it.
+    #[test]
+    fn a_process_holding_the_gate_keeps_omni_db_in_place() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("omni.db"), b"db").expect("write");
+        let gate = std::fs::File::create(dir.path().join("omni.db.lock")).expect("lock file");
+        gate.lock_shared().expect("shared");
+        assert_eq!(database_in(dir.path()), dir.path().join("omni.db"));
+        assert!(!dir.path().join("contexere.db").exists());
     }
 
     /// A `contexere.db` already there wins, and the old file is left alone.
@@ -345,6 +445,42 @@ mod tests {
             std::fs::symlink_metadata(&new).is_err(),
             "the dangling link must not become the new tree"
         );
+    }
+
+    /// #1162: `~/.omni` linked to a tree on another disk moves as a link, and the
+    /// tree stays where it is, reachable from the new name.
+    #[cfg(unix)]
+    #[test]
+    fn moves_a_link_to_a_tree_elsewhere_as_a_link() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let (new, legacy) = (home.path().join(".contexere"), home.path().join(".omni"));
+        let elsewhere = home.path().join("storage/omni");
+        std::fs::create_dir_all(&elsewhere).expect("mkdir");
+        std::fs::write(elsewhere.join("omni.db"), b"rows").expect("write");
+        std::os::unix::fs::symlink(&elsewhere, &legacy).expect("link");
+
+        assert_eq!(adopt_legacy(&new, &legacy), new);
+        assert_eq!(
+            std::fs::read(new.join("omni.db")).expect("db through the link"),
+            b"rows"
+        );
+        assert!(
+            std::fs::symlink_metadata(&new)
+                .expect("new")
+                .file_type()
+                .is_symlink()
+        );
+    }
+
+    /// A relative link to `.contexere` is the same link as an absolute one.
+    #[cfg(unix)]
+    #[test]
+    fn a_relative_link_to_contexere_is_left_alone() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let (new, legacy) = (home.path().join(".contexere"), home.path().join(".omni"));
+        std::os::unix::fs::symlink(".contexere", &legacy).expect("link");
+        assert_eq!(adopt_legacy(&new, &legacy), new);
+        assert!(std::fs::symlink_metadata(&new).is_err());
     }
 
     /// A process that lost the race to move the tree uses the moved one.
