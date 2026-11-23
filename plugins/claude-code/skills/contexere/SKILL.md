@@ -93,8 +93,7 @@ Pull the full bytes with the handle the marker prints:
 contexere retrieve <handle>
 ```
 
-The `contexere_retrieve` MCP tool does the same without a shell (`omni_retrieve`
-on an install not yet moved to the new name). Reach for either whenever the
+The `contexere_retrieve` MCP tool does the same without a shell. Reach for either whenever the
 answer depends on what was cut: a count, an exact line, or a file being rewritten
 from what was read.
 

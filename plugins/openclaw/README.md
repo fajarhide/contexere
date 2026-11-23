@@ -25,9 +25,9 @@ Check it with `contexere doctor`: the OpenClaw section shows whether the plugin 
 ## What it does
 
 - **Shortens every built-in tool's result** through OpenClaw's `tool_result_persist` hook. The current turn sees the raw output; later turns read Contexere's shorter version.
-- **Adds an optional `omni_cmd` tool** that runs a command through `contexere exec`, for when the agent wants a shortened result straight away. Input: `{ "command": "npm install" }`.
+- **Adds an optional `contexere_cmd` tool** that runs a command through `contexere exec`, for when the agent wants a shortened result straight away. Input: `{ "command": "npm install" }`.
 
-The tool keeps its `omni_cmd` name for now, because agents call it by name.
+Before 0.9.0 the tool was called `omni_cmd`.
 
 ## Configuration
 

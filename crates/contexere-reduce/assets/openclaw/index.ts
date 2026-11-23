@@ -154,7 +154,7 @@ function takeCommand(toolCallId: string | undefined): string {
 
 function createOmniCmdTool(api: OpenClawPluginApi): AnyAgentTool {
   return {
-    name: "omni_cmd",
+    name: "contexere_cmd",
     label: "Contexere Command",
     description: "Execute terminal tools (git, npm, cargo, docker, etc.) through Contexere's local semantic distillation engine to save 80-90% of token costs.",
     parameters: OmniCmdParams,
@@ -231,7 +231,7 @@ export default definePluginEntry({
       if (command) rememberCommand(event.toolCallId, command);
     });
 
-    // The reason this plugin existed and did nothing. `omni_cmd` only reaches
+    // The reason this plugin existed and did nothing. `contexere_cmd` only reaches
     // output the model chose to route through it; `tool_result_persist` is the
     // hook that replaces the result of every built-in tool, which is what makes
     // OpenClaw a Full-tier host rather than an MCP-only one (#628).
@@ -243,11 +243,11 @@ export default definePluginEntry({
       const message = event.message;
       if (message?.role !== "toolResult") return;
 
-      // `omni_cmd` already ran its output through `omni exec`, and distilling a
+      // `contexere_cmd` already ran its output through `omni exec`, and distilling a
       // payload that is already a marker plus a remainder would fold OMNI's own
       // output.
       const toolName = message.toolName ?? event.toolName ?? "";
-      if (toolName === "omni_cmd") return;
+      if (toolName === "contexere_cmd") return;
 
       // One text part only. A result carrying several parts, or an image beside
       // the text, is a shape this hook has not been shown to preserve, and the
