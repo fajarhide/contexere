@@ -210,6 +210,34 @@ fn configured_omni_mcp(config_path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// An MCP entry written before 0.9.0 names the host with `OMNI_AGENT_ID`, which
+/// nothing reads any more (#1163). Renames the key, or drops it when
+/// `CONTEXERE_AGENT_ID` is already there, since one map cannot hold the key twice.
+/// `None` when there is nothing to change.
+fn rename_old_agent_id(config: &str) -> Option<String> {
+    let is_key = |line: &str, key: &str| line.trim_start().starts_with(&format!("{key}:"));
+    if !config.lines().any(|l| is_key(l, "OMNI_AGENT_ID")) {
+        return None;
+    }
+    let has_new = config.lines().any(|l| is_key(l, "CONTEXERE_AGENT_ID"));
+    let mut out: String = config
+        .lines()
+        .filter(|l| !(has_new && is_key(l, "OMNI_AGENT_ID")))
+        .map(|l| {
+            if is_key(l, "OMNI_AGENT_ID") {
+                l.replacen("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID", 1)
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if config.ends_with('\n') {
+        out.push('\n');
+    }
+    Some(out)
+}
+
 fn configured_compression(config: &str) -> bool {
     let has_compression = config.contains("compression:");
     let has_enabled = config.contains("enabled: true") || config.contains("enabled:true");
@@ -400,6 +428,13 @@ description: Contexere integration for Hermes Agent hooks
 
         if let Ok(config) = fs::read_to_string(&config_path) {
             if configured_omni_mcp(&config_path) {
+                if let Some(updated) = rename_old_agent_id(&config) {
+                    super::write_config(&config_path, updated)?;
+                    actions.push(format!(
+                        "{} Switched OMNI_AGENT_ID to CONTEXERE_AGENT_ID in ~/.hermes/config.yaml",
+                        "✓".green()
+                    ));
+                }
                 actions.push(
                     format!(
                         "{} OMNI MCP server is already registered in ~/.hermes/config.yaml",
@@ -743,6 +778,30 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::rename_old_agent_id;
+
+    /// #1163: an entry written before 0.9.0 gets the key Contexere reads.
+    #[test]
+    fn switches_the_old_agent_id_in_an_existing_entry() {
+        let old = "mcp_servers:\n  omni:\n    command: \"/bin/omni\"\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n";
+        assert_eq!(
+            rename_old_agent_id(old).as_deref(),
+            Some(
+                "mcp_servers:\n  omni:\n    command: \"/bin/omni\"\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n"
+            )
+        );
+        let both =
+            "    env:\n      OMNI_AGENT_ID: \"hermes\"\n      CONTEXERE_AGENT_ID: \"hermes\"\n";
+        assert_eq!(
+            rename_old_agent_id(both).as_deref(),
+            Some("    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n"),
+            "a second CONTEXERE_AGENT_ID key would make the map invalid YAML"
+        );
+        assert_eq!(
+            rename_old_agent_id("      CONTEXERE_AGENT_ID: \"hermes\"\n"),
+            None
+        );
+    }
 
     /// The crate ships its own copy of the plugin so it can be published; this
     /// keeps that copy byte-identical to the one users install from `plugins/`.
