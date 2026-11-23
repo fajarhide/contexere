@@ -864,7 +864,11 @@ mod tests {
         ] {
             assert_eq!(rename_old_agent_id(config), None, "{config:?}");
         }
-        // The last line may lack its newline and still be fixed.
+    }
+
+    /// The last line may lack its newline and still be fixed.
+    #[test]
+    fn fixes_a_last_line_without_a_newline() {
         assert_eq!(
             lines_of(rename_old_agent_id(
                 "mcp_servers:\n  omni:\n    OMNI_AGENT_ID: \"h\""
