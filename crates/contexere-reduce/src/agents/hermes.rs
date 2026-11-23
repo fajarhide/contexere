@@ -211,31 +211,37 @@ fn configured_omni_mcp(config_path: &Path) -> bool {
 }
 
 /// An MCP entry written before 0.9.0 names the host with `OMNI_AGENT_ID`, which
-/// nothing reads any more (#1163). Renames the key, or drops it when
-/// `CONTEXERE_AGENT_ID` is already there, since one map cannot hold the key twice.
-/// `None` when there is nothing to change.
+/// nothing reads any more (#1163). Renames the key in our entry under
+/// `mcp_servers:`, or drops it when that entry already has `CONTEXERE_AGENT_ID`,
+/// since one map cannot hold the key twice. Other servers are not touched, and
+/// each line keeps its own ending. `None` when there is nothing to change.
 fn rename_old_agent_id(config: &str) -> Option<String> {
-    let is_key = |line: &str, key: &str| line.trim_start().starts_with(&format!("{key}:"));
-    if !config.lines().any(|l| is_key(l, "OMNI_AGENT_ID")) {
-        return None;
+    let lines: Vec<&str> = config.split_inclusive('\n').collect();
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let is_key = |l: &str, key: &str| l.trim_start().starts_with(&format!("{key}:"));
+    // The end of the block that starts at `from`: the next non-blank line indented
+    // no deeper than `depth`.
+    let end_of = |from: usize, depth: usize| {
+        (from + 1..lines.len())
+            .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= depth)
+            .unwrap_or(lines.len())
+    };
+    let section = lines.iter().position(|l| l.trim_end() == "mcp_servers:")?;
+    let start = (section + 1..end_of(section, 0))
+        .find(|&i| matches!(lines[i].trim(), "omni:" | "contexere:"))?;
+    let entry = start..end_of(start, indent(lines[start]));
+    let old = entry.clone().find(|&i| is_key(lines[i], "OMNI_AGENT_ID"))?;
+    let has_new = entry
+        .clone()
+        .any(|i| is_key(lines[i], "CONTEXERE_AGENT_ID"));
+
+    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    if has_new {
+        out.remove(old);
+    } else {
+        out[old] = out[old].replacen("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID", 1);
     }
-    let has_new = config.lines().any(|l| is_key(l, "CONTEXERE_AGENT_ID"));
-    let mut out: String = config
-        .lines()
-        .filter(|l| !(has_new && is_key(l, "OMNI_AGENT_ID")))
-        .map(|l| {
-            if is_key(l, "OMNI_AGENT_ID") {
-                l.replacen("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID", 1)
-            } else {
-                l.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    if config.ends_with('\n') {
-        out.push('\n');
-    }
-    Some(out)
+    Some(out.concat())
 }
 
 fn configured_compression(config: &str) -> bool {
@@ -780,27 +786,51 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 mod tests {
     use super::rename_old_agent_id;
 
-    /// #1163: an entry written before 0.9.0 gets the key Contexere reads.
+    fn lines_of(s: Option<String>) -> Vec<String> {
+        s.expect("rewritten").lines().map(str::to_string).collect()
+    }
+
+    /// #1163: our entry gets the key Contexere reads; another server's settings,
+    /// even one already on the new name, stay as they are.
     #[test]
-    fn switches_the_old_agent_id_in_an_existing_entry() {
-        let old = "mcp_servers:\n  omni:\n    command: \"/bin/omni\"\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n";
+    fn switches_the_old_agent_id_in_our_entry_only() {
+        let config = "model: x\nmcp_servers:\n  other:\n    env:\n      CONTEXERE_AGENT_ID: \"x\"\n      OMNI_AGENT_ID: \"x\"\n  omni:\n    command: \"/bin/omni\"\n    env:\n      OMNI_AGENT_ID: \"hermes\"\nplugins: []\n";
+        let want: Vec<String> = config
+            .lines()
+            .map(|l| {
+                l.replace(
+                    "OMNI_AGENT_ID: \"hermes\"",
+                    "CONTEXERE_AGENT_ID: \"hermes\"",
+                )
+            })
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
+    }
+
+    /// A second `CONTEXERE_AGENT_ID` in one map would be invalid YAML.
+    #[test]
+    fn drops_the_old_agent_id_beside_the_new_one() {
+        let config = "mcp_servers:\n  omni:\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n      CONTEXERE_AGENT_ID: \"hermes\"\n";
+        let want: Vec<&str> = config
+            .lines()
+            .filter(|l| !l.contains("OMNI_AGENT_ID"))
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
         assert_eq!(
-            rename_old_agent_id(old).as_deref(),
-            Some(
-                "mcp_servers:\n  omni:\n    command: \"/bin/omni\"\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n"
-            )
-        );
-        let both =
-            "    env:\n      OMNI_AGENT_ID: \"hermes\"\n      CONTEXERE_AGENT_ID: \"hermes\"\n";
-        assert_eq!(
-            rename_old_agent_id(both).as_deref(),
-            Some("    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n"),
-            "a second CONTEXERE_AGENT_ID key would make the map invalid YAML"
-        );
-        assert_eq!(
-            rename_old_agent_id("      CONTEXERE_AGENT_ID: \"hermes\"\n"),
+            rename_old_agent_id(
+                "mcp_servers:\n  omni:\n    env:\n      CONTEXERE_AGENT_ID: \"h\"\n"
+            ),
             None
         );
+    }
+
+    /// A config saved with CRLF endings keeps them.
+    #[test]
+    fn keeps_crlf_line_endings() {
+        let config = "mcp_servers:\r\n  omni:\r\n    env:\r\n      OMNI_AGENT_ID: \"hermes\"\r\n";
+        let out = rename_old_agent_id(config).expect("rewritten");
+        assert_eq!(out.matches("\r\n").count(), 4, "{out:?}");
+        assert!(out.contains("CONTEXERE_AGENT_ID"), "{out:?}");
     }
 
     /// The crate ships its own copy of the plugin so it can be published; this
