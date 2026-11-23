@@ -847,6 +847,32 @@ mod tests {
         assert_eq!(lines_of(rename_old_agent_id(config)), want);
     }
 
+    /// Malformed or partial configs change nothing and never panic, including a
+    /// `#` after a multi-byte character.
+    #[test]
+    fn leaves_broken_configs_alone() {
+        for config in [
+            "",
+            "#",
+            "mcp_servers:",
+            "mcp_servers:\n  omni:",
+            "  omni:\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n",
+            "mcp_servers:\n  other:\n    OMNI_AGENT_ID: \"x\"\n",
+            "mcp_servers:\n  omni:\n    env:\n      OMNI_AGENT_ID\n",
+            "mcp_servers: é#x\n\t omni:\n",
+            "mcp_servers:\nomni:\n  OMNI_AGENT_ID: \"hermes\"\n",
+        ] {
+            assert_eq!(rename_old_agent_id(config), None, "{config:?}");
+        }
+        // The last line may lack its newline and still be fixed.
+        assert_eq!(
+            lines_of(rename_old_agent_id(
+                "mcp_servers:\n  omni:\n    OMNI_AGENT_ID: \"h\""
+            )),
+            vec!["mcp_servers:", "  omni:", "    CONTEXERE_AGENT_ID: \"h\""]
+        );
+    }
+
     /// A config saved with CRLF endings keeps them.
     #[test]
     fn keeps_crlf_line_endings() {
