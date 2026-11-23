@@ -139,7 +139,7 @@ Contexere bernama OMNI sampai 0.8.0, dan nama lamanya masih berfungsi. Nama lama
 | marker `[OMNI` | `[CONTEXERE` | perbarui skrip atau skill buatan Anda yang mencocokkan awalan itu |
 | direktori `~/.omni` | `~/.contexere` | tidak ada; riwayat Anda tetap utuh |
 
-Direktorinya pindah saat pertama kali jalan, dalam satu rename, termasuk database dan arsipnya, dan `~/.omni` ditinggal sebagai link ke sana supaya rilis `omni` tetap menemukan datanya. Database-nya tetap bernama `omni.db`. Kalau pemindahan tidak bisa, Contexere tetap membaca `~/.omni` di tempatnya.
+Direktorinya pindah saat pertama kali jalan, dalam satu rename, termasuk database dan arsipnya. Mulai 0.9.0 tidak ada link yang ditinggal di `~/.omni`, dan `omni.db` diganti namanya menjadi `contexere.db` bersama file `-wal` dan `-shm`-nya. Kalau pemindahan tidak bisa, Contexere tetap membaca data di tempat lamanya.
 
 `contexere doctor` menampilkan semua yang di mesin Anda masih memakai nama lama, jadi Anda tahu agent mana yang tersisa.
 
