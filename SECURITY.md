@@ -30,7 +30,7 @@ You will get an acknowledgement within 48 hours and a timeline with it.
 ## Security Considerations
 
 - **Local-only processing**: Contexere processes all data locally. No data is sent to external servers during distillation.
-- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database under `~/.contexere/`. **No data ever leaves your machine.**
+- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database under `~/.contexere/` by default. **No data ever leaves your machine.**
 - **MCP Server**: The MCP server runs locally via `stdio` transport and does not expose any network ports.
 - **`contexere update`**: Only reads the public GitHub Releases API (no authentication required) to download the latest binary. No data is uploaded.
 
@@ -50,7 +50,7 @@ Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.
 
 ## 1. Nothing in a repository configures Contexere
 
-Contexere reads its settings from one file, `~/.contexere/config.toml`, and from its own environment variables. It loads no configuration, filter or rule from the project it runs in, so cloning a repository cannot change what Contexere hides from your agent.
+Contexere reads its settings from one file, `config.toml` in its config home (`~/.contexere` by default, or the directory a config-home or `XDG_CONFIG_HOME` variable names), and from its own environment variables. It loads no configuration, filter or rule from the project it runs in, so cloning a repository cannot change what Contexere hides from your agent.
 
 Earlier versions documented a `contexere trust` command and a per-project trust registry here. Neither exists: the project-local filter layer they guarded was removed in #449 and #505 (#1169).
 
@@ -58,7 +58,7 @@ Earlier versions documented a `contexere trust` command and a per-project trust 
 
 ## 2. Sandbox Environment Denylist
 
-Contexere **strips 47 dangerous environment variables** from child processes it manages (e.g., when routing commands through `contexere exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
+Contexere **strips the dangerous environment variables listed in `guard/env.rs`** from child processes it manages (e.g., when routing commands through `contexere exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
 
 ### Why This Matters
 
