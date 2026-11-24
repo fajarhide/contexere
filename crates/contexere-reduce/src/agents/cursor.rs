@@ -164,7 +164,7 @@ impl AgentIntegration for CursorIntegration {
         if in_a_project() {
             let rule = project_rule_path();
             // A rule from before 0.9.0 names `omni_run`, which is no longer served (#1067).
-            let stale = fs::read_to_string(&rule).is_ok_and(|w| w == cursor_rule("omni"));
+            let stale = fs::read_to_string(&rule).is_ok_and(|w| is_stale_rule(&w));
             if rule.exists() && !stale {
                 crate::agent_report!(
                     "   {:<21} {}",
@@ -215,6 +215,11 @@ Run shell commands with the `{server}_run` MCP tool instead of the built-in shel
 Its output is filtered to signal before it reaches you, which the built-in tool cannot do on this host.
 "
     )
+}
+
+/// The pre-0.9.0 rule, also when a Windows checkout gave it CRLF endings (#1165).
+fn is_stale_rule(written: &str) -> bool {
+    written.replace("\r\n", "\n") == cursor_rule("omni")
 }
 
 /// Where a project's Cursor rules live, relative to its root.
@@ -478,6 +483,14 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_old_rule_is_stale_with_either_line_ending() {
+        let old = cursor_rule("omni");
+        assert!(is_stale_rule(&old));
+        assert!(is_stale_rule(&old.replace('\n', "\r\n")));
+        assert!(!is_stale_rule(&cursor_rule("contexere")));
+    }
 
     /// #876: omni's hooks and server are replaced, not doubled.
     #[test]
