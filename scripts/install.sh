@@ -33,13 +33,13 @@ detect_platform() {
     case "$(uname -s)" in
         Darwin) os="apple-darwin" ;;
         Linux)  os="unknown-linux-musl" ;;
-        *)      error "Unsupported OS: $(uname -s). OMNI supports macOS and Linux." ;;
+        *)      error "Unsupported OS: $(uname -s). Contexere supports macOS and Linux." ;;
     esac
 
     case "$(uname -m)" in
         arm64|aarch64) arch="aarch64" ;;
         x86_64|amd64)  arch="x86_64" ;;
-        *)             error "Unsupported architecture: $(uname -m). OMNI supports arm64 and x86_64." ;;
+        *)             error "Unsupported architecture: $(uname -m). Contexere supports arm64 and x86_64." ;;
     esac
 
     echo "${arch}-${os}"
@@ -154,7 +154,7 @@ check_path() {
 main() {
     echo ""
     echo "  ┌─────────────────────────────────────┐"
-    echo "  │  OMNI Installer                     │"
+    echo "  │  Contexere Installer                │"
     echo "  │  Less noise. More signal.           │"
     echo "  └─────────────────────────────────────┘"
     echo ""

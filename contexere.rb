@@ -43,7 +43,7 @@ class Contexere < Formula
   end
 
   test do
-    assert_match "contexere", shell_output("#{bin}/contexere version")
+    assert_match "Contexere", shell_output("#{bin}/contexere version")
     assert_match "Signal Report", shell_output("#{bin}/contexere stats 2>&1", 0)
     assert_match "Contexere Doctor", shell_output("#{bin}/contexere doctor 2>&1", 0)
     refute_path_exists bin/"omni"

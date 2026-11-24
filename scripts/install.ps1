@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-OMNI - Universal Windows Install Script
+Contexere - Universal Windows Install Script
 
 .DESCRIPTION
 Installs the latest Contexere binary to $HOME\.local\bin\contexere.exe.
@@ -19,7 +19,7 @@ $Version = if ($env:CONTEXERE_VERSION) { $env:CONTEXERE_VERSION } elseif ($env:O
 
 Write-Host ""
 Write-Host "  ┌─────────────────────────────────────┐" -ForegroundColor Cyan
-Write-Host "  │  OMNI Installer                     │" -ForegroundColor Cyan
+Write-Host "  │  Contexere Installer                │" -ForegroundColor Cyan
 Write-Host "  │  Less noise. More signal.           │" -ForegroundColor Cyan
 Write-Host "  └─────────────────────────────────────┘" -ForegroundColor Cyan
 Write-Host ""
@@ -106,6 +106,11 @@ $Legacy = Join-Path $TmpDir "omni.exe"
 if (Test-Path $Contexere) {
     $Bin = "contexere.exe"
     Copy-Item -Path $Contexere -Destination "$InstallDir\contexere.exe" -Force
+    # 0.9.0 installs no omni.exe (#1067). One an earlier install copied here is
+    # refreshed, so hooks still on it run this release, as a leftover link does on Unix.
+    if (Test-Path "$InstallDir\omni.exe") {
+        Copy-Item -Path $Contexere -Destination "$InstallDir\omni.exe" -Force
+    }
 } elseif (Test-Path $Legacy) {
     # Archives from before 0.8.0 hold only omni.exe.
     $Bin = "omni.exe"
