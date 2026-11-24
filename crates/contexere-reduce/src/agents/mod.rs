@@ -880,8 +880,8 @@ mod old_agent_id_tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let current = dir.path().join("a.json");
         let old = dir.path().join("b.json");
-        std::fs::write(&current, r#"{"env":{"CONTEXERE_AGENT_ID":"x"}}"#).unwrap();
-        std::fs::write(&old, r#"{"env":{"OMNI_AGENT_ID":"x"}}"#).unwrap();
+        std::fs::write(&current, r#"{"env":{"CONTEXERE_AGENT_ID":"x"}}"#).expect("write a.json");
+        std::fs::write(&old, r#"{"env":{"OMNI_AGENT_ID":"x"}}"#).expect("write b.json");
         let missing = dir.path().join("none.json");
 
         let ((), out) = capture(|| report_old_agent_id_in(&[&current, &missing, &old]));
