@@ -15,19 +15,8 @@ fn is_omni_name(argv0: &Path) -> bool {
 /// line is not printed at all, so nothing that parses our output changes.
 pub fn old_name_notice(argv0: &Path, stderr_is_terminal: bool) -> Option<&'static str> {
     (stderr_is_terminal && is_omni_name(argv0)).then_some(
-        "omni is now contexere. This name stops working in 0.9.0; `contexere doctor` lists what still uses it.",
+        "omni is now contexere, and 0.9.0 no longer installs this name; `contexere doctor` lists what still uses it.",
     )
-}
-
-/// The name this process was started under, for `--version` (#958). Goes when the
-/// `omni` link does.
-pub fn invoked_name() -> &'static str {
-    let argv0 = std::env::args_os().next();
-    if argv0.is_some_and(|a| is_omni_name(Path::new(&a))) {
-        "omni"
-    } else {
-        "contexere"
-    }
 }
 
 /// A tool's name as the server serves it, under either binary name since 0.9.0
@@ -95,7 +84,7 @@ mod tests {
         let notice = old_name_notice(Path::new("/opt/homebrew/bin/omni"), true);
         assert!(notice.is_some_and(|n| n.contains("contexere doctor")));
         // #1066: the notice names the release that removes the old name.
-        assert!(notice.is_some_and(|n| n.contains("stops working in 0.9.0")));
+        assert!(notice.is_some_and(|n| n.contains("no longer installs")));
     }
 
     #[test]

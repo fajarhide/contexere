@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# An existing omni install keeps working across the rename (#876).
+# An existing 0.8 install keeps working across the upgrade to 0.9 (#1067).
 #
-#   scripts/upgrade_smoke.sh <old omni binary> <new contexere binary>
+#   scripts/upgrade_smoke.sh <old contexere binary> <new contexere binary>
 #
-# Installs the old release in an empty HOME, runs `omni init --all`, records a
+# Installs the old release in an empty HOME, runs `contexere init --all`, records a
 # store with a real fold, then copies that HOME twice. The same payloads go
-# through the hook command `omni init` wrote, once with the old binary on PATH
-# and once with `omni` pointing at the new one, and the replies must match byte
-# for byte. Since 0.9.0 the store moves to ~/.contexere with nothing left at
-# ~/.omni, so a downgrade starts empty and is not tested (#1067).
+# through the hook command the old `init` wrote, once with the old binary in place
+# and once with the new one, and the replies must match byte for byte. 0.9.0
+# renames omni.db, so a downgrade starts empty and is not tested.
 set -euo pipefail
 
 OLD=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
@@ -17,20 +16,16 @@ ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# One bin dir whose binaries change underneath, the way an upgrade replaces
-# /usr/local/bin/omni. `omni init` writes that absolute path into each host's
-# config, so the hook a host runs is whatever sits there. Copies, not links:
-# `omni init` writes the resolved path of a link, which would keep every hook
-# on the old binary and compare the old release with itself.
+# One bin dir whose binary changes underneath, the way an upgrade replaces
+# /usr/local/bin/contexere. `init` writes that absolute path into each host's
+# config, so the hook a host runs is whatever sits there. A copy, not a link:
+# `init` writes the resolved path of a link, which would keep every hook on the
+# old binary and compare the old release with itself. No `omni` is installed on
+# either side, as 0.9.0 installs none (#1067).
 mkdir -p "$ROOT/bin"
 install_side() { # install_side <old|new>
-  rm -f "$ROOT/bin/omni" "$ROOT/bin/contexere"
-  if [ "$1" = old ]; then
-    cp "$OLD" "$ROOT/bin/omni"
-  else
-    cp "$NEW" "$ROOT/bin/contexere"
-    cp "$NEW" "$ROOT/bin/omni"
-  fi
+  rm -f "$ROOT/bin/contexere"
+  if [ "$1" = old ]; then cp "$OLD" "$ROOT/bin/contexere"; else cp "$NEW" "$ROOT/bin/contexere"; fi
 }
 
 as() { # as <old|new> <home> <cmd...>
@@ -77,14 +72,14 @@ CALLS=("cat file.txt:file.txt" "sed -n 1,120p file.txt:file.txt" "cargo build:bu
 
 H0=$ROOT/home0
 mkdir -p "$H0"
-(cd "$ROOT/work" && as old "$H0" omni init --all </dev/null >/dev/null 2>&1) || fail "omni init --all on the old release"
+(cd "$ROOT/work" && as old "$H0" contexere init --all </dev/null >/dev/null 2>&1) || fail "contexere init --all on the old release"
 HOOK=$(hook_cmd "$H0")
 echo "hook command written by the old release: $HOOK"
 payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as old "$H0" sh -c "$HOOK") >/dev/null
 # A fresh update cache keeps both sides off the network: once a newer release
-# exists, the old binary prints an upgrade notice in `omni stats` and the
+# exists, the old binary prints an upgrade notice in `stats` and the
 # comparison below fails on the release calendar, not on the code.
-printf '{"latest_version":"0.0.0","last_checked":%s}' "$(date +%s)" > "$H0/.omni/update_cache.json"
+printf '{"latest_version":"0.0.0","last_checked":%s}' "$(date +%s)" > "$H0/.contexere/update_cache.json"
 
 cp -R "$H0" "$ROOT/home-old"
 cp -R "$H0" "$ROOT/home-new"
@@ -122,17 +117,17 @@ echo "upgrade: ${#CALLS[@]} hook replies byte for byte, fold handle $HANDLE"
 # history being misread.
 for side in old new; do
   cp -R "$ROOT/home-old" "$ROOT/stats-home-$side"
-  as "$side" "$ROOT/stats-home-$side" omni stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: omni stats"
+  as "$side" "$ROOT/stats-home-$side" contexere stats </dev/null > "$ROOT/stats-$side.txt" 2>&1 || fail "$side: contexere stats"
 done
 # Only the latency line differs: it is timed per run, not history.
 norm() { sed -e '/ ms  per command/d' -e 's/Contexere/OMNI/g; s/contexere/omni/g' "$1"; }
-diff <(norm "$ROOT/stats-old.txt") <(norm "$ROOT/stats-new.txt") || fail "omni stats reads the old history differently"
-as new "$ROOT/home-new" omni retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "new binary: omni retrieve $HANDLE"
-# The first run moves the tree and renames the database, leaving nothing behind (#1067).
-[ -f "$ROOT/home-new/.contexere/contexere.db" ] && [ ! -e "$ROOT/home-new/.omni" ] && [ ! -L "$ROOT/home-new/.omni" ] || fail "the upgrade did not move ~/.omni/omni.db to ~/.contexere/contexere.db"
-echo "upgrade: omni stats matches, omni retrieve follows an old handle, ~/.omni moved to ~/.contexere"
+diff <(norm "$ROOT/stats-old.txt") <(norm "$ROOT/stats-new.txt") || fail "contexere stats reads the old history differently"
+as new "$ROOT/home-new" contexere retrieve "$HANDLE" </dev/null | grep -q 'handler_119' || fail "new binary: contexere retrieve $HANDLE"
+# The first run renames the database and leaves nothing at ~/.omni (#1067).
+[ -f "$ROOT/home-new/.contexere/contexere.db" ] && [ ! -e "$ROOT/home-new/.contexere/omni.db" ] && [ ! -e "$ROOT/home-new/.omni" ] && [ ! -L "$ROOT/home-new/.omni" ] || fail "the upgrade did not rename omni.db to contexere.db"
+echo "upgrade: stats matches, retrieve follows an old handle, omni.db renamed to contexere.db"
 
-# `contexere init` over the old install replaces omni's hooks: one post-hook, ours.
+# `contexere init` over the old install replaces its hooks: one post-hook, on the new name.
 cp -R "$H0" "$ROOT/home-init"
 (cd "$ROOT/work" && as new "$ROOT/home-init" contexere init --all </dev/null >/dev/null 2>&1) || fail "contexere init --all over the old install"
 python3 -I -c '
@@ -140,9 +135,9 @@ import json, sys
 s = json.load(open(sys.argv[1] + "/.claude/settings.json"))
 cmds = [h["command"] for g in s["hooks"]["PostToolUse"] for h in g["hooks"] if "post-hook" in h["command"]]
 if len(cmds) != 1 or "/omni " in cmds[0] + " ":
-    sys.exit("post-hook after contexere init: %r" % cmds)' "$ROOT/home-init" || fail "contexere init did not replace omni's post-hook"
+    sys.exit("post-hook after contexere init: %r" % cmds)' "$ROOT/home-init" || fail "contexere init did not replace the old post-hook"
 HOOK2=$(hook_cmd "$ROOT/home-init")
 payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as new "$ROOT/home-init" sh -c "$HOOK2") | grep -q 'retrieve' || fail "the replaced hook did not fold"
-echo "init: contexere init replaced omni's hook with $HOOK2"
+echo "init: contexere init replaced the old hook with $HOOK2"
 
 echo "PASS"

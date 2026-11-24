@@ -338,7 +338,7 @@ pub(crate) fn report_server_name(name: Option<&str>) {
         crate::agent_report!(
             "   {:<15} {}",
             "Name:".bright_black(),
-            "MCP server still named `omni`, which stops working in 0.9.0; `contexere init` switches it".bright_black()
+            "MCP server still named `omni`; `contexere init` renames it".bright_black()
         );
     }
 }
