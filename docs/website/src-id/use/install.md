@@ -1,6 +1,6 @@
 # Pasang
 
-Instalasi yang sudah ada tetap berfungsi dengan nama `omni`, yaitu program yang sama dengan `contexere`.
+0.9.0 tidak lagi memasang perintah `omni`. Agent yang masih dipasang dengan nama itu perlu `contexere init --<host>`; lihat [pindah dari nama omni](#pindah-dari-nama-omni).
 
 ## Ambil binary-nya
 
@@ -134,7 +134,7 @@ Contexere bernama OMNI sampai 0.8.0. 0.9.0 menghapus nama-nama lama ([#1067](htt
 | nama lama | menjadi | yang perlu Anda lakukan |
 | --- | --- | --- |
 | perintah `omni` | `contexere` | jalankan `contexere init --<host>` untuk setiap agent yang Anda pakai (`--claude`, `--codex`, `--cursor` dan seterusnya); setiap kali jalan, ia menulis ulang hook dan entri MCP agent itu |
-| setelan `OMNI_*` | `CONTEXERE_*` | ganti namanya di profil shell atau CI; `OMNI_*` diabaikan, dan Contexere menyebut setiap yang diabaikannya |
+| setelan `OMNI_*` | `CONTEXERE_*` | ganti namanya di profil shell atau CI; `OMNI_*` diabaikan, dan `contexere doctor` menampilkan setiap yang masih diset |
 | tool MCP `omni_*` | `contexere_*` | tidak ada, setelah `contexere init` mengganti entri MCP-nya |
 | marker `[OMNI` | `[CONTEXERE` | perbarui skrip atau skill buatan Anda yang mencocokkan awalan itu |
 | direktori `~/.omni` | `~/.contexere` | tidak ada; riwayat Anda tetap utuh |

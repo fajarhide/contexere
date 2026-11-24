@@ -68,7 +68,7 @@ older install left behind, and nothing new is written under an old name:
 | --- | --- |
 | `~/.omni` and `omni.db` | the first run moves an older install's data to `~/.contexere/contexere.db` |
 | `[OMNI` markers | transcripts from before 0.9.0 carry them, and the post-hook must still know its own old output |
-| `OMNI_*` variables | Contexere names each one it ignores, so a stale setting is never silent |
+| `OMNI_*` variables | ignored everywhere; `contexere doctor` lists each one still set |
 | `omni` in host configs | `contexere doctor` reports hooks and MCP entries that still call it, and `init` replaces them |
 
 ## What Contexere is trying to be
