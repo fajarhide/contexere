@@ -30,7 +30,7 @@ You will get an acknowledgement within 48 hours and a timeline with it.
 ## Security Considerations
 
 - **Local-only processing**: Contexere processes all data locally. No data is sent to external servers during distillation.
-- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.contexere/contexere.db`. **No data ever leaves your machine.**
+- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.contexere/contexere.db` by default. **No data ever leaves your machine.**
 - **MCP Server**: The MCP server runs locally via `stdio` transport and does not expose any network ports.
 - **`contexere update`**: Only reads the public GitHub Releases API (no authentication required) to download the latest binary. No data is uploaded.
 
@@ -48,65 +48,17 @@ Releases from 0.7.7 onward are attested. Anything older has `SHA256SUMS` only.
 
 ---
 
-## 1. Project Trust Boundary
+## 1. Nothing in a repository configures Contexere
 
-Contexere will **not** load project-local configurations or custom TOML signals (inside `.omni/signals/`) until you explicitly trust the project. This prevents a malicious repository from injecting custom signal rules that could hide important output from your AI agent.
+Contexere reads its settings from one file, `config.toml` in its config home (`~/.contexere` by default, or the directory a config-home or `XDG_CONFIG_HOME` variable names), and from its own environment variables. It loads no configuration, filter or rule from the project it runs in, so cloning a repository cannot change what Contexere hides from your agent.
 
-### How it Works
-
-Contexere uses `omni_config.json` as the trust anchor for a repository. 
-
-```
- Your Project/
- ├── omni_config.json   ← Contexere sees this but WON'T load signals unless trusted
- ├── .omni/signals/     ← Local custom rules
- └── ...
-
- ~/.omni/
- └── trusted-projects.json  ← Trust registry (path + SHA-256 hash)
-```
-
-1. Contexere detects project-local configurations.
-2. It checks `~/.omni/trusted-projects.json` for the project path **and** a matching SHA-256 hash of the `omni_config.json` anchor file.
-3. If not found or hash doesn't match → **local configs & signals are skipped**, Contexere logs a warning.
-4. If trusted and hash matches → configs and local `.omni/signals/` are loaded normally.
-
-### Quick Start
-
-**Trust a project for the first time:**
-```bash
-contexere trust
-```
-Or call the `omni_trust` MCP tool manually from Claude Code.
-
-The tool will:
-- Display the config contents for your review.
-- Show the SHA-256 fingerprint.
-- Add the project to `~/.omni/trusted-projects.json`.
-
-**After editing your local config:**
-```bash
-contexere trust
-```
-Run it again to re-verify and update the hash.
-
-> [!IMPORTANT]
-> If you modify `omni_config.json` after trusting, Contexere will **stop loading project signals** until you re-trust. This protects against silent repo tampering.
-
-### Trust Flow
-
-| Scenario | Contexere Behavior |
-| :--- | :--- |
-| No local config exists | Global and Built-in filters only (normal) |
-| Local config exists, **not trusted** | Skipped. Logs: `⚠ Local config not trusted. Run contexere trust to review and trust.` |
-| Local config exists, **trusted** | Loaded and merged with global configs |
-| Local config **modified** after trust | Skipped. Logs: `⚠ Local config modified since last trust. Run contexere trust to re-verify.` |
+Earlier versions documented a `contexere trust` command and a per-project trust registry here. Neither exists: the project-local filter layer they guarded was removed in #449 and #505 (#1169).
 
 ---
 
 ## 2. Sandbox Environment Denylist
 
-Contexere **strips ~25 dangerous environment variables** from child processes it manages (e.g., when routing commands through `contexere exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
+Contexere **strips the dangerous environment variables listed in `guard/env.rs`** from child processes it manages (e.g., when routing commands through `contexere exec`). This prevents environment-based attacks where malicious env vars could hijack command execution.
 
 ### Why This Matters
 
@@ -133,14 +85,6 @@ All commands that are wrapped by Contexere (e.g., `contexere exec <cmd>`) receiv
 
 > [!NOTE]
 > This is transparent. You don't need to configure anything: Contexere sanitizes the environment automatically to protect command executions.
-
----
-
-## Security Tools Summary
-
-| Tool | Purpose | When to Use |
-| :--- | :--- | :--- |
-| `contexere trust` | Trust a project's local configurations | After cloning a repo with custom filters, or after editing the config anchor |
 
 ---
 
