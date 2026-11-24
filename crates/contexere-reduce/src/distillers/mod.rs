@@ -446,7 +446,7 @@ mod tests {
 
             assert_eq!(
                 out, inner,
-                "{cmd} produces the inner program's stdout, which OMNI has no grammar for"
+                "{cmd} produces the inner program's stdout, which Contexere has no grammar for"
             );
         }
     }
@@ -642,7 +642,7 @@ mod tests {
     fn hands_back_a_document_that_quotes_a_directory_tree() {
         let doc = "# Development Guide\n\
                    \n\
-                   Guide for contributors working on the OMNI codebase.\n\
+                   Guide for contributors working on the Contexere codebase.\n\
                    \n\
                    ## Layout\n\
                    \n\

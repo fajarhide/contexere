@@ -21,7 +21,7 @@
 
 ---
 
-> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。`omni` コマンドは 0.9.0 まで使えます。既存のインストールは、使っているエージェントごとに `contexere init --<host>` を実行すると移行できます。0.8.6 以降、データは自動で `~/.contexere` に移動します。
+> OMNI は **Contexere** になりました。ラテン語で「織り合わせる」を意味し、「context」の語源です。0.9.0 で `omni` コマンドとその他の旧名は削除されました。まだ `omni` を呼んでいるエージェントには `contexere init --<host>` を実行してください。データは自動で `~/.contexere` に移動します。
 
 ## 目指すところ
 
@@ -55,7 +55,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-既存のインストールは 0.9.0 まで `omni` という名前のまま動作します。同じプログラムです。エージェントごとに `contexere init --<host>` を実行すると移行できます。
+0.9.0 は `omni` コマンドをインストールしません。フックがまだ `omni` を呼んでいるエージェントには `contexere init --<host>` が必要です。
 
 Claude Code の中では、`/plugin marketplace add fajarhide/contexere` のあと `/plugin install contexere@omni` を実行すると、インストールと確認を代わりに行うスキルが追加されます。
 

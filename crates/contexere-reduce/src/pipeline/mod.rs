@@ -115,7 +115,7 @@ impl LoopContext {
             new_budget,
         ) {
             eprintln!(
-                "[omni:security] Loop context validation failed: {:?}. Ignoring inputs.",
+                "[contexere:security] Loop context validation failed: {:?}. Ignoring inputs.",
                 e
             );
         } else {
@@ -528,10 +528,10 @@ impl SessionState {
         match self.context_pressure {
             ContextPressure::Normal => None,
             ContextPressure::Warning => Some(format!(
-                "⚠️ OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
+                "⚠️ Contexere: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
             )),
             ContextPressure::Critical => Some(format!(
-                "🚨 OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
+                "🚨 Contexere: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
             )),
         }
     }

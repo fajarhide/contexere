@@ -331,7 +331,7 @@ mod tests {
             assert_eq!(
                 ours.len(),
                 1,
-                "{event} would run OMNI {} times: {ours:?}",
+                "{event} would run Contexere {} times: {ours:?}",
                 ours.len()
             );
             assert!(

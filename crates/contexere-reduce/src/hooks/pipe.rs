@@ -106,7 +106,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     ) {
         writeln!(
             error,
-            "[omni: Warning] Large input detected; processing may take longer..."
+            "[contexere: Warning] Large input detected; processing may take longer..."
         )?;
     }
 
@@ -266,7 +266,7 @@ fn transcript_begin<E: Write>(
         if let Err(e) = transcript.append_entry(entry)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript append error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript append error: {}", e);
         }
     }
 }
@@ -394,7 +394,7 @@ fn distill(
                 format!(
                     "\n{} {} {} {}. The hash {} stores the full output in RewindStore for retrieval.\n",
                     "⏺".cyan(),
-                    "OMNI".bold().bright_white(),
+                    "Contexere".bold().bright_white(),
                     "distilled".bright_green(),
                     lost,
                     hash.cyan().bold()
@@ -538,17 +538,17 @@ fn persist<E: Write>(
         if let Err(e) = std::fs::create_dir_all(&cache_dir)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache dir creation error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache dir creation error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_input.txt"), &result.input_text)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache input write error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache input write error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_output.txt"), result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache output write error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache output write error: {}", e);
         }
     }
 
@@ -557,13 +557,13 @@ fn persist<E: Write>(
         if let Err(e) = transcript.mark_last_completed(result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript complete error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript complete error: {}", e);
         }
         if let Some(guard) = session.as_ref().and_then(|m| m.lock().ok())
             && let Err(e) = transcript.snapshot_state(&guard)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript snapshot error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript snapshot error: {}", e);
         }
     }
 }

@@ -51,7 +51,7 @@ so run `source "$HOME/.cargo/env"` first if you have both.
 `cargo install cargo-insta` for snapshot review.
 
 **Set `CONTEXERE_DB_PATH` before running tests.** Parallel tests competing for
-`~/.omni/omni.db` cause SQLite locks: 79 seconds green against an isolated database,
+`~/.contexere/contexere.db` cause SQLite locks: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one.
 
 ## Naming: Contexere, not OMNI
@@ -60,16 +60,16 @@ The project was called OMNI until 0.8.0 (#876). Write **Contexere** in anything 
 person reads: docs, help text, output titles, issues, PRs and commit messages. The
 binary is `contexere`.
 
-Some old names stay on purpose, because something reads them. They go in 0.9.0
-(#1067), after 0.8.6 announces it; until then do not rename these outside that plan.
-User docs already teach the new names (`contexere`, `CONTEXERE_*`, `contexere_*`) and
-list these once, in the manual's install page under "Moving off the omni name":
+0.9.0 removed the old names (#1067). The manual lists them once, in the install page
+under "Moving off the omni name". What still says omni in the code only reads what an
+older install left behind, and nothing new is written under an old name:
 
-| Kept | Why |
+| Still read | Why |
 | --- | --- |
-| the `omni` command | existing hooks and MCP entries call it; it is the same program |
-| `[OMNI` markers and the `omni retrieve` hint | agents and skills parse them |
-| `~/.omni`, `omni.db` | an install that predates the move still keeps its data there |
+| `~/.omni` and `omni.db` | the first run moves an older install's data to `~/.contexere/contexere.db` |
+| `[OMNI` markers | transcripts from before 0.9.0 carry them, and the post-hook must still know its own old output |
+| `OMNI_*` variables | Contexere names each one it ignores, so a stale setting is never silent |
+| `omni` in host configs | `contexere doctor` reports hooks and MCP entries that still call it, and `init` replaces them |
 
 ## What Contexere is trying to be
 
@@ -206,7 +206,7 @@ be shadowed by a regex that merely matched first.
 
 ## Measure before you build
 
-`~/.omni/omni.db` prices a proposal in one query, and the answer is often the opposite
+`~/.contexere/contexere.db` prices a proposal in one query, and the answer is often the opposite
 of the request.
 
 "Improve the python3 distiller" became two facts in two queries: `python3` was already

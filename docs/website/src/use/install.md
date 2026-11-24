@@ -123,12 +123,12 @@ says when that happens.
 
 ## Moving off the omni name
 
-Contexere was called OMNI until 0.8.0, and the old names still work. They stop working in 0.9.0 ([#1067](https://github.com/fajarhide/contexere/issues/1067)):
+Contexere was called OMNI until 0.8.0. 0.9.0 removed the old names ([#1067](https://github.com/fajarhide/contexere/issues/1067)), so anything still using one needs the step below:
 
 | old name | becomes | what to do |
 | --- | --- | --- |
 | the `omni` command | `contexere` | run `contexere init --<host>` for each agent you use (`--claude`, `--codex`, `--cursor` and so on); each run rewrites that agent's hooks and MCP entry |
-| `OMNI_*` settings | `CONTEXERE_*` | rename them in your shell profile or CI; `CONTEXERE_*` already wins when both are set |
+| `OMNI_*` settings | `CONTEXERE_*` | rename them in your shell profile or CI; an `OMNI_*` one is ignored, and Contexere names each one it ignores |
 | `omni_*` MCP tools | `contexere_*` | nothing, once `contexere init` has replaced the MCP entry |
 | the `[OMNI` marker | `[CONTEXERE` | update any script or skill of your own that matches the prefix |
 | the `~/.omni` directory | `~/.contexere` | nothing; your history is kept |

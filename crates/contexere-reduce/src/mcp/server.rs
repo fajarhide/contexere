@@ -289,7 +289,7 @@ pub struct OmniSignalExtractParams {
 impl OmniServer {
     #[tool(
         name = "omni_retrieve",
-        description = "Retrieve full content omitted by OMNI distillation (handle from the marker)"
+        description = "Retrieve full content omitted by Contexere distillation (handle from the marker)"
     )]
     pub async fn omni_retrieve(&self, params: Parameters<OmniRetrieveParams>) -> String {
         let handle = params.0.handle;
@@ -516,7 +516,7 @@ impl OmniServer {
 
     #[tool(
         name = "omni_remember",
-        description = "Store important knowledge, decisions, or gotchas to OMNI's persistent memory"
+        description = "Store important knowledge, decisions, or gotchas to Contexere's persistent memory"
     )]
     pub async fn omni_remember(&self, params: Parameters<OmniRememberParams>) -> String {
         let content = params.0.content;
@@ -655,7 +655,7 @@ impl OmniServer {
             .and_then(|s| s.hot_files.get(&ctx.file_path).copied())
             .unwrap_or(0);
 
-        let mut out = format!("OMNI Context for {}\n", ctx.file_path);
+        let mut out = format!("Contexere Context for {}\n", ctx.file_path);
         if ctx.imports.is_empty() {
             out.push_str("Imports: none detected\n");
         } else {
@@ -692,7 +692,7 @@ impl OmniServer {
 
     #[tool(
         name = "omni_session",
-        description = "Manage OMNI session state manually (status | context | clear)"
+        description = "Manage Contexere session state manually (status | context | clear)"
     )]
     pub async fn omni_session(&self, params: Parameters<OmniSessionParams>) -> String {
         let action = params.0.action;
@@ -739,7 +739,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 format!(
-                    "OMNI Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
+                    "Contexere Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
                     s.session_id, goal_str, s.command_count, task, domain, hot_str, err
                 )
             }
@@ -871,7 +871,7 @@ impl OmniServer {
         }
 
         let mut out = format!(
-            "OMNI Distillation History (last {}):\n\n",
+            "Contexere Distillation History (last {}):\n\n",
             conn_result.len()
         );
         for (i, row) in conn_result.iter().enumerate() {
@@ -946,7 +946,7 @@ impl OmniServer {
             return Self::render_folds(&folds);
         }
         let mut out = format!(
-            "OMNI Savings Explanation (last {} commands recorded):\n\n",
+            "Contexere Savings Explanation (last {} commands recorded):\n\n",
             rows.len()
         );
         for d in &rows {
@@ -1038,7 +1038,7 @@ impl OmniServer {
             );
         }
         let mut out = format!(
-            "OMNI Noise Analysis (from {} recent traces):\n\n",
+            "Contexere Noise Analysis (from {} recent traces):\n\n",
             traces.len()
         );
         out.push_str("Identified repetitive patterns:\n");
@@ -1053,7 +1053,7 @@ impl OmniServer {
             ));
         }
         out.push_str(
-            "\nThese are a finding, not a filter. OMNI's TOML filter layer was retired in #505 \
+            "\nThese are a finding, not a filter. Contexere's TOML filter layer was retired in #505 \
              after measuring at 2,018 bytes over 6,656 commands against 5 to 7 ms per hook, \
              so a recurring pattern here is the case for a distiller, not a config file.",
         );
@@ -1106,10 +1106,10 @@ impl OmniServer {
         let tilde = if is_actual { "" } else { "~" };
 
         format!(
-            "OMNI Token Budget Report:\n\
+            "Contexere Token Budget Report:\n\
              \n  Measurement Method: {}\n\
              \n  Raw processed:   {}{display_raw} tokens\
-             \n  After OMNI:      {}{display_filtered} tokens\
+             \n  After Contexere: {}{display_filtered} tokens\
              \n  Saved:           {}{display_saved} tokens ({overall_pct:.1}% reduction)\
              \n\
              \n  Commands processed: {}\
@@ -1285,7 +1285,7 @@ impl OmniServer {
         let agent_id = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
-        let mut out = String::from("# OMNI Session Handoff\n\n");
+        let mut out = String::from("# Contexere Session Handoff\n\n");
         out.push_str(&format!("**Session:** {}\n", session.session_id));
         out.push_str(&format!("**Agent:** {}\n", agent_id));
         out.push_str(&format!("**Task:** {}\n", task));
@@ -1587,7 +1587,7 @@ impl rmcp::ServerHandler for OmniServer {}
 fn run_timeout_message(run: &str, command: &str, secs: u64) -> String {
     format!(
         "{run}: `{command}` did not finish within {secs}s and was abandoned. \
-         Run it outside OMNI, or set CONTEXERE_RUN_TIMEOUT_SECS higher."
+         Run it outside Contexere, or set CONTEXERE_RUN_TIMEOUT_SECS higher."
     )
 }
 
@@ -1860,7 +1860,7 @@ mod tests {
         let server = OmniServer { store, session };
         let out = server.omni_handoff().await;
         assert!(
-            out.contains("OMNI Session Handoff"),
+            out.contains("Contexere Session Handoff"),
             "should be markdown format"
         );
         assert!(out.contains("fix auth bug"), "should contain task");

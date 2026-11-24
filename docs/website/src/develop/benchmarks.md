@@ -383,7 +383,7 @@ both now print which population they used.
 replays a day apart without saying so.
 
 **Every window closes.** `execution_traces` prunes at 7 days, so this corpus is gone a
-week after it was measured. Hold one open with `OMNI_TRACE_RETENTION_DAYS`.
+week after it was measured. Hold one open with `CONTEXERE_TRACE_RETENTION_DAYS`.
 
 **Old figures are deleted, not kept for comparison.** Releases keep changing the rule
 that decides whether the ledger folds a run, so an older number describes a pipeline

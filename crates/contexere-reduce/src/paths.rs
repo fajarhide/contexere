@@ -284,8 +284,12 @@ mod tests {
 
         let mode =
             |p: &std::path::Path| std::fs::metadata(p).expect("stat").permissions().mode() & 0o777;
-        assert_eq!(mode(&sub), 0o700, "a directory OMNI owns is owner only");
-        assert_eq!(mode(&file), 0o600, "a file OMNI owns is owner only");
+        assert_eq!(
+            mode(&sub),
+            0o700,
+            "a directory Contexere owns is owner only"
+        );
+        assert_eq!(mode(&file), 0o600, "a file Contexere owns is owner only");
     }
 
     /// #1067: `omni.db` becomes `contexere.db`, and a transaction still in its

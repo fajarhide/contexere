@@ -44,7 +44,7 @@ row proves nothing.
 ## Turning it off, and when to
 
 ```sh
-OMNI_PASSTHROUGH=1 <your command>
+CONTEXERE_PASSTHROUGH=1 <your command>
 ```
 
 Skips the pipeline entirely. Use it when you are debugging Contexere itself and need to
