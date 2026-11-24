@@ -189,9 +189,12 @@ impl AgentIntegration for PiIntegration {
             "  {} Pi does not expose a package-removal command.",
             "ℹ".blue()
         );
-        crate::agent_report!("  {} To remove the OMNI Pi package manually:", "→".cyan());
         crate::agent_report!(
-            "    1. Edit {} and remove the OMNI package entry.",
+            "  {} To remove the Contexere Pi package manually:",
+            "→".cyan()
+        );
+        crate::agent_report!(
+            "    1. Edit {} and remove the Contexere package entry.",
             pi_settings_path().display()
         );
         crate::agent_report!("    2. Restart Pi to apply the changes.\n");
@@ -226,7 +229,7 @@ impl AgentIntegration for PiIntegration {
             if fix_mode {
                 let source = package_source();
                 crate::agent_report!(
-                    "   {:<15} installing OMNI Pi package...",
+                    "   {:<15} installing Contexere Pi package...",
                     "Fix:".bright_black()
                 );
                 if let Err(e) = run_install(&source) {
@@ -242,7 +245,7 @@ impl AgentIntegration for PiIntegration {
         let duplicates = snapshot.duplicate_sources();
         if duplicates.len() > 1 {
             crate::agent_report!(
-                "   {:<15} {} OMNI sources detected {}",
+                "   {:<15} {} Contexere sources detected {}",
                 "Duplicates:".bright_black(),
                 duplicates.len().to_string().red(),
                 "[WARNING]".yellow().bold()
@@ -251,7 +254,7 @@ impl AgentIntegration for PiIntegration {
                 crate::agent_report!("     {} {}", "•".yellow(), src.bright_black());
             }
             warnings.push(
-                "Multiple OMNI Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
+                "Multiple Contexere Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
             );
         }
 
@@ -332,7 +335,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     let duplicates = snapshot.duplicate_sources();
     if duplicates.len() > 1 {
         crate::agent_report!(
-            "  {} {} OMNI-related sources detected in Pi settings:",
+            "  {} {} Contexere-related sources detected in Pi settings:",
             "⚠".yellow(),
             duplicates.len()
         );
@@ -346,7 +349,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     }
 
     crate::agent_report!(
-        "  {} Restart Pi to activate the OMNI extension.\n",
+        "  {} Restart Pi to activate the Contexere extension.\n",
         "✓".green().bold()
     );
 

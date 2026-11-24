@@ -135,7 +135,7 @@ fn is_newer(latest: &str, current: &str) -> bool {
 
 pub fn print_notification(latest: &str) {
     println!(
-        "\n  {} A new version of OMNI is available: {} → {}",
+        "\n  {} A new version of Contexere is available: {} → {}",
         "✨".yellow(),
         env!("CARGO_PKG_VERSION").bright_black(),
         latest.green().bold()

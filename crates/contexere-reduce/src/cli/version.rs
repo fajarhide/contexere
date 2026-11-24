@@ -20,7 +20,7 @@ pub fn run_version(args: &[String]) {
     }
     // An unknown flag is reported and nothing else is printed (#151).
     if let Err(e) = crate::cli::check_flags("version", args, FLAGS) {
-        eprintln!("[omni] {e}");
+        eprintln!("[contexere] {e}");
         std::process::exit(1);
     }
 

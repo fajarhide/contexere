@@ -157,7 +157,8 @@ fn process_payload(
             hook_specific_output: HookSpecificOutput {
                 hook_event_name: "PreToolUse",
                 permission_decision: "allow",
-                permission_decision_reason: "OMNI auto-rewrite to reduce token noise".to_string(),
+                permission_decision_reason: "Contexere auto-rewrite to reduce token noise"
+                    .to_string(),
                 updated_input,
             },
         };

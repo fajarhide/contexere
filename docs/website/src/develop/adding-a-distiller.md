@@ -81,10 +81,10 @@ did not help" with `beats_guardrail` rather than comparing against the input.
 ```sh
 cargo fmt
 cargo clippy -- -D warnings
-OMNI_DB_PATH=/tmp/t.db cargo test
+CONTEXERE_DB_PATH=/tmp/t.db cargo test
 ```
 
-`OMNI_DB_PATH` is not optional. Parallel tests competing for `~/.contexere/contexere.db` cause
+`CONTEXERE_DB_PATH` is not optional. Parallel tests competing for `~/.contexere/contexere.db` cause
 SQLite locks: 79 seconds green against an isolated database, 433 seconds and then a
 hang against the live one.
 

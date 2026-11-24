@@ -115,11 +115,11 @@ impl AgentIntegration for ClaudeIntegration {
                     crate::agent_report!(
                         "   {:<15} {} {}",
                         "Duplicate:".bright_black(),
-                        format!("{event} runs OMNI {count} times per call"),
+                        format!("{event} runs Contexere {count} times per call"),
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(format!(
-                        "{event} has {count} OMNI hooks. Re-run `contexere init --claude` to collapse them."
+                        "{event} has {count} Contexere hooks. Re-run `contexere init --claude` to collapse them."
                     ));
                 }
             }
@@ -203,8 +203,9 @@ impl AgentIntegration for ClaudeIntegration {
                         "Hooks:".bright_black(),
                         "[WARNING] no hooks found".yellow().bold()
                     );
-                    warnings
-                        .push("OMNI hooks are not configured. Run `contexere init`.".to_string());
+                    warnings.push(
+                        "Contexere hooks are not configured. Run `contexere init`.".to_string(),
+                    );
                     all_ok = false;
                 }
             }
@@ -751,7 +752,7 @@ mod tests {
             assert_eq!(
                 ours.len(),
                 1,
-                "{event} carries {} OMNI hooks, so OMNI would run {} times: {ours:?}",
+                "{event} carries {} Contexere hooks, so Contexere would run {} times: {ours:?}",
                 ours.len(),
                 ours.len()
             );

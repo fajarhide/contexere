@@ -1043,7 +1043,7 @@ fn build_additional_context(
                 && s.context_pressure != crate::pipeline::ContextPressure::Critical
             {
                 predicted_warn = Some(format!(
-                    "OMNI Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
+                    "Contexere Prediction: At current rate (~{:.0} tokens/cmd), context will be full in ~{} commands. Consider compacting soon.",
                     s.token_consumption_rate.avg_tokens_per_command, commands_left
                 ));
             }
@@ -1068,7 +1068,7 @@ fn build_additional_context(
             && s.loop_context.budget_used > (budget as f64 * 0.8) as u64
         {
             let budget_warn = format!(
-                "OMNI Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
+                "Contexere Loop Budget: >80% used this iteration ({} / {} tokens). Consider concluding soon.",
                 s.loop_context.budget_used, budget
             );
             if let Some(pm) = pressure_msg.as_mut() {
@@ -1791,7 +1791,7 @@ Ran 6 tests across 1 file. [4.00ms]
     /// A tool's own output is still distilled.
     #[test]
     fn leaves_a_tools_own_output_alone() {
-        let theirs = "test result: ok. 600 passed; 0 failed;\nwarning: unused variable `x`\nnote: OMNI is mentioned here but not as a marker";
+        let theirs = "test result: ok. 600 passed; 0 failed;\nwarning: unused variable `x`\nnote: Contexere is mentioned here but not as a marker";
 
         assert!(!carries_our_marker(theirs), "false positive on real output");
     }
@@ -2181,7 +2181,7 @@ Ran 6 tests across 1 file. [4.00ms]
         assert!(
             offenders.is_empty(),
             "these plugins spawn `--post-hook` and never read `updatedToolOutput`, \
-             so whatever OMNI returns is discarded (#688): {offenders:?}"
+             so whatever Contexere returns is discarded (#688): {offenders:?}"
         );
     }
 
@@ -2664,7 +2664,7 @@ Ran 6 tests across 1 file. [4.00ms]
         assert_eq!(
             recorded_session_ids(&db),
             vec!["4ba52c00-c43f-46ed-9e0e-9069d5294302".to_string()],
-            "the row was filed under OMNI's own id, not the host's"
+            "the row was filed under Contexere's own id, not the host's"
         );
     }
 
@@ -3408,7 +3408,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
                 "`{key}` is not one of the three keys that address the current \
                  call. If it edits anything already in the conversation it \
                  invalidates the prompt cache from that point on, which is the \
-                 failure OMNI exists to avoid (#610): {v}"
+                 failure Contexere exists to avoid (#610): {v}"
             );
         }
     }
@@ -4165,7 +4165,7 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let bare = reply_keys(false);
         assert!(
             bare.contains(&"result".to_string()) && !bare.contains(&"file".to_string()),
-            "the manual now says a bare Read replies in OMNI's shape, got {bare:?}"
+            "the manual now says a bare Read replies in Contexere's shape, got {bare:?}"
         );
     }
 
@@ -4367,8 +4367,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let out = process_payload(&input.to_string(), None, None);
         if let Some(res) = out {
             assert!(
-                res.contains("OMNI") || res.contains("Passthrough"),
-                "Labeled passthrough must contain OMNI label"
+                res.contains("Contexere") || res.contains("Passthrough"),
+                "Labeled passthrough must contain Contexere label"
             );
         }
     }
@@ -4392,8 +4392,8 @@ src/distillers/system_ops.rs:849:                is_sensitive_key(key),
         let out = process_payload(&input.to_string(), None, None);
         if let Some(res) = out {
             assert!(
-                res.contains("OMNI") || res.contains("Passthrough"),
-                "If not None, must contain OMNI label: {}",
+                res.contains("Contexere") || res.contains("Passthrough"),
+                "If not None, must contain Contexere label: {}",
                 res
             );
         }

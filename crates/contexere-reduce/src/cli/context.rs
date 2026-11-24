@@ -63,7 +63,7 @@ pub fn report(
     };
 
     Ok(format!(
-        "OMNI Context for {}\nImports: {}\nImported by: {}\nHot in session: {}\n",
+        "Contexere Context for {}\nImports: {}\nImported by: {}\nHot in session: {}\n",
         ctx.file_path,
         list(&ctx.imports),
         list(&ctx.imported_by),
@@ -244,7 +244,7 @@ mod tests {
         let name = resolved
             .lines()
             .next()
-            .and_then(|l| l.strip_prefix("OMNI Context for "))
+            .and_then(|l| l.strip_prefix("Contexere Context for "))
             .expect("the first line names the file")
             .to_string();
         session.hot_files.insert(name, 4);

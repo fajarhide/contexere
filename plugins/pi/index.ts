@@ -208,21 +208,21 @@ export default function omniExtension(pi: ExtensionAPI): void {
   // ── Slash command ──
 
   pi.registerCommand("omni", {
-    description: "Enable, disable, or check OMNI status",
+    description: "Enable, disable, or check Contexere status",
     async handler(argStr, ctx) {
       const arg = argStr.trim().toLowerCase();
       if (arg === "off" || arg === "disable") {
         setOmniEnabled(ctx, false);
-        ctx.ui.notify("OMNI disabled", "info");
+        ctx.ui.notify("Contexere disabled", "info");
         return;
       }
       if (arg === "on" || arg === "enable") {
         setOmniEnabled(ctx, true);
-        ctx.ui.notify("OMNI enabled", "info");
+        ctx.ui.notify("Contexere enabled", "info");
         return;
       }
       ctx.ui.notify(
-        omniEnabled ? "OMNI is enabled" : "OMNI is disabled",
+        omniEnabled ? "Contexere is enabled" : "Contexere is disabled",
         "info",
       );
     },

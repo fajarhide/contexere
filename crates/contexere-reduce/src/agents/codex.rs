@@ -197,7 +197,7 @@ impl AgentIntegration for CodexIntegration {
                     format!("[WARNING] {} awaiting review in Codex", awaiting.join(", ")).yellow()
                 );
                 warnings.push(format!(
-                    "Codex has not been told to trust OMNI's hooks ({}), so it skips them silently. \
+                    "Codex has not been told to trust Contexere's hooks ({}), so it skips them silently. \
                      Start `codex` once and approve them under \"Hooks need review\", or pass \
                      `--dangerously-bypass-hook-trust` for unattended runs.",
                     awaiting.join(", ")

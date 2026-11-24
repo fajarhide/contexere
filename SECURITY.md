@@ -30,7 +30,7 @@ You will get an acknowledgement within 48 hours and a timeline with it.
 ## Security Considerations
 
 - **Local-only processing**: Contexere processes all data locally. No data is sent to external servers during distillation.
-- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.omni/omni.db`. **No data ever leaves your machine.**
+- **Local SQLite Persistence**: Usage stats and archived contexts are stored locally in the SQLite database `~/.contexere/contexere.db`. **No data ever leaves your machine.**
 - **MCP Server**: The MCP server runs locally via `stdio` transport and does not expose any network ports.
 - **`contexere update`**: Only reads the public GitHub Releases API (no authentication required) to download the latest binary. No data is uploaded.
 

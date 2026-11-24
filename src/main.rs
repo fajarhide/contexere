@@ -250,7 +250,7 @@ fn main() {
         });
         let cmd_name = detect_pipe_command();
         if let Err(e) = hooks::pipe::run(store_arc, session_arc, cmd_name.as_deref()) {
-            eprintln!("[omni] Pipe engine error: {}", e);
+            eprintln!("[contexere] Pipe engine error: {}", e);
             std::process::exit(1);
         }
         return;
@@ -286,7 +286,7 @@ fn main() {
             // it keeps SQLite off this hook's path.
             let (_, session) = init_globals();
             if let Err(e) = hooks::pre_tool::run(session) {
-                eprintln!("[omni] Pre-Hook error: {}", e);
+                eprintln!("[contexere] Pre-Hook error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -320,10 +320,10 @@ fn main() {
                 std::thread::spawn(move || upkeep.prune_if_due(SESSION_RETENTION_DAYS));
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 if let Err(e) = rt.block_on(async { mcp::server::run(s, ss).await }) {
-                    eprintln!("[omni] MCP Server error: {}", e);
+                    eprintln!("[contexere] MCP Server error: {}", e);
                 }
             } else {
-                eprintln!("[omni] Failed to open SQLite store for MCP.");
+                eprintln!("[contexere] Failed to open SQLite store for MCP.");
             }
         }
 
@@ -338,7 +338,7 @@ fn main() {
                 "help" | "-h" | "--help" => print_help(),
                 "diff" => {
                     if let Err(e) = cli::diff::run_diff(&args) {
-                        eprintln!("[omni] Diff error: {}", e);
+                        eprintln!("[contexere] Diff error: {}", e);
                         std::process::exit(1);
                     }
                 }
@@ -346,25 +346,25 @@ fn main() {
                     // Not `let _ =`: a rejected flag has to reach the user, or a
                     // typo installs nothing and exits 0 (#151).
                     if let Err(e) = cli::init::run_init(&args) {
-                        eprintln!("[omni] Init error: {}", e);
+                        eprintln!("[contexere] Init error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "reset" => {
                     if let Err(e) = cli::reset::handle_reset() {
-                        eprintln!("[omni] Reset error: {}", e);
+                        eprintln!("[contexere] Reset error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "stats" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::stats::run(&args, &store) {
-                            eprintln!("[omni] Stats error: {}", e);
+                            eprintln!("[contexere] Stats error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for stats: {}", e);
+                        eprintln!("[contexere] Cannot open database for stats: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -372,12 +372,12 @@ fn main() {
                     Ok(store) => {
                         let store_arc = Arc::new(store);
                         if let Err(e) = cli::session::run_session(&args, store_arc) {
-                            eprintln!("[omni] Session error: {}", e);
+                            eprintln!("[contexere] Session error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for session: {}", e);
+                        eprintln!("[contexere] Cannot open database for session: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -385,48 +385,48 @@ fn main() {
                     Ok(store) => {
                         let store_arc = Arc::new(store);
                         if let Err(e) = cli::engram::run_engram(&args, store_arc) {
-                            eprintln!("[omni] Engram error: {}", e);
+                            eprintln!("[contexere] Engram error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for engrams: {}", e);
+                        eprintln!("[contexere] Cannot open database for engrams: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "query" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::query::run_query(&args, &store) {
-                            eprintln!("[omni] Query error: {}", e);
+                            eprintln!("[contexere] Query error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for query: {}", e);
+                        eprintln!("[contexere] Cannot open database for query: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "retrieve" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::retrieve::run(&args, &store) {
-                            eprintln!("[omni] {}", e);
+                            eprintln!("[contexere] {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] DB error: {}", e);
+                        eprintln!("[contexere] DB error: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "dashboard" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::dashboard::run(&args, &store) {
-                            eprintln!("[omni] Dashboard error: {}", e);
+                            eprintln!("[contexere] Dashboard error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] DB error: {}", e);
+                        eprintln!("[contexere] DB error: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -434,19 +434,19 @@ fn main() {
                     // Best effort: the session only decides the "hot in session" line.
                     let session = Store::open().ok().and_then(|s| s.find_latest_session());
                     if let Err(e) = cli::context::run_context(&args, session.as_ref()) {
-                        eprintln!("[omni] Context error: {}", e);
+                        eprintln!("[contexere] Context error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "patterns" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::patterns::run_patterns(&args, &store) {
-                            eprintln!("[omni] Patterns error: {}", e);
+                            eprintln!("[contexere] Patterns error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for patterns: {}", e);
+                        eprintln!("[contexere] Cannot open database for patterns: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -457,7 +457,7 @@ fn main() {
                         Arc::new(Mutex::new(session))
                     });
                     if let Err(e) = cli::exec::run_exec(&args, store_arc, session_arc) {
-                        eprintln!("[omni] Exec error: {}", e);
+                        eprintln!("[contexere] Exec error: {}", e);
                         std::process::exit(1);
                     }
                 }
@@ -465,24 +465,24 @@ fn main() {
                 "remember" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::remember::run(&args[2..], Arc::new(store)) {
-                            eprintln!("[omni] Remember error: {}", e);
+                            eprintln!("[contexere] Remember error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for remember: {}", e);
+                        eprintln!("[contexere] Cannot open database for remember: {}", e);
                         std::process::exit(1);
                     }
                 },
                 "goal" => match Store::open() {
                     Ok(store) => {
                         if let Err(e) = cli::goal::run(&args[2..], &store) {
-                            eprintln!("[omni] Goal error: {}", e);
+                            eprintln!("[contexere] Goal error: {}", e);
                             std::process::exit(1);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[omni] Cannot open database for goal: {}", e);
+                        eprintln!("[contexere] Cannot open database for goal: {}", e);
                         std::process::exit(1);
                     }
                 },
@@ -494,13 +494,13 @@ fn main() {
                 }
                 "doctor" => {
                     if let Err(e) = cli::doctor::run(&args) {
-                        eprintln!("[omni] Doctor error: {}", e);
+                        eprintln!("[contexere] Doctor error: {}", e);
                         std::process::exit(1);
                     }
                 }
                 "update" => {
                     if let Err(e) = cli::update::run(&args) {
-                        eprintln!("[omni] Update error: {}", e);
+                        eprintln!("[contexere] Update error: {}", e);
                         std::process::exit(1);
                     }
                 }

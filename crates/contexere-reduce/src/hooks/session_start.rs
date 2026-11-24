@@ -75,7 +75,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[contexere] parse error");
             return None;
         }
     };
@@ -187,7 +187,7 @@ pub fn process_payload(input_str: &str, store: Arc<Store>, cfg: SessionConfig) -
         && pending.session_id != new_state.session_id
     {
         let summary = format!(
-            "OMNI: Interrupted session detected. {}",
+            "Contexere: Interrupted session detected. {}",
             pending.interrupted_summary()
         );
         let out = HookOutput {
@@ -234,7 +234,7 @@ pub fn process_before_agent_start_payload(
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[contexere] parse error");
             return None;
         }
     };
@@ -338,7 +338,7 @@ fn build_summary(state: &SessionState, now: i64) -> String {
         format!("{}h ago", age_mins / 60)
     };
 
-    let mut out = format!("OMNI: Session continued ({}). ", time_str);
+    let mut out = format!("Contexere: Session continued ({}). ", time_str);
 
     if let Some(task) = &state.inferred_task {
         out.push_str(&format!("Last: {}. ", task));
@@ -366,7 +366,7 @@ fn build_summary(state: &SessionState, now: i64) -> String {
 
     if state.estimated_tokens_saved() > 0 {
         out.push_str(&format!(
-            "OMNI saved ~{}tok last session. ",
+            "Contexere saved ~{}tok last session. ",
             state.estimated_tokens_saved()
         ));
     }
@@ -498,7 +498,7 @@ mod tests {
         let out = HookOutput {
             hook_specific_output: HookSpecificOutput {
                 hook_event_name: "SessionStart".to_string(),
-                system_prompt_addition: "OMNI: continued".to_string(),
+                system_prompt_addition: "Contexere: continued".to_string(),
                 watch_paths: vec![],
             },
         };

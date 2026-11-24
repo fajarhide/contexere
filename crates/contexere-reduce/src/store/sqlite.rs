@@ -1270,10 +1270,10 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            eprintln!("[omni:error] failed to record distillation: {}", e);
+            eprintln!("[contexere:error] failed to record distillation: {}", e);
             if e.to_string().contains("NOT NULL constraint failed") {
                 eprintln!(
-                    "[omni:error] hint: legacy 'content_type' column may be blocking inserts. OMNI will attempt auto-migration on next startup."
+                    "[contexere:error] hint: legacy 'content_type' column may be blocking inserts. Contexere will attempt auto-migration on next startup."
                 );
             }
         }
@@ -1314,7 +1314,7 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            eprintln!("[omni:error] failed to record trace: {}", e);
+            eprintln!("[contexere:error] failed to record trace: {}", e);
         }
     }
 

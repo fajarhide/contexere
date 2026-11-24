@@ -80,7 +80,7 @@ keduanya yang berarti.
 contexere doctor
 
 hermes plugins list | grep contexere   # harapkan: tercantum enabled
-hermes tools list | grep mcp_omni_     # himpunan yang diiklankan, setelah restart
+hermes tools list | grep mcp_contexere_     # himpunan yang diiklankan, setelah restart
 ```
 
 Lalu satu pemeriksaan fungsional pada fixture sungguhan:
@@ -122,7 +122,7 @@ set yang diiklankan secara bawaan, jadi ia butuh `CONTEXERE_MCP_TOOLS=all`.
 
 ```sh
 hermes plugins list | grep contexere
-hermes tools list | grep mcp_omni_
+hermes tools list | grep mcp_contexere_
 contexere doctor
 ```
 

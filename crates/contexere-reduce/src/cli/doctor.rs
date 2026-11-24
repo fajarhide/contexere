@@ -675,7 +675,7 @@ mod tests {
     /// Nested rows stay nested.
     #[test]
     fn a_nested_row_stays_under_the_row_it_belongs_to() {
-        let report = "  Pi Agent:\n   Duplicates:     2 OMNI sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
+        let report = "  Pi Agent:\n   Duplicates:     2 Contexere sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
 
         let (out, _) = condense_agent_report("Pi Agent", "MCP-only", report, false);
 

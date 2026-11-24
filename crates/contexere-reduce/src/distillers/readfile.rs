@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(
             distill_readfile(&content, "notes.txt"),
             None,
-            "prose OMNI cannot parse has to reach the agent whole"
+            "prose Contexere cannot parse has to reach the agent whole"
         );
     }
 
