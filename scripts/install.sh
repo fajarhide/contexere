@@ -1,15 +1,18 @@
 #!/bin/bash
-# OMNI — Universal Install Script
+# Contexere install script
 # Usage: curl -fsSL https://raw.githubusercontent.com/fajarhide/contexere/main/scripts/install.sh | sh
 #
-# Installs the latest OMNI binary to ~/.local/bin/omni
+# Installs the latest Contexere binary to ~/.local/bin/contexere
 # Supports: macOS (arm64, x86_64), Linux (arm64, x86_64)
 
 set -euo pipefail
 
 REPO="fajarhide/contexere"
-INSTALL_DIR="${OMNI_INSTALL_DIR:-$HOME/.local/bin}"
-VERSION="${OMNI_VERSION:-latest}"
+# The OMNI_* names still work here: a pinned install must not silently get `latest`.
+INSTALL_DIR="${CONTEXERE_INSTALL_DIR:-${OMNI_INSTALL_DIR:-$HOME/.local/bin}}"
+VERSION="${CONTEXERE_VERSION:-${OMNI_VERSION:-latest}}"
+# Releases before 0.8.0 ship only `omni`; download_and_install switches this.
+BIN=contexere
 
 # ─── Colors ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -18,10 +21,10 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-info()  { echo -e "${CYAN}[omni]${NC} $*"; }
-ok()    { echo -e "${GREEN}[omni]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[omni]${NC} $*"; }
-error() { echo -e "${RED}[omni]${NC} $*" >&2; exit 1; }
+info()  { echo -e "${CYAN}[contexere]${NC} $*"; }
+ok()    { echo -e "${GREEN}[contexere]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[contexere]${NC} $*"; }
+error() { echo -e "${RED}[contexere]${NC} $*" >&2; exit 1; }
 
 # ─── Platform Detection ─────────────────────────────────
 detect_platform() {
@@ -105,11 +108,12 @@ download_and_install() {
     # Install
     mkdir -p "$INSTALL_DIR"
     if [ -f "$tmpdir/contexere" ]; then
-        # 0.8.0 and later: `omni` stays a link so registered hooks keep working (#876).
+        # 0.9.0 installs no `omni` link (#1067); one an earlier install left still
+        # points here, so it keeps working until it is removed.
         cp "$tmpdir/contexere" "$INSTALL_DIR/contexere"
         chmod +x "$INSTALL_DIR/contexere"
-        ln -sf contexere "$INSTALL_DIR/omni"
     else
+        BIN=omni
         cp "$tmpdir/omni" "$INSTALL_DIR/omni"
         chmod +x "$INSTALL_DIR/omni"
     fi
@@ -161,27 +165,27 @@ main() {
 
     info "Platform: $platform"
     info "Version:  $version"
-    info "Target:   $INSTALL_DIR/omni"
+    info "Target:   $INSTALL_DIR"
     echo ""
 
     download_and_install "$platform" "$version"
 
     echo ""
-    ok "✓ OMNI installed to $INSTALL_DIR/omni"
+    ok "✓ Installed to $INSTALL_DIR/$BIN"
     echo ""
 
     # Verify
-    if "$INSTALL_DIR/omni" version >/dev/null 2>&1; then
-        ok "Verified: $($INSTALL_DIR/omni version)"
+    if "$INSTALL_DIR/$BIN" version >/dev/null 2>&1; then
+        ok "Verified: $("$INSTALL_DIR/$BIN" version)"
     fi
 
     check_path
 
     echo ""
     echo "  Next steps:"
-    echo "    omni init              # Interactive setup for your preferred AI Agent"
-    echo "    omni doctor            # Verify installation"
-    echo "    omni stats             # View savings after first session"
+    echo "    $BIN init         # Interactive setup for your preferred AI Agent"
+    echo "    $BIN doctor       # Verify installation"
+    echo "    $BIN stats        # View savings after first session"
     echo ""
 }
 

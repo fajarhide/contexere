@@ -159,7 +159,7 @@ pub(crate) fn report(
         crate::agent_report!(
             "   {:<15} {}",
             "Name:".bright_black(),
-            "still calls `omni`, which stops working in 0.9.0; `contexere init` switches it"
+            "still calls `omni`, which 0.9.0 no longer installs; `contexere init` switches it"
                 .bright_black()
         );
     }

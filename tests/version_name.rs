@@ -1,5 +1,6 @@
-//! `--version` names the program it runs as (#958): `contexere` for the new
-//! name, `omni` through the link existing installs still call.
+//! `--version` says `contexere` under any name. It followed the name until 0.9.0
+//! stopped installing the `omni` link (#958, #1067); a link left by an older
+//! install still runs, and gets the real name.
 #![cfg(unix)]
 
 use std::process::Command;
@@ -16,7 +17,7 @@ fn version(program: &std::path::Path) -> String {
 }
 
 #[test]
-fn the_version_line_follows_the_program_name() {
+fn the_version_line_names_contexere_under_either_name() {
     let new = std::path::PathBuf::from(env!("CARGO_BIN_EXE_contexere"));
     let dir = tempfile::tempdir().expect("tempdir");
     let old = dir.path().join("omni");
@@ -24,5 +25,5 @@ fn the_version_line_follows_the_program_name() {
 
     let v = env!("CARGO_PKG_VERSION");
     assert_eq!(version(&new), format!("contexere {v}"));
-    assert_eq!(version(&old), format!("omni {v}"));
+    assert_eq!(version(&old), format!("contexere {v}"));
 }

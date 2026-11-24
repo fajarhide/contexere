@@ -266,12 +266,7 @@ fn main() {
     // Answered here: routed into `cli::version`, the flag was rejected as
     // unknown (#506).
     if args.len() == 2 && matches!(args[1].as_str(), "--version" | "-v") {
-        // Follows the name it runs under (#958).
-        println!(
-            "{} {}",
-            contexere::legacy::invoked_name(),
-            env!("CARGO_PKG_VERSION")
-        );
+        println!("contexere {}", env!("CARGO_PKG_VERSION"));
         return;
     }
 

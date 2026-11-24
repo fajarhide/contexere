@@ -28,8 +28,6 @@ class Contexere < Formula
 
   def install
     bin.install "contexere"
-    # Hooks and MCP entries registered before the rename call `omni` (#876).
-    bin.install_symlink "contexere" => "omni"
   end
 
   def caveats
@@ -39,13 +37,15 @@ class Contexere < Formula
         contexere doctor       # check the hooks fire and redact
         contexere stats        # what it saved on your own history
 
-      `omni` is the same program, so existing hooks keep working.
+      0.9.0 no longer installs `omni`. Hooks that still call it stop working:
+      run `contexere init` again.
     EOS
   end
 
   test do
-    assert_match "omni", shell_output("#{bin}/omni version")
-    assert_match "Signal Report", shell_output("#{bin}/omni stats 2>&1", 0)
-    assert_match "OMNI Doctor", shell_output("#{bin}/omni doctor 2>&1", 0)
+    assert_match "contexere", shell_output("#{bin}/contexere version")
+    assert_match "Signal Report", shell_output("#{bin}/contexere stats 2>&1", 0)
+    assert_match "Contexere Doctor", shell_output("#{bin}/contexere doctor 2>&1", 0)
+    refute_path_exists bin/"omni"
   end
 end
