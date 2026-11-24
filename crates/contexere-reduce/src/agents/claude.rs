@@ -235,7 +235,7 @@ impl AgentIntegration for ClaudeIntegration {
             .join(".claude.json");
 
         let mut mcp_found = false;
-        for p in &[mcp_path, mcpa_path] {
+        for p in &[&mcp_path, &mcpa_path] {
             if p.exists()
                 && let Ok(c) = fs::read_to_string(p)
                 && (c.contains("contexere --mcp")
@@ -251,10 +251,11 @@ impl AgentIntegration for ClaudeIntegration {
                     "[OK]".green().bold()
                 );
                 super::report_server_name(server_on_old_name(&c));
-                super::report_old_agent_id(&c);
                 break;
             }
         }
+        // Every file, not only the one the loop above stopped at (#1165).
+        super::report_old_agent_id_in(&[&mcp_path, &mcpa_path]);
         if !mcp_found {
             // Absence is a state, not a fault (#757). The hooks do the shortening; the
             // MCP server costs prefix bytes and a cache reset on connect, so leaving it

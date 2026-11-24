@@ -355,6 +355,16 @@ pub(crate) fn report_old_agent_id(config: &str) {
     }
 }
 
+/// `report_old_agent_id` over every file a host may keep it in, so a second config
+/// is checked even when the first one is current. Missing files read as empty.
+pub(crate) fn report_old_agent_id_in(paths: &[&std::path::Path]) {
+    let all: String = paths
+        .iter()
+        .filter_map(|p| std::fs::read_to_string(p).ok())
+        .collect();
+    report_old_agent_id(&all);
+}
+
 /// Drop our MCP server from a `mcpServers` map under either name.
 pub(crate) fn drop_server(servers: &mut serde_json::Map<String, serde_json::Value>) -> bool {
     servers.remove(SERVER_KEY).is_some() | drop_omni_server(servers)
@@ -856,5 +866,27 @@ mod rename_tests {
             theirs.get("omni").is_some(),
             "a server someone else named omni stays"
         );
+    }
+}
+
+#[cfg(test)]
+mod old_agent_id_tests {
+    use super::report_old_agent_id_in;
+    use crate::agents::output::capture;
+
+    /// #1165: a current first config must not hide an old id in the second.
+    #[test]
+    fn reports_an_old_id_in_any_of_the_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let current = dir.path().join("a.json");
+        let old = dir.path().join("b.json");
+        std::fs::write(&current, r#"{"env":{"CONTEXERE_AGENT_ID":"x"}}"#).unwrap();
+        std::fs::write(&old, r#"{"env":{"OMNI_AGENT_ID":"x"}}"#).unwrap();
+        let missing = dir.path().join("none.json");
+
+        let ((), out) = capture(|| report_old_agent_id_in(&[&current, &missing, &old]));
+        assert!(out.contains("OMNI_AGENT_ID"), "{out}");
+        let ((), out) = capture(|| report_old_agent_id_in(&[&current, &missing]));
+        assert!(out.is_empty(), "{out}");
     }
 }

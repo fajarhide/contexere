@@ -684,10 +684,12 @@ description: Contexere integration for Hermes Agent hooks
             }
         );
         // The config's MCP env and an installed plugin's own copy both set it.
-        super::report_old_agent_id(&fs::read_to_string(&config_path).unwrap_or_default());
-        super::report_old_agent_id(
-            &fs::read_to_string(dest.join("__init__.py")).unwrap_or_default(),
-        );
+        // The config's MCP env and an installed plugin's own copy, old dir included.
+        super::report_old_agent_id_in(&[
+            &config_path,
+            &dest.join("__init__.py"),
+            &legacy_plugin_dir().join("__init__.py"),
+        ]);
         if !mcp_configured {
             warnings.push("OMNI MCP server is not registered in Hermes config.".to_string());
         }

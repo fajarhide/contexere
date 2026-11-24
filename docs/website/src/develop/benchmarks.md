@@ -351,7 +351,7 @@ did succeed. Noise, not an enumeration.
 ```sh
 # contexere.db, or omni.db on an install upgraded from omni; never open a name that is not there
 DB=$(ls ~/.contexere/contexere.db ~/.contexere/omni.db 2>/dev/null | head -1)
-OMNI_BENCH_DB=$DB \
+CONTEXERE_BENCH_DB=$DB \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
@@ -361,18 +361,18 @@ measures a corpus that is already different from the one anybody else would get.
 
 ```sh
 sqlite3 "$DB" ".backup /tmp/bench-corpus.db"
-OMNI_BENCH_DB=/tmp/bench-corpus.db \
+CONTEXERE_BENCH_DB=/tmp/bench-corpus.db \
   cargo test --release --test bench_replay -- --ignored --nocapture
 ```
 
 | | |
 |---|---|
 | corpus | `execution_traces.raw_input`, real usage, replayed. Not synthetic. Shell commands only: no `Read` payload is in this table, so no figure here covers the ledger's file-read path |
-| population | calls whose result reached a model. `OMNI_BENCH_ALL=1` widens it |
+| population | calls whose result reached a model. `CONTEXERE_BENCH_ALL=1` widens it |
 | state | `session: None`, `store: None`, `HOME` at an empty temp dir |
 | path | `run_inner`, the same pipeline the hook and `contexere exec` run, markers included |
 | binary | release build |
-| arms | `OMNI_BENCH_RTK`, `_LEANCTX`, `_CAVEMAN`, `_HEADROOM`, each off unless it names a binary, so CI never needs a competitor installed |
+| arms | `CONTEXERE_BENCH_RTK`, `_LEANCTX`, `_CAVEMAN`, `_HEADROOM`, each off unless it names a binary, so CI never needs a competitor installed |
 
 **Terminal output is excluded, and it is worth two different headlines.** On an
 installation carrying it, it was 68% of raw bytes: 79.1% including it against 43.3%
