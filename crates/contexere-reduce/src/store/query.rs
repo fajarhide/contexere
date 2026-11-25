@@ -106,7 +106,11 @@ fn timeline_summary(route: &str, input_bytes: i64, output_bytes: i64, archived: 
     if output_bytes >= input_bytes {
         return "passed through unchanged".to_string();
     }
-    let kept = if archived { "; the original is kept" } else { "" };
+    let kept = if archived {
+        "; the original is kept"
+    } else {
+        ""
+    };
     format!("shortened {input_bytes} bytes to {output_bytes}{kept}")
 }
 

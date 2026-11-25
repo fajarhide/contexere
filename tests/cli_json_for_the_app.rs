@@ -118,5 +118,8 @@ fn the_timeline_never_says_a_failed_build_succeeded() {
         row["input_bytes"].as_i64() > row["output_bytes"].as_i64(),
         "{row}"
     );
-    assert!(row["handle"].as_str().is_some_and(|h| !h.is_empty()), "{row}");
+    assert!(
+        row["handle"].as_str().is_some_and(|h| !h.is_empty()),
+        "{row}"
+    );
 }
