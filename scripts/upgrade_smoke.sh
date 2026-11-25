@@ -81,6 +81,37 @@ payload "cat file.txt" "$ROOT/in/file.txt" | (cd "$ROOT/work" && as old "$H0" sh
 # comparison below fails on the release calendar, not on the code.
 printf '{"latest_version":"0.0.0","last_checked":%s}' "$(date +%s)" > "$H0/.contexere/update_cache.json"
 
+# The hook left a detached `--upkeep` prune running on the database. Copying the
+# home under it lost the `-shm` file mid-copy (#1182), so wait for the prune to
+# stamp its finish and close before anything is copied.
+python3 -I - "$H0/.contexere" <<'PY' || fail "the hook's --upkeep never finished"
+import os, sqlite3, sys, time
+home = sys.argv[1]
+db = next((os.path.join(home, n) for n in ("contexere.db", "omni.db") if os.path.exists(os.path.join(home, n))), None)
+if db is None:
+    sys.exit("no database in " + home)
+for _ in range(200):
+    conn = None
+    try:
+        conn = sqlite3.connect(db, timeout=0, isolation_level=None)
+        row = conn.execute("SELECT last_run > strftime('%s','now') - 3600 FROM upkeep WHERE task = 'prune'").fetchone()
+        if row and row[0]:
+            # In WAL mode only exclusive locking mode is refused while another
+            # connection still has the file open.
+            conn.execute("PRAGMA locking_mode = EXCLUSIVE")
+            conn.execute("BEGIN EXCLUSIVE")
+            conn.execute("COMMIT")
+            sys.exit(0)
+    except sqlite3.Error:
+        pass
+    finally:
+        # Every attempt closes its own connection, or the next one competes with it.
+        if conn is not None:
+            conn.close()
+    time.sleep(0.05)
+sys.exit(1)
+PY
+
 cp -R "$H0" "$ROOT/home-old"
 cp -R "$H0" "$ROOT/home-new"
 
