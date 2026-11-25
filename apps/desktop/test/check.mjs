@@ -144,22 +144,48 @@ for (const scheme of ["light", "dark"]) {
   await page.close();
 }
 
-// The savings table sorts by any column, from the mouse or the keyboard (#1186).
+// The savings table sorts by any column, both ways, from the mouse or the
+// keyboard (#1186). Whole row order is asserted: cargo test and kubectl get both
+// ran once, so the Runs checks also prove the tie falls back to the larger saving.
 {
-  const { page, errors } = await open("active", "light", 1024);
+  // Served in the reverse of the fixture's order, so a sort that leaned on the
+  // input order instead of the tie-break would show it.
+  const page = await browser.newPage({ viewport: { width: 1024, height: 800 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  const stats = JSON.parse(fs.readFileSync(path.join(root, "fixtures/active/stats.json"), "utf8"));
+  stats.commands.reverse();
+  await page.route("**/fixtures/active/stats.json", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify(stats) }));
+  await page.goto(`${base}?fixture=active`);
   await page.click("#tab-savings");
-  const first = () => page.locator("#panel-savings tbody tr:first-child td:first-child").textContent();
-  const sortOf = (key) => page.locator(`th[data-sort="${key}"]`).getAttribute("aria-sort");
   await page.locator("#panel-savings tbody tr").first().waitFor();
-  if ((await first()) !== "cargo build" || (await sortOf("saved")) !== "descending") fail(`sort: default is not largest saving first (${await first()})`);
-  await page.locator('th[data-sort="pct"] button').click();
-  if ((await first()) !== "cargo test" || (await sortOf("pct")) !== "descending") fail(`sort: Shorter by put ${await first()} first`);
+  const order = async () => (await page.locator("#panel-savings tbody tr td:first-child").allTextContents()).join(", ");
+  const sortOf = (key) => page.locator(`th[data-sort="${key}"]`).getAttribute("aria-sort");
+  const expectOrder = async (label, key, dir, want) => {
+    const got = await order();
+    if (got !== want.join(", ")) fail(`sort ${label}: got ${got}`);
+    if ((await sortOf(key)) !== dir) fail(`sort ${label}: aria-sort is ${await sortOf(key)}`);
+  };
+  const press = (key) => page.locator(`th[data-sort="${key}"] button`).click();
+  const B = "cargo build", T = "cargo test", K = "kubectl get";
+
+  await expectOrder("default", "saved", "descending", [B, T, K]);
+  await press("saved");
+  await expectOrder("Saved reversed", "saved", "ascending", [K, T, B]);
+  await press("count");
+  await expectOrder("Runs", "count", "descending", [B, T, K]);
   if ((await sortOf("saved")) !== "none") fail("sort: the old column still claims an order");
+  await press("count");
+  await expectOrder("Runs reversed", "count", "ascending", [T, K, B]);
+  await press("pct");
+  await expectOrder("Shorter by", "pct", "descending", [T, B, K]);
   // Focus stays on the header, so Enter reverses it without the mouse.
   await page.keyboard.press("Enter");
-  if ((await first()) !== "kubectl get" || (await sortOf("pct")) !== "ascending") fail(`sort: Enter did not reverse (${await first()})`);
-  await page.locator('th[data-sort="command"] button').click();
-  if ((await first()) !== "cargo build" || (await sortOf("command")) !== "ascending") fail(`sort: Command did not sort A to Z (${await first()})`);
+  await expectOrder("Shorter by, Enter", "pct", "ascending", [K, B, T]);
+  await press("command");
+  await expectOrder("Command", "command", "ascending", [B, T, K]);
+  await press("command");
+  await expectOrder("Command reversed", "command", "descending", [K, T, B]);
   await shot(page, "savings-sorted-light-1024");
   if (errors.length) fail(`sort: console ${errors.join(" | ")}`);
   await page.close();
