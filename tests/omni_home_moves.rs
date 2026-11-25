@@ -31,6 +31,37 @@ fn commands_in_stats(mut cmd: Command) -> i64 {
         .unwrap_or(0)
 }
 
+/// The hook leaves a detached `--upkeep` prune running on `db`, and that prune
+/// opens a second connection by path. Renaming the file under it made SQLite
+/// create an empty `contexere.db` beside the renamed `omni.db` (#1168), so the
+/// fixture waits for the prune to finish and close before touching the file.
+fn wait_for_upkeep(db: &Path) {
+    use rusqlite::{Connection, OpenFlags};
+    let finished = |conn: &Connection| {
+        // A finished prune stamps `now`; the lease it takes first is a day old.
+        conn.query_row(
+            "SELECT last_run > strftime('%s','now') - 3600 FROM upkeep WHERE task = 'prune'",
+            [],
+            |r| r.get::<_, bool>(0),
+        )
+        .unwrap_or(false)
+    };
+    let closed = |conn: &Connection| {
+        conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
+            .is_ok()
+    };
+    for _ in 0..200 {
+        if let Ok(conn) = Connection::open_with_flags(db, OpenFlags::SQLITE_OPEN_READ_WRITE) {
+            let _ = conn.busy_timeout(std::time::Duration::ZERO);
+            if finished(&conn) && closed(&conn) {
+                return;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("the hook's --upkeep never finished on {}", db.display());
+}
+
 #[test]
 fn moves_the_omni_home_and_keeps_its_history() {
     let home = tempfile::tempdir().expect("tempdir");
@@ -59,6 +90,7 @@ fn moves_the_omni_home_and_keeps_its_history() {
         .write_all(payload.to_string().as_bytes())
         .expect("write payload");
     hook.wait().expect("hook exits");
+    wait_for_upkeep(&old.join("contexere.db"));
     let before = commands_in_stats(contexere(home.path(), Some(&old)));
     assert!(before > 0, "the fixture recorded no history to carry over");
     for suffix in ["", "-wal", "-shm"] {
