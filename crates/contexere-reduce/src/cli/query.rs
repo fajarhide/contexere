@@ -3,11 +3,14 @@ use crate::store::sqlite::Store;
 use anyhow::Result;
 use colored::*;
 
+const FLAGS: super::Flags = &[("--json", "Output results as JSON")];
+
 pub fn run_query(args: &[String], store: &Store) -> Result<()> {
     if super::wants_help(args) {
         print_help();
         return Ok(());
     }
+    super::check_flags("query", args, FLAGS)?;
 
     // Flags are not part of the query text: `--json` used to reach the parser (#1178).
     let words: Vec<&str> = args
