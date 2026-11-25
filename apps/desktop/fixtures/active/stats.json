@@ -1,0 +1,86 @@
+{
+  "version": "1",
+  "generated_at": 1795621915,
+  "periods": [
+    {
+      "label": "today",
+      "commands": 4,
+      "input_tokens": 12099,
+      "output_tokens": 1412,
+      "savings_pct": 88.3,
+      "measurement_method": "estimated"
+    },
+    {
+      "label": "this_week",
+      "commands": 4,
+      "input_tokens": 12099,
+      "output_tokens": 1412,
+      "savings_pct": 88.3,
+      "measurement_method": "estimated"
+    },
+    {
+      "label": "all_time",
+      "commands": 4,
+      "input_tokens": 12099,
+      "output_tokens": 1412,
+      "savings_pct": 88.3,
+      "measurement_method": "estimated"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test",
+      "count": 1,
+      "savings_pct": 98.62034983986203,
+      "bytes_saved": 8807
+    },
+    {
+      "command": "cargo build",
+      "count": 2,
+      "savings_pct": 97.80509218612818,
+      "bytes_saved": 14702
+    },
+    {
+      "command": "kubectl get",
+      "count": 1,
+      "savings_pct": 0.0,
+      "bytes_saved": 0
+    }
+  ],
+  "agents": [
+    {
+      "agent": "Claude Code",
+      "agent_id": "claude_code",
+      "count": 4,
+      "savings_pct": 88.3,
+      "unverified": 0
+    }
+  ],
+  "rewind": {
+    "archived": 2,
+    "retrieved": 0
+  },
+  "avg_latency_ms": 54.0,
+  "engines": {
+    "bytes_saved": 23509,
+    "distilled": {
+      "calls": 3,
+      "input_bytes": 23961,
+      "output_bytes": 452,
+      "bytes_saved": 23509,
+      "pct_of_own_input": 98.11360126872835
+    },
+    "folded": {
+      "folds": 0,
+      "bytes_saved": 0,
+      "priced_folds": 0,
+      "priced_payload_bytes": 0,
+      "pct_of_own_input": null,
+      "first_fold_ts": null
+    },
+    "declined": {
+      "calls": 1,
+      "bytes_saved": 0
+    }
+  }
+}

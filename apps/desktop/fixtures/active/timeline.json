@@ -1,0 +1,44 @@
+{
+  "query_type": "timeline_today",
+  "results": [
+    {
+      "type": "timeline_item",
+      "timestamp": 1795621915,
+      "command": "cargo build",
+      "route": "Rewind",
+      "summary": "shortened 7516 bytes to 165; the original is kept",
+      "input_bytes": 7516,
+      "output_bytes": 165,
+      "handle": "4bcb6a0f7dda2d84"
+    },
+    {
+      "type": "timeline_item",
+      "timestamp": 1795621915,
+      "command": "cargo test",
+      "route": "Rewind",
+      "summary": "shortened 8929 bytes to 122; the original is kept",
+      "input_bytes": 8929,
+      "output_bytes": 122,
+      "handle": "00e3f7c8900ebb9c"
+    },
+    {
+      "type": "timeline_item",
+      "timestamp": 1795621915,
+      "command": "kubectl get pods",
+      "route": "Passthrough",
+      "summary": "passed through unchanged",
+      "input_bytes": 2652,
+      "output_bytes": 2652
+    },
+    {
+      "type": "timeline_item",
+      "timestamp": 1795621915,
+      "command": "cargo build",
+      "route": "Rewind",
+      "summary": "shortened 7516 bytes to 165; the original is kept",
+      "input_bytes": 7516,
+      "output_bytes": 165,
+      "handle": "4bcb6a0f7dda2d84"
+    }
+  ]
+}

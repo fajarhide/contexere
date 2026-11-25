@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window; the app's own `contexere` command is its only bridge to the system.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
