@@ -4,7 +4,7 @@ version = "0.9.0"
 edition = "2024"
 publish = false
 description = "The Contexere desktop app: agents, savings and activity (#1176)"
-license = "MIT"
+license = "Apache-2.0"
 
 # Its own workspace, so the root `make ci` never builds a webview.
 [workspace]

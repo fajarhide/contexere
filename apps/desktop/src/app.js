@@ -225,8 +225,13 @@ async function renderSavings(panel) {
 const dialog = /** @type {HTMLDialogElement} */ (document.getElementById("original"));
 dialog.querySelector("[data-close]")?.addEventListener("click", () => dialog.close());
 
+// Each opening gets a number, so a slow reply from an earlier one cannot land
+// under a later command's heading.
+let opening = 0;
+
 /** @param {import("./data.js").TimelineItem} item @param {HTMLElement} opener */
 async function showOriginal(item, opener) {
+  const mine = ++opening;
   const body = /** @type {HTMLElement} */ (document.getElementById("original-body"));
   /** @type {HTMLElement} */ (document.getElementById("original-cmd")).replaceChildren(
     prose(`\`${item.command}\`, ${count(item.input_bytes)} bytes as printed`),
@@ -234,11 +239,13 @@ async function showOriginal(item, opener) {
   body.textContent = "Loading the original";
   dialog.showModal();
   dialog.addEventListener("close", () => opener.focus(), { once: true });
+  let text;
   try {
-    body.textContent = await original(/** @type {string} */ (item.handle));
+    text = await original(/** @type {string} */ (item.handle));
   } catch (err) {
-    body.textContent = err instanceof Error ? `Could not load it: ${err.message}` : "Could not load it.";
+    text = err instanceof Error ? `Could not load it: ${err.message}` : "Could not load it.";
   }
+  if (mine === opening) body.textContent = text;
 }
 
 /** @param {HTMLElement} panel */

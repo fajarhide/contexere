@@ -108,10 +108,34 @@ for (const scheme of ["light", "dark"]) {
   const back = await page.evaluate(() => document.activeElement?.textContent);
   if (back !== "Show original") fail(`original: focus went to "${back}" after closing`);
 
-  // Period buttons change the figure.
+  await page.close();
+}
+
+// Period buttons change the figure. The fixture's periods are all one day old and
+// identical, so this run serves periods that differ and checks each figure.
+{
+  const page = await browser.newPage({ viewport: { width: 1024, height: 800 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  const real = JSON.parse(fs.readFileSync(path.join(root, "fixtures/active/stats.json"), "utf8"));
+  const sizes = { today: [1000, 400], this_week: [5000, 1000], all_time: [20000, 2000] };
+  for (const p of real.periods) [p.input_tokens, p.output_tokens] = sizes[p.label];
+  await page.route("**/fixtures/active/stats.json", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify(real) }));
+  await page.goto(`${base}?fixture=active`);
   await page.click("#tab-savings");
-  await page.getByRole("button", { name: "Today" }).click();
-  if ((await page.getByRole("button", { name: "Today" }).getAttribute("aria-pressed")) !== "true") fail("savings: Today did not select");
+  for (const [name, want] of [["Today", "600 tokens"], ["All time", "18,000 tokens"], ["This week", "4,000 tokens"]]) {
+    await page.getByRole("button", { name }).click();
+    const lead = await page.locator("#panel-savings .lead").textContent();
+    if (!lead?.includes(want)) fail(`savings: ${name} shows "${lead}", wanted ${want}`);
+    if ((await page.getByRole("button", { name }).getAttribute("aria-pressed")) !== "true") fail(`savings: ${name} did not select`);
+  }
+  if (errors.length) fail(`periods: ${errors.join(" | ")}`);
+  await page.close();
+}
+
+{
+  const { page, errors } = await open("active", "light", 1024);
+  await page.click("#tab-savings");
 
   // Check again reloads instead of doing nothing.
   await page.click("#refresh");

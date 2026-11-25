@@ -23,7 +23,9 @@ permissions:
 jobs:
   check:
     name: screens in a browser
-    runs-on: ubuntu-latest
+    # Pinned: Playwright's Chromium does not support the newer image `ubuntu-latest`
+    # points at yet.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/desktop
