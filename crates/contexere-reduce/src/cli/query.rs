@@ -3,21 +3,20 @@ use crate::store::sqlite::Store;
 use anyhow::Result;
 use colored::*;
 
-const FLAGS: super::Flags = &[("--json", "Output results as JSON")];
-
 pub fn run_query(args: &[String], store: &Store) -> Result<()> {
     if super::wants_help(args) {
         print_help();
         return Ok(());
     }
-    super::check_flags("query", args, FLAGS)?;
 
-    // Flags are not part of the query text: `--json` used to reach the parser (#1178).
+    // `--json` is the one option and never part of the query; it used to reach the
+    // parser (#1178). Anything else stays in the text, so `warnings from cargo
+    // --release` still searches for that command, and a typo fails the grammar.
     let words: Vec<&str> = args
         .iter()
         .skip(2)
         .map(String::as_str)
-        .filter(|a| !a.starts_with("--"))
+        .filter(|a| !super::has_flag(&[(*a).to_string()], "--json"))
         .collect();
     if words.is_empty() {
         print_help();

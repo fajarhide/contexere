@@ -128,6 +128,16 @@ impl AgentIntegration for &'static McpHost {
         Some((self.config.resolve(), self.key))
     }
 
+    /// A per-project config says nothing about whether the editor is installed,
+    /// so VS Code is judged by its user directory, wherever `doctor` runs (#1177).
+    fn present(&self) -> bool {
+        let probe = match self.config {
+            ConfigHome::Cwd(_) => ConfigHome::VsCodeExtension("").resolve(),
+            other => other.resolve(),
+        };
+        probe.parent().is_some_and(|p| p.is_dir())
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let path = self.path();
         if let Some(parent) = path.parent() {

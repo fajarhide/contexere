@@ -123,3 +123,15 @@ fn the_timeline_never_says_a_failed_build_succeeded() {
         "{row}"
     );
 }
+
+/// #1179 review: a flag-shaped word inside the query is part of the query, not an
+/// option to refuse.
+#[test]
+fn query_keeps_other_dashes_in_the_text() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let v = json(
+        home.path(),
+        &["query", "warnings", "from", "cargo", "--release", "--json"],
+    );
+    assert!(v.is_object(), "{v}");
+}
