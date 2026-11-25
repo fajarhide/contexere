@@ -91,6 +91,7 @@ db = next((os.path.join(home, n) for n in ("contexere.db", "omni.db") if os.path
 if db is None:
     sys.exit("no database in " + home)
 for _ in range(200):
+    conn = None
     try:
         conn = sqlite3.connect(db, timeout=0, isolation_level=None)
         row = conn.execute("SELECT last_run > strftime('%s','now') - 3600 FROM upkeep WHERE task = 'prune'").fetchone()
@@ -100,11 +101,13 @@ for _ in range(200):
             conn.execute("PRAGMA locking_mode = EXCLUSIVE")
             conn.execute("BEGIN EXCLUSIVE")
             conn.execute("COMMIT")
-            conn.close()
             sys.exit(0)
-        conn.close()
     except sqlite3.Error:
         pass
+    finally:
+        # Every attempt closes its own connection, or the next one competes with it.
+        if conn is not None:
+            conn.close()
     time.sleep(0.05)
 sys.exit(1)
 PY
