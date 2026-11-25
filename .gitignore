@@ -38,6 +38,8 @@ target/
 # The diagram sources are the editable original for everything under
 # docs/website/src/media; the blanket rule above would drop them silently.
 !docs/diagrams/*.html
+# The desktop app is a web page; the same rule would drop it (#1176).
+!apps/desktop/src/*.html
 .agents
 # insta writes these when a snapshot fails; only the accepted .snap is reviewed
 *.snap.new

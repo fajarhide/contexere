@@ -1,0 +1,186 @@
+{
+  "version": "1",
+  "healthy": false,
+  "checks": [
+    {
+      "name": "binary",
+      "ok": true,
+      "message": "contexere v0.8.7"
+    },
+    {
+      "name": "config",
+      "ok": false,
+      "message": "missing /tmp/tmp.r70ohtnF7H/.contexere/"
+    },
+    {
+      "name": "sqlite",
+      "ok": true,
+      "message": "database healthy, 0 events"
+    },
+    {
+      "name": "hooks",
+      "ok": true,
+      "message": "hooks installed"
+    }
+  ],
+  "fix_available": true,
+  "warnings": [
+    "Claude settings not found. Have you installed Claude Code?",
+    "Cursor MCP server is not configured. Run `contexere init --cursor`.",
+    "Cursor hooks missing on beforeShellExecution, postToolUse, postToolUseFailure, stop. Run `contexere init --cursor`.",
+    "Gemini CLI settings not found. Have you installed Gemini CLI?",
+    "Codex CLI MCP server not configured. Run `contexere init --codex`.",
+    "Codex CLI hooks not configured. Run `contexere init --codex`.",
+    "Hermes Contexere plugin is not installed.",
+    "Contexere MCP server is not registered in Hermes config.",
+    "Hermes compression is disabled; context pressure warnings will not trigger compaction.",
+    "~/.contexere/config.toml has no [agents.hermes] section; using built-in defaults.",
+    "Roo Code MCP not configured. Run `contexere init --roo-code`.",
+    "OpenCode MCP not configured. Run `contexere init --opencode`.",
+    "Copilot CLI MCP not configured. Run `contexere init --copilot`.",
+    "Antigravity IDE MCP not configured. Run `contexere init --antigravity`.",
+    "Zed Editor MCP not configured. Run `contexere init --zed`.",
+    "VS Code MCP not configured. Run `contexere init --vscode`."
+  ],
+  "agents": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "tier": "Full",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Claude settings not found. Have you installed Claude Code?"
+      ]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor AI",
+      "tier": "Handoff-first",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Cursor MCP server is not configured. Run `contexere init --cursor`.",
+        "Cursor hooks missing on beforeShellExecution, postToolUse, postToolUseFailure, stop. Run `contexere init --cursor`."
+      ]
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": []
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini CLI",
+      "tier": "Full",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Gemini CLI settings not found. Have you installed Gemini CLI?"
+      ]
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "tier": "Full",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Codex CLI MCP server not configured. Run `contexere init --codex`.",
+        "Codex CLI hooks not configured. Run `contexere init --codex`."
+      ]
+    },
+    {
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "tier": "Full",
+      "present": false,
+      "ok": false,
+      "warnings": []
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes Agent",
+      "tier": "Full",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Hermes Contexere plugin is not installed.",
+        "Contexere MCP server is not registered in Hermes config.",
+        "Hermes compression is disabled; context pressure warnings will not trigger compaction.",
+        "~/.contexere/config.toml has no [agents.hermes] section; using built-in defaults."
+      ]
+    },
+    {
+      "id": "pi",
+      "name": "Pi Agent",
+      "tier": "Full",
+      "present": false,
+      "ok": true,
+      "warnings": []
+    },
+    {
+      "id": "roo-code",
+      "name": "Roo Code",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Roo Code MCP not configured. Run `contexere init --roo-code`."
+      ]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "OpenCode MCP not configured. Run `contexere init --opencode`."
+      ]
+    },
+    {
+      "id": "copilot",
+      "name": "Copilot CLI",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Copilot CLI MCP not configured. Run `contexere init --copilot`."
+      ]
+    },
+    {
+      "id": "antigravity",
+      "name": "Antigravity IDE",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Antigravity IDE MCP not configured. Run `contexere init --antigravity`."
+      ]
+    },
+    {
+      "id": "zed",
+      "name": "Zed Editor",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "Zed Editor MCP not configured. Run `contexere init --zed`."
+      ]
+    },
+    {
+      "id": "vscode",
+      "name": "VS Code",
+      "tier": "MCP-only",
+      "present": false,
+      "ok": false,
+      "warnings": [
+        "VS Code MCP not configured. Run `contexere init --vscode`."
+      ]
+    }
+  ]
+}

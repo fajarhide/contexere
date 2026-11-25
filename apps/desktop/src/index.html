@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Contexere</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1 class="brand">Contexere</h1>
+    <nav aria-label="Screens">
+      <div class="tabs" role="tablist" aria-label="Screens">
+        <button class="tab" role="tab" id="tab-agents" aria-controls="panel-agents" aria-selected="true" type="button">Agents</button>
+        <button class="tab" role="tab" id="tab-savings" aria-controls="panel-savings" aria-selected="false" tabindex="-1" type="button">Savings</button>
+        <button class="tab" role="tab" id="tab-activity" aria-controls="panel-activity" aria-selected="false" tabindex="-1" type="button">Activity</button>
+      </div>
+    </nav>
+    <button class="quiet" id="refresh" type="button">Check again</button>
+  </header>
+
+  <main>
+    <section class="panel" role="tabpanel" id="panel-agents" aria-labelledby="tab-agents" tabindex="0"></section>
+    <section class="panel" role="tabpanel" id="panel-savings" aria-labelledby="tab-savings" tabindex="0" hidden></section>
+    <section class="panel" role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" tabindex="0" hidden></section>
+  </main>
+
+  <dialog id="original" aria-labelledby="original-title">
+    <div class="dialog-head">
+      <h2 id="original-title">Original output</h2>
+      <button class="quiet" type="button" data-close>Close</button>
+    </div>
+    <p class="muted" id="original-cmd"></p>
+    <pre id="original-body" tabindex="0"></pre>
+  </dialog>
+</body>
+</html>
