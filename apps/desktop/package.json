@@ -1,0 +1,17 @@
+{
+  "name": "contexere-desktop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "icons": "tauri icon ../../docs/website/theme/favicon.svg",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "typecheck": "tsc -p jsconfig.json",
+    "check": "node test/check.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6",
+    "playwright": "^1.56.1",
+    "typescript": "^7.0.2"
+  }
+}

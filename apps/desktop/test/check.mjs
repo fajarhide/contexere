@@ -4,7 +4,7 @@
 //
 //   node apps/desktop/test/check.mjs [screenshot dir]
 //
-// Needs the `playwright` package and its Chromium on NODE_PATH.
+// Run `npm ci` and `npx playwright install chromium` in apps/desktop first.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";

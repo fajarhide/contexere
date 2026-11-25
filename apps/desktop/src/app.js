@@ -170,7 +170,7 @@ async function renderSavings(panel) {
       ...s.periods.map((x) => {
         const b = el("button", { class: "quiet", type: "button", "aria-pressed": String(x.label === p.label) },
           /** @type {Record<string, string>} */ (PERIOD_NAMES)[x.label] ?? x.label);
-        b.addEventListener("click", () => { period = x.label; draw(); panel.querySelector(`[aria-pressed="true"]`)?.focus(); });
+        b.addEventListener("click", () => { period = x.label; draw(); /** @type {HTMLElement | null} */ (panel.querySelector(`[aria-pressed="true"]`))?.focus(); });
         return b;
       }),
     );
