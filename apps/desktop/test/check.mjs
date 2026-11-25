@@ -144,6 +144,27 @@ for (const scheme of ["light", "dark"]) {
   await page.close();
 }
 
+// The savings table sorts by any column, from the mouse or the keyboard (#1186).
+{
+  const { page, errors } = await open("active", "light", 1024);
+  await page.click("#tab-savings");
+  const first = () => page.locator("#panel-savings tbody tr:first-child td:first-child").textContent();
+  const sortOf = (key) => page.locator(`th[data-sort="${key}"]`).getAttribute("aria-sort");
+  await page.locator("#panel-savings tbody tr").first().waitFor();
+  if ((await first()) !== "cargo build" || (await sortOf("saved")) !== "descending") fail(`sort: default is not largest saving first (${await first()})`);
+  await page.locator('th[data-sort="pct"] button').click();
+  if ((await first()) !== "cargo test" || (await sortOf("pct")) !== "descending") fail(`sort: Shorter by put ${await first()} first`);
+  if ((await sortOf("saved")) !== "none") fail("sort: the old column still claims an order");
+  // Focus stays on the header, so Enter reverses it without the mouse.
+  await page.keyboard.press("Enter");
+  if ((await first()) !== "kubectl get" || (await sortOf("pct")) !== "ascending") fail(`sort: Enter did not reverse (${await first()})`);
+  await page.locator('th[data-sort="command"] button').click();
+  if ((await first()) !== "cargo build" || (await sortOf("command")) !== "ascending") fail(`sort: Command did not sort A to Z (${await first()})`);
+  await shot(page, "savings-sorted-light-1024");
+  if (errors.length) fail(`sort: console ${errors.join(" | ")}`);
+  await page.close();
+}
+
 await browser.close();
 server.close();
 if (failures.length) {

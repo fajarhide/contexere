@@ -203,6 +203,23 @@ td { padding: 10px 12px 10px 0; border-top: 1px solid var(--rule); vertical-alig
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.bar { width: 28%; }
 td.mono { white-space: nowrap; }
+
+/* Sortable headers: the whole label is the control, the arrow marks the order. */
+th:has(.sort) { padding: 0 12px 0 0; }
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: 600 13px var(--font-body);
+}
+.sort:hover { color: var(--ink); }
+th[aria-sort="ascending"] .sort, th[aria-sort="descending"] .sort { color: var(--ink); }
+.sort .arrow { display: inline-block; min-width: 0.8em; color: var(--accent); }
 .table-wrap { overflow-x: auto; }
 
 /* Activity */

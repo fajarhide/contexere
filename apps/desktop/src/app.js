@@ -146,6 +146,24 @@ const PERIOD_NAMES = { today: "Today", this_week: "This week", all_time: "All ti
 const PERIOD_PHRASE = { today: "today", this_week: "this week", all_time: "since you installed it" };
 let period = "this_week";
 
+/** @typedef {import("./data.js").CommandRow} CommandRow */
+/** How each column orders rows. Ties fall back to the larger saving. */
+const SORTS = {
+  command: { label: "Command", num: false, by: (/** @type {CommandRow} */ a, /** @type {CommandRow} */ b) => a.command.localeCompare(b.command) },
+  count: { label: "Runs", num: true, by: (/** @type {CommandRow} */ a, /** @type {CommandRow} */ b) => a.count - b.count },
+  saved: { label: "Saved", num: true, by: (/** @type {CommandRow} */ a, /** @type {CommandRow} */ b) => a.bytes_saved - b.bytes_saved },
+  pct: { label: "Shorter by", num: true, by: (/** @type {CommandRow} */ a, /** @type {CommandRow} */ b) => a.savings_pct - b.savings_pct },
+};
+/** @type {{key: keyof typeof SORTS, desc: boolean}} */
+let sort = { key: "saved", desc: true };
+
+/** @param {number} n */
+function bytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
 /** @param {HTMLElement} panel */
 async function renderSavings(panel) {
   showLoading(panel, "Adding up what Contexere saved");
@@ -187,19 +205,43 @@ async function renderSavings(panel) {
         : `${count(p.commands)} commands, ${Math.round(p.savings_pct)}% less to read than the raw output. ${p.measurement_method === "estimated" ? "Token counts are estimated." : ""}`,
     );
 
-    const rows = [...s.commands].sort((a, b) => b.bytes_saved - a.bytes_saved);
+    const order = SORTS[sort.key].by;
+    const rows = [...s.commands].sort((a, b) =>
+      (sort.desc ? order(b, a) : order(a, b)) || b.bytes_saved - a.bytes_saved);
+
+    /** A header that sorts its column; pressed again, it reverses. */
+    const header = (/** @type {keyof typeof SORTS} */ key) => {
+      const col = SORTS[key];
+      const active = sort.key === key;
+      const b = el("button", { class: "sort", type: "button" }, col.label,
+        el("span", { class: "arrow", "aria-hidden": "true" }, active ? (sort.desc ? "\u2193" : "\u2191") : ""));
+      b.addEventListener("click", () => {
+        sort = active ? { key, desc: !sort.desc } : { key, desc: col.num };
+        draw();
+        /** @type {HTMLElement | null} */ (panel.querySelector(`th[data-sort="${key}"] button`))?.focus();
+      });
+      return el("th", {
+        scope: "col",
+        class: col.num ? "num" : "",
+        "data-sort": key,
+        "aria-sort": active ? (sort.desc ? "descending" : "ascending") : "none",
+      }, b);
+    };
+
     const table = el("div", { class: "table-wrap" },
       el("table", null,
         el("thead", null, el("tr", null,
-          el("th", { scope: "col" }, "Command"),
-          el("th", { scope: "col", class: "num" }, "Runs"),
-          el("th", { scope: "col", class: "num" }, "Shorter by"),
+          header("command"),
+          header("count"),
+          header("saved"),
+          header("pct"),
           el("th", { scope: "col", class: "bar" }, el("span", { class: "muted" }, "What reached the agent")),
         )),
         el("tbody", null, ...rows.map((c) =>
           el("tr", null,
             el("td", { class: "mono" }, c.command),
             el("td", { class: "num" }, count(c.count)),
+            el("td", { class: "num" }, bytes(c.bytes_saved)),
             el("td", { class: "num" }, c.savings_pct > 0 ? `${Math.round(c.savings_pct)}%` : "passed through"),
             el("td", { class: "bar" }, keptBar(1 - c.savings_pct / 100, `${Math.round(100 - c.savings_pct)}% of the output reached the agent`)),
           ),
