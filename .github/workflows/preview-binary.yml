@@ -1,0 +1,53 @@
+name: Preview binary
+
+# A `contexere` for Apple silicon from a release branch, to try a release before
+# its tag (#1184). An artifact only: no release, no tag, nothing the installers
+# or `contexere update` can see.
+on:
+  push:
+    branches: ["release/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: preview-binary-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: contexere (aarch64-apple-darwin)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+
+      - name: Build
+        run: cargo build --release --locked --bin contexere
+
+      # It has to start and answer in the JSON the desktop app reads.
+      - name: Runs
+        run: |
+          bin=target/release/contexere
+          "$bin" --version
+          HOME="$RUNNER_TEMP/home" "$bin" doctor --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d["agents"], list), d'
+
+      - name: Package
+        run: |
+          name="contexere-${GITHUB_SHA::7}-aarch64-apple-darwin"
+          mkdir -p dist
+          tar czf "dist/$name.tar.gz" -C target/release contexere
+          (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ env.NAME }}
+          path: dist/
+          if-no-files-found: error
