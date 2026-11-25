@@ -219,7 +219,7 @@ th:has(.sort) { padding: 0 12px 0 0; }
 }
 .sort:hover { color: var(--ink); }
 th[aria-sort="ascending"] .sort, th[aria-sort="descending"] .sort { color: var(--ink); }
-.sort .arrow { display: inline-block; min-width: 0.8em; color: var(--accent); }
+.sort .arrow { color: var(--accent); }
 .table-wrap { overflow-x: auto; }
 
 /* Activity */

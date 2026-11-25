@@ -213,8 +213,12 @@ async function renderSavings(panel) {
     const header = (/** @type {keyof typeof SORTS} */ key) => {
       const col = SORTS[key];
       const active = sort.key === key;
-      const b = el("button", { class: "sort", type: "button" }, col.label,
-        el("span", { class: "arrow", "aria-hidden": "true" }, active ? (sort.desc ? "\u2193" : "\u2191") : ""));
+      // The arrow sits on the inner side, so a number column's label stays flush
+      // with its right-aligned figures.
+      const arrow = active && el("span", { class: "arrow", "aria-hidden": "true" }, sort.desc ? "\u2193" : "\u2191");
+      const b = col.num
+        ? el("button", { class: "sort", type: "button" }, arrow, col.label)
+        : el("button", { class: "sort", type: "button" }, col.label, arrow);
       b.addEventListener("click", () => {
         sort = active ? { key, desc: !sort.desc } : { key, desc: col.num };
         draw();
