@@ -77,6 +77,15 @@ pub trait AgentIntegration {
     fn mcp_config(&self) -> Option<(std::path::PathBuf, &'static str)> {
         None
     }
+
+    /// Whether the host itself is on this machine, judged by the directory its
+    /// config lives in, so `doctor --json` can tell "not installed" from "broken"
+    /// (#1177). A host with no known config path counts as present.
+    fn present(&self) -> bool {
+        self.mcp_config()
+            .and_then(|(path, _)| path.parent().map(|p| p.is_dir()))
+            .unwrap_or(true)
+    }
 }
 
 /// How much of OMNI's job a host permits, stated once for `doctor` and the README.

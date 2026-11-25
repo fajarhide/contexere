@@ -366,6 +366,10 @@ fn render_plugin(exe_path: &str) -> String {
 }
 
 impl AgentIntegration for HermesIntegration {
+    fn present(&self) -> bool {
+        hermes_home_dir().is_dir()
+    }
+
     /// `transform_tool_result` fires for every tool, so this host runs the Read,
     /// Grep and WebFetch distillers too (#687).
     fn tier(&self) -> crate::agents::Tier {

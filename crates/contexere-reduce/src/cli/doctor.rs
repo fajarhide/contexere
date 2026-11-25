@@ -69,6 +69,19 @@ pub struct DoctorJson {
     /// review (#367); dropped, `--json` reported them healthy.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// One entry per integration, in `doctor`'s order, so a reader can tell which
+    /// host a warning is about and whether that host is installed (#1177).
+    pub agents: Vec<DoctorAgent>,
+}
+
+#[derive(serde::Serialize)]
+pub struct DoctorAgent {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub tier: &'static str,
+    pub present: bool,
+    pub ok: bool,
+    pub warnings: Vec<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -188,13 +201,24 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     let integrations = crate::agents::all_integrations();
     let mut any_agent_ok = false;
     let mut warnings = Vec::new();
+    let mut agents = Vec::new();
     for agent in integrations {
         // Captured: stdout owes one JSON document; findings travel in `warnings` (#353).
+        let mut own = Vec::new();
         let (ok, _report) =
-            crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut warnings));
+            crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut own));
         if ok {
             any_agent_ok = true;
         }
+        warnings.extend(own.iter().cloned());
+        agents.push(DoctorAgent {
+            id: agent.id(),
+            name: agent.name(),
+            tier: agent.tier().name(),
+            present: agent.present(),
+            ok,
+            warnings: own,
+        });
     }
     if any_agent_ok {
         checks.push(DoctorCheck {
@@ -218,6 +242,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
         checks,
         fix_available,
         warnings,
+        agents,
     };
 
     println!("{}", serde_json::to_string_pretty(&output)?);
