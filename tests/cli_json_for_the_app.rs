@@ -75,3 +75,48 @@ fn query_takes_json_as_a_flag() {
     let v = json(home.path(), &["query", "timeline", "today", "--json"]);
     assert!(v.is_object(), "{v}");
 }
+
+/// #1180: the timeline said "Completed successfully" over a build that failed. It
+/// now says only what Contexere did, with the bytes and the handle to retrieve.
+#[test]
+fn the_timeline_never_says_a_failed_build_succeeded() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let home = tempfile::tempdir().expect("tempdir");
+    let mut log: String = (0..240)
+        .map(|i| format!("   Compiling crate_{i} v0.{i}.0\n"))
+        .collect();
+    log.push_str("error[E0308]: mismatched types\n  --> src/main.rs:4:5\n");
+    let payload = serde_json::json!({
+        "session_id": "t", "cwd": home.path(), "hook_event_name": "PostToolUse",
+        "tool_name": "Bash", "tool_input": {"command": "cargo build"},
+        "tool_response": {"stdout": log, "stderr": "", "interrupted": false, "isImage": false},
+    });
+    let mut hook = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .arg("--post-hook")
+        .current_dir(home.path())
+        .env_clear()
+        .env("HOME", home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()
+        .expect("hook runs");
+    hook.stdin
+        .take()
+        .expect("stdin")
+        .write_all(payload.to_string().as_bytes())
+        .expect("payload");
+    hook.wait().expect("hook exits");
+
+    let v = json(home.path(), &["query", "timeline", "today", "--json"]);
+    let row = &v["results"][0];
+    let summary = row["summary"].as_str().expect("summary");
+    assert!(!summary.to_lowercase().contains("success"), "{row}");
+    assert!(summary.starts_with("shortened"), "{row}");
+    assert!(
+        row["input_bytes"].as_i64() > row["output_bytes"].as_i64(),
+        "{row}"
+    );
+    assert!(row["handle"].as_str().is_some_and(|h| !h.is_empty()), "{row}");
+}

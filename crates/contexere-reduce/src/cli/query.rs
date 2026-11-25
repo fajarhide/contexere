@@ -188,6 +188,7 @@ fn render_result(result: &OmniQLQueryResult) {
                 command,
                 route,
                 summary,
+                ..
             } => {
                 let route_color = match route.as_str() {
                     "Keep" => route.green(),
