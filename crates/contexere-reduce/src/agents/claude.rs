@@ -11,6 +11,10 @@ const POST_TOOL_MATCHER: &str = "Bash|Read|Grep|WebFetch";
 pub struct ClaudeIntegration;
 
 impl AgentIntegration for ClaudeIntegration {
+    fn present(&self) -> bool {
+        get_settings_path().parent().is_some_and(|p| p.is_dir())
+    }
+
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
     }

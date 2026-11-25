@@ -106,6 +106,10 @@ fn register_plugin_path(config: &mut Value, dir: &str) -> bool {
 }
 
 impl AgentIntegration for OpenClawIntegration {
+    fn present(&self) -> bool {
+        config_path().parent().is_some_and(|p| p.is_dir())
+    }
+
     /// `tool_result_persist` rewrites the persisted result of every built-in tool,
     /// so later turns read OMNI's bytes while the current one sees raw output
     /// (#687).

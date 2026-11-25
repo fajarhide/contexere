@@ -9,12 +9,18 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
         return Ok(());
     }
 
-    let raw_query = if args.len() > 2 {
-        args[2..].join(" ")
-    } else {
+    // Flags are not part of the query text: `--json` used to reach the parser (#1178).
+    let words: Vec<&str> = args
+        .iter()
+        .skip(2)
+        .map(String::as_str)
+        .filter(|a| !a.starts_with("--"))
+        .collect();
+    if words.is_empty() {
         print_help();
         return Ok(());
-    };
+    }
+    let raw_query = words.join(" ");
 
     let json_mode = super::has_flag(args, "--json");
 

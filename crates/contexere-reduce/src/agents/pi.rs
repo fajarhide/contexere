@@ -165,6 +165,10 @@ fn collect_omni_sources_recursive(val: &Value, out: &mut Vec<String>) {
 pub struct PiIntegration;
 
 impl AgentIntegration for PiIntegration {
+    fn present(&self) -> bool {
+        is_installed() || pi_settings_path().parent().is_some_and(|p| p.is_dir())
+    }
+
     /// Pi's `tool_result` handler returns replacement content (#688).
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
