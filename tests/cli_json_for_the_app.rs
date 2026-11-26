@@ -135,3 +135,39 @@ fn query_keeps_other_dashes_in_the_text() {
     );
     assert!(v.is_object(), "{v}");
 }
+
+/// #1190 review: a host whose config still sets `OMNI_AGENT_ID` is not fine on
+/// 0.9.0, which ignores it, so `doctor --json` says so instead of `ok: true`.
+#[test]
+fn doctor_flags_an_agent_still_on_omni_agent_id() {
+    let home = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(home.path().join(".claude")).expect("mkdir");
+    let init = Command::new(env!("CARGO_BIN_EXE_contexere"))
+        .args(["init", "--claude"])
+        .current_dir(home.path())
+        .env_clear()
+        .env("HOME", home.path())
+        .output()
+        .expect("init runs");
+    assert!(init.status.success(), "init --claude failed");
+    // An MCP entry as 0.8 wrote it, before `init` ran again on 0.9.0.
+    std::fs::write(
+        home.path().join(".claude.json"),
+        r#"{"mcpServers":{"contexere":{"command":"/x/contexere","args":["--mcp"],"env":{"OMNI_AGENT_ID":"claude_code"}}}}"#,
+    )
+    .expect("write ~/.claude.json");
+
+    let v = json(home.path(), &["doctor", "--json"]);
+    let claude = v["agents"]
+        .as_array()
+        .expect("agents")
+        .iter()
+        .find(|a| a["id"] == "claude")
+        .expect("claude")
+        .clone();
+    assert_eq!(claude["ok"], false, "{claude}");
+    assert!(
+        claude["warnings"].to_string().contains("OMNI_AGENT_ID"),
+        "{claude}"
+    );
+}

@@ -260,7 +260,9 @@ impl AgentIntegration for ClaudeIntegration {
             }
         }
         // Every file, not only the one the loop above stopped at (#1165).
-        super::report_old_agent_id_in(&[&mcp_path, &mcpa_path]);
+        if super::report_old_agent_id_in(self.name(), &[&mcp_path, &mcpa_path], warnings) {
+            all_ok = false;
+        }
         if !mcp_found {
             // Absence is a state, not a fault (#757). The hooks do the shortening; the
             // MCP server costs prefix bytes and a cache reset on connect, so leaving it

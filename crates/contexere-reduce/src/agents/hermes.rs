@@ -218,35 +218,13 @@ fn configured_omni_mcp(config_path: &Path) -> bool {
 /// each line keeps its own ending. `None` when there is nothing to change.
 fn rename_old_agent_id(config: &str) -> Option<String> {
     let lines: Vec<&str> = config.split_inclusive('\n').collect();
-    // A line without its YAML comment, so `mcp_servers: # tools` still matches.
-    fn code(l: &str) -> &str {
-        let Some(i) = l.find('#') else { return l };
-        let (before, _) = l.split_at(i);
-        if before.is_empty() || before.ends_with(char::is_whitespace) {
-            before
-        } else {
-            l
-        }
-    }
-    let indent = |l: &str| l.len() - l.trim_start().len();
-    let is_key = |l: &str, key: &str| code(l).trim_start().starts_with(&format!("{key}:"));
-    // The end of the block that starts at `from`: the next line with content
-    // indented no deeper than `depth`. Blank and comment-only lines never end it.
-    let end_of = |from: usize, depth: usize| {
-        (from + 1..lines.len())
-            .find(|&i| !code(lines[i]).trim().is_empty() && indent(lines[i]) <= depth)
-            .unwrap_or(lines.len())
-    };
-    let section = lines
-        .iter()
-        .position(|l| code(l).trim_end() == "mcp_servers:")?;
-    let start = (section + 1..end_of(section, 0))
-        .find(|&i| matches!(code(lines[i]).trim(), "omni:" | "contexere:"))?;
-    let entry = start..end_of(start, indent(lines[start]));
-    let old = entry.clone().find(|&i| is_key(lines[i], "OMNI_AGENT_ID"))?;
+    let entry = our_mcp_entry(&lines)?;
+    let old = entry
+        .clone()
+        .find(|&i| yaml_key(lines[i], "OMNI_AGENT_ID"))?;
     let has_new = entry
         .clone()
-        .any(|i| is_key(lines[i], "CONTEXERE_AGENT_ID"));
+        .any(|i| yaml_key(lines[i], "CONTEXERE_AGENT_ID"));
 
     let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
     if has_new {
@@ -254,6 +232,63 @@ fn rename_old_agent_id(config: &str) -> Option<String> {
     } else {
         out[old] = out[old].replacen("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID", 1);
     }
+    Some(out.concat())
+}
+
+/// A line without its YAML comment, so `mcp_servers: # tools` still matches.
+fn yaml_code(l: &str) -> &str {
+    let Some(i) = l.find('#') else { return l };
+    let (before, _) = l.split_at(i);
+    if before.is_empty() || before.ends_with(char::is_whitespace) {
+        before
+    } else {
+        l
+    }
+}
+
+fn yaml_key(l: &str, key: &str) -> bool {
+    yaml_code(l).trim_start().starts_with(&format!("{key}:"))
+}
+
+/// The lines of our entry (`omni:` or `contexere:`) under `mcp_servers:`.
+fn our_mcp_entry(lines: &[&str]) -> Option<std::ops::Range<usize>> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    // The end of the block that starts at `from`: the next line with content
+    // indented no deeper than `depth`. Blank and comment-only lines never end it.
+    let end_of = |from: usize, depth: usize| {
+        (from + 1..lines.len())
+            .find(|&i| !yaml_code(lines[i]).trim().is_empty() && indent(lines[i]) <= depth)
+            .unwrap_or(lines.len())
+    };
+    let section = lines
+        .iter()
+        .position(|l| yaml_code(l).trim_end() == "mcp_servers:")?;
+    let start = (section + 1..end_of(section, 0))
+        .find(|&i| matches!(yaml_code(lines[i]).trim(), "omni:" | "contexere:"))?;
+    Some(start..end_of(start, indent(lines[start])))
+}
+
+/// An entry written before 0.9.0 runs the `omni` binary, which 0.9.0 no longer
+/// installs, so Hermes cannot start the server (#1190 review). Points our entry's
+/// `command` at `exe_path` and leaves every other server alone. `None` when it
+/// already runs something else.
+fn point_mcp_command_at(config: &str, exe_path: &str) -> Option<String> {
+    let lines: Vec<&str> = config.split_inclusive('\n').collect();
+    let entry = our_mcp_entry(&lines)?;
+    let at = entry.clone().find(|&i| yaml_key(lines[i], "command"))?;
+    let value = yaml_code(lines[at])
+        .trim()
+        .trim_start_matches("command:")
+        .trim()
+        .trim_matches(|c| c == '"' || c == '\'');
+    if !crate::legacy::file_name_is_omni(value) {
+        return None;
+    }
+    let line = lines[at];
+    let pad = &line[..line.len() - line.trim_start().len()];
+    let ending = &line[line.trim_end_matches(['\n', '\r']).len()..];
+    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    out[at] = format!("{pad}command: \"{exe_path}\"{ending}");
     Some(out.concat())
 }
 
@@ -451,12 +486,23 @@ description: Contexere integration for Hermes Agent hooks
 
         if let Ok(config) = fs::read_to_string(&config_path) {
             if configured_omni_mcp(&config_path) {
-                if let Some(updated) = rename_old_agent_id(&config) {
-                    super::write_config(&config_path, updated)?;
+                let mut current = config.clone();
+                if let Some(updated) = rename_old_agent_id(&current) {
+                    current = updated;
                     actions.push(format!(
                         "{} Switched OMNI_AGENT_ID to CONTEXERE_AGENT_ID in ~/.hermes/config.yaml",
                         "✓".green()
                     ));
+                }
+                if let Some(updated) = point_mcp_command_at(&current, exe_path) {
+                    current = updated;
+                    actions.push(format!(
+                        "{} Pointed the MCP server at {exe_path} in ~/.hermes/config.yaml",
+                        "✓".green()
+                    ));
+                }
+                if current != config {
+                    super::write_config(&config_path, current)?;
                 }
                 actions.push(
                     format!(
@@ -691,11 +737,15 @@ description: Contexere integration for Hermes Agent hooks
         );
         // The config's MCP env and an installed plugin's own copy both set it.
         // The config's MCP env and an installed plugin's own copy, old dir included.
-        super::report_old_agent_id_in(&[
-            &config_path,
-            &dest.join("__init__.py"),
-            &legacy_plugin_dir().join("__init__.py"),
-        ]);
+        let old_id = super::report_old_agent_id_in(
+            self.name(),
+            &[
+                &config_path,
+                &dest.join("__init__.py"),
+                &legacy_plugin_dir().join("__init__.py"),
+            ],
+            warnings,
+        );
         if !mcp_configured {
             warnings.push("Contexere MCP server is not registered in Hermes config.".to_string());
         }
@@ -770,7 +820,7 @@ description: Contexere integration for Hermes Agent hooks
             );
         }
 
-        installed
+        installed && !old_id
     }
 }
 
@@ -804,6 +854,33 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// #1190 review: an entry written before 0.9.0 runs `omni`, which 0.9.0 does
+    /// not install; `init` points it at this binary and leaves other servers alone.
+    #[test]
+    fn points_an_old_omni_command_at_this_binary() {
+        let config = "model: x\nmcp_servers:\n  other:\n    command: \"/usr/bin/omni\"\n  omni:\n    command: \"/opt/homebrew/bin/omni\"\n    args: [\"--mcp\"]\n";
+        let out =
+            super::point_mcp_command_at(config, "/opt/homebrew/bin/contexere").expect("rewritten");
+        assert!(
+            out.contains("  omni:\n    command: \"/opt/homebrew/bin/contexere\"\n"),
+            "{out}"
+        );
+        assert!(
+            out.contains("  other:\n    command: \"/usr/bin/omni\"\n"),
+            "another server stays: {out}"
+        );
+        assert!(
+            out.contains("model: x\n") && out.contains("args: [\"--mcp\"]\n"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn leaves_a_current_command_alone() {
+        let config = "mcp_servers:\n  contexere:\n    command: /opt/homebrew/bin/contexere\n    args: [\"--mcp\"]\n";
+        assert_eq!(super::point_mcp_command_at(config, "/x/contexere"), None);
+    }
+
     use super::rename_old_agent_id;
 
     fn lines_of(s: Option<String>) -> Vec<String> {

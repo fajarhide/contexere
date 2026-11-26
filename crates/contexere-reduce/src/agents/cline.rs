@@ -118,7 +118,9 @@ impl AgentIntegration for ClineIntegration {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
-            super::report_old_agent_id(&content);
+            if super::report_old_agent_id(self.name(), &content, warnings) {
+                all_ok = false;
+            }
         } else {
             all_ok = false;
             if fix_mode {

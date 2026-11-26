@@ -211,8 +211,7 @@ impl AgentIntegration for &'static McpHost {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
-            super::report_old_agent_id(&config);
-            return true;
+            return !super::report_old_agent_id(self.display, &config, warnings);
         }
 
         if fix_mode {

@@ -354,24 +354,35 @@ pub(crate) fn report_server_name(name: Option<&str>) {
 
 /// A host config or plugin written before 0.9.0 sets `OMNI_AGENT_ID`, which is no
 /// longer read, so the host is no longer told apart from the default (#1067).
-pub(crate) fn report_old_agent_id(config: &str) {
-    if config.contains("OMNI_AGENT_ID") {
-        crate::agent_report!(
-            "   {:<15} {}",
-            "Agent ID:".bright_black(),
-            "sets OMNI_AGENT_ID, ignored since 0.9.0; `contexere init` switches it".yellow()
-        );
+/// Also a warning, so `doctor --json` does not report the host as fine (#1190
+/// review). Returns whether it was found, for the caller's result.
+pub(crate) fn report_old_agent_id(host: &str, config: &str, warnings: &mut Vec<String>) -> bool {
+    if !config.contains("OMNI_AGENT_ID") {
+        return false;
     }
+    crate::agent_report!(
+        "   {:<15} {}",
+        "Agent ID:".bright_black(),
+        "sets OMNI_AGENT_ID, ignored since 0.9.0; `contexere init` switches it".yellow()
+    );
+    warnings.push(format!(
+        "{host} sets OMNI_AGENT_ID, which 0.9.0 ignores. Run `contexere init` to switch it."
+    ));
+    true
 }
 
 /// `report_old_agent_id` over every file a host may keep it in, so a second config
 /// is checked even when the first one is current. Missing files read as empty.
-pub(crate) fn report_old_agent_id_in(paths: &[&std::path::Path]) {
+pub(crate) fn report_old_agent_id_in(
+    host: &str,
+    paths: &[&std::path::Path],
+    warnings: &mut Vec<String>,
+) -> bool {
     let all: String = paths
         .iter()
         .filter_map(|p| std::fs::read_to_string(p).ok())
         .collect();
-    report_old_agent_id(&all);
+    report_old_agent_id(host, &all, warnings)
 }
 
 /// Drop our MCP server from a `mcpServers` map under either name.
@@ -893,9 +904,18 @@ mod old_agent_id_tests {
         std::fs::write(&old, r#"{"env":{"OMNI_AGENT_ID":"x"}}"#).expect("write b.json");
         let missing = dir.path().join("none.json");
 
-        let ((), out) = capture(|| report_old_agent_id_in(&[&current, &missing, &old]));
-        assert!(out.contains("OMNI_AGENT_ID"), "{out}");
-        let ((), out) = capture(|| report_old_agent_id_in(&[&current, &missing]));
-        assert!(out.is_empty(), "{out}");
+        let mut warnings = Vec::new();
+        let (found, out) =
+            capture(|| report_old_agent_id_in("Host", &[&current, &missing, &old], &mut warnings));
+        assert!(found && out.contains("OMNI_AGENT_ID"), "{out}");
+        assert_eq!(
+            warnings.len(),
+            1,
+            "doctor --json must carry it: {warnings:?}"
+        );
+        let mut warnings = Vec::new();
+        let (found, out) =
+            capture(|| report_old_agent_id_in("Host", &[&current, &missing], &mut warnings));
+        assert!(!found && out.is_empty() && warnings.is_empty(), "{out}");
     }
 }
