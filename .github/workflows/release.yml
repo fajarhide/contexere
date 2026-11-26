@@ -97,9 +97,68 @@ jobs:
           path: |
             dist/contexere-${{ github.ref_name }}-${{ matrix.target }}.*
 
+  # The desktop app (#1176, #1188), built the way `desktop.yml` builds it on every
+  # PR. Unsigned on macOS: the release notes say how to open it.
+  desktop:
+    name: Desktop ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Webview libraries
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Build
+        run: |
+          npm ci
+          npm run icons
+          npx tauri build
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          tag=${{ github.ref_name }}
+          b=src-tauri/target/release/bundle
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp $b/dmg/*.dmg "$GITHUB_WORKSPACE/dist/contexere-desktop-$tag-aarch64-apple-darwin.dmg"
+          else
+            cp $b/deb/*.deb "$GITHUB_WORKSPACE/dist/contexere-desktop-$tag-amd64.deb"
+            cp $b/appimage/*.AppImage "$GITHUB_WORKSPACE/dist/contexere-desktop-$tag-x86_64.AppImage"
+          fi
+          cd "$GITHUB_WORKSPACE/dist"
+          for f in contexere-desktop-*; do sha256sum "$f" > "$f.sha256"; done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: contexere-desktop-${{ runner.os }}
+          path: dist/contexere-desktop-*
+          if-no-files-found: error
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, desktop]
     runs-on: ubuntu-latest
     # `id-token` and `attestations` are what let this job sign a statement that
     # these bytes came from this workflow at this commit. `SHA256SUMS` only says
@@ -121,7 +180,7 @@ jobs:
       - name: Collect release files
         run: |
           mkdir -p release
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.sha256' \) -exec cp {} release/ \;
 
           echo "=== Release files ==="
           ls -la release/
@@ -138,6 +197,9 @@ jobs:
           subject-path: |
             release/*.tar.gz
             release/*.zip
+            release/*.dmg
+            release/*.deb
+            release/*.AppImage
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
@@ -146,6 +208,9 @@ jobs:
           files: |
             release/*.tar.gz
             release/*.zip
+            release/*.dmg
+            release/*.deb
+            release/*.AppImage
             release/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
