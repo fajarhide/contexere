@@ -285,8 +285,9 @@ fn point_mcp_command_at(config: &str, exe_path: &str) -> Option<String> {
         return None;
     }
     let line = lines[at];
-    let pad = &line[..line.len() - line.trim_start().len()];
-    let ending = &line[line.trim_end_matches(['\n', '\r']).len()..];
+    // Both cuts fall where trimming stopped, so on a character boundary.
+    let (pad, _) = line.split_at(line.len() - line.trim_start().len());
+    let (_, ending) = line.split_at(line.trim_end_matches(['\n', '\r']).len());
     let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
     out[at] = format!("{pad}command: \"{exe_path}\"{ending}");
     Some(out.concat())
