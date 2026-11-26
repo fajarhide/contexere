@@ -1,0 +1,59 @@
+{
+  "version": "1",
+  "generated_at": 1795621915,
+  "periods": [
+    {
+      "label": "today",
+      "commands": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "savings_pct": 0.0,
+      "measurement_method": "estimated"
+    },
+    {
+      "label": "this_week",
+      "commands": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "savings_pct": 0.0,
+      "measurement_method": "estimated"
+    },
+    {
+      "label": "all_time",
+      "commands": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "savings_pct": 0.0,
+      "measurement_method": "estimated"
+    }
+  ],
+  "commands": [],
+  "agents": [],
+  "rewind": {
+    "archived": 0,
+    "retrieved": 0
+  },
+  "avg_latency_ms": 0.0,
+  "engines": {
+    "bytes_saved": 0,
+    "distilled": {
+      "calls": 0,
+      "input_bytes": 0,
+      "output_bytes": 0,
+      "bytes_saved": 0,
+      "pct_of_own_input": null
+    },
+    "folded": {
+      "folds": 0,
+      "bytes_saved": 0,
+      "priced_folds": 0,
+      "priced_payload_bytes": 0,
+      "pct_of_own_input": null,
+      "first_fold_ts": null
+    },
+    "declined": {
+      "calls": 0,
+      "bytes_saved": 0
+    }
+  }
+}

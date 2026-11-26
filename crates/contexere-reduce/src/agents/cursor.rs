@@ -39,7 +39,7 @@ impl AgentIntegration for CursorIntegration {
             "Hooks".bold()
         );
 
-        install_cursor_rule(exe_path)?;
+        install_cursor_rule()?;
         Ok(())
     }
 
@@ -92,6 +92,9 @@ impl AgentIntegration for CursorIntegration {
                 "[OK]".green().bold()
             );
             super::report_server_name(super::registered_server(&content, "mcpServers"));
+            if super::report_old_agent_id(self.name(), &content, warnings) {
+                all_ok = false;
+            }
         } else {
             all_ok = false;
             if fix_mode {
@@ -162,27 +165,32 @@ impl AgentIntegration for CursorIntegration {
         // distils on Cursor. Hooks without it distil nothing (#352).
         if in_a_project() {
             let rule = project_rule_path();
-            if rule.exists() {
+            // A rule from before 0.9.0 names `omni_run`, which is no longer served (#1067).
+            let stale = fs::read_to_string(&rule).is_ok_and(|w| is_stale_rule(&w));
+            if rule.exists() && !stale {
                 crate::agent_report!(
                     "   {:<21} {}",
-                    "omni_run rule".bright_black(),
+                    format!("{} rule", crate::legacy::tool_name("run")).bright_black(),
                     "[OK] .cursor/rules/omni.mdc".green()
                 );
             } else {
                 all_ok = false;
                 if fix_mode {
-                    let exe = std::env::current_exe().unwrap_or_default();
-                    let _ = install_cursor_rule(&exe.to_string_lossy());
+                    let _ = install_cursor_rule();
                 } else {
                     crate::agent_report!(
                         "   {:<21} {}",
-                        "omni_run rule".bright_black(),
-                        "[WARNING] missing: the agent will keep using the built-in shell"
-                            .yellow()
-                            .bold()
+                        format!("{} rule", crate::legacy::tool_name("run")).bright_black(),
+                        if stale {
+                            "[WARNING] names omni_run, which is no longer served"
+                        } else {
+                            "[WARNING] missing: the agent will keep using the built-in shell"
+                        }
+                        .yellow()
+                        .bold()
                     );
                     warnings.push(
-                        "Cursor has no omni_run rule, so nothing is distilled here. Run `contexere init --cursor` in this project."
+                        "Cursor has no contexere_run rule, so nothing is distilled here. Run `contexere init --cursor` in this project."
                             .to_string(),
                     );
                 }
@@ -211,10 +219,9 @@ Its output is filtered to signal before it reaches you, which the built-in tool 
     )
 }
 
-/// The rule names the tool the registered command will serve, which follows that
-/// command's file name and not the name init was typed as (#876).
-fn rule_for_exe(exe_path: &str) -> String {
-    cursor_rule(crate::legacy::prefix_of_command(exe_path))
+/// The pre-0.9.0 rule, also when a Windows checkout gave it CRLF endings (#1165).
+fn is_stale_rule(written: &str) -> bool {
+    written.replace("\r\n", "\n") == cursor_rule("omni")
 }
 
 /// Where a project's Cursor rules live, relative to its root.
@@ -229,13 +236,13 @@ fn in_a_project() -> bool {
 
 /// Writes the rule inside a project, prints it otherwise: `.cursor/rules/` is
 /// per project, and a printed hint went unused. Uninstall removes it.
-fn install_cursor_rule(exe_path: &str) -> anyhow::Result<()> {
-    let rule = rule_for_exe(exe_path);
+fn install_cursor_rule() -> anyhow::Result<()> {
+    let rule = cursor_rule("contexere");
     if !in_a_project() {
         crate::agent_report!(
             "\n  {} Not in a project, so the {} rule was not written.",
             "!".yellow().bold(),
-            "omni_run".bold()
+            crate::legacy::tool_name("run").bold()
         );
         crate::agent_report!(
             "    Cursor cannot rewrite built-in tool output, so run `contexere init --cursor`"
@@ -259,7 +266,7 @@ fn install_cursor_rule(exe_path: &str) -> anyhow::Result<()> {
         "  {} Wrote {} so the agent reaches for {}",
         "✓".green(),
         ".cursor/rules/omni.mdc".bold(),
-        "omni_run".bold()
+        crate::legacy::tool_name("run").bold()
     );
     crate::agent_report!(
         "    {}",
@@ -348,7 +355,7 @@ fn install_mcp_server(val: &mut Value, exe_path: &str) {
         super::SERVER_KEY.to_string(),
         json!({
             "type": "stdio", "command": exe_path, "args": ["--mcp"],
-            "env": { "OMNI_AGENT_ID": "cursor" }
+            "env": { "CONTEXERE_AGENT_ID": "cursor" }
         }),
     );
 }
@@ -479,6 +486,14 @@ pub fn remove_omni_hooks() -> anyhow::Result<()> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn an_old_rule_is_stale_with_either_line_ending() {
+        let old = cursor_rule("omni");
+        assert!(is_stale_rule(&old));
+        assert!(is_stale_rule(&old.replace('\n', "\r\n")));
+        assert!(!is_stale_rule(&cursor_rule("contexere")));
+    }
+
     /// #876: omni's hooks and server are replaced, not doubled.
     #[test]
     fn installing_over_an_omni_install_replaces_its_hooks_and_server() {
@@ -544,14 +559,6 @@ mod tests {
         );
     }
 
-    /// #876: `omni init` through the link must not name `omni_run` when the
-    /// registered binary serves `contexere_run`, and the reverse.
-    #[test]
-    fn the_rule_follows_the_registered_binary() {
-        assert!(rule_for_exe("/usr/bin/contexere").contains("`contexere_run`"));
-        assert!(rule_for_exe("/opt/homebrew/bin/omni").contains("`omni_run`"));
-    }
-
     /// The rule needs `alwaysApply` or Cursor never loads it.
     #[test]
     fn the_printed_cursor_rule_is_valid_and_short() {
@@ -561,7 +568,7 @@ mod tests {
             "a rule without alwaysApply is never included:\n{rule}"
         );
         assert!(
-            rule.contains("contexere_run") && cursor_rule("omni").contains("omni_run"),
+            rule.contains("contexere_run"),
             "the rule must name the tool the server is serving"
         );
 

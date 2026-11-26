@@ -32,7 +32,7 @@ Set TypingSpeed 35ms
 # Setup (hidden): current build on PATH, quiet mode, clean prompt, and the `bar`
 # helper + RAW size. The trailing `clear` wipes all of it before recording resumes.
 Hide
-Type `export PATH="$PWD/target/release:$PATH" OMNI_QUIET=1`
+Type `export PATH="$PWD/target/release:$PATH" CONTEXERE_QUIET=1`
 Enter
 Type `export RAW=$(wc -c < media/demo/cargo-test.txt)`
 Enter

@@ -27,8 +27,8 @@ fn stderr_after_reader_hangs_up(args: &[&str]) -> String {
     let db = tempfile::NamedTempFile::new().expect("temp db");
     let mut child = Command::new(omni())
         .args(args)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -85,8 +85,8 @@ fn help_and_version_exit_zero() {
         let db = tempfile::NamedTempFile::new().expect("temp db");
         let status = Command::new(omni())
             .arg(flag)
-            .env("OMNI_DB_PATH", db.path())
-            .env("OMNI_QUIET", "1")
+            .env("CONTEXERE_DB_PATH", db.path())
+            .env("CONTEXERE_QUIET", "1")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -103,8 +103,8 @@ fn an_unknown_flag_still_exits_nonzero() {
     let db = tempfile::NamedTempFile::new().expect("temp db");
     let status = Command::new(omni())
         .arg("--definitely-not-a-flag")
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()

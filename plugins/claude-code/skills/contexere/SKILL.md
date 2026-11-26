@@ -1,6 +1,6 @@
 ---
 name: contexere
-description: "Use when installing, verifying or configuring Contexere, when command output carries an `[OMNI: ...]` or `[CONTEXERE: ...]` marker, or when output looks shorter than expected. Contexere is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
+description: "Use when installing, verifying or configuring Contexere, when command output carries an `[CONTEXERE: ...]` or `[OMNI: ...]` marker, or when output looks shorter than expected. Contexere is a local hook that shortens shell output before the model reads it and hands back a handle for what it cut."
 ---
 
 # Contexere
@@ -73,19 +73,19 @@ A marker means bytes were cut and can be fetched back. Do not treat the shortene
 output as the whole output, and do not write a file back from output that carries
 one.
 
-The markers still start with `[OMNI` and name `omni retrieve`. From 0.9.0 they
-start with `[CONTEXERE` and name `contexere retrieve`. Read `[CONTEXERE: ...]`
-exactly as the `[OMNI: ...]` line of the same shape below, and match on both
-prefixes in anything that looks for a marker.
+Markers start with `[CONTEXERE` and name `contexere retrieve`. Releases before 0.9.0
+printed `[OMNI` and `omni retrieve`, and old transcripts still carry them: read an
+`[OMNI: ...]` line exactly as the `[CONTEXERE: ...]` line of the same shape below, and
+match on both prefixes in anything that looks for a marker.
 
 | marker | what happened |
 | --- | --- |
-| `[OMNI: 40 lines omitted, omni retrieve <handle> for full output]` | the distiller kept the signal and archived the rest |
-| `[OMNI: 40 lines already shown, omni retrieve <handle>]` | those lines are in this session's context already |
-| `[OMNI: identical to the 40 lines already shown, omni retrieve <handle>]` | the whole re-run matched an earlier one |
-| `[OMNI: 40 lines not shown here, omni retrieve <handle>]` | another session in this project saw them and **this one never did**, so retrieve before relying on them |
-| `[OMNI: identical to 40 lines from an earlier session, none shown here, omni retrieve <handle>]` | the whole reply matched an earlier session's, and none of it arrived here |
-| `[OMNI: 2 sensitive value(s) redacted]` | values under a key that names a credential |
+| `[CONTEXERE: 40 lines omitted, contexere retrieve <handle> for full output]` | the distiller kept the signal and archived the rest |
+| `[CONTEXERE: 40 lines already shown, contexere retrieve <handle>]` | those lines are in this session's context already |
+| `[CONTEXERE: identical to the 40 lines already shown, contexere retrieve <handle>]` | the whole re-run matched an earlier one |
+| `[CONTEXERE: 40 lines not shown here, contexere retrieve <handle>]` | another session in this project saw them and **this one never did**, so retrieve before relying on them |
+| `[CONTEXERE: identical to 40 lines from an earlier session, none shown here, contexere retrieve <handle>]` | the whole reply matched an earlier session's, and none of it arrived here |
+| `[CONTEXERE: 2 sensitive value(s) redacted]` | values under a key that names a credential |
 
 Pull the full bytes with the handle the marker prints:
 
@@ -93,8 +93,7 @@ Pull the full bytes with the handle the marker prints:
 contexere retrieve <handle>
 ```
 
-The `contexere_retrieve` MCP tool does the same without a shell (`omni_retrieve`
-on an install not yet moved to the new name). Reach for either whenever the
+The `contexere_retrieve` MCP tool does the same without a shell. Reach for either whenever the
 answer depends on what was cut: a count, an exact line, or a file being rewritten
 from what was read.
 

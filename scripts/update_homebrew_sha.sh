@@ -112,4 +112,4 @@ git commit -m "chore: update formula SHA-256 for v$VERSION" || echo "No changes 
 # Uncomment if you want it to push automatically:
 git push origin main
 
-echo "🎉 OMNI v$VERSION formula update complete!"
+echo "🎉 Contexere v$VERSION formula update complete!"

@@ -18,7 +18,7 @@ fn run_hook(event: &str, db: &std::path::Path) {
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("--hook")
-        .env("OMNI_DB_PATH", db)
+        .env("CONTEXERE_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .spawn()

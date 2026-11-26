@@ -116,18 +116,18 @@ config is not a mystery.
 |---|---|
 | `CONTEXERE_BIN` | Written into the generated Hermes plugin, naming the binary path |
 | `CONTEXERE_CMD` | The command being processed, falling back to `CMD` |
-| `OMNI_GIT_HASH`, `OMNI_BUILD_DATE` | Stamped at build time, reported by `contexere version` |
-| `OMNI_UNRELEASED_ENTRIES` | Computed by `build.rs` from `CHANGELOG.md`, so a binary built from an untagged tree says so in `contexere doctor` |
+| `CONTEXERE_GIT_HASH`, `CONTEXERE_BUILD_DATE` | Stamped at build time, reported by `contexere version` |
+| `CONTEXERE_UNRELEASED_ENTRIES` | Computed by `build.rs` from `CHANGELOG.md`, so a binary built from an untagged tree says so in `contexere doctor` |
 | `CONTEXERE_PI_PACKAGE_SOURCE` | Package source for the Pi agent integration |
 
 ## Benchmarking
 
 | variable | effect |
 |---|---|
-| `OMNI_BENCH_DB` | Database to replay from |
-| `OMNI_BENCH_ALL=1` | Replay the wider population including terminal output |
-| `OMNI_BENCH_RTK` | Path to an `rtk` binary, adding the head-to-head arm |
+| `CONTEXERE_BENCH_DB` | Database to replay from |
+| `CONTEXERE_BENCH_ALL=1` | Replay the wider population including terminal output |
+| `CONTEXERE_BENCH_RTK` | Path to an `rtk` binary, adding the head-to-head arm |
 
-`OMNI_BENCH_ALL` exists so the harness can say which population it measured rather than
+`CONTEXERE_BENCH_ALL` exists so the harness can say which population it measured rather than
 leaving it to be inferred. Including terminal output printed 79.1% where the
 model-facing population printed 43.3%, on the same data.

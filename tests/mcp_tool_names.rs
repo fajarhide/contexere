@@ -1,6 +1,5 @@
-//! #876: the MCP server serves `contexere_*` tools under its own name and
-//! `omni_*` under the old one, so a host registered against `omni --mcp` keeps
-//! calling the names it knows.
+//! #1067: since 0.9.0 the MCP server serves `contexere_*` tools under either
+//! binary name. Before it, `omni --mcp` served `omni_*` (#876).
 //!
 //! Driven over stdio: which name the process runs under is argv[0], which an
 //! in-process test cannot change.
@@ -17,7 +16,7 @@ fn session(program: &std::path::Path) -> (Vec<String>, String) {
         .arg("--mcp")
         .env_clear()
         .env("HOME", dir.path())
-        .env("OMNI_DB_PATH", dir.path().join("t.db"))
+        .env("CONTEXERE_DB_PATH", dir.path().join("t.db"))
         .env("CONTEXERE_MCP_TOOLS", "all")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -32,17 +31,7 @@ fn session(program: &std::path::Path) -> (Vec<String>, String) {
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"KNOWLEDGE","arguments":{"action":"list"}}}"#,
     ] {
-        let prefix = if program.file_stem().is_some_and(|s| s == "omni") {
-            "omni"
-        } else {
-            "contexere"
-        };
-        writeln!(
-            stdin,
-            "{}",
-            msg.replace("KNOWLEDGE", &format!("{prefix}_knowledge"))
-        )
-        .expect("write");
+        writeln!(stdin, "{}", msg.replace("KNOWLEDGE", "contexere_knowledge")).expect("write");
     }
 
     // The server answers requests concurrently, so id 3 can arrive before id 2;
@@ -78,7 +67,7 @@ fn session(program: &std::path::Path) -> (Vec<String>, String) {
 }
 
 #[test]
-fn each_name_serves_its_own_tool_prefix() {
+fn both_names_serve_contexere_tools() {
     let dir = tempfile::tempdir().expect("tempdir");
     let new = std::path::PathBuf::from(env!("CARGO_BIN_EXE_contexere"));
     let old = dir.path().join("omni");
@@ -91,15 +80,15 @@ fn each_name_serves_its_own_tool_prefix() {
         "{new_names:?}"
     );
 
-    let (old_names, old_reply) = session(&old);
-    assert_eq!(old_names.len(), new_names.len(), "{old_names:?}");
-    assert!(
-        old_names.iter().all(|n| n.starts_with("omni_")),
-        "{old_names:?}"
-    );
+    let (mut old_names, old_reply) = session(&old);
+    let mut new_names = new_names;
+    old_names.sort();
+    new_names.sort();
+    assert_eq!(old_names, new_names);
 
     // Model-facing text must name tools the server actually serves (#876).
-    assert!(new_reply.contains("contexere_knowledge("), "{new_reply}");
-    assert!(!new_reply.contains("omni_"), "{new_reply}");
-    assert!(old_reply.contains("omni_knowledge("), "{old_reply}");
+    for reply in [&new_reply, &old_reply] {
+        assert!(reply.contains("contexere_knowledge("), "{reply}");
+        assert!(!reply.contains("omni_"), "{reply}");
+    }
 }

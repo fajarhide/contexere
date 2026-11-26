@@ -6,7 +6,7 @@ saja, dan di situlah kecurigaan biasanya berakhir.
 ## Pertama, apakah Contexere memang terlibat
 
 ```sh
-OMNI_PASSTHROUGH=1 <perintahnya>
+CONTEXERE_PASSTHROUGH=1 <perintahnya>
 ```
 
 Keluaran yang identik dengan dan tanpa variabel itu berarti Contexere tidak melakukan
@@ -113,7 +113,7 @@ Yang layak dilaporkan, dalam urutan kepentingan ini:
 3. **Kebisingan.** Bertele-tele tapi tidak berbahaya.
 
 Laporan yang baik membawa keluaran mentah dan keluaran sulingan berdampingan,
-termasuk catatan kaki `[OMNI Active]`, perintah `omni exec` yang persis, dan
+termasuk catatan kaki `[CONTEXERE Active]`, perintah `contexere exec` yang persis, dan
 `contexere --version`. Catatan kakinya sering justru intinya: bug terburuk di sini
 melaporkan pengurangan paling besar.
 

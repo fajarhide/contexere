@@ -73,14 +73,14 @@ fn judge(code: Option<i32>, stdout: &str) -> Outcome {
     }
 }
 
-/// Points a child at a throwaway store. The child folds CONTEXERE_* over OMNI_*,
-/// so an inherited twin would send the canary into the user's real store.
+/// Points a child at a throwaway store. The saved hook command may still run an
+/// `omni` release, which reads only the `OMNI_*` names (#1163), so both are set.
 #[cfg(unix)]
 fn isolate(cmd: &mut std::process::Command, db: &std::path::Path, transcripts: &std::path::Path) {
-    cmd.env("OMNI_DB_PATH", db)
-        .env("OMNI_TRANSCRIPT_DIR", transcripts)
-        .env_remove("CONTEXERE_DB_PATH")
-        .env_remove("CONTEXERE_TRANSCRIPT_DIR");
+    for prefix in ["CONTEXERE", "OMNI"] {
+        cmd.env(format!("{prefix}_DB_PATH"), db)
+            .env(format!("{prefix}_TRANSCRIPT_DIR"), transcripts);
+    }
 }
 
 #[cfg(unix)]
@@ -159,7 +159,7 @@ pub(crate) fn report(
         crate::agent_report!(
             "   {:<15} {}",
             "Name:".bright_black(),
-            "still calls `omni`, which stops working in 0.9.0; `contexere init` switches it"
+            "still calls `omni`, which 0.9.0 no longer installs; `contexere init` switches it"
                 .bright_black()
         );
     }
@@ -277,18 +277,24 @@ mod isolate_tests {
     use std::path::Path;
     use std::process::Command;
 
-    /// #876: the probe child must not inherit the new-name twin of what it sets.
+    /// The probe child writes to its own database, never the user's, whichever
+    /// release the hook runs (#1067, #1163).
     #[test]
-    fn the_probe_clears_the_contexere_twins() {
+    fn the_probe_gets_its_own_database() {
         let mut cmd = Command::new("sh");
         isolate(&mut cmd, Path::new("/t/db"), Path::new("/t/tr"));
         let envs: Vec<_> = cmd.get_envs().collect();
-        for twin in ["CONTEXERE_DB_PATH", "CONTEXERE_TRANSCRIPT_DIR"] {
+        for prefix in ["CONTEXERE", "OMNI"] {
+            let db = format!("{prefix}_DB_PATH");
+            let tr = format!("{prefix}_TRANSCRIPT_DIR");
             assert!(
-                envs.contains(&(OsStr::new(twin), None)),
-                "{twin} not cleared"
+                envs.contains(&(OsStr::new(&db), Some(OsStr::new("/t/db")))),
+                "{db}"
+            );
+            assert!(
+                envs.contains(&(OsStr::new(&tr), Some(OsStr::new("/t/tr")))),
+                "{tr}"
             );
         }
-        assert!(envs.contains(&(OsStr::new("OMNI_DB_PATH"), Some(OsStr::new("/t/db")))));
     }
 }

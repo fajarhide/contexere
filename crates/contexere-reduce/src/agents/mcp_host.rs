@@ -128,6 +128,16 @@ impl AgentIntegration for &'static McpHost {
         Some((self.config.resolve(), self.key))
     }
 
+    /// A per-project config says nothing about whether the editor is installed,
+    /// so VS Code is judged by its user directory, wherever `doctor` runs (#1177).
+    fn present(&self) -> bool {
+        let probe = match self.config {
+            ConfigHome::Cwd(_) => ConfigHome::VsCodeExtension("").resolve(),
+            other => other.resolve(),
+        };
+        probe.parent().is_some_and(|p| p.is_dir())
+    }
+
     fn install(&self, exe_path: &str) -> anyhow::Result<()> {
         let path = self.path();
         if let Some(parent) = path.parent() {
@@ -146,7 +156,7 @@ impl AgentIntegration for &'static McpHost {
                         "type": "stdio",
                         "command": exe_path,
                         "args": ["--mcp"],
-                        "env": { "OMNI_AGENT_ID": self.agent_id() }
+                        "env": { "CONTEXERE_AGENT_ID": self.agent_id() }
                     }),
                 );
             }
@@ -191,8 +201,8 @@ impl AgentIntegration for &'static McpHost {
         let path = self.path();
         crate::agent_report!("\n  {}", format!("{}:", self.display).cyan());
 
-        let server =
-            super::registered_server(&fs::read_to_string(&path).unwrap_or_default(), self.key);
+        let config = fs::read_to_string(&path).unwrap_or_default();
+        let server = super::registered_server(&config, self.key);
         if server.is_some() {
             crate::agent_report!(
                 "   {:<15} {} {}",
@@ -201,7 +211,7 @@ impl AgentIntegration for &'static McpHost {
                 "[OK]".green().bold()
             );
             super::report_server_name(server);
-            return true;
+            return !super::report_old_agent_id(self.display, &config, warnings);
         }
 
         if fix_mode {

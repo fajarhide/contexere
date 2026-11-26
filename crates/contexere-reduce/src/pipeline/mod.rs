@@ -21,7 +21,7 @@ pub const MAX_DISTILLATION_HISTORY: usize = 5;
 /// Ratio below which compression counts (0.90 = at least 10% saved).
 pub const MEANINGFUL_COMPRESSION_THRESHOLD: f64 = 0.90;
 
-/// Default context window, in tokens; `OMNI_CONTEXT_WINDOW` overrides.
+/// Default context window, in tokens; `CONTEXERE_CONTEXT_WINDOW` overrides.
 pub const DEFAULT_CONTEXT_WINDOW_SIZE: u64 = 200_000;
 
 pub const DEFAULT_PRESSURE_WARNING_THRESHOLD: f64 = 0.65;
@@ -99,13 +99,13 @@ impl LoopContext {
         let mut new_goal = None;
         let mut new_budget = self.budget_tokens;
 
-        if let Ok(val) = std::env::var("OMNI_LOOP_ID") {
+        if let Ok(val) = std::env::var("CONTEXERE_LOOP_ID") {
             new_loop_id = Some(val);
         }
-        if let Ok(val) = std::env::var("OMNI_LOOP_GOAL") {
+        if let Ok(val) = std::env::var("CONTEXERE_LOOP_GOAL") {
             new_goal = Some(val);
         }
-        if let Ok(val) = std::env::var("OMNI_LOOP_BUDGET") {
+        if let Ok(val) = std::env::var("CONTEXERE_LOOP_BUDGET") {
             new_budget = val.parse().ok().or(self.budget_tokens);
         }
 
@@ -115,7 +115,7 @@ impl LoopContext {
             new_budget,
         ) {
             eprintln!(
-                "[omni:security] Loop context validation failed: {:?}. Ignoring inputs.",
+                "[contexere:security] Loop context validation failed: {:?}. Ignoring inputs.",
                 e
             );
         } else {
@@ -129,7 +129,7 @@ impl LoopContext {
             self.budget_tokens = new_budget;
         }
 
-        if let Ok(val) = std::env::var("OMNI_LOOP_ITERATION")
+        if let Ok(val) = std::env::var("CONTEXERE_LOOP_ITERATION")
             && let Ok(new_iter) = val.parse::<u32>()
             && new_iter != self.iteration
         {
@@ -137,7 +137,7 @@ impl LoopContext {
             self.budget_used = 0; // Reset budget per iteration
         }
 
-        if let Ok(val) = std::env::var("OMNI_SUBAGENT")
+        if let Ok(val) = std::env::var("CONTEXERE_SUBAGENT")
             && val == "1"
         {
             self.mode = LoopMode::SubAgent;
@@ -474,7 +474,7 @@ impl SessionState {
 
     /// Env, then field, then default.
     pub fn context_window_size(&self) -> u64 {
-        std::env::var("OMNI_CONTEXT_WINDOW")
+        std::env::var("CONTEXERE_CONTEXT_WINDOW")
             .ok()
             .and_then(|v| v.parse().ok())
             .or(self.context_window_size_hint)
@@ -482,11 +482,11 @@ impl SessionState {
     }
 
     fn pressure_thresholds(&self) -> (f64, f64) {
-        let mut warn = std::env::var("OMNI_PRESSURE_WARN")
+        let mut warn = std::env::var("CONTEXERE_PRESSURE_WARN")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PRESSURE_WARNING_THRESHOLD);
-        let crit = std::env::var("OMNI_PRESSURE_CRITICAL")
+        let crit = std::env::var("CONTEXERE_PRESSURE_CRITICAL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PRESSURE_CRITICAL_THRESHOLD);
@@ -528,10 +528,10 @@ impl SessionState {
         match self.context_pressure {
             ContextPressure::Normal => None,
             ContextPressure::Warning => Some(format!(
-                "⚠️ OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
+                "⚠️ Contexere: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). Consider compacting after completing current subtask."
             )),
             ContextPressure::Critical => Some(format!(
-                "🚨 OMNI: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
+                "🚨 Contexere: Context ~{pct}% full (~{est_k}k/{win_k}k tokens). COMPACT NOW before continuing."
             )),
         }
     }

@@ -33,7 +33,7 @@ fn drop_legacy_source(settings: &mut Value) -> bool {
     packages.len() != before
 }
 
-const PACKAGE_SOURCE_ENV: &str = "OMNI_PI_PACKAGE_SOURCE";
+const PACKAGE_SOURCE_ENV: &str = "CONTEXERE_PI_PACKAGE_SOURCE";
 
 fn package_source() -> String {
     std::env::var(PACKAGE_SOURCE_ENV).unwrap_or_else(|_| DEFAULT_PACKAGE_SOURCE.to_string())
@@ -165,6 +165,10 @@ fn collect_omni_sources_recursive(val: &Value, out: &mut Vec<String>) {
 pub struct PiIntegration;
 
 impl AgentIntegration for PiIntegration {
+    fn present(&self) -> bool {
+        is_installed() || pi_settings_path().parent().is_some_and(|p| p.is_dir())
+    }
+
     /// Pi's `tool_result` handler returns replacement content (#688).
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
@@ -189,9 +193,12 @@ impl AgentIntegration for PiIntegration {
             "  {} Pi does not expose a package-removal command.",
             "ℹ".blue()
         );
-        crate::agent_report!("  {} To remove the OMNI Pi package manually:", "→".cyan());
         crate::agent_report!(
-            "    1. Edit {} and remove the OMNI package entry.",
+            "  {} To remove the Contexere Pi package manually:",
+            "→".cyan()
+        );
+        crate::agent_report!(
+            "    1. Edit {} and remove the Contexere package entry.",
             pi_settings_path().display()
         );
         crate::agent_report!("    2. Restart Pi to apply the changes.\n");
@@ -226,7 +233,7 @@ impl AgentIntegration for PiIntegration {
             if fix_mode {
                 let source = package_source();
                 crate::agent_report!(
-                    "   {:<15} installing OMNI Pi package...",
+                    "   {:<15} installing Contexere Pi package...",
                     "Fix:".bright_black()
                 );
                 if let Err(e) = run_install(&source) {
@@ -242,7 +249,7 @@ impl AgentIntegration for PiIntegration {
         let duplicates = snapshot.duplicate_sources();
         if duplicates.len() > 1 {
             crate::agent_report!(
-                "   {:<15} {} OMNI sources detected {}",
+                "   {:<15} {} Contexere sources detected {}",
                 "Duplicates:".bright_black(),
                 duplicates.len().to_string().red(),
                 "[WARNING]".yellow().bold()
@@ -251,7 +258,7 @@ impl AgentIntegration for PiIntegration {
                 crate::agent_report!("     {} {}", "•".yellow(), src.bright_black());
             }
             warnings.push(
-                "Multiple OMNI Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
+                "Multiple Contexere Pi sources detected. This may cause double-loading. Remove duplicates manually.".to_string(),
             );
         }
 
@@ -307,7 +314,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     );
 
     // Only once the new source is in, so a failed install leaves the old one working,
-    // and never when `OMNI_PI_PACKAGE_SOURCE` asked for the old one.
+    // and never when `CONTEXERE_PI_PACKAGE_SOURCE` asked for the old one.
     let paths = if is_legacy_source(source) {
         vec![]
     } else {
@@ -332,7 +339,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     let duplicates = snapshot.duplicate_sources();
     if duplicates.len() > 1 {
         crate::agent_report!(
-            "  {} {} OMNI-related sources detected in Pi settings:",
+            "  {} {} Contexere-related sources detected in Pi settings:",
             "⚠".yellow(),
             duplicates.len()
         );
@@ -346,7 +353,7 @@ fn run_install(source: &str) -> anyhow::Result<()> {
     }
 
     crate::agent_report!(
-        "  {} Restart Pi to activate the OMNI extension.\n",
+        "  {} Restart Pi to activate the Contexere extension.\n",
         "✓".green().bold()
     );
 

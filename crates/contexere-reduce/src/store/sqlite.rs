@@ -85,9 +85,9 @@ impl Store {
     }
 }
 
-/// The database `Store::open` uses: `OMNI_DB_PATH`, else the one under the data home.
+/// The database `Store::open` uses: `CONTEXERE_DB_PATH`, else the one under the data home.
 pub fn default_db_path() -> std::path::PathBuf {
-    std::env::var_os("OMNI_DB_PATH")
+    std::env::var_os("CONTEXERE_DB_PATH")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(paths::database_path)
 }
@@ -102,7 +102,7 @@ impl SqliteBackend {
         let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).context("Failed to create the data directory")?;
-            // Only a directory OMNI chose: `OMNI_DB_PATH` may point at a shared one (#631).
+            // Only a directory OMNI chose: `CONTEXERE_DB_PATH` may point at a shared one (#631).
             if parent == paths::data_home() || parent == paths::config_home() {
                 let _ = paths::restrict_to_owner(parent);
             }
@@ -1270,10 +1270,10 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            eprintln!("[omni:error] failed to record distillation: {}", e);
+            eprintln!("[contexere:error] failed to record distillation: {}", e);
             if e.to_string().contains("NOT NULL constraint failed") {
                 eprintln!(
-                    "[omni:error] hint: legacy 'content_type' column may be blocking inserts. OMNI will attempt auto-migration on next startup."
+                    "[contexere:error] hint: legacy 'content_type' column may be blocking inserts. Contexere will attempt auto-migration on next startup."
                 );
             }
         }
@@ -1314,7 +1314,7 @@ impl SqliteBackend {
         );
 
         if let Err(e) = res {
-            eprintln!("[omni:error] failed to record trace: {}", e);
+            eprintln!("[contexere:error] failed to record trace: {}", e);
         }
     }
 
@@ -1432,7 +1432,7 @@ impl SqliteBackend {
     /// row did not land: a handle for missing content breaks the one promise this
     /// store makes (#388). The key is the content address only (#274). A repeat
     /// refreshes `ts` so live content does not age out; `retrieved` is untouched.
-    /// `whole_len` is the payload `content` was cut from, so `omni retrieve` can
+    /// `whole_len` is the payload `content` was cut from, so `contexere retrieve` can
     /// say whether it holds the whole answer (#627).
     pub fn store_rewind(&self, content: &str, whole_len: usize) -> Option<String> {
         // The reserved example handle must never name real content (#583).
@@ -1474,7 +1474,7 @@ impl SqliteBackend {
         let cmd = self
             .find_command_for_hash(hash)
             .unwrap_or_else(|| "unknown".to_string());
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
         let family = crate::util::command_family::command_family(&cmd);
         self.record_retrieve_event(&family, hash, &agent_id);
@@ -2364,9 +2364,9 @@ impl SqliteBackend {
         );
 
         // Traces get a shorter window: two orders of magnitude heavier per row, and
-        // only the newest are read (#165). `OMNI_TRACE_RETENTION_DAYS` holds it open
+        // only the newest are read (#165). `CONTEXERE_TRACE_RETENTION_DAYS` holds it open
         // during a measurement (#440); an unparseable value is ignored.
-        let retention_days = std::env::var("OMNI_TRACE_RETENTION_DAYS")
+        let retention_days = std::env::var("CONTEXERE_TRACE_RETENTION_DAYS")
             .ok()
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(TRACE_RETENTION_DAYS);
@@ -2529,7 +2529,7 @@ impl SqliteBackend {
     /// is whether anyone asks (#272). `omni_retrieve` keeps its own rule, since its
     /// counter feeds the adaptive rate.
     pub fn record_memory_read(&self, tool: &str, subject: &str) {
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
         self.record_retrieve_event(tool, crate::util::text::safe_slice(subject, 60), &agent_id);
     }
@@ -3378,8 +3378,8 @@ mod tests {
     #[test]
     fn prunes_old_retrieve_events_and_keeps_feedback() {
         let (store, _dir) = get_temp_store();
-        store.record_retrieve_event("omni retrieve", "aaaa", "a");
-        store.record_retrieve_event("omni retrieve", "bbbb", "a");
+        store.record_retrieve_event("contexere retrieve", "aaaa", "a");
+        store.record_retrieve_event("contexere retrieve", "bbbb", "a");
         let conn = store.pool.get().unwrap();
         conn.execute(
             "INSERT INTO retrieval_feedback (query, hit_source, hit_key, project_hash, ts)
@@ -3405,7 +3405,7 @@ mod tests {
     fn prunes_once_a_day() {
         let (store, _dir) = get_temp_store();
         let old_event = |store: &Store| {
-            store.record_retrieve_event("omni retrieve", "aaaa", "a");
+            store.record_retrieve_event("contexere retrieve", "aaaa", "a");
             let conn = store.pool.get().expect("open connection to age the event");
             conn.execute("UPDATE retrieve_events SET ts = ts - 40 * 86400", [])
                 .expect("age the event");
@@ -3870,7 +3870,7 @@ mod tests {
             &[fold()],
             &[marker("bbbb")],
         );
-        store.record_retrieve_event("omni retrieve", "aaaa", "claude_code");
+        store.record_retrieve_event("contexere retrieve", "aaaa", "claude_code");
 
         let rates = store.marker_retrieve_rates(0);
         let read = rates

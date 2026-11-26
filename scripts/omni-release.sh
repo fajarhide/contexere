@@ -19,7 +19,7 @@ fail() { echo -e "${RED}✗${NC} $*"; exit 1; }
 info() { echo -e "${CYAN}▸${NC} $*"; }
 
 echo "═══════════════════════════════════════"
-echo " OMNI Release: ${TAG}"
+echo " Contexere Release: ${TAG}"
 echo "═══════════════════════════════════════"
 
 # ─── Pre-flight checks ──────────────────

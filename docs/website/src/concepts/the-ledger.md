@@ -18,13 +18,13 @@ A run of consecutive lines that were all emitted earlier becomes one marker nami
 the count and a handle. Everything else passes through byte for byte.
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 In a `Read`, the marker is followed by one `⋮` per line it replaced:
 
 ```
-[OMNI: 40 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 40 lines already shown, contexere retrieve 0000000000000000]
 ⋮
 ⋮      (38 more)
 ⋮

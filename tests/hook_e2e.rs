@@ -10,7 +10,7 @@ fn omni_binary() -> String {
 fn omni_cmd() -> (Command, tempfile::NamedTempFile) {
     let temp_db = tempfile::NamedTempFile::new().expect("Failed to create temp DB");
     let mut cmd = Command::new(omni_binary());
-    cmd.env("OMNI_DB_PATH", temp_db.path());
+    cmd.env("CONTEXERE_DB_PATH", temp_db.path());
     (cmd, temp_db)
 }
 
@@ -195,7 +195,7 @@ fn test_pipe_mode_via_binary() {
 #[test]
 fn before_agent_start_returns_valid_hook_json() {
     // Use a single shared temp DB across the two child invocations
-    // by sharing OMNI_DB_PATH explicitly.
+    // by sharing CONTEXERE_DB_PATH explicitly.
     let temp_db = tempfile::NamedTempFile::new().expect("Failed to create temp DB");
     let db_path = temp_db.path().to_path_buf();
 
@@ -208,7 +208,7 @@ fn before_agent_start_returns_valid_hook_json() {
 
     let mut seed_child = Command::new(omni_binary())
         .arg("--session-start")
-        .env("OMNI_DB_PATH", &db_path)
+        .env("CONTEXERE_DB_PATH", &db_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -241,8 +241,8 @@ fn before_agent_start_returns_valid_hook_json() {
 
     let mut child = Command::new(omni_binary())
         .arg("--before-agent-start")
-        .env("OMNI_DB_PATH", &db_path)
-        .env("OMNI_CONTINUE", "1")
+        .env("CONTEXERE_DB_PATH", &db_path)
+        .env("CONTEXERE_CONTINUE", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -453,7 +453,7 @@ fn test_cli_stats_no_crash() {
 
     let output = Command::new(omni_binary())
         .arg("stats")
-        .env("OMNI_DB_PATH", &temp_db)
+        .env("CONTEXERE_DB_PATH", &temp_db)
         .output()
         .expect("Failed to run");
 

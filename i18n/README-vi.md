@@ -21,7 +21,7 @@
 
 ---
 
-> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Lệnh `omni` vẫn hoạt động đến bản 0.9.0; chạy `contexere init --<host>` cho từng agent bạn dùng để chuyển bản cài cũ sang. Từ bản 0.8.6, dữ liệu của bạn tự chuyển sang `~/.contexere`.
+> OMNI nay là **Contexere**, tiếng Latinh nghĩa là "dệt lại với nhau" và là gốc của từ "context". Bản 0.9.0 đã bỏ lệnh `omni` và các tên cũ khác; nếu agent nào vẫn gọi `omni`, hãy chạy `contexere init --<host>` cho agent đó. Dữ liệu của bạn tự chuyển sang `~/.contexere`.
 
 ## Hướng đi
 
@@ -55,7 +55,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Các bản cài sẵn vẫn hoạt động dưới tên `omni`, cùng một chương trình, đến bản 0.9.0. Chạy `contexere init --<host>` cho từng agent để chuyển sang.
+Bản 0.9.0 không cài lệnh `omni`. Agent nào có hook vẫn gọi lệnh này cần chạy `contexere init --<host>`.
 
 Trong Claude Code, chạy `/plugin marketplace add fajarhide/contexere` rồi `/plugin install contexere@omni` để thêm một skill tự cài đặt và kiểm tra giúp bạn.
 

@@ -41,7 +41,7 @@ pub fn process_payload(
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    let agent_id = std::env::var("OMNI_AGENT_ID")
+    let agent_id = std::env::var("CONTEXERE_AGENT_ID")
         .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
     let top_filter = state
@@ -74,7 +74,7 @@ pub fn process_payload(
     let state_json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
     store.sync_agent_session(&agent_id, &state.session_id, &project_hash, &state_json);
 
-    if std::env::var("OMNI_EXPORT_CSV")
+    if std::env::var("CONTEXERE_EXPORT_CSV")
         .map(|v| v == "1")
         .unwrap_or(false)
     {

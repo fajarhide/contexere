@@ -27,7 +27,7 @@ pub fn process_payload(
     let parsed: HookInput = match serde_json::from_str(input_str) {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("[omni] parse error");
+            eprintln!("[contexere] parse error");
             return None;
         }
     };
@@ -106,7 +106,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     // footer 100.
 
     let mut out = format!(
-        "⚡ OMNI Context Snapshot, preserved before compaction\n\
+        "⚡ Contexere Context Snapshot, preserved before compaction\n\
         CRITICAL: This is injected context. Do NOT re-read files listed here, \n\
         use this summary directly. File contents below are accurate as of this session.\n\
         \n\
@@ -132,7 +132,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
         };
 
         out.push_str(&format!(
-            "\n## OMNI Loop Checkpoint\n\
+            "\n## Contexere Loop Checkpoint\n\
             - **Loop ID:** {}\n\
             - **Iteration:** {}\n\
             - **Goal:** {}\n\
@@ -198,7 +198,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     };
 
     out.push_str(&format!(
-        "\n## OMNI Session ROI\n\
+        "\n## Contexere Session ROI\n\
         Tokens saved this session: ~{}\n\
         Commands distilled: {} (recent)\n\
         Top command: {} ({:.1}% reduction)\n\
@@ -234,7 +234,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     out.push_str(&crate::hooks::session_start::read_pinned_files(&cwd));
 
     out.push_str(
-        "\nREMINDER: The above is OMNI's session context snapshot. Trust this data, \n\
+        "\nREMINDER: The above is Contexere's session context snapshot. Trust this data, \n\
         it was computed from actual command outputs. Do not re-run commands \n\
         to verify information already present here.\n",
     );
@@ -247,7 +247,7 @@ fn build_summary(state: &SessionState, _store: &Store) -> String {
     if current_tokens > 6000 {
         let target_chars = ((6000.0 / current_tokens as f64) * out.len() as f64) as usize;
         crate::util::text::safe_truncate(&mut out, target_chars.saturating_sub(50));
-        out.push_str("\n... [OMNI: Intelligently omitted to stay within 6000 token budget]\n");
+        out.push_str("\n... [CONTEXERE: Intelligently omitted to stay within 6000 token budget]\n");
     }
 
     out
@@ -366,7 +366,7 @@ mod tests {
         });
 
         let _ = process_payload(&input.to_string(), store.clone(), session);
-        assert!(recorded_snapshot(&store, "123").contains("OMNI Context Snapshot"));
+        assert!(recorded_snapshot(&store, "123").contains("Contexere Context Snapshot"));
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod tests {
 
         let events = store.search_session_events(&session_id, "PreCompact", 10);
         assert_eq!(events.len(), 1);
-        assert!(events[0].contains("OMNI Context Snapshot"));
+        assert!(events[0].contains("Contexere Context Snapshot"));
     }
 
     #[test]

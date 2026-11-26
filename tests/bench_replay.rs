@@ -14,14 +14,14 @@
 //!
 //! Ignored by default, it needs a populated trace DB. Run it explicitly:
 //!
-//!   OMNI_BENCH_DB=~/.omni/omni.db \
+//!   CONTEXERE_BENCH_DB=~/.omni/omni.db \
 //!     cargo test --release --test bench_replay -- --ignored --nocapture
 //!
 //! Knobs, all optional:
-//!   OMNI_BENCH_ALL=1            replay terminal traces too (not the figure to publish)
-//!   OMNI_BENCH_SINCE=YYYY-MM-DD restrict to traces at or after that UTC date
-//!   OMNI_BENCH_NO_TOKENS=1      skip tokenization (it is the slow half)
-//!   OMNI_BENCH_RTK / _LEANCTX / _CAVEMAN / _HEADROOM
+//!   CONTEXERE_BENCH_ALL=1            replay terminal traces too (not the figure to publish)
+//!   CONTEXERE_BENCH_SINCE=YYYY-MM-DD restrict to traces at or after that UTC date
+//!   CONTEXERE_BENCH_NO_TOKENS=1      skip tokenization (it is the slow half)
+//!   CONTEXERE_BENCH_RTK / _LEANCTX / _CAVEMAN / _HEADROOM
 //!                               each names a competitor binary and adds one arm to
 //!                               the head to head. Unset means the arm is absent from
 //!                               the table rather than printed as a zero, so CI never
@@ -51,7 +51,7 @@ const MIN_REPEAT_LINE: usize = 12;
 /// `Origin` is private, so this is a copy, and a copy that drifts would make the
 /// attribution below quietly wrong. `session_marker_len_matches_the_ledger`
 /// re-derives it from the ledger's own output and fails if the two part ways.
-const SESSION_MARKER_LEN: u64 = 62;
+const SESSION_MARKER_LEN: u64 = 72;
 
 /// A trace, with the two identities repetition is scoped by.
 struct Trace {
@@ -191,7 +191,7 @@ struct Counter(Option<tiktoken_rs::CoreBPE>);
 
 impl Counter {
     fn new() -> Self {
-        if std::env::var("OMNI_BENCH_NO_TOKENS").is_ok() {
+        if std::env::var("CONTEXERE_BENCH_NO_TOKENS").is_ok() {
             return Self(None);
         }
         Self(Some(
@@ -501,7 +501,7 @@ print(total)
 /// The module file behind an installed `headroom`, given whatever the caller
 /// named: the file itself, or the command they actually have.
 ///
-/// `OMNI_BENCH_HEADROOM` documents a path inside headroom's own tree, and what a
+/// `CONTEXERE_BENCH_HEADROOM` documents a path inside headroom's own tree, and what a
 /// person has is the console script, so naming `headroom` handed
 /// `spec_from_file_location` something it cannot read and the arm never ran once
 /// (#711). The script's shebang names the interpreter whose site-packages hold
@@ -578,18 +578,18 @@ fn base_command(cmd: &str) -> String {
         .to_string()
 }
 
-/// `OMNI_BENCH_SINCE=YYYY-MM-DD` as a unix timestamp, or 0 for the whole corpus.
+/// `CONTEXERE_BENCH_SINCE=YYYY-MM-DD` as a unix timestamp, or 0 for the whole corpus.
 ///
 /// The doc's headline (43.3% all-time) and its recent window (5.6% for
 /// 2026-08-01 onward) are the same measurement over different rows, and
 /// conflating them is the mistake section 1 of the direction doc exists to
 /// correct. One env var keeps both reproducible from one harness.
 fn since_ts() -> i64 {
-    let Ok(day) = std::env::var("OMNI_BENCH_SINCE") else {
+    let Ok(day) = std::env::var("CONTEXERE_BENCH_SINCE") else {
         return 0;
     };
     chrono::NaiveDate::parse_from_str(&day, "%Y-%m-%d")
-        .expect("OMNI_BENCH_SINCE must be YYYY-MM-DD")
+        .expect("CONTEXERE_BENCH_SINCE must be YYYY-MM-DD")
         .and_hms_opt(0, 0, 0)
         .expect("midnight")
         .and_utc()
@@ -602,19 +602,19 @@ fn replay_execution_traces_net_savings() {
     // Resolve the corpus DB from the REAL home before we repoint HOME below.
     // Build the path with PathBuf, not a hardcoded `/` (CLAUDE.md cross-platform
     // rule 1), review of #202.
-    let db = std::env::var("OMNI_BENCH_DB").unwrap_or_else(|_| {
+    let db = std::env::var("CONTEXERE_BENCH_DB").unwrap_or_else(|_| {
         std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
             .join(".omni")
             .join("omni.db")
             .to_string_lossy()
             .into_owned()
     });
-    // #704. `OMNI_BENCH_CORPUS` names a frozen corpus and replaces the DB as the
+    // #704. `CONTEXERE_BENCH_CORPUS` names a frozen corpus and replaces the DB as the
     // source. It exists because `TRACE_RETENTION_DAYS` is 7, so replaying the DB
     // measures a different input every week and no release-over-release delta was
     // ever attributable to the code. Resolved from the real HOME, like the two
     // paths above, because HOME is repointed at a temp dir a few lines down.
-    let corpus = std::env::var("OMNI_BENCH_CORPUS").ok();
+    let corpus = std::env::var("CONTEXERE_BENCH_CORPUS").ok();
     let since = since_ts();
     // Also from the real home, and for the same reason. caveman resolves its own
     // Go binaries under `$HOME/.caveman/bin`, so with HOME repointed below it
@@ -641,7 +641,7 @@ fn replay_execution_traces_net_savings() {
     // #202). If a second test is ever added here, serialize env access first.
     unsafe {
         std::env::set_var("HOME", tmp_home.path());
-        std::env::remove_var("OMNI_PASSTHROUGH");
+        std::env::remove_var("CONTEXERE_PASSTHROUGH");
     }
 
     // The frozen corpus is already filtered to model-facing traces and already in
@@ -694,7 +694,7 @@ fn replay_execution_traces_net_savings() {
     });
 
     if from_corpus.is_none() && !std::path::Path::new(&db).exists() {
-        eprintln!("SKIP: no trace DB at {db} (set OMNI_BENCH_DB or OMNI_BENCH_CORPUS)");
+        eprintln!("SKIP: no trace DB at {db} (set CONTEXERE_BENCH_DB or CONTEXERE_BENCH_CORPUS)");
         return;
     }
 
@@ -740,7 +740,7 @@ fn replay_execution_traces_net_savings() {
 
     // A frozen corpus answers all three of these itself: it was filtered to
     // model-facing traces when it was built, so there is no terminal population
-    // to choose between and `OMNI_BENCH_ALL` has nothing to widen to. Asking the
+    // to choose between and `CONTEXERE_BENCH_ALL` has nothing to widen to. Asking the
     // empty in-memory DB instead would return zero rows and report a clean 0.0%,
     // which is the shape of failure this file already documents twice.
     let (rows, total_traces, use_everything) = match from_corpus {
@@ -752,7 +752,7 @@ fn replay_execution_traces_net_savings() {
             let model_facing = fetch("AND agent_id IS NOT NULL AND agent_id != 'terminal'");
             let everything = fetch("");
             let total = everything.len();
-            let all = std::env::var("OMNI_BENCH_ALL").is_ok() || model_facing.is_empty();
+            let all = std::env::var("CONTEXERE_BENCH_ALL").is_ok() || model_facing.is_empty();
             (if all { everything } else { model_facing }, total, all)
         }
     };
@@ -783,13 +783,13 @@ fn replay_execution_traces_net_savings() {
     let ledger_store =
         contexere::store::sqlite::Store::open_path(&ledger_dir.path().join("ledger.db")).ok();
     let (mut ledger_total, mut ledger_calls) = (0u64, 0u64);
-    // #448. `OMNI_BENCH_PROJECT=off` drops the project scope so the two can be
+    // #448. `CONTEXERE_BENCH_PROJECT=off` drops the project scope so the two can be
     // measured apart. There is no env var for the floor: it is
     // `guard::limits::PROJECT_FLOOR_MULT`, and changing the arm means changing
-    // the constant. An `OMNI_PROJECT_FLOOR_MULT` was advertised here and read by
+    // the constant. An `CONTEXERE_PROJECT_FLOOR_MULT` was advertised here and read by
     // nothing but this file's own reporting line, so setting it relabelled the
     // output without moving the arm (#472).
-    let project_scope = std::env::var("OMNI_BENCH_PROJECT").ok().as_deref() != Some("off");
+    let project_scope = std::env::var("CONTEXERE_BENCH_PROJECT").ok().as_deref() != Some("off");
     // #450's three gates, in repeated bytes the ledger never got to claim.
     let mut gap_seen = GapSeen::default();
     let (mut gap_structured, mut gap_under_floor, mut gap_processed) = (0u64, 0u64, 0u64);
@@ -800,35 +800,35 @@ fn replay_execution_traces_net_savings() {
     // Every run of already-seen lines, so the marker's own size can be priced
     // as the variable it is rather than assumed.
     let mut run_sizes: Vec<u64> = Vec::new();
-    // P4's head-to-head. Off unless `OMNI_BENCH_RTK` names an rtk binary, so CI
+    // P4's head-to-head. Off unless `CONTEXERE_BENCH_RTK` names an rtk binary, so CI
     // never needs a competitor installed to run this benchmark.
-    let rtk = std::env::var("OMNI_BENCH_RTK").ok();
+    let rtk = std::env::var("CONTEXERE_BENCH_RTK").ok();
     let (mut rtk_total, mut rtk_claimed, mut rtk_marked) = (0u64, 0u64, 0u64);
     let rtk_ledger_dir = tempfile::tempdir().expect("rtk ledger home");
     let rtk_ledger_store =
         contexere::store::sqlite::Store::open_path(&rtk_ledger_dir.path().join("ledger.db")).ok();
     let mut rtk_ledger_total = 0u64;
     // Second competitor arm, same rule: off unless the binary is named.
-    let lean_ctx = std::env::var("OMNI_BENCH_LEANCTX").ok();
+    let lean_ctx = std::env::var("CONTEXERE_BENCH_LEANCTX").ok();
     let (mut lc_total, mut lc_claimed) = (0u64, 0u64);
-    // Fourth arm. `OMNI_BENCH_CAVEMAN` names `~/.caveman/bin/caveman-engine`, not a
+    // Fourth arm. `CONTEXERE_BENCH_CAVEMAN` names `~/.caveman/bin/caveman-engine`, not a
     // bare `caveman`, which does not exist. It is the first competitor that ships
     // both halves of OMNI's shape: `compress` is the filter tier and `retrieve
     // <handle>` recovers the content behind the handle it leaves in the output, so
     // it earns the same ledger-stacked row rtk gets rather than a filters-only row.
-    let caveman = std::env::var("OMNI_BENCH_CAVEMAN").ok();
+    let caveman = std::env::var("CONTEXERE_BENCH_CAVEMAN").ok();
     let (mut cm_total, mut cm_claimed) = (0u64, 0u64);
     let cm_ledger_dir = tempfile::tempdir().expect("caveman ledger home");
     let cm_ledger_store =
         contexere::store::sqlite::Store::open_path(&cm_ledger_dir.path().join("ledger.db")).ok();
     let mut cm_ledger_total = 0u64;
-    // Third arm, and the only one that is not a filter. `OMNI_BENCH_HEADROOM`
+    // Third arm, and the only one that is not a filter. `CONTEXERE_BENCH_HEADROOM`
     // names headroom's `transforms/cross_turn_dedup.py`, which is the same idea
     // as our ledger rather than the same idea as rtk: whole-conversation verbatim
     // dedup, not per-payload pattern stripping. So it is fed exactly what the
     // ledger is fed, post-filter output grouped by session in recorded order,
     // and compared against `ledger_total` rather than against `out_total`.
-    let headroom = std::env::var("OMNI_BENCH_HEADROOM").ok();
+    let headroom = std::env::var("CONTEXERE_BENCH_HEADROOM").ok();
     let mut hr_blocks: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut hr_structured = 0u64;
 
@@ -997,7 +997,7 @@ fn replay_execution_traces_net_savings() {
                 //
                 // Counting by string cannot be made correct from this side. A
                 // substring scan reads a surviving line that quotes the wording;
-                // filtering on the `[OMNI: ` prefix reads a surviving line that
+                // filtering on the `[CONTEXERE: ` prefix reads a surviving line that
                 // starts with it, and this repository writes exactly those lines
                 // into its changelog and its manual, so the corpus carries them.
                 // #557 is the same lesson one guard earlier: identity has to come
@@ -1136,7 +1136,7 @@ fn replay_execution_traces_net_savings() {
     if since > 0 {
         println!(
             "window:            traces at or after {}",
-            std::env::var("OMNI_BENCH_SINCE").unwrap_or_default()
+            std::env::var("CONTEXERE_BENCH_SINCE").unwrap_or_default()
         );
     }
     println!("bytes:             {raw_total} -> {out_total}");
@@ -1172,7 +1172,7 @@ fn replay_execution_traces_net_savings() {
             "                   (util::token_estimate ships 3.6 for Mixed; this is the check on it)"
         );
     } else {
-        println!("\n--- tokens: skipped (OMNI_BENCH_NO_TOKENS) ---");
+        println!("\n--- tokens: skipped (CONTEXERE_BENCH_NO_TOKENS) ---");
     }
 
     // #392. The ledger's input. Filtering and repetition are orthogonal: the
@@ -1288,7 +1288,7 @@ fn replay_execution_traces_net_savings() {
         v.sort_unstable();
         v.get(v.len() / 2).copied().unwrap_or(0)
     });
-    if let Ok(path) = std::env::var("OMNI_BENCH_RUNS_OUT") {
+    if let Ok(path) = std::env::var("CONTEXERE_BENCH_RUNS_OUT") {
         let dump: String = run_sizes.iter().map(|b| format!("{b}\n")).collect();
         let _ = std::fs::write(path, dump);
     }
@@ -1570,7 +1570,7 @@ fn session_marker_len_matches_the_ledger() {
 
     let marker = view
         .lines()
-        .find(|l| l.starts_with("[OMNI:"))
+        .find(|l| l.starts_with("[CONTEXERE:"))
         .expect("the fold emits a marker");
     // 40 lines, so the count is two digits, which is what the constant assumes.
     assert_eq!(marker.len() as u64, SESSION_MARKER_LEN);

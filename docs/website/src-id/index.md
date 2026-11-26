@@ -3,7 +3,7 @@
 **Agent AI Anda membayar untuk membaca keluaran yang sama berulang kali. Contexere
 menghentikan itu.**
 
-OMNI sekarang bernama Contexere, bahasa Latin untuk "menenun bersama" dan akar kata "context". Perintah `omni` tetap berfungsi sampai 0.9.0; [pindah dari nama lama](use/install.md#pindah-dari-nama-omni) cukup `contexere init --<host>` untuk setiap agent. Contexere sedang berkembang menjadi satu tempat untuk skill, key, dan memori semua agent yang kamu pakai, di mana agent memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
+OMNI sekarang bernama Contexere, bahasa Latin untuk "menenun bersama" dan akar kata "context". 0.9.0 menghapus nama lama; [pindah dari nama lama](use/install.md#pindah-dari-nama-omni) cukup `contexere init --<host>` untuk setiap agent yang masih memakainya. Contexere sedang berkembang menjadi satu tempat untuk skill, key, dan memori semua agent yang kamu pakai, di mana agent memakai key-mu tanpa pernah melihat isinya; hari ini yang dikirim adalah lapisan konteks dan token.
 
 Contexere adalah satu program kecil yang duduk di antara terminal Anda dan agent
 Anda. Jalannya lokal, tidak perlu API key, dan setelah terpasang Anda tidak
@@ -53,7 +53,7 @@ Yang dibaca agent Anda adalah ini:
 cargo test: 411 passed, 1 failed
   FAILED ledger::tests::renders_identical_bytes_for_identical_state
   assertion `left == right` failed at src/ledger/mod.rs:601
-[OMNI: 406 lines omitted, omni retrieve 0000000000000000 for full output]
+[CONTEXERE: 406 lines omitted, contexere retrieve 0000000000000000 for full output]
 ```
 
 Kegagalannya selamat. 406 baris `ok` tidak. Dan handle di baris terakhir itu
@@ -73,7 +73,7 @@ dua-duanya.
 Contexere ingat. Bacaan kedua kembali sebagai satu baris:
 
 ```
-[OMNI: 178 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 178 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 **Berkas 7,6 KB yang dibaca dua kali berharga 7,6 KB lalu 214 byte. Itu 97,2%

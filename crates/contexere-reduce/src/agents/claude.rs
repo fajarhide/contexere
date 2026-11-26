@@ -11,6 +11,10 @@ const POST_TOOL_MATCHER: &str = "Bash|Read|Grep|WebFetch";
 pub struct ClaudeIntegration;
 
 impl AgentIntegration for ClaudeIntegration {
+    fn present(&self) -> bool {
+        get_settings_path().parent().is_some_and(|p| p.is_dir())
+    }
+
     fn tier(&self) -> crate::agents::Tier {
         crate::agents::Tier::Full
     }
@@ -115,11 +119,11 @@ impl AgentIntegration for ClaudeIntegration {
                     crate::agent_report!(
                         "   {:<15} {} {}",
                         "Duplicate:".bright_black(),
-                        format!("{event} runs OMNI {count} times per call"),
+                        format!("{event} runs Contexere {count} times per call"),
                         "[WARNING]".yellow().bold()
                     );
                     warnings.push(format!(
-                        "{event} has {count} OMNI hooks. Re-run `contexere init --claude` to collapse them."
+                        "{event} has {count} Contexere hooks. Re-run `contexere init --claude` to collapse them."
                     ));
                 }
             }
@@ -203,8 +207,9 @@ impl AgentIntegration for ClaudeIntegration {
                         "Hooks:".bright_black(),
                         "[WARNING] no hooks found".yellow().bold()
                     );
-                    warnings
-                        .push("OMNI hooks are not configured. Run `contexere init`.".to_string());
+                    warnings.push(
+                        "Contexere hooks are not configured. Run `contexere init`.".to_string(),
+                    );
                     all_ok = false;
                 }
             }
@@ -235,7 +240,7 @@ impl AgentIntegration for ClaudeIntegration {
             .join(".claude.json");
 
         let mut mcp_found = false;
-        for p in &[mcp_path, mcpa_path] {
+        for p in &[&mcp_path, &mcpa_path] {
             if p.exists()
                 && let Ok(c) = fs::read_to_string(p)
                 && (c.contains("contexere --mcp")
@@ -253,6 +258,10 @@ impl AgentIntegration for ClaudeIntegration {
                 super::report_server_name(server_on_old_name(&c));
                 break;
             }
+        }
+        // Every file, not only the one the loop above stopped at (#1165).
+        if super::report_old_agent_id_in(self.name(), &[&mcp_path, &mcpa_path], warnings) {
+            all_ok = false;
         }
         if !mcp_found {
             // Absence is a state, not a fault (#757). The hooks do the shortening; the
@@ -584,7 +593,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
             "command": exe_path,
             "args": ["--mcp"],
             "env": {
-                "OMNI_AGENT_ID": "claude_code"
+                "CONTEXERE_AGENT_ID": "claude_code"
             },
         }),
     );
@@ -601,7 +610,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
                         "command": exe_path,
                         "args": ["--mcp"],
                         "env": {
-                            "OMNI_AGENT_ID": "claude_code"
+                            "CONTEXERE_AGENT_ID": "claude_code"
                         },
                     }),
                 );
@@ -626,7 +635,7 @@ pub fn install_mcp_server(exe_path: &str) -> anyhow::Result<()> {
                     "command": exe_path,
                     "args": ["--mcp"],
                     "env": {
-                        "OMNI_AGENT_ID": "claude_code"
+                        "CONTEXERE_AGENT_ID": "claude_code"
                     },
                 }),
             );
@@ -749,7 +758,7 @@ mod tests {
             assert_eq!(
                 ours.len(),
                 1,
-                "{event} carries {} OMNI hooks, so OMNI would run {} times: {ours:?}",
+                "{event} carries {} Contexere hooks, so Contexere would run {} times: {ours:?}",
                 ours.len(),
                 ours.len()
             );

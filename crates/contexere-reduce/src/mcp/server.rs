@@ -20,7 +20,7 @@ const MIN_COMMANDS_FOR_NOISE: usize = 2;
 const RUN_TIMEOUT_SECS: u64 = 60;
 
 fn run_timeout() -> std::time::Duration {
-    let secs = std::env::var("OMNI_RUN_TIMEOUT_SECS")
+    let secs = std::env::var("CONTEXERE_RUN_TIMEOUT_SECS")
         .ok()
         .and_then(|v| v.trim().parse::<u64>().ok())
         .filter(|s| *s > 0)
@@ -40,7 +40,7 @@ pub(crate) fn run_and_distill(
 }
 
 /// `run_and_distill` with the deadline passed in, so tests never set
-/// `OMNI_RUN_TIMEOUT_SECS` on the whole process.
+/// `CONTEXERE_RUN_TIMEOUT_SECS` on the whole process.
 fn run_with_timeout(
     command: &str,
     store: Arc<Store>,
@@ -169,7 +169,7 @@ pub struct OmniRetrieveParams {
     // Not a doc comment: schemars puts one in the advertised schema, and that
     // schema is billed on every session (#609).
     //
-    // Every marker says `omni retrieve <handle>`, and so does the CLI's usage
+    // Every marker says `contexere retrieve <handle>`, and so does the CLI's usage
     // line, so an agent that copies what it was told to run sent `handle` and got
     // `missing field hash` back (#826). The schema now names what the marker
     // names; `hash` stays as an alias so a caller written against the old field
@@ -289,7 +289,7 @@ pub struct OmniSignalExtractParams {
 impl OmniServer {
     #[tool(
         name = "omni_retrieve",
-        description = "Retrieve full content omitted by OMNI distillation (handle from the marker)"
+        description = "Retrieve full content omitted by Contexere distillation (handle from the marker)"
     )]
     pub async fn omni_retrieve(&self, params: Parameters<OmniRetrieveParams>) -> String {
         let handle = params.0.handle;
@@ -516,7 +516,7 @@ impl OmniServer {
 
     #[tool(
         name = "omni_remember",
-        description = "Store important knowledge, decisions, or gotchas to OMNI's persistent memory"
+        description = "Store important knowledge, decisions, or gotchas to Contexere's persistent memory"
     )]
     pub async fn omni_remember(&self, params: Parameters<OmniRememberParams>) -> String {
         let content = params.0.content;
@@ -655,7 +655,7 @@ impl OmniServer {
             .and_then(|s| s.hot_files.get(&ctx.file_path).copied())
             .unwrap_or(0);
 
-        let mut out = format!("OMNI Context for {}\n", ctx.file_path);
+        let mut out = format!("Contexere Context for {}\n", ctx.file_path);
         if ctx.imports.is_empty() {
             out.push_str("Imports: none detected\n");
         } else {
@@ -692,7 +692,7 @@ impl OmniServer {
 
     #[tool(
         name = "omni_session",
-        description = "Manage OMNI session state manually (status | context | clear)"
+        description = "Manage Contexere session state manually (status | context | clear)"
     )]
     pub async fn omni_session(&self, params: Parameters<OmniSessionParams>) -> String {
         let action = params.0.action;
@@ -739,7 +739,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 format!(
-                    "OMNI Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
+                    "Contexere Session: {}\n{}Commands: {}\nTask: {}\nDomain: {}\nHot Files: {}\nLast Error: {}",
                     s.session_id, goal_str, s.command_count, task, domain, hot_str, err
                 )
             }
@@ -791,7 +791,7 @@ impl OmniServer {
                     .unwrap_or_else(|| "none".to_string());
 
                 let mut msg = format!(
-                    "{}{}[OMNI Context] Task: {}. Hot: {}. Error: {}",
+                    "{}{}[CONTEXERE Context] Task: {}. Hot: {}. Error: {}",
                     goal_str, last_session_str, task, hot_str, err
                 );
                 if msg.len() > 400 {
@@ -871,7 +871,7 @@ impl OmniServer {
         }
 
         let mut out = format!(
-            "OMNI Distillation History (last {}):\n\n",
+            "Contexere Distillation History (last {}):\n\n",
             conn_result.len()
         );
         for (i, row) in conn_result.iter().enumerate() {
@@ -895,7 +895,7 @@ impl OmniServer {
             "\nSession totals:\n  Commands: {} | Tokens saved: ~{} | Agent: {}\n",
             cmd_count,
             total_saved,
-            std::env::var("OMNI_AGENT_ID")
+            std::env::var("CONTEXERE_AGENT_ID")
                 .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id())
         ));
         out
@@ -946,7 +946,7 @@ impl OmniServer {
             return Self::render_folds(&folds);
         }
         let mut out = format!(
-            "OMNI Savings Explanation (last {} commands recorded):\n\n",
+            "Contexere Savings Explanation (last {} commands recorded):\n\n",
             rows.len()
         );
         for d in &rows {
@@ -1038,7 +1038,7 @@ impl OmniServer {
             );
         }
         let mut out = format!(
-            "OMNI Noise Analysis (from {} recent traces):\n\n",
+            "Contexere Noise Analysis (from {} recent traces):\n\n",
             traces.len()
         );
         out.push_str("Identified repetitive patterns:\n");
@@ -1053,7 +1053,7 @@ impl OmniServer {
             ));
         }
         out.push_str(
-            "\nThese are a finding, not a filter. OMNI's TOML filter layer was retired in #505 \
+            "\nThese are a finding, not a filter. Contexere's TOML filter layer was retired in #505 \
              after measuring at 2,018 bytes over 6,656 commands against 5 to 7 ms per hook, \
              so a recurring pattern here is the case for a distiller, not a config file.",
         );
@@ -1106,10 +1106,10 @@ impl OmniServer {
         let tilde = if is_actual { "" } else { "~" };
 
         format!(
-            "OMNI Token Budget Report:\n\
+            "Contexere Token Budget Report:\n\
              \n  Measurement Method: {}\n\
              \n  Raw processed:   {}{display_raw} tokens\
-             \n  After OMNI:      {}{display_filtered} tokens\
+             \n  After Contexere: {}{display_filtered} tokens\
              \n  Saved:           {}{display_saved} tokens ({overall_pct:.1}% reduction)\
              \n\
              \n  Commands processed: {}\
@@ -1153,7 +1153,7 @@ impl OmniServer {
             .unwrap_or_else(|_| "unknown".to_string());
 
         let project_hash = compute_project_hash_str(&project_path);
-        let my_agent = std::env::var("OMNI_AGENT_ID")
+        let my_agent = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
         let peers = self
@@ -1282,10 +1282,10 @@ impl OmniServer {
             .as_deref()
             .unwrap_or("general development");
         let domain = session.inferred_domain.as_deref().unwrap_or("unknown");
-        let agent_id = std::env::var("OMNI_AGENT_ID")
+        let agent_id = std::env::var("CONTEXERE_AGENT_ID")
             .unwrap_or_else(|_| crate::agents::multiagent::detect_agent_id());
 
-        let mut out = String::from("# OMNI Session Handoff\n\n");
+        let mut out = String::from("# Contexere Session Handoff\n\n");
         out.push_str(&format!("**Session:** {}\n", session.session_id));
         out.push_str(&format!("**Agent:** {}\n", agent_id));
         out.push_str(&format!("**Task:** {}\n", task));
@@ -1554,18 +1554,12 @@ impl OmniServer {
 
     fn active_tool_router() -> rmcp::handler::server::router::tool::ToolRouter<Self> {
         let agent_id = crate::agents::multiagent::detect_agent_id();
-        let router = Self::router_for(&agent_id);
-        if crate::legacy::invoked_as_omni() {
-            router
-        } else {
-            Self::with_prefix(router, "contexere")
-        }
+        Self::with_prefix(Self::router_for(&agent_id), "contexere")
     }
 
     /// Serve every `omni_*` tool as `<prefix>_*`. The tools keep their `omni_`
-    /// names inside, as policy and analytics key on them; `contexere` presents
-    /// them under its own name and `omni` as before, so a host registered
-    /// against `omni --mcp` sees what it saw (#876). Renamed rather than doubled,
+    /// names inside, as policy and analytics key on them. Since 0.9.0 the old
+    /// `omni` name serves `contexere_*` too (#1067). Renamed rather than doubled,
     /// so the advertised surface costs the same bytes.
     fn with_prefix(
         mut router: rmcp::handler::server::router::tool::ToolRouter<Self>,
@@ -1593,7 +1587,7 @@ impl rmcp::ServerHandler for OmniServer {}
 fn run_timeout_message(run: &str, command: &str, secs: u64) -> String {
     format!(
         "{run}: `{command}` did not finish within {secs}s and was abandoned. \
-         Run it outside OMNI, or set OMNI_RUN_TIMEOUT_SECS higher."
+         Run it outside Contexere, or set CONTEXERE_RUN_TIMEOUT_SECS higher."
     )
 }
 
@@ -1818,7 +1812,7 @@ mod tests {
         assert_eq!(output, "testing_payload");
     }
 
-    /// The marker says `omni retrieve <handle>` while older callers send `hash`;
+    /// The marker says `contexere retrieve <handle>` while older callers send `hash`;
     /// both must work (#826).
     #[tokio::test]
     async fn the_word_in_the_marker_and_the_old_field_both_deserialize() {
@@ -1866,7 +1860,7 @@ mod tests {
         let server = OmniServer { store, session };
         let out = server.omni_handoff().await;
         assert!(
-            out.contains("OMNI Session Handoff"),
+            out.contains("Contexere Session Handoff"),
             "should be markdown format"
         );
         assert!(out.contains("fix auth bug"), "should contain task");

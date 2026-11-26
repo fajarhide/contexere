@@ -17,7 +17,7 @@ fn assert_init_leaves_alone(flag: &str, config: &str) {
     let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["init", flag])
         .env("HOME", home.path())
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 
@@ -44,7 +44,7 @@ fn exits_1_after_installing_the_remaining_hosts() {
         .args(["init", "--claude", "--gemini"])
         .env("HOME", home.path())
         .env_remove("CLAUDE_CONFIG_DIR")
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 
@@ -62,7 +62,7 @@ fn exits_0_after_a_clean_install() {
     let status = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["init", "--gemini"])
         .env("HOME", home.path())
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init")
         .status;
@@ -79,7 +79,7 @@ fn init_all_exits_0_with_no_pi_and_writes_the_embedded_plugin() {
         .env("HOME", home.path())
         .env("PATH", home.path())
         .env_remove("CLAUDE_CONFIG_DIR")
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 
@@ -122,7 +122,7 @@ fn replaces_the_openclaw_plugin_under_the_old_id() {
     let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["init", "--openclaw"])
         .env("HOME", home.path())
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 
@@ -151,7 +151,7 @@ fn replaces_the_hermes_plugin_under_the_old_name() {
     let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["init", "--hermes"])
         .env("HOME", home.path())
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 
@@ -178,7 +178,7 @@ fn keeps_the_old_hermes_plugin_while_the_config_still_names_it() {
     let output = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .args(["init", "--hermes"])
         .env("HOME", home.path())
-        .env("OMNI_DB_PATH", home.path().join("d.db"))
+        .env("CONTEXERE_DB_PATH", home.path().join("d.db"))
         .output()
         .expect("run init");
 

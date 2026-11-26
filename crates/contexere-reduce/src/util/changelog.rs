@@ -4,7 +4,7 @@
 
 /// Count top-level bullets under `## [Unreleased]`. Only `- ` at column zero
 /// counts, so sub-headings and wrapped lines never inflate `omni doctor`.
-// Dead in the binary, which reads the result through `OMNI_UNRELEASED_ENTRIES`.
+// Dead in the binary, which reads the result through `CONTEXERE_UNRELEASED_ENTRIES`.
 #[allow(dead_code)]
 pub fn count_unreleased_entries(changelog: &str) -> usize {
     let mut in_section = false;
@@ -143,7 +143,7 @@ mod tests {
     /// either term from `build.rs` turns it red.
     #[test]
     fn the_compiled_total_matches_a_recount_of_this_repo() {
-        let compiled: usize = env!("OMNI_UNRELEASED_ENTRIES")
+        let compiled: usize = env!("CONTEXERE_UNRELEASED_ENTRIES")
             .parse()
             .expect("build.rs must stamp a number");
         // `cargo test` runs from the crate root, the directory `build.rs` read.

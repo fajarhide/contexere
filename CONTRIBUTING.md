@@ -41,7 +41,7 @@ first: it carries hostnames, account ids and keys more often than people expect.
 git clone https://github.com/fajarhide/contexere
 cd contexere
 cargo build
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+CONTEXERE_DB_PATH=/tmp/omni-test.db cargo test
 ```
 
 The toolchain is pinned in `rust-toolchain.toml`. `rustup` reads it automatically; a
@@ -50,8 +50,8 @@ so run `source "$HOME/.cargo/env"` first if you have both.
 
 `cargo install cargo-insta` for snapshot review.
 
-**Set `OMNI_DB_PATH` before running tests.** Parallel tests competing for
-`~/.omni/omni.db` cause SQLite locks: 79 seconds green against an isolated database,
+**Set `CONTEXERE_DB_PATH` before running tests.** Parallel tests competing for
+`~/.contexere/contexere.db` cause SQLite locks: 79 seconds green against an isolated database,
 433 seconds and then a hang against the live one.
 
 ## Naming: Contexere, not OMNI
@@ -60,17 +60,16 @@ The project was called OMNI until 0.8.0 (#876). Write **Contexere** in anything 
 person reads: docs, help text, output titles, issues, PRs and commit messages. The
 binary is `contexere`.
 
-Some old names stay on purpose, because something reads them. They go in 0.9.0
-(#1067), after 0.8.6 announces it; until then do not rename these outside that plan.
-User docs already teach the new names (`contexere`, `CONTEXERE_*`, `contexere_*`) and
-list these once, in the manual's install page under "Moving off the omni name":
+0.9.0 removed the old names (#1067). The manual lists them once, in the install page
+under "Moving off the omni name". What still says omni in the code only reads what an
+older install left behind, and nothing new is written under an old name:
 
-| Kept | Why |
+| Still read | Why |
 | --- | --- |
-| the `omni` command | existing hooks and MCP entries call it; it is the same program |
-| `[OMNI` markers and the `omni retrieve` hint | agents and skills parse them |
-| `OMNI_*` variables, `~/.omni`, `omni.db` | the code reads them; `CONTEXERE_*` is folded onto `OMNI_*` at startup and wins |
-| `omni_*` MCP tools when run as `omni` | a host registered against `omni --mcp` keeps calling them |
+| `~/.omni` and `omni.db` | the first run moves an older install's data to `~/.contexere/contexere.db` |
+| `[OMNI` markers | transcripts from before 0.9.0 carry them, and the post-hook must still know its own old output |
+| `OMNI_*` variables | ignored everywhere; `contexere doctor` lists each one still set |
+| `omni` in host configs | `contexere doctor` reports hooks and MCP entries that still call it, and `init` replaces them |
 
 ## What Contexere is trying to be
 
@@ -207,7 +206,7 @@ be shadowed by a regex that merely matched first.
 
 ## Measure before you build
 
-`~/.omni/omni.db` prices a proposal in one query, and the answer is often the opposite
+`~/.contexere/contexere.db` prices a proposal in one query, and the answer is often the opposite
 of the request.
 
 "Improve the python3 distiller" became two facts in two queries: `python3` was already
@@ -268,7 +267,7 @@ The CI matrix includes `windows-latest`. Four rules keep it green.
 ## Testing
 
 ```bash
-OMNI_DB_PATH=/tmp/omni-test.db cargo test
+CONTEXERE_DB_PATH=/tmp/omni-test.db cargo test
 cargo test --test hook_e2e
 cargo test --test savings_assertions
 cargo test --test security_tests
@@ -375,7 +374,7 @@ people expect.
 
 Read the **whole** distilled output before filing. Grepping it hides the group headers
 that often make the output lossless after all, and Contexere is non-deterministic against a
-warm database, so isolate `OMNI_DB_PATH` per run.
+warm database, so isolate `CONTEXERE_DB_PATH` per run.
 
 Three classes, and they are not equally urgent:
 

@@ -44,7 +44,7 @@ jobs:
         run: make ci
 
   upgrade:
-    name: upgrade from the last omni release
+    name: upgrade from the last 0.8 release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -58,20 +58,19 @@ jobs:
       - name: Build
         run: cargo build --locked
 
-      # Pinned to the last release under the old name, not `latest`: once
-      # contexere ships, `latest` is contexere and the test would compare it
-      # with itself (#876).
-      - name: Upgrade and downgrade against omni v0.7.13
+      # Pinned to the last 0.8.x release, not `latest`: once 0.9.0 ships, `latest`
+      # is this branch's own line and the test would compare it with itself (#1067).
+      - name: Upgrade from contexere v0.8.7
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd "$RUNNER_TEMP"
-          gh release download v0.7.13 --repo "$GITHUB_REPOSITORY" \
-            -p 'omni-v0.7.13-x86_64-unknown-linux-musl.tar.gz' -p SHA256SUMS
+          gh release download v0.8.7 --repo "$GITHUB_REPOSITORY" \
+            -p 'contexere-v0.8.7-x86_64-unknown-linux-musl.tar.gz' -p SHA256SUMS
           sha256sum -c --ignore-missing SHA256SUMS
-          tar xzf omni-v0.7.13-x86_64-unknown-linux-musl.tar.gz
+          mkdir old && tar xzf contexere-v0.8.7-x86_64-unknown-linux-musl.tar.gz -C old
           cd "$GITHUB_WORKSPACE"
-          scripts/upgrade_smoke.sh "$RUNNER_TEMP/omni" target/debug/contexere
+          scripts/upgrade_smoke.sh "$RUNNER_TEMP/old/contexere" target/debug/contexere
 
   test-matrix:
     name: cargo test (${{ matrix.os }})

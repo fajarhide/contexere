@@ -2,7 +2,7 @@
 
 **Your AI agent pays to read the same output over and over. Contexere stops that.**
 
-OMNI is now Contexere, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; [moving off the old name](use/install.md#moving-off-the-omni-name) takes `contexere init --<host>` for each agent. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
+OMNI is now Contexere, Latin for "to weave together" and the root of "context". 0.9.0 removed the old names; [moving off the old name](use/install.md#moving-off-the-omni-name) takes `contexere init --<host>` for each agent that still uses them. Contexere is growing into the one place for the skills, keys and memory of every agent you use, where your agent uses your keys without ever seeing them; today it ships the context and token layer.
 
 One small program between your terminal and your agent. Local, no API key, no proxy.
 Install it and you never type its name again.
@@ -59,7 +59,7 @@ remembered the first read. You pay full price both times.
 Contexere remembers. The second read comes back as one line:
 
 ```
-[OMNI: 178 lines already shown, omni retrieve 0000000000000000]
+[CONTEXERE: 178 lines already shown, contexere retrieve 0000000000000000]
 ```
 
 **A 7.6 KB file read twice costs 7.6 KB and then 214 bytes.** Nothing was deleted: those

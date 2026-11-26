@@ -43,14 +43,14 @@ pub fn distill_readfile_with_context(
 
     if distilled.len() < content.len() * 8 / 10 {
         let mut out = format!(
-            "[OMNI ReadFile: {} → distilled ({} lines)]\n{}",
+            "[CONTEXERE ReadFile: {} → distilled ({} lines)]\n{}",
             filepath, line_count, distilled
         );
         // The dependents guard: the repo walk happens here or not at all.
         let imported_by_count = imported_by();
         if imported_by_count > 3 {
             out.push_str(&format!(
-                "\n[OMNI Guard: {} is imported by {} files, changes here may have wide impact. Run `contexere context '{}'` for the full dependency map.]",
+                "\n[CONTEXERE Guard: {} is imported by {} files, changes here may have wide impact. Run `contexere context '{}'` for the full dependency map.]",
                 filepath, imported_by_count, filepath
             ));
         }
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(
             distill_readfile(&content, "notes.txt"),
             None,
-            "prose OMNI cannot parse has to reach the agent whole"
+            "prose Contexere cannot parse has to reach the agent whole"
         );
     }
 

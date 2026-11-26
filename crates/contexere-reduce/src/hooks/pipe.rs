@@ -67,7 +67,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         .or(detected_cmd.as_deref())
         .map(crate::cli::rewrite::strip_exec_wrapper);
 
-    // A recovery command is never distilled here either, or `omni retrieve` returns another marker
+    // A recovery command is never distilled here either, or `contexere retrieve` returns another marker
     // (#456).
     if command_to_use.is_some_and(crate::hooks::post_tool::returns_archived_bytes) {
         let mut passthrough = String::new();
@@ -106,7 +106,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
     ) {
         writeln!(
             error,
-            "[omni: Warning] Large input detected; processing may take longer..."
+            "[contexere: Warning] Large input detected; processing may take longer..."
         )?;
     }
 
@@ -118,7 +118,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 output.write_all(body.as_bytes())?;
                 writeln!(
                     error,
-                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                    "[CONTEXERE: {count} sensitive value(s) redacted in place]"
                 )?;
             }
             None => output.write_all(input_text.as_bytes())?,
@@ -136,7 +136,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
                 output.write_all(body.as_bytes())?;
                 writeln!(
                     error,
-                    "[OMNI: {count} sensitive value(s) redacted in place]"
+                    "[CONTEXERE: {count} sensitive value(s) redacted in place]"
                 )?;
             }
             None => output.write_all(input_text.as_bytes())?,
@@ -162,7 +162,7 @@ pub fn run_inner<R: Read, W: Write, E: Write>(
         Some((body, count)) => {
             writeln!(
                 error,
-                "[OMNI: {count} sensitive value(s) redacted in place]"
+                "[CONTEXERE: {count} sensitive value(s) redacted in place]"
             )?;
             body
         }
@@ -228,7 +228,7 @@ fn read_input<R: Read, W: Write, E: Write>(
             dropped += std::io::copy(&mut input, &mut std::io::sink())?;
             writeln!(
                 error,
-                "[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]"
+                "[CONTEXERE: input passed 16 MB; the last {dropped} bytes were not delivered]"
             )?;
             break;
         }
@@ -266,7 +266,7 @@ fn transcript_begin<E: Write>(
         if let Err(e) = transcript.append_entry(entry)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript append error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript append error: {}", e);
         }
     }
 }
@@ -384,7 +384,7 @@ fn distill(
 
         let marker = if input_text.len() > crate::guard::limits::MAX_REWIND_BYTES {
             format!(
-                "\n[OMNI: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
+                "\n[CONTEXERE: {lost} omitted, full output not archived: {} bytes over the {} byte rewind cap]\n",
                 input_text.len(),
                 crate::guard::limits::MAX_REWIND_BYTES
             )
@@ -394,19 +394,21 @@ fn distill(
                 format!(
                     "\n{} {} {} {}. The hash {} stores the full output in RewindStore for retrieval.\n",
                     "⏺".cyan(),
-                    "OMNI".bold().bright_white(),
+                    "Contexere".bold().bright_white(),
                     "distilled".bright_green(),
                     lost,
                     hash.cyan().bold()
                 )
             } else {
-                format!("\n[OMNI: {lost} omitted, omni retrieve {hash} for full output]\n")
+                format!(
+                    "\n[CONTEXERE: {lost} omitted, contexere retrieve {hash} for full output]\n"
+                )
             };
             r_hash = Some(hash);
             marker
         } else {
             // Not archived, so no handle (#388).
-            format!("\n[OMNI: {lost} omitted, full output not archived]\n")
+            format!("\n[CONTEXERE: {lost} omitted, full output not archived]\n")
         };
 
         // A marker that loses the guardrail costs more than the cut saved (#268, #269).
@@ -536,17 +538,17 @@ fn persist<E: Write>(
         if let Err(e) = std::fs::create_dir_all(&cache_dir)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache dir creation error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache dir creation error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_input.txt"), &result.input_text)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache input write error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache input write error: {}", e);
         }
         if let Err(e) = std::fs::write(cache_dir.join("last_output.txt"), result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] cache output write error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] cache output write error: {}", e);
         }
     }
 
@@ -555,13 +557,13 @@ fn persist<E: Write>(
         if let Err(e) = transcript.mark_last_completed(result.best_output())
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript complete error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript complete error: {}", e);
         }
         if let Some(guard) = session.as_ref().and_then(|m| m.lock().ok())
             && let Err(e) = transcript.snapshot_state(&guard)
             && cfg!(debug_assertions)
         {
-            let _ = writeln!(error, "[omni:debug] transcript snapshot error: {}", e);
+            let _ = writeln!(error, "[contexere:debug] transcript snapshot error: {}", e);
         }
     }
 }
@@ -571,7 +573,7 @@ fn persist<E: Write>(
 fn resolve_pipe_agent_id() -> String {
     pipe_agent_id_from(
         HOST_THAT_REWROTE.get().map(String::as_str),
-        std::env::var("OMNI_AGENT_ID").ok().as_deref(),
+        std::env::var("CONTEXERE_AGENT_ID").ok().as_deref(),
     )
 }
 
@@ -636,7 +638,7 @@ fn emit_output<W: Write, E: Write>(
         return Ok(());
     }
 
-    if std::env::var("OMNI_OUTPUT_JSON").is_ok() {
+    if std::env::var("CONTEXERE_OUTPUT_JSON").is_ok() {
         let tokens_saved = if result.input_text.len() > result.best_output().len() {
             (result.input_text.len() - result.best_output().len()) / 4
         } else {
@@ -671,7 +673,7 @@ fn emit_output<W: Write, E: Write>(
             crate::cli::stats::format_bytes(result.best_output().len() as u64).green(),
             elapsed.to_string().bright_black()
         );
-        writeln!(error, "{} {}", "[OMNI Active]".bold().cyan(), msg)?;
+        writeln!(error, "{} {}", "[CONTEXERE Active]".bold().cyan(), msg)?;
     }
 
     Ok(())
@@ -798,7 +800,7 @@ mod tests {
         );
     }
 
-    /// An empty flag or `OMNI_AGENT_ID` is not an identity.
+    /// An empty flag or `CONTEXERE_AGENT_ID` is not an identity.
     #[test]
     fn falls_through_when_a_source_is_present_but_empty() {
         assert_eq!(
@@ -865,7 +867,7 @@ mod tests {
             "a lossy reply must be smaller than the bytes it replaces"
         );
         assert!(
-            delivered.contains("omni retrieve "),
+            delivered.contains("contexere retrieve "),
             "the caller cannot call what it was not told: {delivered}"
         );
     }
@@ -1032,7 +1034,9 @@ mod tests {
         let dropped = input.len() - kept.len();
         assert_eq!(
             String::from_utf8(err).expect("utf8"),
-            format!("[OMNI: input passed 16 MB; the last {dropped} bytes were not delivered]\n")
+            format!(
+                "[CONTEXERE: input passed 16 MB; the last {dropped} bytes were not delivered]\n"
+            )
         );
     }
 
@@ -1110,7 +1114,7 @@ omni";
         );
     }
 
-    /// `omni exec omni retrieve` is not distilled (#456).
+    /// `omni exec contexere retrieve` is not distilled (#456).
     #[test]
     fn hands_a_retrieval_back_untouched() {
         let input: String = (0..200)
@@ -1125,7 +1129,7 @@ omni";
             &mut err,
             None,
             None,
-            Some("omni retrieve 0000000000000000"),
+            Some("contexere retrieve 0000000000000000"),
         )
         .expect("must succeed");
 

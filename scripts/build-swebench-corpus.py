@@ -10,7 +10,7 @@ instance, and the instance list is written into the manifest.
 **No model, no key, no container, no spend.** The commands are a fixed script, not
 what an agent chose, so this measures compression on realistic payloads and says
 nothing about task success. The arm that answers task success runs a real agent
-against both `OMNI_PASSTHROUGH` settings and costs money; it is deliberately not
+against both `CONTEXERE_PASSTHROUGH` settings and costs money; it is deliberately not
 here.
 
 **Every command has to be deterministic given the commit**, or the corpus hash
@@ -21,7 +21,7 @@ clock. Where order is not guaranteed the output is piped through `sort`.
 Usage:
 
     python3 scripts/build-swebench-corpus.py --instances 40 --stride 12
-    OMNI_BENCH_CORPUS=swebench-corpus/traces.jsonl ./scripts/bench.sh
+    CONTEXERE_BENCH_CORPUS=swebench-corpus/traces.jsonl ./scripts/bench.sh
 
 Output, under `swebench-corpus/`, which is not committed: the clones are large and
 the file is rebuildable from the manifest's instance list.

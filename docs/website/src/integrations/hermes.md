@@ -77,7 +77,7 @@ with every other host's and no figure about either is meaningful.
 contexere doctor
 
 hermes plugins list | grep contexere   # expect: listed as enabled
-hermes tools list | grep mcp_omni_     # the advertised set, after a restart
+hermes tools list | grep mcp_contexere_     # the advertised set, after a restart
 ```
 
 Then a functional check on a real fixture:
@@ -116,7 +116,7 @@ advertised by default, so it needs `CONTEXERE_MCP_TOOLS=all`.
 
 ```sh
 hermes plugins list | grep contexere
-hermes tools list | grep mcp_omni_
+hermes tools list | grep mcp_contexere_
 contexere doctor
 ```
 

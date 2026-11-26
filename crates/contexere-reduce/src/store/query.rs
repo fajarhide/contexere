@@ -86,8 +86,32 @@ pub enum OmniQLRow {
         timestamp: i64,
         command: String,
         route: String,
+        /// What Contexere did with the output, never whether the command worked:
+        /// it said "Completed successfully" over a failed build (#1180).
         summary: String,
+        input_bytes: i64,
+        output_bytes: i64,
+        /// For `contexere retrieve`, when the original was archived.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        handle: Option<String>,
     },
+}
+
+/// One timeline line about what Contexere did to a command's output. The route
+/// is ours, so nothing here may claim the command itself succeeded (#1180).
+fn timeline_summary(route: &str, input_bytes: i64, output_bytes: i64, archived: bool) -> String {
+    if route == "Error" {
+        return "Contexere hit an error and passed the output through unchanged".to_string();
+    }
+    if output_bytes >= input_bytes {
+        return "passed through unchanged".to_string();
+    }
+    let kept = if archived {
+        "; the original is kept"
+    } else {
+        ""
+    };
+    format!("shortened {input_bytes} bytes to {output_bytes}{kept}")
 }
 
 impl Store {
@@ -254,22 +278,24 @@ impl Store {
                 let now = chrono::Utc::now().timestamp();
                 let midnight = now - (now % 86400);
 
-                let mut entries: Vec<(i64, String, String, i64, i64)> = Vec::new();
+                type Entry = (i64, String, String, i64, i64, Option<String>);
+                let mut entries: Vec<Entry> = Vec::new();
                 {
                     let conn = self.pool.get()?;
                     let mut stmt = conn.prepare(
-                        "SELECT ts, command, route, input_bytes, output_bytes FROM distillations \
-                         WHERE ts >= ?1 ORDER BY ts ASC",
+                        "SELECT ts, command, route, input_bytes, output_bytes, rewind_hash \
+                         FROM distillations WHERE ts >= ?1 ORDER BY ts ASC",
                     )?;
                     let rows = stmt.query_map(
                         params![midnight],
-                        |row| -> Result<(i64, String, String, i64, i64), rusqlite::Error> {
+                        |row| -> Result<Entry, rusqlite::Error> {
                             Ok((
                                 row.get::<_, i64>(0)?,
                                 row.get::<_, String>(1)?,
                                 row.get::<_, String>(2)?,
                                 row.get::<_, i64>(3)?,
                                 row.get::<_, i64>(4)?,
+                                row.get::<_, Option<String>>(5)?.filter(|h| !h.is_empty()),
                             ))
                         },
                     )?;
@@ -279,23 +305,16 @@ impl Store {
                 }
 
                 let mut results = Vec::new();
-                for (ts, command, route, in_b, out_b) in entries {
-                    let summary = if route == "Error" {
-                        "Command failed with errors".to_string()
-                    } else {
-                        let savings = if in_b > 0 {
-                            (1.0 - out_b as f64 / in_b as f64) * 100.0
-                        } else {
-                            0.0
-                        };
-                        format!("Completed successfully (saved {:.0}% tokens)", savings)
-                    };
-
+                for (ts, command, route, in_b, out_b, handle) in entries {
+                    let summary = timeline_summary(&route, in_b, out_b, handle.is_some());
                     results.push(OmniQLRow::TimelineItem {
                         timestamp: ts,
                         command,
                         route,
                         summary,
+                        input_bytes: in_b,
+                        output_bytes: out_b,
+                        handle,
                     });
                 }
 

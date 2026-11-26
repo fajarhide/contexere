@@ -1,0 +1,276 @@
+/* Tokens from DESIGN.md, which takes them from the site (docs/website/theme/omni.css). */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-display: swap; src: url("fonts/ibm-plex-sans-600.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans Condensed"; font-weight: 600; font-display: swap; src: url("fonts/ibm-plex-sans-condensed-600.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-mono-400.woff2") format("woff2"); }
+
+:root {
+  --paper: #EEF0F6;
+  --panel: #E3E6F0;
+  --sunk: #E8EBF3;
+  --ink: #14172A;
+  --ink-soft: #565B78;
+  --rule: #CDD1E0;
+  --accent: #0E7462;
+  --warning: #7A4E00;
+
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-title: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius: 10px;
+  --gap: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14172A;
+    --panel: #1B1F36;
+    --sunk: #191C33;
+    --ink: #E6E8F2;
+    --ink-soft: #8F94B0;
+    --rule: #2C3150;
+    --accent: #3FD4B4;
+    --warning: #FFB000;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 15px/1.55 var(--font-body);
+}
+
+/* Every control says it can be used; a disabled one says it cannot. */
+button, summary, [role="tab"] { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+code, pre, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+code {
+  background: var(--sunk);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.muted { color: var(--ink-soft); }
+
+/* Header: the name, the three screens, and a way to ask again. */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+}
+.brand {
+  margin: 0;
+  font: 600 20px/1 var(--font-title);
+  letter-spacing: 0.01em;
+}
+.tabs { display: flex; gap: 4px; }
+.tab {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: 600 15px var(--font-body);
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.top .quiet { margin-left: auto; }
+
+.quiet {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--ink-soft);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: 400 14px var(--font-body);
+}
+.quiet:hover { background: var(--panel); }
+.quiet:active { background: var(--sunk); }
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+  border-top: 1px solid var(--rule);
+}
+.panel:focus-visible { outline-offset: 6px; }
+
+h2 { font: 600 13px var(--font-body); color: var(--ink-soft); margin: 32px 0 10px; }
+
+/* The one sentence each screen leads with. */
+.lead {
+  margin: 28px 0 8px;
+  max-width: 34ch;
+  font: 400 clamp(22px, 4vw, 28px)/1.3 var(--font-body);
+}
+.lead strong { font-weight: 600; color: var(--accent); }
+.lead + p { margin-top: 0; max-width: 60ch; }
+
+/* State messages: loading, empty and failed read differently. */
+.state { margin: 32px 0; max-width: 60ch; }
+.state h3 { font: 600 18px var(--font-body); margin: 0 0 6px; }
+.state.failed h3 { color: var(--warning); }
+.state[aria-busy="true"] h3::after {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-left: 10px;
+  vertical-align: -0.1em;
+  border: 2px solid var(--rule);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: turn 0.9s linear infinite;
+}
+@keyframes turn { to { transform: rotate(1turn); } }
+
+/* Agents that need a look: one card each, since each has its own fix. */
+.attention { display: grid; gap: 12px; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.card h3 { margin: 0 0 2px; font: 600 16px var(--font-body); }
+.card ul { margin: 8px 0 0; padding-left: 18px; }
+.card li + li { margin-top: 6px; }
+
+/* Working agents: a quiet list, nothing to do there. */
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.rows li:first-child { border-top: 1px solid var(--rule); }
+.rows .name { font-weight: 600; }
+
+details { margin-top: 28px; }
+summary { padding: 12px 0; color: var(--ink-soft); }
+summary:hover { color: var(--ink); }
+details p { max-width: 60ch; }
+
+/* The motif: what reached the agent, drawn inside what the command printed. */
+.kept {
+  position: relative;
+  height: 6px;
+  min-width: 80px;
+  border-radius: 3px;
+  background: var(--sunk);
+  border: 1px solid var(--rule);
+  overflow: hidden;
+}
+.kept span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 2px;
+  background: var(--ink-soft);
+}
+
+/* Savings */
+.periods { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 0; }
+.periods button[aria-pressed="true"] { border-color: var(--accent); background: var(--panel); font-weight: 600; }
+.figure-note { margin: 4px 0 0; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font: 600 13px var(--font-body); color: var(--ink-soft); padding: 8px 12px 8px 0; }
+td { padding: 10px 12px 10px 0; border-top: 1px solid var(--rule); vertical-align: middle; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.bar { width: 28%; }
+td.mono { white-space: nowrap; }
+
+/* Sortable headers: the whole label is the control, the arrow marks the order. */
+th:has(.sort) { padding: 0 12px 0 0; }
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: 600 13px var(--font-body);
+}
+.sort:hover { color: var(--ink); }
+th[aria-sort="ascending"] .sort, th[aria-sort="descending"] .sort { color: var(--ink); }
+.sort .arrow { color: var(--accent); }
+.table-wrap { overflow-x: auto; }
+
+/* Activity */
+.events { list-style: none; margin: 0; padding: 0; }
+.events li {
+  display: grid;
+  grid-template-columns: 4.5em 1fr auto;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+}
+.events time { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.events .what { min-width: 0; }
+.events .cmd { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.events .kept { grid-column: 2; max-width: 320px; }
+.events .quiet { grid-row: 1 / span 2; grid-column: 3; }
+
+dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+dialog::backdrop { background: rgb(10 12 24 / 0.55); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.dialog-head h2 { margin: 0; font-size: 16px; color: var(--ink); }
+dialog pre {
+  max-height: 60vh;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 12px;
+  background: var(--sunk);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .top nav { order: 3; width: 100%; }
+  .tabs { width: 100%; }
+  .tab { flex: 1; }
+  .events li { grid-template-columns: 1fr; }
+  .events .kept, .events .quiet { grid-column: 1; grid-row: auto; }
+  .bar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state[aria-busy="true"] h3::after { animation: none; }
+}

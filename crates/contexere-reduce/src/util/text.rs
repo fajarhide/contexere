@@ -20,7 +20,7 @@ const TAIL_BUDGET_FRACTION: usize = 5;
 /// head-only cut once dropped the one `FATAL` line from a long log (#508).
 ///
 /// `archive` receives the elided middle and the full output size and returns a
-/// handle for the marker; the size stops `omni retrieve` presenting the middle
+/// handle for the marker; the size stops `contexere retrieve` presenting the middle
 /// as the whole output (#627). Cuts on line boundaries so counts are exact;
 /// output without newlines reports bytes.
 pub fn truncate_with_marker(
@@ -51,7 +51,7 @@ pub fn truncate_with_marker(
         let handle = archived_handle(&s[end..], total_bytes, archive);
         s.truncate(end);
         s.push_str(&format!(
-            "\n[OMNI: output truncated, {end} of {total_bytes} bytes kept{handle}]\n"
+            "\n[CONTEXERE: output truncated, {end} of {total_bytes} bytes kept{handle}]\n"
         ));
         return;
     }
@@ -59,7 +59,7 @@ pub fn truncate_with_marker(
     let dropped_lines = s[head_end..tail_start].lines().count();
     let handle = archived_handle(&s[head_end..tail_start], total_bytes, archive);
     let marker = format!(
-        "[OMNI: output truncated, {} of {total_lines} lines kept, {dropped_lines} dropped from the middle{handle}]\n",
+        "[CONTEXERE: output truncated, {} of {total_lines} lines kept, {dropped_lines} dropped from the middle{handle}]\n",
         total_lines - dropped_lines
     );
 
@@ -83,7 +83,7 @@ pub fn avoid_example_handle(key: String) -> String {
     key
 }
 
-/// The `, omni retrieve <hash>` clause, or an honest statement that there is
+/// The `, contexere retrieve <hash>` clause, or an honest statement that there is
 /// none. Content over `MAX_REWIND_BYTES` is never offered to the store (#271),
 /// and a failed insert reads the same as no store (#388).
 fn archived_handle(
@@ -95,7 +95,7 @@ fn archived_handle(
         return String::new();
     }
     match archive(dropped, whole_len) {
-        Some(hash) => format!(", omni retrieve {hash}"),
+        Some(hash) => format!(", contexere retrieve {hash}"),
         None => String::new(),
     }
 }
@@ -200,7 +200,7 @@ mod tests {
         );
         assert!(
             s.contains(&format!(
-                "[OMNI: output truncated, {kept} of 100 lines kept, {} dropped from the middle]",
+                "[CONTEXERE: output truncated, {kept} of 100 lines kept, {} dropped from the middle]",
                 100 - kept
             )),
             "the marker must name what it removed: {s}"
@@ -238,7 +238,7 @@ mod tests {
         });
 
         assert!(
-            s.contains("omni retrieve 0000000000000000"),
+            s.contains("contexere retrieve 0000000000000000"),
             "the marker must name the handle: {s}"
         );
         assert!(
@@ -262,7 +262,7 @@ mod tests {
             "content over the cap was still offered to the store"
         );
         assert!(
-            !s.contains("omni retrieve"),
+            !s.contains("contexere retrieve"),
             "promised a handle it has not: {s}"
         );
     }
@@ -288,7 +288,7 @@ mod tests {
         truncate_with_marker(&mut s, 50, |_, _| None);
 
         assert!(
-            s.contains("[OMNI: output truncated, 50 of 200 bytes kept]"),
+            s.contains("[CONTEXERE: output truncated, 50 of 200 bytes kept]"),
             "expected a byte count: {s}"
         );
     }

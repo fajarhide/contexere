@@ -22,8 +22,8 @@ fn run_exec(script: &str) -> String {
     let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("exec")
         .arg(script)
-        .env("OMNI_DB_PATH", db.path())
-        .env("OMNI_QUIET", "1")
+        .env("CONTEXERE_DB_PATH", db.path())
+        .env("CONTEXERE_QUIET", "1")
         .output()
         .expect("spawn omni exec");
     String::from_utf8_lossy(&out.stdout).into_owned()

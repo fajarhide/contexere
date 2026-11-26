@@ -48,7 +48,7 @@ def test_every_handler_survives_kwargs_it_does_not_know():
     log, so all three ran zero times even before the syntax error.
     """
     module = load()
-    module._OMNI_BIN = "/nonexistent/omni"  # fail-open path, no subprocess worth running
+    module._CONTEXERE_BIN = "/nonexistent/omni"  # fail-open path, no subprocess worth running
     hooks = registered_hooks(module)
 
     everything = dict(
@@ -78,7 +78,7 @@ def test_every_handler_survives_kwargs_it_does_not_know():
 
 def test_an_unreachable_binary_leaves_the_output_alone():
     module = load()
-    module._OMNI_BIN = "/nonexistent/omni"
+    module._CONTEXERE_BIN = "/nonexistent/omni"
     assert module._distill("terminal", "ls", "some output", 0, "s") is None
 
 
@@ -125,7 +125,7 @@ def test_falls_back_to_compact_on_a_host_without_request_compaction():
 
 
 def test_asks_nothing_without_a_pressure_warning():
-    assert compactions("[OMNI: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
+    assert compactions("[CONTEXERE: -4.1 KB this call | -9.0 KB session | 80% compression]") == []
     assert compactions(None) == []
 
 

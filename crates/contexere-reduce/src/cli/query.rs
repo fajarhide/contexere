@@ -9,12 +9,20 @@ pub fn run_query(args: &[String], store: &Store) -> Result<()> {
         return Ok(());
     }
 
-    let raw_query = if args.len() > 2 {
-        args[2..].join(" ")
-    } else {
+    // `--json` is the one option and never part of the query; it used to reach the
+    // parser (#1178). Anything else stays in the text, so `warnings from cargo
+    // --release` still searches for that command, and a typo fails the grammar.
+    let words: Vec<&str> = args
+        .iter()
+        .skip(2)
+        .map(String::as_str)
+        .filter(|a| !super::has_flag(&[(*a).to_string()], "--json"))
+        .collect();
+    if words.is_empty() {
         print_help();
         return Ok(());
-    };
+    }
+    let raw_query = words.join(" ");
 
     let json_mode = super::has_flag(args, "--json");
 
@@ -179,6 +187,7 @@ fn render_result(result: &OmniQLQueryResult) {
                 command,
                 route,
                 summary,
+                ..
             } => {
                 let route_color = match route.as_str() {
                     "Keep" => route.green(),

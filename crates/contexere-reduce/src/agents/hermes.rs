@@ -87,7 +87,7 @@ pub fn validate_startup() -> Option<String> {
     if let Ok(config_str) = fs::read_to_string(&config_path) {
         if !config_str.contains("mcp_servers:") || !config_str.contains("omni:") {
             warnings.push(
-                "OMNI MCP server is NOT registered in ~/.hermes/config.yaml. \
+                "Contexere MCP server is NOT registered in ~/.hermes/config.yaml. \
                  omni_retrieve and omni_explain_savings \
                  will be unavailable. Run `contexere init --hermes` to fix.",
             );
@@ -95,7 +95,7 @@ pub fn validate_startup() -> Option<String> {
         if !config_str.contains("compression:") || !config_str.contains("enabled: true") {
             warnings.push(
                 "Hermes compression is NOT enabled. Context Pressure warnings \
-                 from OMNI will be surfaced but Hermes will not act on them. \
+                 from Contexere will be surfaced but Hermes will not act on them. \
                  Run `contexere init --hermes` to fix.",
             );
         }
@@ -106,7 +106,7 @@ pub fn validate_startup() -> Option<String> {
     let plugin_init = plugin_dir().join("__init__.py");
     if !plugin_init.exists() {
         warnings.push(
-            "OMNI Hermes plugin (`__init__.py`) is missing. \
+            "Contexere Hermes plugin (`__init__.py`) is missing. \
              Pre/Post hooks will not execute. Run `contexere init --hermes` to install.",
         );
     }
@@ -114,7 +114,8 @@ pub fn validate_startup() -> Option<String> {
     #[allow(clippy::collapsible_if)]
     if let Ok(exe) = std::env::current_exe() {
         if !exe.exists() {
-            warnings.push("OMNI binary path does not exist on disk. Hooks will fail at runtime.");
+            warnings
+                .push("Contexere binary path does not exist on disk. Hooks will fail at runtime.");
         }
     }
 
@@ -132,7 +133,7 @@ pub fn validate_startup() -> Option<String> {
         }
     } else {
         warnings.push(
-            "~/.contexere/config.toml does not exist. OMNI is using built-in defaults \
+            "~/.contexere/config.toml does not exist. Contexere is using built-in defaults \
              instead of Hermes-optimized settings. Run `contexere init --hermes`.",
         );
     }
@@ -141,7 +142,7 @@ pub fn validate_startup() -> Option<String> {
         None
     } else {
         Some(format!(
-            "\n  [OMNI × Hermes Startup Validation, {} issue(s)]\n{}\n\
+            "\n  [CONTEXERE × Hermes Startup Validation, {} issue(s)]\n{}\n\
              → Fix all: `contexere init --hermes && hermes gateway restart`\n",
             warnings.len(),
             warnings
@@ -182,7 +183,7 @@ fn config_mentions_omni_plugin(config: &str) -> Option<&'static str> {
 fn config_mentions_omni_mcp(config: &str) -> bool {
     let has_mcp_section = config.contains("mcp_servers:") || config.contains("mcp:");
     let has_omni_server = config.contains("omni:");
-    let has_omni_command = config.contains("--mcp") || config.contains("OMNI_AGENT_ID");
+    let has_omni_command = config.contains("--mcp") || config.contains("CONTEXERE_AGENT_ID");
     has_mcp_section && has_omni_server && has_omni_command
 }
 
@@ -208,6 +209,94 @@ fn configured_omni_mcp(config_path: &Path) -> bool {
     fs::read_to_string(config_path)
         .map(|config| config_mentions_omni_mcp(&config))
         .unwrap_or(false)
+}
+
+/// An MCP entry written before 0.9.0 names the host with `OMNI_AGENT_ID`, which
+/// nothing reads any more (#1163). Renames the key in our entry under
+/// `mcp_servers:`, or drops it when that entry already has `CONTEXERE_AGENT_ID`,
+/// since one map cannot hold the key twice. Other servers are not touched, and
+/// each line keeps its own ending. `None` when there is nothing to change.
+fn rename_old_agent_id(config: &str) -> Option<String> {
+    let lines: Vec<&str> = config.split_inclusive('\n').collect();
+    let entry = our_mcp_entry(&lines)?;
+    let old = entry
+        .clone()
+        .find(|&i| yaml_key(lines[i], "OMNI_AGENT_ID"))?;
+    let has_new = entry
+        .clone()
+        .any(|i| yaml_key(lines[i], "CONTEXERE_AGENT_ID"));
+
+    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    if has_new {
+        out.remove(old);
+    } else {
+        out[old] = out[old].replacen("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID", 1);
+    }
+    Some(out.concat())
+}
+
+/// A path as a YAML double-quoted scalar. A JSON string is one, with the
+/// backslashes of a Windows path escaped, which a bare `"{path}"` would not do.
+fn yaml_string(path: &str) -> String {
+    serde_json::to_string(path).unwrap_or_else(|_| "\"contexere\"".to_string())
+}
+
+/// A line without its YAML comment, so `mcp_servers: # tools` still matches.
+fn yaml_code(l: &str) -> &str {
+    let Some(i) = l.find('#') else { return l };
+    let (before, _) = l.split_at(i);
+    if before.is_empty() || before.ends_with(char::is_whitespace) {
+        before
+    } else {
+        l
+    }
+}
+
+fn yaml_key(l: &str, key: &str) -> bool {
+    yaml_code(l).trim_start().starts_with(&format!("{key}:"))
+}
+
+/// The lines of our entry (`omni:` or `contexere:`) under `mcp_servers:`.
+fn our_mcp_entry(lines: &[&str]) -> Option<std::ops::Range<usize>> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    // The end of the block that starts at `from`: the next line with content
+    // indented no deeper than `depth`. Blank and comment-only lines never end it.
+    let end_of = |from: usize, depth: usize| {
+        (from + 1..lines.len())
+            .find(|&i| !yaml_code(lines[i]).trim().is_empty() && indent(lines[i]) <= depth)
+            .unwrap_or(lines.len())
+    };
+    let section = lines
+        .iter()
+        .position(|l| yaml_code(l).trim_end() == "mcp_servers:")?;
+    let start = (section + 1..end_of(section, 0))
+        .find(|&i| matches!(yaml_code(lines[i]).trim(), "omni:" | "contexere:"))?;
+    Some(start..end_of(start, indent(lines[start])))
+}
+
+/// An entry written before 0.9.0 runs the `omni` binary, which 0.9.0 no longer
+/// installs, so Hermes cannot start the server (#1190 review). Points our entry's
+/// `command` at `exe_path` and leaves every other server alone. `None` when it
+/// already runs something else.
+fn point_mcp_command_at(config: &str, exe_path: &str) -> Option<String> {
+    let lines: Vec<&str> = config.split_inclusive('\n').collect();
+    let entry = our_mcp_entry(&lines)?;
+    let at = entry.clone().find(|&i| yaml_key(lines[i], "command"))?;
+    let value = yaml_code(lines[at])
+        .trim()
+        .trim_start_matches("command:")
+        .trim()
+        .trim_matches(|c| c == '"' || c == '\'');
+    if !crate::legacy::file_name_is_omni(value) {
+        return None;
+    }
+    let line = lines[at];
+    // Both cuts fall where trimming stopped, so on a character boundary.
+    let (pad, _) = line.split_at(line.len() - line.trim_start().len());
+    let (_, ending) = line.split_at(line.trim_end_matches(['\n', '\r']).len());
+    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    out[at] = format!("{pad}command: {}{ending}", yaml_string(exe_path));
+    Some(out.concat())
 }
 
 fn configured_compression(config: &str) -> bool {
@@ -315,10 +404,14 @@ fn configured_compression_in_config(config_path: &Path) -> bool {
 fn render_plugin(exe_path: &str) -> String {
     let literal = serde_json::to_string(exe_path).unwrap_or_else(|_| "\"omni\"".to_string());
     // The crate's own copy, so it can be published; a test keeps it equal to plugins/.
-    include_str!("../../assets/hermes_plugin.py").replace("\"{{OMNI_BIN}}\"", &literal)
+    include_str!("../../assets/hermes_plugin.py").replace("\"{{CONTEXERE_BIN}}\"", &literal)
 }
 
 impl AgentIntegration for HermesIntegration {
+    fn present(&self) -> bool {
+        hermes_home_dir().is_dir()
+    }
+
     /// `transform_tool_result` fires for every tool, so this host runs the Read,
     /// Grep and WebFetch distillers too (#687).
     fn tier(&self) -> crate::agents::Tier {
@@ -388,33 +481,51 @@ description: Contexere integration for Hermes Agent hooks
 
         if requires_manual_plugin_step {
             actions.push(format!(
-                "{} Run {} to enable the OMNI plugin",
+                "{} Run {} to enable the Contexere plugin",
                 "→".cyan(),
                 "hermes plugins enable contexere".bright_black()
             ));
             warnings.push(
-                "Hermes config not found; enable the OMNI plugin once Hermes is initialized."
+                "Hermes config not found; enable the Contexere plugin once Hermes is initialized."
                     .to_string(),
             );
         }
 
         if let Ok(config) = fs::read_to_string(&config_path) {
             if configured_omni_mcp(&config_path) {
+                let mut current = config.clone();
+                if let Some(updated) = rename_old_agent_id(&current) {
+                    current = updated;
+                    actions.push(format!(
+                        "{} Switched OMNI_AGENT_ID to CONTEXERE_AGENT_ID in ~/.hermes/config.yaml",
+                        "✓".green()
+                    ));
+                }
+                if let Some(updated) = point_mcp_command_at(&current, exe_path) {
+                    current = updated;
+                    actions.push(format!(
+                        "{} Pointed the MCP server at {exe_path} in ~/.hermes/config.yaml",
+                        "✓".green()
+                    ));
+                }
+                if current != config {
+                    super::write_config(&config_path, current)?;
+                }
                 actions.push(
                     format!(
-                        "{} OMNI MCP server is already registered in ~/.hermes/config.yaml",
+                        "{} Contexere MCP server is already registered in ~/.hermes/config.yaml",
                         "✓".green()
                     )
                     .to_string(),
                 );
             } else {
-                let mcp_block = "\nmcp_servers:\n  omni:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n\n";
-                let mcp_block = mcp_block.replace("{}", exe_path);
+                let mcp_block = "\nmcp_servers:\n  omni:\n    command: {}\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n\n";
+                let mcp_block = mcp_block.replace("{}", &yaml_string(exe_path));
 
                 let updated = append_top_level_block(&config, &mcp_block);
                 actions.push(
                     format!(
-                        "{} Registered OMNI MCP server in ~/.hermes/config.yaml",
+                        "{} Registered Contexere MCP server in ~/.hermes/config.yaml",
                         "✓".green()
                     )
                     .to_string(),
@@ -452,7 +563,8 @@ description: Contexere integration for Hermes Agent hooks
             }
         } else {
             warnings.push(
-                "Could not read ~/.hermes/config.yaml to register the OMNI MCP server.".to_string(),
+                "Could not read ~/.hermes/config.yaml to register the Contexere MCP server."
+                    .to_string(),
             );
         }
 
@@ -497,7 +609,7 @@ description: Contexere integration for Hermes Agent hooks
             super::write_config(&omni_config_path, updated)?;
             actions.push(
                 format!(
-                    "{} Wrote Hermes OMNI defaults to {}",
+                    "{} Wrote Hermes Contexere defaults to {}",
                     "✓".green(),
                     omni_config_path.display().to_string().bright_black()
                 )
@@ -506,7 +618,7 @@ description: Contexere integration for Hermes Agent hooks
         } else {
             actions.push(
                 format!(
-                    "{} Hermes OMNI config already exists at {}",
+                    "{} Hermes Contexere config already exists at {}",
                     "✓".green(),
                     omni_config_path.display().to_string().bright_black()
                 )
@@ -550,7 +662,7 @@ description: Contexere integration for Hermes Agent hooks
             super::write_config(&config_path, updated)?;
             did_something = true;
             crate::agent_report!(
-                "  {} Removed the OMNI MCP server from ~/.hermes/config.yaml",
+                "  {} Removed the Contexere MCP server from ~/.hermes/config.yaml",
                 "✓".yellow()
             );
         }
@@ -618,7 +730,7 @@ description: Contexere integration for Hermes Agent hooks
                 "Plugin:".bright_black(),
                 "not installed [MISSING]".red().bold()
             );
-            warnings.push("Hermes OMNI plugin is not installed.".to_string());
+            warnings.push("Hermes Contexere plugin is not installed.".to_string());
         }
 
         crate::agent_report!(
@@ -630,8 +742,19 @@ description: Contexere integration for Hermes Agent hooks
                 "not registered [MISSING]".red().bold()
             }
         );
+        // The config's MCP env and an installed plugin's own copy both set it.
+        // The config's MCP env and an installed plugin's own copy, old dir included.
+        let old_id = super::report_old_agent_id_in(
+            self.name(),
+            &[
+                &config_path,
+                &dest.join("__init__.py"),
+                &legacy_plugin_dir().join("__init__.py"),
+            ],
+            warnings,
+        );
         if !mcp_configured {
-            warnings.push("OMNI MCP server is not registered in Hermes config.".to_string());
+            warnings.push("Contexere MCP server is not registered in Hermes config.".to_string());
         }
 
         crate::agent_report!(
@@ -652,7 +775,7 @@ description: Contexere integration for Hermes Agent hooks
 
         crate::agent_report!(
             "   {:>15} {}",
-            "OMNI Config:".bright_black(),
+            "Contexere Config:".bright_black(),
             if has_hermes_section {
                 "[agents.hermes] present [OK]".green().bold()
             } else {
@@ -704,11 +827,11 @@ description: Contexere integration for Hermes Agent hooks
             );
         }
 
-        installed
+        installed && !old_id
     }
 }
 
-/// Hermes defaults: pipe mode via `OMNI_CMD`, no PreToolUse hook, and more
+/// Hermes defaults: pipe mode via `CONTEXERE_CMD`, no PreToolUse hook, and more
 /// aggressive compression since Hermes summarises its own context.
 pub fn hermes_default_config() -> crate::guard::config::AgentConfig {
     crate::guard::config::AgentConfig {
@@ -738,6 +861,137 @@ pub fn is_hermes_agent(agent_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// #1190 review: an entry written before 0.9.0 runs `omni`, which 0.9.0 does
+    /// not install; `init` points it at this binary and leaves other servers alone.
+    #[test]
+    fn points_an_old_omni_command_at_this_binary() {
+        let config = "model: x\nmcp_servers:\n  other:\n    command: \"/usr/bin/omni\"\n  omni:\n    command: \"/opt/homebrew/bin/omni\"\n    args: [\"--mcp\"]\n";
+        let out =
+            super::point_mcp_command_at(config, "/opt/homebrew/bin/contexere").expect("rewritten");
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "model: x",
+                "mcp_servers:",
+                "  other:",
+                "    command: \"/usr/bin/omni\"",
+                "  omni:",
+                "    command: \"/opt/homebrew/bin/contexere\"",
+                "    args: [\"--mcp\"]",
+            ],
+            "only our entry's command changes"
+        );
+    }
+
+    /// A Windows path keeps its backslashes as YAML escapes, so the file still parses.
+    #[test]
+    fn writes_a_windows_path_as_a_valid_yaml_string() {
+        let config = "mcp_servers:\n  omni:\n    command: \"C:\\\\bin\\\\omni.exe\"\n";
+        let out = super::point_mcp_command_at(config, r"C:\Users\Alice\contexere.exe")
+            .expect("rewritten");
+        let line = out
+            .lines()
+            .find(|l| l.trim_start().starts_with("command:"))
+            .expect("command line");
+        assert_eq!(line.trim(), r#"command: "C:\\Users\\Alice\\contexere.exe""#);
+    }
+
+    #[test]
+    fn leaves_a_current_command_alone() {
+        let config = "mcp_servers:\n  contexere:\n    command: /opt/homebrew/bin/contexere\n    args: [\"--mcp\"]\n";
+        assert_eq!(super::point_mcp_command_at(config, "/x/contexere"), None);
+    }
+
+    use super::rename_old_agent_id;
+
+    fn lines_of(s: Option<String>) -> Vec<String> {
+        s.expect("rewritten").lines().map(str::to_string).collect()
+    }
+
+    /// #1163: our entry gets the key Contexere reads; another server's settings,
+    /// even one already on the new name, stay as they are.
+    #[test]
+    fn switches_the_old_agent_id_in_our_entry_only() {
+        let config = "model: x\nmcp_servers:\n  other:\n    env:\n      CONTEXERE_AGENT_ID: \"x\"\n      OMNI_AGENT_ID: \"x\"\n  omni:\n    command: \"/bin/omni\"\n    env:\n      OMNI_AGENT_ID: \"hermes\"\nplugins: []\n";
+        let want: Vec<String> = config
+            .lines()
+            .map(|l| {
+                l.replace(
+                    "OMNI_AGENT_ID: \"hermes\"",
+                    "CONTEXERE_AGENT_ID: \"hermes\"",
+                )
+            })
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
+    }
+
+    /// A second `CONTEXERE_AGENT_ID` in one map would be invalid YAML.
+    #[test]
+    fn drops_the_old_agent_id_beside_the_new_one() {
+        let config = "mcp_servers:\n  omni:\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n      CONTEXERE_AGENT_ID: \"hermes\"\n";
+        let want: Vec<&str> = config
+            .lines()
+            .filter(|l| !l.contains("OMNI_AGENT_ID"))
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
+        assert_eq!(
+            rename_old_agent_id(
+                "mcp_servers:\n  omni:\n    env:\n      CONTEXERE_AGENT_ID: \"h\"\n"
+            ),
+            None
+        );
+    }
+
+    /// #1164 review: YAML comments neither hide the section nor end our entry.
+    #[test]
+    fn finds_our_entry_past_yaml_comments() {
+        let config = "mcp_servers: # MCP tools\n# Contexere\n  omni: # ours\n    env:\n      # host id\n      OMNI_AGENT_ID: \"hermes\" # set by init\n";
+        let want: Vec<String> = config
+            .lines()
+            .map(|l| l.replace("OMNI_AGENT_ID", "CONTEXERE_AGENT_ID"))
+            .collect();
+        assert_eq!(lines_of(rename_old_agent_id(config)), want);
+    }
+
+    /// Malformed or partial configs change nothing and never panic, including a
+    /// `#` after a multi-byte character.
+    #[test]
+    fn leaves_broken_configs_alone() {
+        for config in [
+            "",
+            "#",
+            "mcp_servers:",
+            "mcp_servers:\n  omni:",
+            "  omni:\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n",
+            "mcp_servers:\n  other:\n    OMNI_AGENT_ID: \"x\"\n",
+            "mcp_servers:\n  omni:\n    env:\n      OMNI_AGENT_ID\n",
+            "mcp_servers: é#x\n\t omni:\n",
+            "mcp_servers:\nomni:\n  OMNI_AGENT_ID: \"hermes\"\n",
+        ] {
+            assert_eq!(rename_old_agent_id(config), None, "{config:?}");
+        }
+    }
+
+    /// The last line may lack its newline and still be fixed.
+    #[test]
+    fn fixes_a_last_line_without_a_newline() {
+        assert_eq!(
+            lines_of(rename_old_agent_id(
+                "mcp_servers:\n  omni:\n    OMNI_AGENT_ID: \"h\""
+            )),
+            vec!["mcp_servers:", "  omni:", "    CONTEXERE_AGENT_ID: \"h\""]
+        );
+    }
+
+    /// A config saved with CRLF endings keeps them.
+    #[test]
+    fn keeps_crlf_line_endings() {
+        let config = "mcp_servers:\r\n  omni:\r\n    env:\r\n      OMNI_AGENT_ID: \"hermes\"\r\n";
+        let out = rename_old_agent_id(config).expect("rewritten");
+        assert_eq!(out.matches("\r\n").count(), 4, "{out:?}");
+        assert!(out.contains("CONTEXERE_AGENT_ID"), "{out:?}");
+    }
 
     /// The crate ships its own copy of the plugin so it can be published; this
     /// keeps that copy byte-identical to the one users install from `plugins/`.
@@ -772,12 +1026,15 @@ mod tests {
     }
     #[test]
     fn removes_the_omni_server_and_leaves_the_users_own() {
-        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      OMNI_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
+        let config = "plugins:\n  - name: my-linter\n\nmcp_servers:\n  omni:\n    command: \"/usr/local/bin/omni\"\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n  their-server:\n    command: \"/usr/bin/other\"\n";
 
         let out = super::remove_omni_mcp_server(config).expect("ours was there");
 
         assert!(!out.contains("omni:"), "our entry must go: {out}");
-        assert!(!out.contains("OMNI_AGENT_ID"), "and its children: {out}");
+        assert!(
+            !out.contains("CONTEXERE_AGENT_ID"),
+            "and its children: {out}"
+        );
         assert!(out.contains("their-server:"), "theirs must stay: {out}");
         assert!(
             out.contains("mcp_servers:"),
@@ -951,7 +1208,7 @@ mcp_servers:
     command: "omni"
     args: ["--mcp"]
     env:
-      OMNI_AGENT_ID: "hermes"
+      CONTEXERE_AGENT_ID: "hermes"
 "#;
 
         assert!(config_mentions_omni_mcp(config));
@@ -1020,7 +1277,7 @@ plugins:
         // Depends on the host, so only checks it does not panic.
         let result = super::validate_startup();
         if let Some(msg) = &result {
-            assert!(msg.contains("OMNI × Hermes") || msg.contains("Startup Validation"));
+            assert!(msg.contains("CONTEXERE × Hermes") || msg.contains("Startup Validation"));
         }
     }
 
@@ -1035,11 +1292,11 @@ plugins:
             );
         }
         assert!(
-            !src.contains("{{OMNI_BIN}}"),
+            !src.contains("{{CONTEXERE_BIN}}"),
             "the placeholder must not survive into the installed file"
         );
         assert!(
-            src.contains("_OMNI_BIN = \"/usr/local/bin/omni\""),
+            src.contains("_CONTEXERE_BIN = \"/usr/local/bin/omni\""),
             "the binary path is what the hooks shell out to: {src:.400}"
         );
     }

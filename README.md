@@ -26,7 +26,7 @@ brew install fajarhide/tap/contexere && contexere init
 
 ---
 
-> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". The `omni` command keeps working until 0.9.0; run `contexere init --<host>` for each agent you use to move an existing install across. Since 0.8.6 your data moves to `~/.contexere` on its own.
+> OMNI is now **Contexere**, Latin for "to weave together" and the root of "context". 0.9.0 removed the `omni` command and the other old names; if an agent still calls `omni`, run `contexere init --<host>` for it. Your data moves to `~/.contexere` on its own.
 
 ## Where it is going
 
@@ -60,7 +60,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-Existing installs keep working under `omni`, the same program, until 0.9.0. Run `contexere init --<host>` for each agent to move them across ([what changes](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
+0.9.0 installs no `omni` command. An agent whose hooks still call it needs `contexere init --<host>` ([what changed](https://omni.weekndlabs.com/docs/use/install.html#moving-off-the-omni-name)).
 
 Inside Claude Code, `/plugin marketplace add fajarhide/contexere` then `/plugin install contexere@omni` adds a skill that installs and checks it for you.
 

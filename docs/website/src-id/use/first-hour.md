@@ -93,7 +93,7 @@ contexere retrieve 0000000000000000              # exit 1, "the documentation ex
 ```
 
 Kalau Anda sedang mengukur apakah Contexere melakukan sesuatu sama sekali pada suatu run, exit
-code itulah jawabannya, bukan hasil grep terhadap `[OMNI`.
+code itulah jawabannya, bukan hasil grep terhadap `[CONTEXERE`.
 
 ## Pancang apa yang sedang Anda kerjakan
 
@@ -108,7 +108,7 @@ diingatkan padanya alih-alih melantur. `contexere goal show` untuk memeriksa,
 ## Matikan untuk satu perintah
 
 ```sh
-OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
+CONTEXERE_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
 Hal pertama yang harus diraih ketika Anda curiga Contexere mengubah sesuatu yang

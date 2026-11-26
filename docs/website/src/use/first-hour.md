@@ -87,7 +87,7 @@ contexere retrieve 0000000000000000            # exit 1, "the documentation exam
 ```
 
 If you are measuring whether Contexere did anything at all on a run, that exit code is the
-answer and grepping for `[OMNI` is not.
+answer and grepping for `[CONTEXERE` is not.
 
 ## Pin what you are working on
 
@@ -101,7 +101,7 @@ than drifting. `contexere goal show` to check, `contexere goal clear` to drop it
 ## Turn it off for one command
 
 ```sh
-OMNI_PASSTHROUGH=1 kubectl get pods -o yaml
+CONTEXERE_PASSTHROUGH=1 kubectl get pods -o yaml
 ```
 
 The first thing to reach for when you suspect Contexere changed something it should not

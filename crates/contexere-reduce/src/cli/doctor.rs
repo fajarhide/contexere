@@ -69,6 +69,19 @@ pub struct DoctorJson {
     /// review (#367); dropped, `--json` reported them healthy.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// One entry per integration, in `doctor`'s order, so a reader can tell which
+    /// host a warning is about and whether that host is installed (#1177).
+    pub agents: Vec<DoctorAgent>,
+}
+
+#[derive(serde::Serialize)]
+pub struct DoctorAgent {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub tier: &'static str,
+    pub present: bool,
+    pub ok: bool,
+    pub warnings: Vec<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -81,7 +94,7 @@ pub struct DoctorCheck {
 /// Changelog entries this build carries that no release contains (#137),
 /// counted by `build.rs`. Unparseable means nothing to report.
 fn unreleased_entries() -> usize {
-    option_env!("OMNI_UNRELEASED_ENTRIES")
+    option_env!("CONTEXERE_UNRELEASED_ENTRIES")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0)
 }
@@ -91,11 +104,11 @@ fn unreleased_entries() -> usize {
 pub(crate) fn mcp_tool_line(agent_id: &str, keep_everything: bool) -> String {
     let total = crate::mcp::policy::ALL_TOOL_COUNT;
     let (active, note) = if keep_everything {
-        (total, "OMNI_MCP_TOOLS=all is set")
+        (total, "CONTEXERE_MCP_TOOLS=all is set")
     } else {
         (
             crate::mcp::policy::active_tools(agent_id).len(),
-            "OMNI_MCP_TOOLS=all restores the rest",
+            "CONTEXERE_MCP_TOOLS=all restores the rest",
         )
     };
     format!("  MCP tools:      {active} of {total} advertised to {agent_id} ({note})")
@@ -188,13 +201,24 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
     let integrations = crate::agents::all_integrations();
     let mut any_agent_ok = false;
     let mut warnings = Vec::new();
+    let mut agents = Vec::new();
     for agent in integrations {
         // Captured: stdout owes one JSON document; findings travel in `warnings` (#353).
+        let mut own = Vec::new();
         let (ok, _report) =
-            crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut warnings));
+            crate::agents::output::capture(|| agent.doctor_check(fix_mode, &mut own));
         if ok {
             any_agent_ok = true;
         }
+        warnings.extend(own.iter().cloned());
+        agents.push(DoctorAgent {
+            id: agent.id(),
+            name: agent.name(),
+            tier: agent.tier().name(),
+            present: agent.present(),
+            ok,
+            warnings: own,
+        });
     }
     if any_agent_ok {
         checks.push(DoctorCheck {
@@ -218,6 +242,7 @@ fn run_json(args: &[String]) -> anyhow::Result<()> {
         checks,
         fix_available,
         warnings,
+        agents,
     };
 
     println!("{}", serde_json::to_string_pretty(&output)?);
@@ -317,15 +342,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
     println!("  {:<15} {}", "Binary:".bright_black(), version_info);
 
-    // Settings still on the old name keep working; listed so the move has a checklist (#876).
+    // Settings on the old name are ignored since 0.9.0; listed so none is lost quietly (#1067).
     let old = crate::legacy::settings_on_old_name(std::env::vars_os());
     if !old.is_empty() {
         println!(
             "  {:<15} {} {}",
             "Settings:".bright_black(),
             old.join(", "),
-            "use the old name, which stops working in 0.9.0; rename them to CONTEXERE_*"
-                .bright_black()
+            "are ignored since 0.9.0; rename them to CONTEXERE_*".bright_black()
         );
     }
 
@@ -676,7 +700,7 @@ mod tests {
     /// Nested rows stay nested.
     #[test]
     fn a_nested_row_stays_under_the_row_it_belongs_to() {
-        let report = "  Pi Agent:\n   Duplicates:     2 OMNI sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
+        let report = "  Pi Agent:\n   Duplicates:     2 Contexere sources detected [WARNING]\n     • ~/a\n     • ~/b\n";
 
         let (out, _) = condense_agent_report("Pi Agent", "MCP-only", report, false);
 
@@ -737,7 +761,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      2 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all restores the rest)"
+             (CONTEXERE_MCP_TOOLS=all restores the rest)"
         );
     }
 
@@ -748,7 +772,7 @@ mod tests {
         assert_eq!(
             line,
             "  MCP tools:      25 of 25 advertised to claude_code \
-             (OMNI_MCP_TOOLS=all is set)"
+             (CONTEXERE_MCP_TOOLS=all is set)"
         );
     }
 }

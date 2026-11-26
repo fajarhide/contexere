@@ -62,13 +62,13 @@ pub fn sanitize_vars(vars: impl IntoIterator<Item = (String, String)>) -> Vec<(S
         .collect()
 }
 
-/// `OMNI_QUIET` suppresses the stderr stats in pipe mode.
+/// `CONTEXERE_QUIET` suppresses the stderr stats in pipe mode.
 pub fn is_quiet() -> bool {
-    env::vars().any(|(k, _)| k.eq_ignore_ascii_case("OMNI_QUIET"))
+    env::vars().any(|(k, _)| k.eq_ignore_ascii_case("CONTEXERE_QUIET"))
 }
 
 pub fn is_passthrough() -> bool {
-    env::vars().any(|(k, v)| k.eq_ignore_ascii_case("OMNI_PASSTHROUGH") && means_enabled(&v))
+    env::vars().any(|(k, v)| k.eq_ignore_ascii_case("CONTEXERE_PASSTHROUGH") && means_enabled(&v))
 }
 
 /// Split from `is_passthrough` so tests never set the variable for real: cargo
@@ -215,14 +215,14 @@ mod tests {
     }
 }
 
-/// `OMNI_PASSTHROUGH=1 <cmd>` typed on the command line. The hook is a separate
+/// `CONTEXERE_PASSTHROUGH=1 <cmd>` typed on the command line. The hook is a separate
 /// process that never inherits that assignment, so it reads the command text
 /// instead (#534). Only leading assignments count, as in a shell:
-/// `echo OMNI_PASSTHROUGH=1` sets nothing.
+/// `echo CONTEXERE_PASSTHROUGH=1` sets nothing.
 pub fn command_asks_for_passthrough(command: &str) -> bool {
     for token in command.split_whitespace() {
         match token.split_once('=') {
-            Some((key, value)) if key.eq_ignore_ascii_case("OMNI_PASSTHROUGH") => {
+            Some((key, value)) if key.eq_ignore_ascii_case("CONTEXERE_PASSTHROUGH") => {
                 return means_enabled(value);
             }
             Some((key, _))
@@ -243,27 +243,31 @@ mod command_passthrough_tests {
     #[test]
     fn honours_the_prefix_the_manual_documents() {
         assert!(command_asks_for_passthrough(
-            "OMNI_PASSTHROUGH=1 cat secrets.env"
+            "CONTEXERE_PASSTHROUGH=1 cat secrets.env"
         ));
         assert!(command_asks_for_passthrough(
-            "OMNI_PASSTHROUGH=true kubectl get pods -o yaml"
+            "CONTEXERE_PASSTHROUGH=true kubectl get pods -o yaml"
         ));
         assert!(command_asks_for_passthrough(
-            "FOO=1 OMNI_PASSTHROUGH=on cargo test"
+            "FOO=1 CONTEXERE_PASSTHROUGH=on cargo test"
         ));
     }
 
     #[test]
     fn an_off_value_is_not_an_escape_hatch() {
-        assert!(!command_asks_for_passthrough("OMNI_PASSTHROUGH=0 cat file"));
+        assert!(!command_asks_for_passthrough(
+            "CONTEXERE_PASSTHROUGH=0 cat file"
+        ));
         assert!(!command_asks_for_passthrough("cat file"));
     }
 
     #[test]
     fn a_mention_is_not_an_assignment() {
-        assert!(!command_asks_for_passthrough("echo OMNI_PASSTHROUGH=1"));
         assert!(!command_asks_for_passthrough(
-            "grep -r OMNI_PASSTHROUGH=1 src/"
+            "echo CONTEXERE_PASSTHROUGH=1"
+        ));
+        assert!(!command_asks_for_passthrough(
+            "grep -r CONTEXERE_PASSTHROUGH=1 src/"
         ));
     }
 }

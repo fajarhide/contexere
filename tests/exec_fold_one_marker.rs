@@ -16,8 +16,8 @@ fn read_twice(file: &std::path::Path, db: &std::path::Path) -> String {
         let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
             .args(["exec", "--session", "s-1086", "cat"])
             .arg(file)
-            .env("OMNI_DB_PATH", db)
-            .env("OMNI_QUIET", "1")
+            .env("CONTEXERE_DB_PATH", db)
+            .env("CONTEXERE_QUIET", "1")
             .output()
             .expect("spawn contexere exec");
         String::from_utf8_lossy(&out.stdout).into_owned()
@@ -35,7 +35,10 @@ fn folds_a_repeated_read_under_one_marker() {
 
     let second = read_twice(&file, &dir.path().join("d.db"));
 
-    let markers: Vec<&str> = second.lines().filter(|l| l.starts_with("[OMNI:")).collect();
+    let markers: Vec<&str> = second
+        .lines()
+        .filter(|l| l.starts_with("[CONTEXERE:"))
+        .collect();
     assert_eq!(markers.len(), 1, "one fold, one marker: {second}");
     assert!(
         markers[0].contains("already shown"),

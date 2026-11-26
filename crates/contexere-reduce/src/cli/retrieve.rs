@@ -1,4 +1,4 @@
-//! `omni retrieve <handle>`, the recovery path every marker names. A marker
+//! `contexere retrieve <handle>`, the recovery path every marker names. A marker
 //! naming an MCP call some hosts cannot make is a handle that does not
 //! resolve (#452, #388).
 
@@ -23,7 +23,7 @@ fn print_help() {
     println!(
         "\nA handle is the 16 characters inside a marker, for example\n  {}\n",
         format!(
-            "[OMNI: 50 lines already shown, omni retrieve {}]",
+            "[CONTEXERE: 50 lines already shown, contexere retrieve {}]",
             crate::util::text::EXAMPLE_HANDLE
         )
         .bright_black()
@@ -43,7 +43,7 @@ fn frame(handle: &str, content: &str, whole_len: usize) -> String {
     };
     format!(
         "{} {} · {} lines · {}{}",
-        "omni retrieve".bold().cyan(),
+        "contexere retrieve".bold().cyan(),
         handle.bright_black(),
         content.lines().count(),
         super::stats::format_bytes(content.len() as u64).bright_black(),

@@ -1,0 +1,4 @@
+# Built and generated: `npm run icons` makes the icons from the site favicon.
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/

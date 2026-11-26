@@ -6,7 +6,7 @@ is where most suspicions end.
 ## First, is Contexere even involved
 
 ```sh
-OMNI_PASSTHROUGH=1 <the command>
+CONTEXERE_PASSTHROUGH=1 <the command>
 ```
 
 Identical output with and without it means Contexere did nothing. That is the end of the
@@ -103,7 +103,7 @@ Worth reporting, in this order of importance:
 3. **Noise.** Verbose but harmless.
 
 A good report carries the raw output and the distilled output side by side, including
-the `[OMNI Active]` footer, the exact `omni exec` command, and `omni --version`. The
+the `[CONTEXERE Active]` footer, the exact `contexere exec` command, and `contexere --version`. The
 footer is often the point: the worst bugs here report the highest reductions.
 
 Reproduce on a synthetic command where you can, so there is nothing to redact. Real

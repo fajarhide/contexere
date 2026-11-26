@@ -21,7 +21,7 @@
 
 ---
 
-> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". الأمر `omni` يعمل حتى الإصدار 0.9.0؛ شغّل `contexere init --<host>` لكل وكيل تستخدمه لنقل التثبيت الحالي. منذ الإصدار 0.8.6 تنتقل بياناتك تلقائيًا إلى `~/.contexere`.
+> أصبح OMNI الآن **Contexere**، وهي كلمة لاتينية معناها "ينسج معًا" وهي أصل كلمة "context". أزال الإصدار 0.9.0 الأمر `omni` والأسماء القديمة الأخرى؛ إذا كان أحد الوكلاء لا يزال يستدعي `omni` فشغّل `contexere init --<host>` له. تنتقل بياناتك تلقائيًا إلى `~/.contexere`.
 
 ## إلى أين يتجه
 
@@ -55,7 +55,7 @@ brew install fajarhide/tap/contexere
 | macOS, Linux, WSL | `curl -fsSL omni.weekndlabs.com/install \| bash` |
 | Windows (PowerShell) | `irm omni.weekndlabs.com/install.ps1 \| iex` |
 
-التثبيتات الحالية تستمر في العمل باسم `omni`، وهو البرنامج نفسه، حتى الإصدار 0.9.0. شغّل `contexere init --<host>` لكل وكيل لنقلها.
+لا يثبّت الإصدار 0.9.0 الأمر `omni`. الوكيل الذي لا تزال خطافاته تستدعيه يحتاج إلى `contexere init --<host>`.
 
 داخل Claude Code، شغّل `/plugin marketplace add fajarhide/contexere` ثم `/plugin install contexere@omni` لإضافة مهارة تتولى التثبيت والفحص نيابةً عنك.
 

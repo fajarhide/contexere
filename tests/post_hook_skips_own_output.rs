@@ -14,7 +14,7 @@ use std::process::Command;
 fn post_hook(payload: &str, db: &str) -> String {
     let out = Command::new(env!("CARGO_BIN_EXE_contexere"))
         .arg("--post-hook")
-        .env("OMNI_DB_PATH", db)
+        .env("CONTEXERE_DB_PATH", db)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
@@ -70,18 +70,21 @@ fn leaves_a_summary_it_already_wrote() {
     let dir = std::env::temp_dir().join("omni_post_hook_own.db");
     let _ = std::fs::remove_file(&dir);
 
-    let already_distilled = format!(
-        "test result: ok. 600 passed; 0 failed;\n\
-         [OMNI: 600 lines omitted, omni_retrieve(\"abc123\") for full output]\n\
-         {}",
-        // padding so the payload clears the minimum-size gate on its own
-        "x".repeat(4000)
-    );
+    // `[OMNI` is what releases before 0.9.0 wrote, and old transcripts still carry it.
+    for prefix in ["[CONTEXERE", "[OMNI"] {
+        let already_distilled = format!(
+            "test result: ok. 600 passed; 0 failed;\n\
+             {prefix}: 600 lines omitted, contexere retrieve abc123 for full output]\n\
+             {}",
+            // padding so the payload clears the minimum-size gate on its own
+            "x".repeat(4000)
+        );
 
-    let reply = post_hook(&payload(&already_distilled), &dir.to_string_lossy());
+        let reply = post_hook(&payload(&already_distilled), &dir.to_string_lossy());
 
-    assert!(
-        reply.trim().is_empty(),
-        "our own summary was distilled a second time: {reply:.200}"
-    );
+        assert!(
+            reply.trim().is_empty(),
+            "our own {prefix} summary was distilled a second time: {reply:.200}"
+        );
+    }
 }
