@@ -8,10 +8,16 @@ fn read(path: &str) -> String {
 #[test]
 fn openclaw_falls_back_to_contexere() {
     let index = read("plugins/openclaw/index.ts");
-    assert!(index.contains(r#".omniPath || "contexere""#), "OpenClaw's default binary");
+    assert!(
+        index.contains(r#".omniPath || "contexere""#),
+        "OpenClaw's default binary"
+    );
     let manifest: serde_json::Value =
         serde_json::from_str(&read("plugins/openclaw/openclaw.plugin.json")).expect("json");
-    assert_eq!(manifest["requiredBinaries"], serde_json::json!(["contexere"]));
+    assert_eq!(
+        manifest["requiredBinaries"],
+        serde_json::json!(["contexere"])
+    );
 }
 
 #[test]
