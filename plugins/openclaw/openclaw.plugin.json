@@ -1,7 +1,7 @@
 {
   "id": "contexere",
   "name": "Contexere",
-  "version": "0.8.7",
+  "version": "0.9.0",
   "description": "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
   "requiredBinaries": ["omni"],
   "author": "Fajar Hidayat",
