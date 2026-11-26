@@ -235,6 +235,12 @@ fn rename_old_agent_id(config: &str) -> Option<String> {
     Some(out.concat())
 }
 
+/// A path as a YAML double-quoted scalar. A JSON string is one, with the
+/// backslashes of a Windows path escaped, which a bare `"{path}"` would not do.
+fn yaml_string(path: &str) -> String {
+    serde_json::to_string(path).unwrap_or_else(|_| "\"contexere\"".to_string())
+}
+
 /// A line without its YAML comment, so `mcp_servers: # tools` still matches.
 fn yaml_code(l: &str) -> &str {
     let Some(i) = l.find('#') else { return l };
@@ -289,7 +295,7 @@ fn point_mcp_command_at(config: &str, exe_path: &str) -> Option<String> {
     let (pad, _) = line.split_at(line.len() - line.trim_start().len());
     let (_, ending) = line.split_at(line.trim_end_matches(['\n', '\r']).len());
     let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
-    out[at] = format!("{pad}command: \"{exe_path}\"{ending}");
+    out[at] = format!("{pad}command: {}{ending}", yaml_string(exe_path));
     Some(out.concat())
 }
 
@@ -513,8 +519,8 @@ description: Contexere integration for Hermes Agent hooks
                     .to_string(),
                 );
             } else {
-                let mcp_block = "\nmcp_servers:\n  omni:\n    command: \"{}\"\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n\n";
-                let mcp_block = mcp_block.replace("{}", exe_path);
+                let mcp_block = "\nmcp_servers:\n  omni:\n    command: {}\n    args: [\"--mcp\"]\n    env:\n      CONTEXERE_AGENT_ID: \"hermes\"\n\n";
+                let mcp_block = mcp_block.replace("{}", &yaml_string(exe_path));
 
                 let updated = append_top_level_block(&config, &mcp_block);
                 actions.push(
@@ -862,18 +868,33 @@ mod tests {
         let config = "model: x\nmcp_servers:\n  other:\n    command: \"/usr/bin/omni\"\n  omni:\n    command: \"/opt/homebrew/bin/omni\"\n    args: [\"--mcp\"]\n";
         let out =
             super::point_mcp_command_at(config, "/opt/homebrew/bin/contexere").expect("rewritten");
-        assert!(
-            out.contains("  omni:\n    command: \"/opt/homebrew/bin/contexere\"\n"),
-            "{out}"
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "model: x",
+                "mcp_servers:",
+                "  other:",
+                "    command: \"/usr/bin/omni\"",
+                "  omni:",
+                "    command: \"/opt/homebrew/bin/contexere\"",
+                "    args: [\"--mcp\"]",
+            ],
+            "only our entry's command changes"
         );
-        assert!(
-            out.contains("  other:\n    command: \"/usr/bin/omni\"\n"),
-            "another server stays: {out}"
-        );
-        assert!(
-            out.contains("model: x\n") && out.contains("args: [\"--mcp\"]\n"),
-            "{out}"
-        );
+    }
+
+    /// A Windows path keeps its backslashes as YAML escapes, so the file still parses.
+    #[test]
+    fn writes_a_windows_path_as_a_valid_yaml_string() {
+        let config = "mcp_servers:\n  omni:\n    command: \"C:\\\\bin\\\\omni.exe\"\n";
+        let out = super::point_mcp_command_at(config, r"C:\Users\Alice\contexere.exe")
+            .expect("rewritten");
+        let line = out
+            .lines()
+            .find(|l| l.trim_start().starts_with("command:"))
+            .expect("command line");
+        assert_eq!(line.trim(), r#"command: "C:\\Users\\Alice\\contexere.exe""#);
     }
 
     #[test]

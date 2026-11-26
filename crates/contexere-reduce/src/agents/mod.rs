@@ -357,7 +357,13 @@ pub(crate) fn report_server_name(name: Option<&str>) {
 /// Also a warning, so `doctor --json` does not report the host as fine (#1190
 /// review). Returns whether it was found, for the caller's result.
 pub(crate) fn report_old_agent_id(host: &str, config: &str, warnings: &mut Vec<String>) -> bool {
-    if !config.contains("OMNI_AGENT_ID") {
+    // A comment that mentions the old name is not a setting (#1190 review). Only
+    // Contexere ever wrote this key, so outside comments it is our own entry.
+    let sets_it = config.lines().any(|l| {
+        let t = l.trim_start();
+        !(t.starts_with('#') || t.starts_with("//")) && l.contains("OMNI_AGENT_ID")
+    });
+    if !sets_it {
         return false;
     }
     crate::agent_report!(
@@ -893,6 +899,15 @@ mod rename_tests {
 mod old_agent_id_tests {
     use super::report_old_agent_id_in;
     use crate::agents::output::capture;
+
+    /// #1190 review: a comment naming the old key is not a setting.
+    #[test]
+    fn ignores_the_old_id_in_a_comment() {
+        let mut warnings = Vec::new();
+        let config = "# was OMNI_AGENT_ID before 0.9.0\nCONTEXERE_AGENT_ID = \"codex\"";
+        let (found, _) = capture(|| super::report_old_agent_id("Host", config, &mut warnings));
+        assert!(!found && warnings.is_empty(), "{warnings:?}");
+    }
 
     /// #1165: a current first config must not hide an old id in the second.
     #[test]
