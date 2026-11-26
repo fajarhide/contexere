@@ -3,16 +3,16 @@
   "name": "Contexere",
   "version": "0.9.0",
   "description": "Local-only semantic context filtering for OpenClaw using Contexere. Saves tokens by distilling shell output.",
-  "requiredBinaries": ["omni"],
+  "requiredBinaries": ["contexere"],
   "author": "Fajar Hidayat",
-  "homepage": "https://github.com/fajarhide/omni",
+  "homepage": "https://github.com/fajarhide/contexere",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
       "omniPath": {
         "type": "string",
-        "description": "Path to the omni binary (defaults to 'omni' in PATH)"
+        "description": "Path to the contexere binary (defaults to 'contexere' in PATH)"
       }
     }
   }

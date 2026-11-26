@@ -2,7 +2,8 @@ import { execFile } from "node:child_process";
 import type { ExtensionAPI, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 
 const CONTEXERE_AGENT_ID = "pi";
-const DEFAULT_CONTEXERE_PATH = "omni";
+// `omni` is not installed since 0.9.0 (#1189).
+const DEFAULT_CONTEXERE_PATH = "contexere";
 const CONTEXERE_TIMEOUT_MS = 10_000;
 const CONTEXERE_STDIN_LIMIT_BYTES = 16 * 1024 * 1024;
 

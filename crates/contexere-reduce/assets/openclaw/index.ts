@@ -46,7 +46,7 @@ const OmniCmdParams = Type.Object({
 type PluginConfig = { omniPath?: string };
 
 function omniBin(api: OpenClawPluginApi): string {
-  return ((api.pluginConfig ?? {}) as PluginConfig).omniPath || "omni";
+  return ((api.pluginConfig ?? {}) as PluginConfig).omniPath || "contexere";
 }
 
 /**
@@ -201,7 +201,7 @@ export default definePluginEntry({
       properties: {
         omniPath: {
           type: "string",
-          description: "Path to the omni binary (defaults to 'omni' in PATH)"
+          description: "Path to the contexere binary (defaults to 'contexere' in PATH)"
         }
       }
     }

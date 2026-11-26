@@ -31,7 +31,7 @@ Before 0.9.0 the tool was called `omni_cmd`.
 
 ## Configuration
 
-None is needed when the binary is on your `PATH`. The plugin calls `omni`, which a Homebrew or `install.sh` install provides next to `contexere` until 0.9.0. If yours lives elsewhere, set `omniPath` in the plugin's settings to the full path of the binary, `contexere` or `omni`.
+None is needed when `contexere` is on your `PATH`, which a Homebrew or `install.sh` install provides. If yours lives elsewhere, set `omniPath` in the plugin's settings to the full path of the binary. The setting keeps its old name so a path already set still works.
 
 ## How much it saves
 
